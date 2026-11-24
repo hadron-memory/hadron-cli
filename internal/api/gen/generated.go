@@ -24149,8 +24149,8 @@ type AppKeysScopesHostUsesRows1595 struct {
 	RevokedAt  *string `json:"revokedAt"`
 	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
 	Scopes []*AppKeysScopesHostUsesRows1595ScopesAppKeyScope `json:"scopes"`
-	// #1709 — what this key did as a host, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:07: every use is recorded). Whoever manages the App only.
-	HostUses []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse `json:"hostUses"`
+	// #5061 — what this key did as a host, one page, newest first (usedAt, then id): the paged sibling of hostUses (hrn:node:hadronmemory.com:specs:cor:api:120:04, hrn:node:hadronmemory.com:specs:cor:agt:070:07). Whoever manages the App only, refused exactly as hostUses is, before anything is counted. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. Continue with offset; hasMore says whether rows remain past this page.
+	HostUsesPage *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage `json:"hostUsesPage"`
 }
 
 // GetId returns AppKeysScopesHostUsesRows1595.Id, and is useful for accessing the field via an interface.
@@ -24176,16 +24176,37 @@ func (v *AppKeysScopesHostUsesRows1595) GetScopes() []*AppKeysScopesHostUsesRows
 	return v.Scopes
 }
 
-// GetHostUses returns AppKeysScopesHostUsesRows1595.HostUses, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595) GetHostUses() []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse {
-	return v.HostUses
+// GetHostUsesPage returns AppKeysScopesHostUsesRows1595.HostUsesPage, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetHostUsesPage() *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage {
+	return v.HostUsesPage
 }
 
-// AppKeysScopesHostUsesRows1595HostUsesHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
+// AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage includes the requested fields of the GraphQL type HostKeyUsePage.
+// The GraphQL type's documentation follows.
+//
+// #5061 — one page of a host key's uses (AppKey.hostUsesPage). total counts every use of the key; hasMore is whether rows remain past this page.
+type AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage struct {
+	Items   []*AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse `json:"items"`
+	Total   int                                                                       `json:"total"`
+	HasMore bool                                                                      `json:"hasMore"`
+}
+
+// GetItems returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetItems() []*AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse {
+	return v.Items
+}
+
+// GetTotal returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetHasMore() bool { return v.HasMore }
+
+// AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
 // The GraphQL type's documentation follows.
 //
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
-type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
+type AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse struct {
 	HostId string `json:"hostId"`
 	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#4292) an endAgentlessSession, accepted or refused, or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
@@ -24198,27 +24219,35 @@ type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
 	UsedAt      string  `json:"usedAt"`
 }
 
-// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.HostId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetHostId() string { return v.HostId }
+// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetHostId() string {
+	return v.HostId
+}
 
-// GetAction returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Action, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetAction() string { return v.Action }
+// GetAction returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.Action, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetAction() string {
+	return v.Action
+}
 
-// GetCount returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Count, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetCount() *int { return v.Count }
+// GetCount returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.Count, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetCount() *int {
+	return v.Count
+}
 
-// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.OperationId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetOperationId() *string {
+// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.OperationId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetOperationId() *string {
 	return v.OperationId
 }
 
-// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetRefusedCode() *string {
+// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetRefusedCode() *string {
 	return v.RefusedCode
 }
 
-// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetUsedAt() string { return v.UsedAt }
+// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetUsedAt() string {
+	return v.UsedAt
+}
 
 // AppKeysScopesHostUsesRows1595ScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
 // The GraphQL type's documentation follows.
@@ -73919,18 +73948,7 @@ type NodeExportResponse struct {
 	// tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
 	// left out. No sections named prints the content only. Comments is not a
 	// section yet.
-	// Edges: an outgoing edge is exported only when the caller can read its
-	// TARGET's memory (the Edge.target rule, denied ≡ absent), so a
-	// partial-access caller's file — full: true included — omits those edges.
-	// The round trip is additive: "hadron node import --with-edges" wires the
-	// edges the file carries and never deletes an edge the file lacks, so an
-	// omitted edge survives a restore into a memory that still has it. The
-	// PDF's Edges section applies the same readability rule and additionally
-	// drops soft-deleted targets (it prints locs, so it keeps only live ones).
-	// ref: the node's PK or URN (hrn:node:hadronmemory.com:specs:cor:api:140). Auth: the same node-read gate as
-	// node(ref:), including read-only PUBLIC knowledge for an App key or userless
-	// run (hrn:node:hadronmemory.com:specs:cor:acl:010:01). A node the caller can't read, a missing ref and a
-	// soft-deleted node all refuse as NODE_NOT_FOUND. (HTML + asUrl delivery land
+	// Auth: same node-read gate as node(ref:). (HTML + asUrl delivery land
 	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportNodeExportNodeExportResult `json:"nodeExport"`
 }
@@ -74005,18 +74023,7 @@ type NodeExportSectionsResponse struct {
 	// tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
 	// left out. No sections named prints the content only. Comments is not a
 	// section yet.
-	// Edges: an outgoing edge is exported only when the caller can read its
-	// TARGET's memory (the Edge.target rule, denied ≡ absent), so a
-	// partial-access caller's file — full: true included — omits those edges.
-	// The round trip is additive: "hadron node import --with-edges" wires the
-	// edges the file carries and never deletes an edge the file lacks, so an
-	// omitted edge survives a restore into a memory that still has it. The
-	// PDF's Edges section applies the same readability rule and additionally
-	// drops soft-deleted targets (it prints locs, so it keeps only live ones).
-	// ref: the node's PK or URN (hrn:node:hadronmemory.com:specs:cor:api:140). Auth: the same node-read gate as
-	// node(ref:), including read-only PUBLIC knowledge for an App key or userless
-	// run (hrn:node:hadronmemory.com:specs:cor:acl:010:01). A node the caller can't read, a missing ref and a
-	// soft-deleted node all refuse as NODE_NOT_FOUND. (HTML + asUrl delivery land
+	// Auth: same node-read gate as node(ref:). (HTML + asUrl delivery land
 	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportSectionsNodeExportNodeExportResult `json:"nodeExport"`
 }
@@ -133937,17 +133944,17 @@ func (v *__AppKeysMetadataInstructedInput) GetOffset() int { return v.Offset }
 
 // __AppKeysScopesHostUsesInput is used internally by genqlient
 type __AppKeysScopesHostUsesInput struct {
-	AppRef string `json:"appRef"`
-	First  int    `json:"first"`
-	Limit  int    `json:"limit"`
-	Offset int    `json:"offset"`
+	AppRef    string `json:"appRef"`
+	UsesLimit int    `json:"usesLimit"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysScopesHostUsesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetAppRef() string { return v.AppRef }
 
-// GetFirst returns __AppKeysScopesHostUsesInput.First, and is useful for accessing the field via an interface.
-func (v *__AppKeysScopesHostUsesInput) GetFirst() int { return v.First }
+// GetUsesLimit returns __AppKeysScopesHostUsesInput.UsesLimit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInput) GetUsesLimit() int { return v.UsesLimit }
 
 // GetLimit returns __AppKeysScopesHostUsesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetLimit() int { return v.Limit }
@@ -133958,7 +133965,7 @@ func (v *__AppKeysScopesHostUsesInput) GetOffset() int { return v.Offset }
 // __AppKeysScopesHostUsesInstructedInput is used internally by genqlient
 type __AppKeysScopesHostUsesInstructedInput struct {
 	AppRef      string               `json:"appRef"`
-	First       int                  `json:"first"`
+	UsesLimit   int                  `json:"usesLimit"`
 	Instruction *ActInstructionInput `json:"instruction,omitempty"`
 	Limit       int                  `json:"limit"`
 	Offset      int                  `json:"offset"`
@@ -133967,8 +133974,8 @@ type __AppKeysScopesHostUsesInstructedInput struct {
 // GetAppRef returns __AppKeysScopesHostUsesInstructedInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInstructedInput) GetAppRef() string { return v.AppRef }
 
-// GetFirst returns __AppKeysScopesHostUsesInstructedInput.First, and is useful for accessing the field via an interface.
-func (v *__AppKeysScopesHostUsesInstructedInput) GetFirst() int { return v.First }
+// GetUsesLimit returns __AppKeysScopesHostUsesInstructedInput.UsesLimit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetUsesLimit() int { return v.UsesLimit }
 
 // GetInstruction returns __AppKeysScopesHostUsesInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInstructedInput) GetInstruction() *ActInstructionInput {
@@ -139857,12 +139864,12 @@ func (v *__NodeEdgesAttributedInput) GetRef() string { return v.Ref }
 
 // __NodeExportInput is used internally by genqlient
 type __NodeExportInput struct {
-	Ref    string           `json:"ref"`
+	Id     string           `json:"id"`
 	Format NodeExportFormat `json:"format"`
 }
 
-// GetRef returns __NodeExportInput.Ref, and is useful for accessing the field via an interface.
-func (v *__NodeExportInput) GetRef() string { return v.Ref }
+// GetId returns __NodeExportInput.Id, and is useful for accessing the field via an interface.
+func (v *__NodeExportInput) GetId() string { return v.Id }
 
 // GetFormat returns __NodeExportInput.Format, and is useful for accessing the field via an interface.
 func (v *__NodeExportInput) GetFormat() NodeExportFormat { return v.Format }
@@ -139877,13 +139884,13 @@ func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
 // __NodeExportSectionsInput is used internally by genqlient
 type __NodeExportSectionsInput struct {
-	Ref      string              `json:"ref"`
+	Id       string              `json:"id"`
 	Format   NodeExportFormat    `json:"format"`
 	Sections []NodeExportSection `json:"sections"`
 }
 
-// GetRef returns __NodeExportSectionsInput.Ref, and is useful for accessing the field via an interface.
-func (v *__NodeExportSectionsInput) GetRef() string { return v.Ref }
+// GetId returns __NodeExportSectionsInput.Id, and is useful for accessing the field via an interface.
+func (v *__NodeExportSectionsInput) GetId() string { return v.Id }
 
 // GetFormat returns __NodeExportSectionsInput.Format, and is useful for accessing the field via an interface.
 func (v *__NodeExportSectionsInput) GetFormat() NodeExportFormat { return v.Format }
@@ -155193,7 +155200,7 @@ func AppKeysScopes(
 
 // The query executed by AppKeysScopesHostUses.
 const AppKeysScopesHostUses_Operation = `
-query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUses ($appRef: ID!, $usesLimit: Int!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
 		hasMore
 		total
@@ -155210,13 +155217,17 @@ query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: 
 				grantedAt
 				grantedBy
 			}
-			hostUses(first: $first) {
-				hostId
-				action
-				count
-				operationId
-				refusedCode
-				usedAt
+			hostUsesPage(limit: $usesLimit) {
+				items {
+					hostId
+					action
+					count
+					operationId
+					refusedCode
+					usedAt
+				}
+				total
+				hasMore
 			}
 		}
 	}
@@ -155224,12 +155235,13 @@ query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: 
 `
 
 // cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
-// host uses (cor:agt:070:07). N is always sent here, so no omitempty.
+// host uses (cor:agt:070:07), read through hostUsesPage (cli#3134) so total and
+// hasMore come with them. N is always sent here, so no omitempty.
 func AppKeysScopesHostUses(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	first int,
+	usesLimit int,
 	limit int,
 	offset int,
 ) (data_ *AppKeysScopesHostUsesResponse, err_ error) {
@@ -155237,10 +155249,10 @@ func AppKeysScopesHostUses(
 		OpName: "AppKeysScopesHostUses",
 		Query:  AppKeysScopesHostUses_Operation,
 		Variables: &__AppKeysScopesHostUsesInput{
-			AppRef: appRef,
-			First:  first,
-			Limit:  limit,
-			Offset: offset,
+			AppRef:    appRef,
+			UsesLimit: usesLimit,
+			Limit:     limit,
+			Offset:    offset,
 		},
 	}
 
@@ -155258,7 +155270,7 @@ func AppKeysScopesHostUses(
 
 // The query executed by AppKeysScopesHostUsesInstructed.
 const AppKeysScopesHostUsesInstructed_Operation = `
-query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUsesInstructed ($appRef: ID!, $usesLimit: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
 		hasMore
 		total
@@ -155275,13 +155287,17 @@ query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction:
 				grantedAt
 				grantedBy
 			}
-			hostUses(first: $first) {
-				hostId
-				action
-				count
-				operationId
-				refusedCode
-				usedAt
+			hostUsesPage(limit: $usesLimit) {
+				items {
+					hostId
+					action
+					count
+					operationId
+					refusedCode
+					usedAt
+				}
+				total
+				hasMore
 			}
 		}
 	}
@@ -155292,7 +155308,7 @@ func AppKeysScopesHostUsesInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	first int,
+	usesLimit int,
 	instruction *ActInstructionInput,
 	limit int,
 	offset int,
@@ -155302,7 +155318,7 @@ func AppKeysScopesHostUsesInstructed(
 		Query:  AppKeysScopesHostUsesInstructed_Operation,
 		Variables: &__AppKeysScopesHostUsesInstructedInput{
 			AppRef:      appRef,
-			First:       first,
+			UsesLimit:   usesLimit,
 			Instruction: instruction,
 			Limit:       limit,
 			Offset:      offset,
@@ -175685,8 +175701,8 @@ func NodeEdgesAttributed(
 
 // The query executed by NodeExport.
 const NodeExport_Operation = `
-query NodeExport ($ref: ID!, $format: NodeExportFormat!) {
-	nodeExport(ref: $ref, format: $format, full: true) {
+query NodeExport ($id: ID!, $format: NodeExportFormat!) {
+	nodeExport(id: $id, format: $format, full: true) {
 		format
 		mimeType
 		filename
@@ -175700,19 +175716,17 @@ query NodeExport ($ref: ID!, $format: NodeExportFormat!) {
 // renderer (#106) — so `hadron node export` emits byte-for-byte what the portal
 // and every other API client get from the one shared renderer. full: true is the
 // canonical form (all sections, importable); format selects MD or JSON.
-// cli#2899 (hadron-server#4763, #4139): the node is passed as `ref` (a PK or a node URN);
-// a missing, soft-deleted, unreadable or concealed node refuses as NODE_NOT_FOUND.
 func NodeExport(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	ref string,
+	id string,
 	format NodeExportFormat,
 ) (data_ *NodeExportResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeExport",
 		Query:  NodeExport_Operation,
 		Variables: &__NodeExportInput{
-			Ref:    ref,
+			Id:     id,
 			Format: format,
 		},
 	}
@@ -175773,8 +175787,8 @@ func NodeExportMeta(
 
 // The query executed by NodeExportSections.
 const NodeExportSections_Operation = `
-query NodeExportSections ($ref: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
-	nodeExport(ref: $ref, format: $format, full: false, sections: $sections) {
+query NodeExportSections ($id: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
+	nodeExport(id: $id, format: $format, full: false, sections: $sections) {
 		format
 		mimeType
 		filename
@@ -175790,7 +175804,7 @@ query NodeExportSections ($ref: ID!, $format: NodeExportFormat!, $sections: [Nod
 func NodeExportSections(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	ref string,
+	id string,
 	format NodeExportFormat,
 	sections []NodeExportSection,
 ) (data_ *NodeExportSectionsResponse, err_ error) {
@@ -175798,7 +175812,7 @@ func NodeExportSections(
 		OpName: "NodeExportSections",
 		Query:  NodeExportSections_Operation,
 		Variables: &__NodeExportSectionsInput{
-			Ref:      ref,
+			Id:       id,
 			Format:   format,
 			Sections: sections,
 		},
