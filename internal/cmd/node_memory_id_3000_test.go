@@ -368,6 +368,12 @@ func TestMoveAndCloneDestinationIsNeverComposedWithMemoryID3000(t *testing.T) {
 			if len(mem) != 1 || str3000(mem[0], "ref") != memID3000 {
 				t.Fatalf("only the -m source memory is read, got %v", ops3000(c))
 			}
+			// The destination memory reaches the mutation exactly as typed, not as a URN.
+			op := map[string]string{"move": "MoveNode", "clone": "CloneNode"}[cmdName]
+			sent := find3000(c, op)
+			if len(sent) != 1 || str3000(sent[0], "targetMemoryRef") != dest {
+				t.Fatalf("%s must carry the destination memory ID as typed, got %v", op, ops3000(c))
+			}
 		})
 	}
 }
