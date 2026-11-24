@@ -55,10 +55,10 @@ WHICH COMMAND, IN ORDER:
                                exist: ` + "`team worker list`" + `, or ` + "`team worker cast`" + `)
   record a PR, commit, branch  session log
   finished a task, PR or chat  NOTHING — keep the session; it spans tasks
-  reset my context, keep work  session reset-context (relaunches at once on an
+  reset my context, keep work  session reset-context (needs team host run on an
                                Orca host), or session shed then your host's own
                                reset; session resume-claim alone for a manual one
-  get my bearings after one    session recover (worker, tasks, state note, mentions)
+  get my bearings afterwards   session recover (worker, tasks, state note, mentions)
   stop being this worker       session end --handoff-file <notes> — only now
   see sessions                 session list
   report my model or effort    session set-model (sync-model is the hook form)
@@ -947,7 +947,8 @@ worker, so --as is not needed with it; --as with --launch-grant has the
 server check both name the same worker. A plain ` + "`start --as <worker>`" + ` ignores
 the variable, so a spent grant left in the environment never gets in the
 way of an ordinary bind later. When the host could not apply the run
-settings its start named, it also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
+settings its start named (for example a worker whose command is fixed), it
+also sets HADRON_START_SETTINGS_APPLIED=false; with a grant, this command then
 tells the server (startSettingsApplied: false) so the bind records none of
 those settings as run. Any other value sends nothing. Redeem
 it with the HOLDER's own token: an App key, the host's own included, never
