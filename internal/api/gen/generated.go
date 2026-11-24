@@ -20858,7 +20858,7 @@ func (v *AiServiceConfigFilter) GetOwnerType() AiConfigOwnerType { return v.Owne
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -21035,7 +21035,7 @@ func (v *AiServiceConfigStyleFields) __premarshalJSON() (*__premarshalAiServiceC
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -21225,7 +21225,7 @@ func (v *AiServiceConfigWithEndpointResponse) GetAiServiceConfig() *AiServiceCon
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -21443,7 +21443,7 @@ func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage) GetTotal() 
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -21662,7 +21662,7 @@ func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage) GetT
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -24149,8 +24149,8 @@ type AppKeysScopesHostUsesRows1595 struct {
 	RevokedAt  *string `json:"revokedAt"`
 	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
 	Scopes []*AppKeysScopesHostUsesRows1595ScopesAppKeyScope `json:"scopes"`
-	// #1709 — what this key did as a host, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:07: every use is recorded). Whoever manages the App only.
-	HostUses []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse `json:"hostUses"`
+	// #5061 — what this key did as a host, one page, newest first (usedAt, then id): the paged sibling of hostUses (hrn:node:hadronmemory.com:specs:cor:api:120:04, hrn:node:hadronmemory.com:specs:cor:agt:070:07). Whoever manages the App only, refused exactly as hostUses is, before anything is counted. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. Continue with offset; hasMore says whether rows remain past this page.
+	HostUsesPage *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage `json:"hostUsesPage"`
 }
 
 // GetId returns AppKeysScopesHostUsesRows1595.Id, and is useful for accessing the field via an interface.
@@ -24176,16 +24176,37 @@ func (v *AppKeysScopesHostUsesRows1595) GetScopes() []*AppKeysScopesHostUsesRows
 	return v.Scopes
 }
 
-// GetHostUses returns AppKeysScopesHostUsesRows1595.HostUses, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595) GetHostUses() []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse {
-	return v.HostUses
+// GetHostUsesPage returns AppKeysScopesHostUsesRows1595.HostUsesPage, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetHostUsesPage() *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage {
+	return v.HostUsesPage
 }
 
-// AppKeysScopesHostUsesRows1595HostUsesHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
+// AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage includes the requested fields of the GraphQL type HostKeyUsePage.
+// The GraphQL type's documentation follows.
+//
+// #5061 — one page of a host key's uses (AppKey.hostUsesPage). total counts every use of the key; hasMore is whether rows remain past this page.
+type AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage struct {
+	Items   []*AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse `json:"items"`
+	Total   int                                                                       `json:"total"`
+	HasMore bool                                                                      `json:"hasMore"`
+}
+
+// GetItems returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetItems() []*AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse {
+	return v.Items
+}
+
+// GetTotal returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetHasMore() bool { return v.HasMore }
+
+// AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
 // The GraphQL type's documentation follows.
 //
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
-type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
+type AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse struct {
 	HostId string `json:"hostId"`
 	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#4292) an endAgentlessSession, accepted or refused, or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
@@ -24198,27 +24219,35 @@ type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
 	UsedAt      string  `json:"usedAt"`
 }
 
-// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.HostId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetHostId() string { return v.HostId }
+// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetHostId() string {
+	return v.HostId
+}
 
-// GetAction returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Action, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetAction() string { return v.Action }
+// GetAction returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.Action, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetAction() string {
+	return v.Action
+}
 
-// GetCount returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Count, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetCount() *int { return v.Count }
+// GetCount returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.Count, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetCount() *int {
+	return v.Count
+}
 
-// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.OperationId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetOperationId() *string {
+// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.OperationId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetOperationId() *string {
 	return v.OperationId
 }
 
-// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetRefusedCode() *string {
+// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetRefusedCode() *string {
 	return v.RefusedCode
 }
 
-// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetUsedAt() string { return v.UsedAt }
+// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetUsedAt() string {
+	return v.UsedAt
+}
 
 // AppKeysScopesHostUsesRows1595ScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
 // The GraphQL type's documentation follows.
@@ -34480,8 +34509,8 @@ func (v *ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice) GetModel() *s
 // ChatAiConfigChoicesResponse is returned by ChatAiConfigChoices on success.
 type ChatAiConfigChoicesResponse struct {
 	// #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): what a chat of this App may choose from — the App's OWN enabled AI configs plus one
-	// `default` entry, which resolves through the App -> Agent -> Org -> Host walk at turn time. Send an entry's
-	// `value` back as the chat's aiConfigChoice. Never a key, key preview, params or endpoint. Any App member may
+	// `default` entry, which resolves through the App -> Agent -> Org -> Host walk at turn time (a person's App reaches only its own and its Agent's configurations, #5075). Send an entry's
+	// `value` back as the chat's aiConfigChoice. Never a key, key preview, params or endpoint. Any App member, or the owner of a personal App, may
 	// call it (a platform admin too); anyone else, a missing App and a request that is not a signed-in person get
 	// the same APP_NOT_FOUND answer.
 	ChatAiConfigChoices []*ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice `json:"chatAiConfigChoices"`
@@ -34496,7 +34525,7 @@ func (v *ChatAiConfigChoicesResponse) GetChatAiConfigChoices() []*ChatAiConfigCh
 type ChatEffectiveToolChoiceResponse struct {
 	// #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10, hrn:node:hadronmemory.com:specs:cor:acl:030:01): the tool-choice decision the chat turn will use for this chat's
 	// effective config: same predicate, same resolve order as the turn (the chat's stored choice, else the App's chatbot
-	// config, else the `default` walk). Null when no level matches, and for a user-owned App whose walk lands on the platform's config (which that App may not use); otherwise non-null.
+	// config, else the `default` walk). Null when no level matches (the walk gives a person's App no organization or platform level, #5075); otherwise non-null.
 	// Authorized through the single-chat read gate chatHistory uses: a chat has no access layer of its own, so read is
 	// decided by the host memory. A chat the caller may not read answers exactly as a chat that does not exist.
 	// The decision only: no key, id, name, provider or model.
@@ -36408,7 +36437,7 @@ func (v *ClearAiServiceConfigApiStyleResponse) GetUpdateAiServiceConfig() *Clear
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -41459,7 +41488,7 @@ func (v *CreateAgentWithLifecycleResponse) GetCreateAgent() *CreateAgentWithLife
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -41640,7 +41669,7 @@ func (v *CreateAiServiceConfigResponse) GetCreateAiServiceConfig() *CreateAiServ
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -41853,7 +41882,7 @@ func (v *CreateAiServiceConfigWithApiStyleResponse) GetCreateAiServiceConfig() *
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -47076,7 +47105,8 @@ type CreateTeamChatMessageResponse struct {
 	//
 	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE, TEAM_CHAT_DUPLICATE,
 	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
-	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume),
+	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume; extensions.reason
+	// names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE or NOT_OWNER),
 	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
 	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
@@ -49155,7 +49185,7 @@ func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo)
 // DeliveryBatchesResponse is returned by DeliveryBatches on success.
 type DeliveryBatchesResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *DeliveryBatchesDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -60105,7 +60135,7 @@ func (v *GrantCreditsInput) GetSourceType() *string { return v.SourceType }
 
 // GrantCreditsResponse is returned by GrantCredits on success.
 type GrantCreditsResponse struct {
-	// Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN ONLY (self-grant risk); processor top-ups land here later.
+	// Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN or the BILLING platform role only (self-grant risk; #5012); processor top-ups land here.
 	GrantCredits *GrantCreditsGrantCreditsCreditLedgerEntry `json:"grantCredits"`
 }
 
@@ -72305,7 +72335,8 @@ func (v *NodeAuthoringCheckNodeAuthoringCheckRecovery) GetLoad() *NodeAuthoringC
 // NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad includes the requested fields of the GraphQL type AuthoringCheckLoad.
 // The GraphQL type's documentation follows.
 //
-// How to load the author task, per surface. A surface with no route is null.
+// How to load the author task, per surface. graphql always has a route and is never null; mcp and cli are null when the
+// task has no URN to name.
 type NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad struct {
 	Cli     *string `json:"cli"`
 	Graphql string  `json:"graphql"`
@@ -72344,7 +72375,8 @@ func (v *NodeAuthoringCheckResponse) GetNodeAuthoringCheck() *NodeAuthoringCheck
 }
 
 // #4168 (hrn:node:hadronmemory.com:specs:cor:dmo:060:17): the verdict of a proposed write's authoring
-// attestation check. PASS: the write would pass. REFUSED: the write would be refused, with the code,
+// attestation check. PASS: the write would pass the authoring attestation check; the answer covers that check and not the
+// rest of the write's validation. REFUSED: the write would be refused, with the code,
 // the governed role, the prose and the recovery the write returns. UNAVAILABLE: the caller reads the
 // memory but does not write it, one answer for every node and role, so it shows nothing about the
 // memory's rules. A preview, never a reservation, and a pass is never proof the procedure was followed.
@@ -73908,7 +73940,15 @@ type NodeExportResponse struct {
 	// "hadron node import". Requires MD or JSON; sections is ignored.
 	// full: false returns a PRESENTATION render of the selected sections
 	// (default: all); not guaranteed round-trippable.
-	// Auth: same node-read gate as node(ref:). (HTML/PDF + asUrl delivery land
+	// format: PDF is always a presentation render and `full` does not apply
+	// (hrn:node:hadronmemory.com:specs:cor:int:020:02, #395). The node's content
+	// is always printed; the sections you name are ADDED after it (naming
+	// CONTENT changes nothing), in the fixed order Abstract, Data, Properties,
+	// Edges, Metadata whatever order you gave: Data and Properties as two-column
+	// tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
+	// left out. No sections named prints the content only. Comments is not a
+	// section yet.
+	// Auth: same node-read gate as node(ref:). (HTML + asUrl delivery land
 	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportNodeExportNodeExportResult `json:"nodeExport"`
 }
@@ -73975,7 +74015,15 @@ type NodeExportSectionsResponse struct {
 	// "hadron node import". Requires MD or JSON; sections is ignored.
 	// full: false returns a PRESENTATION render of the selected sections
 	// (default: all); not guaranteed round-trippable.
-	// Auth: same node-read gate as node(ref:). (HTML/PDF + asUrl delivery land
+	// format: PDF is always a presentation render and `full` does not apply
+	// (hrn:node:hadronmemory.com:specs:cor:int:020:02, #395). The node's content
+	// is always printed; the sections you name are ADDED after it (naming
+	// CONTENT changes nothing), in the fixed order Abstract, Data, Properties,
+	// Edges, Metadata whatever order you gave: Data and Properties as two-column
+	// tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
+	// left out. No sections named prints the content only. Comments is not a
+	// section yet.
+	// Auth: same node-read gate as node(ref:). (HTML + asUrl delivery land
 	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportSectionsNodeExportNodeExportResult `json:"nodeExport"`
 }
@@ -84280,7 +84328,7 @@ func (v *QuestionsResponse) GetQuestions() *QuestionsQuestionsQuestionPage { ret
 // Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
 type QuotaCounterFields struct {
 	Id string `json:"id"`
-	// app or org.
+	// app, org or user. A user row is the person's shared counter for their Apps; it is read and set now and enforced once a person's App can run (F3a).
 	ScopeKind string `json:"scopeKind"`
 	ScopeId   string `json:"scopeId"`
 	// run.execute, llm.tokens, sms.send, or email.send.
@@ -84425,7 +84473,7 @@ func (v *QuotaCountersQuotaCountersQuotaCounter) __premarshalJSON() (*__premarsh
 
 // QuotaCountersResponse is returned by QuotaCounters on success.
 type QuotaCountersResponse struct {
-	// Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).
+	// Usage-vs-limit counters (#510, #5074, hrn:node:hadronmemory.com:specs:cor:acl:050:04). orgRef: the org's (+ one app with appRef), org-ADMIN. appRef alone: the App's and its organization's, or for a person's App the App's and, for its owner or a platform admin, the owner's user counters; every denial is NOT_FOUND. userRef alone: that person's, the person or a platform admin (FORBIDDEN otherwise). No ref, or userRef with another ref: BAD_USER_INPUT. Rows materialize on first view, seeded with platform defaults.
 	QuotaCounters []*QuotaCountersQuotaCountersQuotaCounter `json:"quotaCounters"`
 }
 
@@ -88408,7 +88456,7 @@ func (v *ReserveSpecCitationResponse) GetReserveSpecCitation() *ReserveSpecCitat
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -88497,8 +88545,9 @@ type ResolveAiServiceConfigsResponse struct {
 	// execution context — every distinct config name a chat in this context
 	// could select. Populates a config picker in the chatbot UI.
 	//
-	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+	// HadronServer; a person's App lists only its own and the named Agent's
+	// configurations), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
 	// each entry is the row the resolution walk selects for that name; this
 	// masked listing does not grant permission to decrypt it. Only
@@ -88508,7 +88557,7 @@ type ResolveAiServiceConfigsResponse struct {
 	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
 	// must be installed and live-licensed in that App. Because the result is
 	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -88529,7 +88578,7 @@ func (v *ResolveAiServiceConfigsResponse) GetResolveAiServiceConfigs() []*Resolv
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -88712,8 +88761,9 @@ type ResolveAiServiceConfigsWithEndpointAndUrnResponse struct {
 	// execution context — every distinct config name a chat in this context
 	// could select. Populates a config picker in the chatbot UI.
 	//
-	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+	// HadronServer; a person's App lists only its own and the named Agent's
+	// configurations), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
 	// each entry is the row the resolution walk selects for that name; this
 	// masked listing does not grant permission to decrypt it. Only
@@ -88723,7 +88773,7 @@ type ResolveAiServiceConfigsWithEndpointAndUrnResponse struct {
 	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
 	// must be installed and live-licensed in that App. Because the result is
 	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -88744,7 +88794,7 @@ func (v *ResolveAiServiceConfigsWithEndpointAndUrnResponse) GetResolveAiServiceC
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -88911,8 +88961,9 @@ type ResolveAiServiceConfigsWithEndpointResponse struct {
 	// execution context — every distinct config name a chat in this context
 	// could select. Populates a config picker in the chatbot UI.
 	//
-	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+	// HadronServer; a person's App lists only its own and the named Agent's
+	// configurations), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
 	// each entry is the row the resolution walk selects for that name; this
 	// masked listing does not grant permission to decrypt it. Only
@@ -88922,7 +88973,7 @@ type ResolveAiServiceConfigsWithEndpointResponse struct {
 	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
 	// must be installed and live-licensed in that App. Because the result is
 	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -88943,7 +88994,7 @@ func (v *ResolveAiServiceConfigsWithEndpointResponse) GetResolveAiServiceConfigs
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -89047,8 +89098,9 @@ type ResolveAiServiceConfigsWithUrnResponse struct {
 	// execution context — every distinct config name a chat in this context
 	// could select. Populates a config picker in the chatbot UI.
 	//
-	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+	// HadronServer; a person's App lists only its own and the named Agent's
+	// configurations), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
 	// each entry is the row the resolution walk selects for that name; this
 	// masked listing does not grant permission to decrypt it. Only
@@ -89058,7 +89110,7 @@ type ResolveAiServiceConfigsWithUrnResponse struct {
 	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
 	// must be installed and live-licensed in that App. Because the result is
 	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -92167,7 +92219,11 @@ func (v *RevokeUserApiKeyRevokeUserApiKey) __premarshalJSON() (*__premarshalRevo
 type Role string
 
 const (
-	RoleAdmin       Role = "ADMIN"
+	RoleAdmin Role = "ADMIN"
+	// A platform role for a payment service (#5012): it may write credit grants and adjustments (grantCredits,
+	// adjustCredits) and nothing else. Refused (BAD_USER_INPUT) as an organization member's, a memory subscription's
+	// or an invitation's role, and never combined with another platform role on one user.
+	RoleBilling     Role = "BILLING"
 	RoleContributor Role = "CONTRIBUTOR"
 	RoleOwner       Role = "OWNER"
 	RoleReader      Role = "READER"
@@ -92175,6 +92231,7 @@ const (
 
 var AllRole = []Role{
 	RoleAdmin,
+	RoleBilling,
 	RoleContributor,
 	RoleOwner,
 	RoleReader,
@@ -95590,7 +95647,7 @@ func (v *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) Ge
 // SessionInboxResponse is returned by SessionInbox on success.
 type SessionInboxResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *SessionInboxDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -98720,12 +98777,14 @@ func (v *SetQuestionLogDecidersSetQuestionLogDecidersQuestionLog) __premarshalJS
 type SetQuotaLimitInput struct {
 	// run.execute, llm.tokens, sms.send, or email.send.
 	Action string `json:"action"`
-	// Optional app scope - ref: PK or URN; must belong to the org. Omit to set the org-level limit.
+	// App scope - ref: PK or URN. With orgRef it must belong to the org; alone it names an organization's App (the org-ADMIN callers) or a person's App (its owner, owner-role members, a platform admin). Every denial answers NOT_FOUND, as for an unknown ref.
 	AppRef *string `json:"appRef,omitempty"`
 	// Non-negative integer; 0 pauses the scope (every launch denies QUOTA_EXCEEDED).
 	Limit int `json:"limit"`
-	// Org - ref: PK or URN.
-	OrgRef string `json:"orgRef"`
+	// Org - ref: PK or URN. Alone: the organization's limit; with appRef: that App's. Omit with appRef alone (an App of an organization or of a person) or with userRef alone.
+	OrgRef *string `json:"orgRef,omitempty"`
+	// A person (user id): that person's own counters. The person as themself or a platform admin; never with orgRef or appRef (BAD_USER_INPUT).
+	UserRef *string `json:"userRef,omitempty"`
 }
 
 // GetAction returns SetQuotaLimitInput.Action, and is useful for accessing the field via an interface.
@@ -98738,7 +98797,10 @@ func (v *SetQuotaLimitInput) GetAppRef() *string { return v.AppRef }
 func (v *SetQuotaLimitInput) GetLimit() int { return v.Limit }
 
 // GetOrgRef returns SetQuotaLimitInput.OrgRef, and is useful for accessing the field via an interface.
-func (v *SetQuotaLimitInput) GetOrgRef() string { return v.OrgRef }
+func (v *SetQuotaLimitInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetUserRef returns SetQuotaLimitInput.UserRef, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitInput) GetUserRef() *string { return v.UserRef }
 
 // SetQuotaLimitResponse is returned by SetQuotaLimit on success.
 type SetQuotaLimitResponse struct {
@@ -120710,7 +120772,7 @@ func (v *UpdateAiServiceConfigResponse) GetUpdateAiServiceConfig() *UpdateAiServ
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -120881,7 +120943,7 @@ func (v *UpdateAiServiceConfigWithApiStyleResponse) GetUpdateAiServiceConfig() *
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -121084,7 +121146,7 @@ func (v *UpdateAiServiceConfigWithEndpointResponse) GetUpdateAiServiceConfig() *
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -127199,6 +127261,7 @@ func (v *UpdateTickerUpdateTicker) __premarshalJSON() (*__premarshalUpdateTicker
 
 // UpdateUserRolesResponse is returned by UpdateUserRoles on success.
 type UpdateUserRolesResponse struct {
+	// Set a user's platform roles (platform ADMIN). BILLING stands alone: a list holding it with any other role is BAD_USER_INPUT (#5012).
 	UpdateUserRoles *UpdateUserRolesUpdateUserRolesUser `json:"updateUserRoles"`
 }
 
@@ -133881,17 +133944,17 @@ func (v *__AppKeysMetadataInstructedInput) GetOffset() int { return v.Offset }
 
 // __AppKeysScopesHostUsesInput is used internally by genqlient
 type __AppKeysScopesHostUsesInput struct {
-	AppRef string `json:"appRef"`
-	First  int    `json:"first"`
-	Limit  int    `json:"limit"`
-	Offset int    `json:"offset"`
+	AppRef    string `json:"appRef"`
+	UsesLimit int    `json:"usesLimit"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysScopesHostUsesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetAppRef() string { return v.AppRef }
 
-// GetFirst returns __AppKeysScopesHostUsesInput.First, and is useful for accessing the field via an interface.
-func (v *__AppKeysScopesHostUsesInput) GetFirst() int { return v.First }
+// GetUsesLimit returns __AppKeysScopesHostUsesInput.UsesLimit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInput) GetUsesLimit() int { return v.UsesLimit }
 
 // GetLimit returns __AppKeysScopesHostUsesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetLimit() int { return v.Limit }
@@ -133902,7 +133965,7 @@ func (v *__AppKeysScopesHostUsesInput) GetOffset() int { return v.Offset }
 // __AppKeysScopesHostUsesInstructedInput is used internally by genqlient
 type __AppKeysScopesHostUsesInstructedInput struct {
 	AppRef      string               `json:"appRef"`
-	First       int                  `json:"first"`
+	UsesLimit   int                  `json:"usesLimit"`
 	Instruction *ActInstructionInput `json:"instruction,omitempty"`
 	Limit       int                  `json:"limit"`
 	Offset      int                  `json:"offset"`
@@ -133911,8 +133974,8 @@ type __AppKeysScopesHostUsesInstructedInput struct {
 // GetAppRef returns __AppKeysScopesHostUsesInstructedInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInstructedInput) GetAppRef() string { return v.AppRef }
 
-// GetFirst returns __AppKeysScopesHostUsesInstructedInput.First, and is useful for accessing the field via an interface.
-func (v *__AppKeysScopesHostUsesInstructedInput) GetFirst() int { return v.First }
+// GetUsesLimit returns __AppKeysScopesHostUsesInstructedInput.UsesLimit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetUsesLimit() int { return v.UsesLimit }
 
 // GetInstruction returns __AppKeysScopesHostUsesInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInstructedInput) GetInstruction() *ActInstructionInput {
@@ -155137,7 +155200,7 @@ func AppKeysScopes(
 
 // The query executed by AppKeysScopesHostUses.
 const AppKeysScopesHostUses_Operation = `
-query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUses ($appRef: ID!, $usesLimit: Int!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
 		hasMore
 		total
@@ -155154,13 +155217,17 @@ query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: 
 				grantedAt
 				grantedBy
 			}
-			hostUses(first: $first) {
-				hostId
-				action
-				count
-				operationId
-				refusedCode
-				usedAt
+			hostUsesPage(limit: $usesLimit) {
+				items {
+					hostId
+					action
+					count
+					operationId
+					refusedCode
+					usedAt
+				}
+				total
+				hasMore
 			}
 		}
 	}
@@ -155168,12 +155235,13 @@ query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: 
 `
 
 // cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
-// host uses (cor:agt:070:07). N is always sent here, so no omitempty.
+// host uses (cor:agt:070:07), read through hostUsesPage (cli#3134) so total and
+// hasMore come with them. N is always sent here, so no omitempty.
 func AppKeysScopesHostUses(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	first int,
+	usesLimit int,
 	limit int,
 	offset int,
 ) (data_ *AppKeysScopesHostUsesResponse, err_ error) {
@@ -155181,10 +155249,10 @@ func AppKeysScopesHostUses(
 		OpName: "AppKeysScopesHostUses",
 		Query:  AppKeysScopesHostUses_Operation,
 		Variables: &__AppKeysScopesHostUsesInput{
-			AppRef: appRef,
-			First:  first,
-			Limit:  limit,
-			Offset: offset,
+			AppRef:    appRef,
+			UsesLimit: usesLimit,
+			Limit:     limit,
+			Offset:    offset,
 		},
 	}
 
@@ -155202,7 +155270,7 @@ func AppKeysScopesHostUses(
 
 // The query executed by AppKeysScopesHostUsesInstructed.
 const AppKeysScopesHostUsesInstructed_Operation = `
-query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUsesInstructed ($appRef: ID!, $usesLimit: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
 		hasMore
 		total
@@ -155219,13 +155287,17 @@ query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction:
 				grantedAt
 				grantedBy
 			}
-			hostUses(first: $first) {
-				hostId
-				action
-				count
-				operationId
-				refusedCode
-				usedAt
+			hostUsesPage(limit: $usesLimit) {
+				items {
+					hostId
+					action
+					count
+					operationId
+					refusedCode
+					usedAt
+				}
+				total
+				hasMore
 			}
 		}
 	}
@@ -155236,7 +155308,7 @@ func AppKeysScopesHostUsesInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	first int,
+	usesLimit int,
 	instruction *ActInstructionInput,
 	limit int,
 	offset int,
@@ -155246,7 +155318,7 @@ func AppKeysScopesHostUsesInstructed(
 		Query:  AppKeysScopesHostUsesInstructed_Operation,
 		Variables: &__AppKeysScopesHostUsesInstructedInput{
 			AppRef:      appRef,
-			First:       first,
+			UsesLimit:   usesLimit,
 			Instruction: instruction,
 			Limit:       limit,
 			Offset:      offset,

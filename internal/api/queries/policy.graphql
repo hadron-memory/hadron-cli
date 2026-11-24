@@ -54,6 +54,8 @@ query QuotaCounters(
 
 # Set the stored (enforced) limit for a scope x action. Org ADMIN.
 # @genqlient(for: "SetQuotaLimitInput.appRef", omitempty: true)
+# @genqlient(for: "SetQuotaLimitInput.orgRef", omitempty: true)
+# @genqlient(for: "SetQuotaLimitInput.userRef", omitempty: true)
 mutation SetQuotaLimit(
   $input: SetQuotaLimitInput!
 ) {

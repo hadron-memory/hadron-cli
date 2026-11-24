@@ -198,8 +198,8 @@ func TestAppKeyRevokeRefusalMapsToTypedExit(t *testing.T) {
 
 const keysScopes1333 = `{"data":{"appKeysPage":{"items":[{"id":"key_1","keyPreview":"hdr_app_AAAA…1111","label":"poller","createdAt":"2026-10-01T00:00:00Z","lastUsedAt":null,"revokedAt":null,
  "scopes":[{"scope":"host:operate","hostId":"orca1","grantedAt":"2026-10-02T00:00:00Z","grantedBy":"u1"}],
- "hostUses":[{"hostId":"orca1","action":"collect","count":3,"operationId":null,"refusedCode":"APP_KEY_SCOPE_REQUIRED","usedAt":"2026-10-03T00:00:00Z"}]},
- {"id":"key_2","keyPreview":"hdr_app_BBBB…2222","label":null,"createdAt":"2026-10-01T00:00:00Z","lastUsedAt":null,"revokedAt":null,"scopes":[],"hostUses":[]}],"total":0,"hasMore":false}}}`
+ "hostUsesPage":{"items":[{"hostId":"orca1","action":"collect","count":3,"operationId":null,"refusedCode":"APP_KEY_SCOPE_REQUIRED","usedAt":"2026-10-03T00:00:00Z"}],"total":214,"hasMore":true}},
+ {"id":"key_2","keyPreview":"hdr_app_BBBB…2222","label":null,"createdAt":"2026-10-01T00:00:00Z","lastUsedAt":null,"revokedAt":null,"scopes":[],"hostUsesPage":{"items":[],"total":0,"hasMore":false}}],"total":0,"hasMore":false}}}`
 
 func TestAppKeyListDefaultStaysMetadataOnly(t *testing.T) {
 	srv, _, reqs := keyServerCapture(t, 200, `{"data":{"appKeysPage":{"items":[],"total":0,"hasMore":false}}}`)
@@ -236,14 +236,14 @@ func TestAppKeyListScopesIsOneAppKeysCallWithScopesAndNoHostUses(t *testing.T) {
 	}
 }
 
-func TestAppKeyListHostUsesSendsFirstAndRendersUses(t *testing.T) {
+func TestAppKeyListHostUsesSendsTheLimitAndRendersUses(t *testing.T) {
 	srv, _, reqs := keyServerCapture(t, 200, keysScopes1333)
 	r := runKeyArgs(t, srv, "list", app1223, "--scopes", "--host-uses", "5", "--json")
 	if r.err != nil {
 		t.Fatal(r.err)
 	}
 	vars := onlyOp(t, reqs(), "AppKeysScopesHostUses")
-	if vars["first"] != float64(5) {
+	if vars["usesLimit"] != float64(5) {
 		t.Errorf("variables = %v", vars)
 	}
 	var rows []map[string]any
