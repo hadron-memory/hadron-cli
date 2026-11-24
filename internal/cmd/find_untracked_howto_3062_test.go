@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/intake"
+	"github.com/hadron-memory/hadron-cli/pkg/intakecontract"
 )
 
 // cli#3062 (cor:agt:120:04): a team with no intake adapter gets a user-facing
@@ -130,7 +131,6 @@ func TestHowToSampleAdapterLists3062(t *testing.T) {
 		Items         []struct{ ExternalId, Title string }
 		Complete      bool
 		StoppedReason *string
-		Reconcile     map[string]any
 	}
 	if err := json.Unmarshal([]byte(out), &dto); err != nil {
 		t.Fatalf("%v: %q", err, out)
@@ -141,7 +141,11 @@ func TestHowToSampleAdapterLists3062(t *testing.T) {
 	if len(dto.Items) != 2 || dto.Items[0].ExternalId != "https://tracker.example/acme/app/issues/1" || dto.Items[1].ExternalId != "https://tracker.example/acme/app/issues/3" {
 		t.Fatalf("the sample's items, less the one Hadron holds: %+v", dto.Items)
 	}
-	ids, _ := opsOf1961(calls, "IntakeTasksByExternalIds")[0].Vars["externalIds"].([]any)
+	checks := opsOf1961(calls, "IntakeTasksByExternalIds")
+	if len(checks) != 1 {
+		t.Fatalf("one batch check against the App's tasks, got %d", len(checks))
+	}
+	ids, _ := checks[0].Vars["externalIds"].([]any)
 	if len(ids) != 3 {
 		t.Fatalf("every item the sample lists is checked against the App: %v", ids)
 	}
@@ -159,9 +163,14 @@ func TestHowToSampleAdapterLists3062(t *testing.T) {
 		t.Fatalf("--for Marco lists only Marco's item: %+v", dto.Items)
 	}
 
-	// The runner asks for at least 20 a page, so three items never page
-	// above. Walk the sample at one item a page through the runner itself:
-	// its cursor must advance, end, and never repeat.
+}
+
+// The command asks an adapter for at least 20 items a page (pageHint), so a
+// command-tree run over three items never pages. This test drives the runner
+// directly with a page size of 1: the sample's cursor must advance, end, and
+// never repeat (the runner refuses a repeat).
+func TestHowToSampleAdapterPages3062(t *testing.T) {
+	bin := buildSample3062(t)
 	r := &intake.Runner{Path: bin, Timeout: 10 * time.Second}
 	var got []string
 	pages := 0
@@ -176,6 +185,31 @@ func TestHowToSampleAdapterLists3062(t *testing.T) {
 	}
 	if pages != 3 || len(got) != 3 || got[2] != "https://tracker.example/acme/app/issues/3" {
 		t.Fatalf("three pages of one item each: pages=%d items=%v", pages, got)
+	}
+}
+
+// The page states the runner's bounds and exit codes as numbers. They are
+// the published package's constants (pkg/intakecontract, which the page
+// names for Go adapter authors): if a constant changes, the page must too.
+func TestHowToPageNumbersAreThePublishedContract3062(t *testing.T) {
+	page := strings.Join(strings.Fields(readHowTo3062(t)), " ")
+	for want, ok := range map[string]bool{
+		"`\"contractVersion\": 1`":                               intakecontract.ContractVersion == 1,
+		"stdout is capped at 1 MiB per call":                     intakecontract.MaxOutputBytes == 1<<20,
+		"A page holds at most 100 items":                         intakecontract.MaxItemsPerPage == 100,
+		"a list at most 50 pages":                                intakecontract.MaxPages == 50,
+		"An external id is at most 512 characters":               intakecontract.ServerExternalIDMax == 512,
+		"the adapter's name at most 1024 bytes":                  intakecontract.MaxTextLen == 1024,
+		"cursor at most 4096 bytes":                              intakecontract.MaxCursorLen == 4096,
+		"with exit status **20**":                                intakecontract.ExitNotMine == 20,
+		"github.com/hadron-memory/hadron-cli/pkg/intakecontract": true,
+	} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page must state %q", want)
+		}
+		if !ok {
+			t.Errorf("the page states %q but pkg/intakecontract disagrees", want)
+		}
 	}
 }
 

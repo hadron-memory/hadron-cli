@@ -42,8 +42,9 @@ Every call is one run of the executable:
   runs the file directly, never through a shell.
 - **The request is one JSON object on stdin.** It always carries
   `"contractVersion": 1`, plus the call's own fields below.
-- **The answer is one JSON object on stdout, and exit status 0.** Nothing may
-  follow the object. Write `{}` when a call has nothing to say.
+- **The answer is one JSON object on stdout, and exit status 0.** No other
+  text may follow the object (a trailing newline is fine). Write `{}` when a
+  call has nothing to say.
 - **Any other exit status is a refusal.** The CLI reports it with the exit
   status and the start of your stderr, made one terminal-safe line, so put the
   reason there.
@@ -101,7 +102,9 @@ One page of the items you do not (yet) know to be tracked.
 - Request: `{"contractVersion": 1, "limit": 20, "cursor": "…", "for": "Marco"}`.
   `cursor` is absent on the first page. `for` is present only when the user
   passed `--for <worker>`; return that worker's items, as your tracker
-  understands it.
+  understands it. `limit` is the page size the CLI asks for (at least 20, at
+  most 100), not the user's `--limit`: the CLI stops reading once it has enough,
+  so answer up to `limit` items a page and let it stop.
 - Answer:
 
   ```json
@@ -140,7 +143,10 @@ whether an item is tracked; Hadron does.
   ```
 
   `portalUrl` is the task's page exactly as the server prints it, and absent
-  when the server prints none; the CLI never builds one. After a
+  when the server prints none; the CLI never builds one. The worker's `role`
+  and `model` are present only when the claim goes to the caller's own bound
+  worker; for a claim made for someone else (`--assignee`, `--for`) the
+  adapter gets only `id` and `name`, so treat both as optional. After a
   reassignment the CLI calls `mark-tracked` again for the new worker, with only
   its `id` and `name`.
 - Answer: `{}`.
@@ -260,6 +266,9 @@ func main() {
 	if err := json.NewDecoder(os.Stdin).Decode(&req); err != nil {
 		fail("the request is not JSON: " + err.Error())
 	}
+	if req.ContractVersion != 1 {
+		fail("this adapter speaks contract version 1, not " + strconv.Itoa(req.ContractVersion))
+	}
 	switch os.Args[1] {
 	case "describe":
 		answer(map[string]any{"name": "sample", "contractVersion": 1, "calls": calls,
@@ -353,11 +362,13 @@ hadron team task find-untracked --adapter ./intake-adapter --for Marco --json
 Then claim one item as a task of your App:
 
 ```sh
-hadron team task find-untracked --adapter ./intake-adapter --track --limit 1
+hadron team task find-untracked --adapter ./intake-adapter --track --limit 1 --assignee user:<your-handle>
 ```
 
 `--limit` with `--track` is how many tasks the call holds (default 1). The
-claim goes to `--assignee`, else the `--for` worker, else your bound worker. The
+claim goes to `--assignee`, else the `--for` worker, else your bound worker.
+With none of these (a plain shell with no bound worker session), `--track`
+exits 2 and claims nothing, so name the assignee as above. The
 full flag reference is `hadron team task find-untracked --help`; the machine
 contract (`--json` shapes, exit codes) is in `hadron agentic-usage`, section
 "App properties, task externalId and find-untracked".
