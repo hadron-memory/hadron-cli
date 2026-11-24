@@ -558,11 +558,11 @@ section between the markers.
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
 | `team pr` |  |  | y | #1054 | cd9933287e43 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | 2233ff3929cf |  | unread |  |
-| `team pr readiness` |  |  | y | #1054 | bb26cc34ee7d |  | unread |  |
+| `team pr readiness` |  |  | y | #1054 | ab0383bc4f42 |  | unread |  |
 | `team pr ready` |  |  | y | #1054 | 601744d45cc2 |  | unread |  |
 | `team pr schedule` |  |  | y | #1054 | dfed9683957e |  | unread |  |
-| `team pr seat` |  |  | y | #1054 | 59e030e9027a |  | unread |  |
-| `team pr verdict` |  |  | y | #1054 | cd38b51dbe19 |  | unread |  |
+| `team pr seat` |  |  | y | #1054 | cc740b365b95 |  | unread |  |
+| `team pr verdict` |  |  | y | #1054 | 0a7b700e4836 |  | unread |  |
 | `team pr withdraw` |  |  | y | #1054 | 7f0bb882cafc |  | unread |  |
 | `team push` |  |  | y | #1054 | 1576000c023d | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team register` |  |  | y | #1054 | 98946c24fa29 |  | unread |  |

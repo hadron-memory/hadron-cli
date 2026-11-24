@@ -366,8 +366,8 @@ const prReviewRules = `
 The order is schedule, freeze, seat, verdict, finish. A seat binds to a task
 that has not ended (PENDING or STARTED); only pr verdict needs it STARTED, and a
 finished seat cannot take a verdict. A negative verdict at a head blocks every
-slot there until the head moves, its own reviewer re-rates it, or (once the seat is finished) its reviewer or a
-coordinator withdraws it with pr withdraw.
+slot there until the head moves, its own reviewer re-rates it, or (once the
+seat is finished) its reviewer or a coordinator withdraws it with pr withdraw.
 
 When a seat cannot bind or record (TASK_ENDED, REVIEW_SEAT_UNASSIGNED or
 REVIEW_HEAD_MISMATCH), only a verdict recorded with pr verdict counts: create a
@@ -473,8 +473,8 @@ counts. Anyone who can read the task may run it; it changes nothing.
 --head is the frozen head (the full SHA you gave to "pr freeze"); it is never
 guessed. A slot counts when its current seat is finished, was bound at this
 head, holds an APPROVE, PASS or CARRY verdict from someone other than the build
-task's assignee or the head's freezer (whoever froze it), and no seat of the head holds a negative
-verdict. NOT READY is a successful read (exit 0): fix the slots that do not
+task's assignee or the head's freezer (the person who ran pr freeze on this
+head), and no seat of the head holds a negative verdict. NOT READY is a successful read (exit 0): fix the slots that do not
 count (seat a reviewer, wait for the verdict, finish the seat task), then run it
 again. When every slot counts, the build task's assignee runs "pr ready".
 
