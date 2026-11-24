@@ -83,6 +83,9 @@ func TestNoRefusalEchoesAPositionalArg3029(t *testing.T) {
 		if err != nil {
 			return err
 		}
+		if d.IsDir() && d.Name() == "testdata" {
+			return filepath.SkipDir // fixtures, not CLI source (the go tool ignores them too)
+		}
 		if d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return nil
 		}

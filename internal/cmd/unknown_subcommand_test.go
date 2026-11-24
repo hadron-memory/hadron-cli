@@ -21,7 +21,7 @@ func TestCheckUnknownSubcommand(t *testing.T) {
 			name:     "unknown spec subcommand suggests edit",
 			args:     []string{"spec", "update"},
 			wantErr:  true,
-			contains: []string{`unknown command "update" for "hadron spec"`, `did you mean "edit"?`},
+			contains: []string{`unknown command for "hadron spec"`, `did you mean "edit"?`},
 		},
 		{
 			// --help must not launder the typo into a successful help
@@ -29,7 +29,7 @@ func TestCheckUnknownSubcommand(t *testing.T) {
 			name:     "unknown spec subcommand with --help",
 			args:     []string{"spec", "update", "--help"},
 			wantErr:  true,
-			contains: []string{`unknown command "update" for "hadron spec"`, `did you mean "edit"?`},
+			contains: []string{`unknown command for "hadron spec"`, `did you mean "edit"?`},
 		},
 		{
 			// A flag belonging to the INTENDED leaf is unknown to the
@@ -38,37 +38,37 @@ func TestCheckUnknownSubcommand(t *testing.T) {
 			name:     "leaf flag after the typo keeps the suggestion",
 			args:     []string{"spec", "update", "cor:acl:010", "--content", "body"},
 			wantErr:  true,
-			contains: []string{`unknown command "update" for "hadron spec"`, `did you mean "edit"?`},
+			contains: []string{`unknown command for "hadron spec"`, `did you mean "edit"?`},
 		},
 		{
 			name:     "leaf flag immediately after the typo",
 			args:     []string{"spec", "update", "--content", "body"},
 			wantErr:  true,
-			contains: []string{`unknown command "update" for "hadron spec"`},
+			contains: []string{`unknown command for "hadron spec"`},
 		},
 		{
 			name:     "shorthand leaf flag after the typo",
 			args:     []string{"spec", "update", "-m", "acme.com::specs"},
 			wantErr:  true,
-			contains: []string{`unknown command "update" for "hadron spec"`},
+			contains: []string{`unknown command for "hadron spec"`},
 		},
 		{
 			name:     "spec delete points at supersede",
 			args:     []string{"spec", "delete"},
 			wantErr:  true,
-			contains: []string{`unknown command "delete" for "hadron spec"`, `did you mean "supersede"?`},
+			contains: []string{`unknown command for "hadron spec"`, `did you mean "supersede"?`},
 		},
 		{
 			name:     "nested group is checked too",
 			args:     []string{"memory", "member", "bogus"},
 			wantErr:  true,
-			contains: []string{`unknown command "bogus" for "hadron memory member"`},
+			contains: []string{`unknown command for "hadron memory member"`},
 		},
 		{
 			name:     "no suggestion when nothing is close",
 			args:     []string{"spec", "zzzzzz"},
 			wantErr:  true,
-			contains: []string{`unknown command "zzzzzz" for "hadron spec"`},
+			contains: []string{`unknown command for "hadron spec"`},
 		},
 		{name: "bare group prints help", args: []string{"spec"}},
 		{name: "group --help prints help", args: []string{"spec", "--help"}},
@@ -104,6 +104,10 @@ func TestCheckUnknownSubcommand(t *testing.T) {
 				if !strings.Contains(err.Error(), want) {
 					t.Errorf("error %q does not contain %q", err.Error(), want)
 				}
+			}
+			// cli#3029 (#2898 policy): the typed name is never echoed; the suggestion is a command name.
+			if typed := tt.args[len(tt.args)-1]; !strings.HasPrefix(typed, "-") && strings.Contains(err.Error(), `"`+typed+`"`) {
+				t.Errorf("error %q echoes the typed name %q", err.Error(), typed)
 			}
 		})
 	}

@@ -276,6 +276,10 @@ type Citation struct {
 // class: a second alpha code ⇒ product-rooted (<product>:<module>:…); a 3-digit
 // feature ⇒ flat (<module>:…). A lone alpha code parses as a flat module —
 // callers that need a bare product root build the Citation directly.
+// legacyCitationGrammar is the shape ParseCitation accepts, for refusals that must not echo the
+// citation they were given (cli#3029).
+const legacyCitationGrammar = "[<product>:]<module>[:<feature>[:<rule>[:<flow>]]]"
+
 func ParseCitation(s string) (Citation, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {

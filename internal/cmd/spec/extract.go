@@ -95,7 +95,7 @@ remains authoritative for other refusals.`,
 				// Any other spec: create the new one with `spec new <loc>` and
 				// edit the source.
 				return exitcode.Newf(exitcode.Usage,
-					"extract allocates the new spec's number under a legacy citation, and the citation given is not one (not shown) — a legacy citation is [<product>:]<module>[:<feature>[:<rule>[:<flow>]]]; for any other spec, create the new one with `hadron spec new <loc>` and edit the source with `hadron spec edit`")
+					"extract allocates the new spec's number under a legacy citation, and the citation given is not one (not shown) — a legacy citation is %s; for any other spec, create the new one with `hadron spec new <loc>` and edit the source with `hadron spec edit`", legacyCitationGrammar)
 			}
 			if title == "" {
 				return exitcode.Newf(exitcode.Usage, "--title is required")

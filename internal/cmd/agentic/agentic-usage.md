@@ -395,10 +395,17 @@ curated commands state the caveat conditionally, since the mapper is shared by
 reads and writes.
 
 An **unknown subcommand** is a usage error (2), at every depth: `hadron spec
-update` exits 2 with `unknown command "update" for "hadron spec"; did you mean
-"edit"?` rather than printing the group's help and exiting 0. This holds with
-`--help` attached too, so a probe like `hadron <group> <guess> --help` is a
-reliable way to test whether a subcommand exists.
+update` exits 2 with `unknown command for "hadron spec" (the name given is not
+shown); did you mean "edit"?` rather than printing the group's help and exiting
+0. This holds with `--help` attached too, so a probe like
+`hadron <group> <guess> --help` is a reliable way to test whether a subcommand
+exists.
+
+**A refusal never prints back the value you typed** (#2898 policy): an unknown
+command or flag, an invalid flag value, a malformed or unknown ref, each names
+what is wrong and says the value is not shown, with the same exit code. Match on
+the exit code and the stable wording, not on your own input appearing in the
+message.
 
 A **partial write** exits non-zero (generic failure, 1): a command that creates
 the primary entity but cannot wire one or more of its edges — `node import
