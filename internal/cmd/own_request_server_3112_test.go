@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 // ownRequestServer is a live test server that counts only the requests the command under test sent
@@ -13,9 +14,19 @@ import (
 // never sent (question_cmd_test.go saw requests=2 on a leg that expects exactly one). The command's own
 // requests are the ones carrying its bearer token, which the test sets per leg (HADRON_TOKEN), so a
 // stranger's request is answered 404 without reaching the handler and is counted apart in strangers.
+//
+// The helper sets HADRON_TOKEN itself, so it must run AFTER testFactory (which sets the default token):
+// the order is one call site, not a comment. A non-zero strangers count is logged at the end of the test,
+// so a recurrence of the churn is visible rather than masked.
 func ownRequestServer(t *testing.T, token string, h func(w http.ResponseWriter, r *http.Request)) (srv *httptest.Server, own, strangers *int32) {
 	t.Helper()
 	own, strangers = new(int32), new(int32)
+	t.Setenv("HADRON_TOKEN", token)
+	t.Cleanup(func() {
+		if n := atomic.LoadInt32(strangers); n != 0 {
+			t.Logf("cli#3112: %d request(s) without this leg's token reached %s and were not counted", n, srv.URL)
+		}
+	})
 	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+token {
 			atomic.AddInt32(strangers, 1)
@@ -39,11 +50,14 @@ func TestOwnRequestServerCountsOnlyTheCommandsOwnRequests3112(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	})
 	do := func(auth string) int {
-		req, _ := http.NewRequest(http.MethodPost, srv.URL, nil)
+		req, err := http.NewRequest(http.MethodPost, srv.URL, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if auth != "" {
 			req.Header.Set("Authorization", auth)
 		}
-		resp, err := http.DefaultClient.Do(req)
+		resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}

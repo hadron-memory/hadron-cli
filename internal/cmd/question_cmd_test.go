@@ -1145,12 +1145,10 @@ func TestQuestionAnswerAndRetractErrorsBelowTheMutationAreUnknown(t *testing.T) 
 func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T) {
 	// cli#3112: only requests carrying this leg's own bearer token are the CLI's. Another process dialing
 	// a recycled loopback port is not, and must not make a one-request leg read as two.
-	legs := 0
-	serve := func(t *testing.T, h func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, *int32, string) {
-		legs++
-		token := fmt.Sprintf("hdr_user_leg-%d", legs)
-		srv, n, _ := ownRequestServer(t, token, h)
-		return srv, n, token
+	var legs int32
+	serve := func(t *testing.T, h func(w http.ResponseWriter, r *http.Request)) (*httptest.Server, *int32) {
+		srv, own, _ := ownRequestServer(t, fmt.Sprintf("hdr_user_leg-%d", atomic.AddInt32(&legs, 1)), h)
+		return srv, own
 	}
 	status := func(code int, body string) func(w http.ResponseWriter, r *http.Request) {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -1196,20 +1194,19 @@ func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T
 			"the connection dropped after the request": {hangup, exitcode.Unavailable, true},
 		} {
 			for _, asJSON := range []bool{false, true} {
-				srv, n, token := serve(t, tc.h)
+				f, out := testFactory(t)
+				srv, own := serve(t, tc.h) // after testFactory: it sets this leg's HADRON_TOKEN over the default
 				args := append([]string{"question"}, verb...)
 				if asJSON {
 					args = append(args, "--json")
 				}
-				f, out := testFactory(t)
-				t.Setenv("HADRON_TOKEN", token) // after testFactory, which sets the default
 				var errOut strings.Builder
 				f.IOStreams.ErrOut = &errOut
 				root := NewRootCmd(f)
 				root.SetArgs(append(args, "--server", srv.URL))
 				err := root.Execute()
-				if err == nil || atomic.LoadInt32(n) != 1 {
-					t.Errorf("%s %s json=%v: err=%v requests=%d, want an error after exactly one request", verb[0], name, asJSON, err, atomic.LoadInt32(n))
+				if err == nil || atomic.LoadInt32(own) != 1 {
+					t.Errorf("%s %s json=%v: err=%v requests=%d, want an error after exactly one request", verb[0], name, asJSON, err, atomic.LoadInt32(own))
 					continue
 				}
 				if code := renderError(f, err); code != tc.exit {
