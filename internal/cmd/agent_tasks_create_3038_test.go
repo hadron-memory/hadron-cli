@@ -5,14 +5,23 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/spf13/pflag"
+
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// hadron-cli#3038: the five polish items on `agent tasks create` (follow-ups to cli#2990 / PR #3033). Each
-// pin states the behaviour the item asks for; every server refusal the command already prints is unchanged
-// (the cli#2990 pins keep covering those).
+// hadron-cli#3038: the five polish items on `agent tasks create` (follow-ups to cli#2990 / PR #3033). Items 1-4
+// are pinned here; item 5 (the test comment that named a person) is the reworded comment in
+// agent_tasks_create_2990_test.go. Every server refusal the command already prints is unchanged (the
+// cli#2990 pins keep covering those).
 
 const roleTaskZeroEdges3038 = `{"data":{"createTaskNode":{"id":"n1","memoryId":"` + roleTaskMemory2990 + `","loc":"` + roleTaskLoc2990 + `","urn":"` + roleTaskURN2990 + `","name":"Restart the poller","nodeType":"task","isRunnable":true,"role":null,"updatedAt":"2026-11-22T00:00:00Z","outgoingEdges":[]}}}`
+
+func jsonEqual3038(a, b any) bool {
+	x, _ := json.Marshal(a)
+	y, _ := json.Marshal(b)
+	return string(x) == string(y)
+}
 
 func roleTaskWithLabel3038(label string) string {
 	enc, _ := json.Marshal(label)
@@ -52,11 +61,20 @@ func TestAgentTasksCreateZeroEdgeSuccessSaysSoOnStderr3038(t *testing.T) {
 			t.Errorf("json=%v: no CLI-side check or retry, want GetAgent + one write, got %v", jsonMode, run.ops)
 		}
 		if jsonMode {
-			var got struct {
-				Edges []json.RawMessage `json:"edges"`
+			// The WHOLE object, not a decoded subset: nothing extra may ride along on stdout.
+			var got map[string]any
+			if err := json.Unmarshal([]byte(run.out), &got); err != nil {
+				t.Fatalf("--json stdout is not one JSON object: %v: %q", err, run.out)
 			}
-			if err := json.Unmarshal([]byte(run.out), &got); err != nil || got.Edges == nil || len(got.Edges) != 0 {
-				t.Errorf("--json stdout stays the DTO with edges [] (err %v): %q", err, run.out)
+			want := map[string]any{"id": "n1", "loc": roleTaskLoc2990, "urn": roleTaskURN2990, "name": "Restart the poller", "edges": []any{}}
+			if len(got) != len(want) {
+				t.Errorf("--json stdout must keep exactly the DTO keys, got %v", got)
+			}
+			for k, v := range want {
+				gv, ok := got[k]
+				if !ok || !jsonEqual3038(gv, v) {
+					t.Errorf("--json %s = %v, want %v", k, gv, v)
+				}
 			}
 		} else if !strings.Contains(run.out, "✓ created role task") {
 			t.Errorf("the success line still prints: %q", run.out)
@@ -82,7 +100,7 @@ func TestAgentTasksCreateNullResultIsTheLostAnswerClass3038(t *testing.T) {
 	for _, want := range []string{
 		"the server answered createTaskNode with no node and no error",
 		"so the outcome is unknown",
-		"it may have been recorded",
+		"the task may have been recorded",
 		"`hadron agent tasks list " + roleTaskAgentRef2990 + "` before retrying",
 	} {
 		if run.err == nil || !strings.Contains(run.err.Error(), want) {
@@ -100,6 +118,11 @@ func TestAgentTasksCreateNullResultIsTheLostAnswerClass3038(t *testing.T) {
 	}
 	if strings.Contains(run.out, "created") {
 		t.Errorf("no success line for an unknown outcome: %q", run.out)
+	}
+	// Also in --json mode: the same refusal, and nothing on stdout.
+	js := runRoleTask2990(t, resp, roleTaskArgs2990(t, "--json")...)
+	if got := exitCodeFor(js.err); got != exitcode.Error || strings.TrimSpace(js.out) != "" {
+		t.Errorf("--json: want exit 1 and an empty stdout, got exit %d stdout %q (%v)", got, js.out, js.err)
 	}
 }
 
@@ -153,5 +176,91 @@ func TestAgentTasksCreateTemplateRefusesOtherFlags3038(t *testing.T) {
 	run := runRoleTask2990(t, map[string]string{}, "--template", "--name", "x", "--trigger", "y")
 	if run.err == nil || !strings.Contains(run.err.Error(), "--name") || !strings.Contains(run.err.Error(), "--trigger") {
 		t.Errorf("every other flag given is named: %v", run.err)
+	}
+}
+
+// The label is neutralised by output.SafeCell, now its only protection (no %q): control characters never
+// reach the terminal raw, and the line stays one line.
+func TestAgentTasksCreateNeutralisesTheLabel3038(t *testing.T) {
+	resp := roleTaskResponses2990()
+	resp["CreateRoleTask"] = roleTaskWithLabel3038("a\x1b[31mred\nsplit\rcr")
+	run := runRoleTask2990(t, resp, roleTaskArgs2990(t)...)
+	if run.err != nil {
+		t.Fatal(run.err)
+	}
+	for _, raw := range []string{"\x1b", "\r"} {
+		if strings.Contains(run.out, raw) {
+			t.Errorf("a control character %q reached the output raw: %q", raw, run.out)
+		}
+	}
+	var indexed []string
+	for _, line := range strings.Split(run.out, "\n") {
+		if strings.Contains(line, "indexed:") {
+			indexed = append(indexed, line)
+		}
+	}
+	if len(indexed) != 1 || !strings.Contains(indexed[0], "-> tasks (") {
+		t.Errorf("the index line stays one line, got %q in %q", indexed, run.out)
+	}
+}
+
+// --template refuses --json too (a shape the template text does not have), a positional argument alone and
+// with flags, and exits 2 with no request for several flags at once. --app (a global) still applies.
+func TestAgentTasksCreateTemplateRefusesJSONAndArguments3038(t *testing.T) {
+	for _, tc := range []struct {
+		name, want string
+		args       []string
+	}{
+		{"json", "--json", []string{"--template", "--json"}},
+		{"positional agent", "takes no agent or slug", []string{"--template", roleTaskAgentRef2990}},
+		{"positional and slug", "takes no agent or slug", []string{"--template", roleTaskAgentRef2990, "restart-the-poller"}},
+		{"positional with a flag", "takes no agent or slug", []string{"--template", roleTaskAgentRef2990, "--name", "x"}},
+		{"several flags", "--name", []string{"--template", "--name", "x", "--trigger", "y", "--json"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			run := runRoleTask2990(t, map[string]string{}, tc.args...)
+			if got := exitCodeFor(run.err); got != exitcode.Usage {
+				t.Fatalf("exits %d, want usage 2: %v", got, run.err)
+			}
+			if run.err == nil || !strings.Contains(run.err.Error(), tc.want) {
+				t.Errorf("the refusal must contain %q: %v", tc.want, run.err)
+			}
+			if len(run.ops) != 0 || run.out != "" {
+				t.Errorf("refused before any request and with no output, got ops %v out %q", run.ops, run.out)
+			}
+		})
+	}
+	// Every flag of the command except --template is refused with it: derived, so a flag added later is
+	// covered without touching this test.
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	create, _, err := root.Find([]string{"agent", "tasks", "create"})
+	if err != nil || create == nil {
+		t.Fatalf("cannot find the command: %v", err)
+	}
+	seen := 0
+	create.LocalNonPersistentFlags().VisitAll(func(fl *pflag.Flag) {
+		if fl.Name == "template" || fl.Name == "help" {
+			return
+		}
+		seen++
+		args := []string{"--template", "--" + fl.Name}
+		if fl.Value.Type() != "bool" {
+			args = append(args, "x")
+		}
+		run := runRoleTask2990(t, map[string]string{}, args...)
+		if got := exitCodeFor(run.err); got != exitcode.Usage || len(run.ops) != 0 || run.err == nil || !strings.Contains(run.err.Error(), "--"+fl.Name) {
+			t.Errorf("--template --%s: want a usage refusal naming it before any request, got exit %d ops %v err %v", fl.Name, got, run.ops, run.err)
+		}
+	})
+	if seen < 6 {
+		t.Errorf("expected at least the six create flags, saw %d", seen)
+	}
+	// The globals still apply: --app does not make --template refuse.
+	content := "# Add a task to a role\n\n## Template\n\n```markdown\n# <Task name>\n```\n"
+	resp := map[string]string{"GetNode": `{"data":{"node":{"id":"t1","loc":"tasks:add-role-task","urn":"hrn:node:hadronmemory.com:agent-team-system:tasks:add-role-task","name":"Add a task to a role","content":` + jsonText(content) + `}}}`}
+	ok := runRoleTask2990(t, resp, "--template", "--app", "acme.com:eng")
+	if ok.err != nil || !strings.Contains(ok.out, "# <Task name>") {
+		t.Errorf("--template --app still prints the template: err %v out %q", ok.err, ok.out)
 	}
 }

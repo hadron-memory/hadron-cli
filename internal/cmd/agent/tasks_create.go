@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -65,8 +66,8 @@ team follows belongs in that team's process, not a shared role memory.
 
 --template prints the body template (the fenced block of the add-role-task node,
 read as an ordinary node) and creates nothing, so it takes no agent, slug or
-other flag (given any, it refuses with exit 2 before reading anything); start
-the body file from it.
+other flag, --json included (given any, it refuses with exit 2 before reading
+anything; only the global --app and --server apply); start the body file from it.
 
 By default NO skill export is written. --export-skill <name> with
 --skill-description <text> (both together) asks the server for an enabled
@@ -88,18 +89,25 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 			ctx := cmd.Context()
 			// --template prints the template and creates nothing, so every other flag is an
 			// instruction it would silently drop: refuse them by name before any request (cli#3038).
+			// The list is DERIVED from this command's own flags, so a flag added later is refused too;
+			// --json (persistent, but it asks for a shape the template text does not have) is refused
+			// explicitly; --app and --server stay: the template read honours them.
 			if template {
 				if len(args) > 0 {
 					return exitcode.Newf(exitcode.Usage, "--template prints the template and takes no agent or slug")
 				}
 				var given []string
-				for _, name := range []string{"name", "abstract", "body-file", "trigger", "export-skill", "skill-description"} {
-					if cmd.Flags().Changed(name) {
-						given = append(given, "--"+name)
+				// VisitAll + Changed: the derived flag set has no record of what was parsed, the flags do.
+				cmd.LocalNonPersistentFlags().VisitAll(func(fl *pflag.Flag) {
+					if fl.Changed && fl.Name != "template" {
+						given = append(given, "--"+fl.Name)
 					}
+				})
+				if cmd.Flags().Changed("json") {
+					given = append(given, "--json")
 				}
 				if len(given) > 0 {
-					return exitcode.Newf(exitcode.Usage, "--template prints the template and creates nothing, so it takes no other flag (got %s); drop them, or drop --template to create the task", strings.Join(given, ", "))
+					return exitcode.Newf(exitcode.Usage, "--template prints the template and creates nothing, so it takes no other flag (got %s); drop them, or drop --template to create the task (--app and --server still apply)", strings.Join(given, ", "))
 				}
 			}
 			client, err := f.GraphQLClient()
@@ -170,9 +178,10 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.CreateTaskNode == nil {
-				// The lost-answer class every other write command uses (team.nullMutationResult, which this package
-				// cannot import): exit 1, the outcome unknown, and the command that shows it before any retry.
-				return exitcode.Newf(exitcode.Error, "the server answered createTaskNode with no node and no error, so the outcome is unknown: it may have been recorded; run `hadron agent tasks list %s` before retrying", ref)
+				// The lost-answer wording team.nullMutationResult uses (this package cannot import it): exit 1, the
+				// outcome unknown, and the command that shows it before any retry. Exit 1 is that helper's class;
+				// `agent clone` answers its own null differently (exit 7), so this is not "every write command".
+				return exitcode.Newf(exitcode.Error, "the server answered createTaskNode with no node and no error, so the outcome is unknown: the task may have been recorded; run `hadron agent tasks list %s` before retrying", ref)
 			}
 			n := resp.CreateTaskNode
 			dto := roleTaskCreatedDTO{ID: n.Id, Loc: n.Loc, URN: n.Urn, Name: n.Name, Edges: []roleTaskEdgeDTO{}}
