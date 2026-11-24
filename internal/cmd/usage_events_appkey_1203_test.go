@@ -37,9 +37,11 @@ func TestUsageEventsAppKeyAbsentRequestIsUnchanged(t *testing.T) {
 // or every `usage events` fails on a server that predates the argument. Both
 // documents are pinned WHOLE (golden): any drift in either (a selection field,
 // an argument rename, a regeneration reformat) fails here, not on an old server.
+// cli#3081 renamed the arguments on purpose (memoryId->memoryRef, nodeId->nodeRef:
+// hadron-server#4822, S6 of #4142, a hard rename); the variables keep their names.
 const usageEventsPageGolden1203 = `
 query UsageEventsPage ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
-	usageEventsPage(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+	usageEventsPage(memoryRef: $memoryId, loc: $loc, nodeRef: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
 		total
 		hasMore
 		items {
@@ -61,7 +63,7 @@ query UsageEventsPage ($memoryId: ID, $loc: String, $nodeId: ID, $eventType: Str
 
 const usageEventsPageByAppKeyGolden1203 = `
 query UsageEventsPageByAppKey ($appKey: ID!, $memoryId: ID, $loc: String, $nodeId: ID, $eventType: String, $limit: Int!, $offset: Int, $since: DateTime, $until: DateTime) {
-	usageEventsPage(appKey: $appKey, memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+	usageEventsPage(appKey: $appKey, memoryRef: $memoryId, loc: $loc, nodeRef: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
 		total
 		hasMore
 		items {
@@ -83,7 +85,7 @@ query UsageEventsPageByAppKey ($appKey: ID!, $memoryId: ID, $loc: String, $nodeI
 
 func TestUsageEventsDocumentsArePinnedWhole(t *testing.T) {
 	if gen.UsageEventsPage_Operation != usageEventsPageGolden1203 {
-		t.Errorf("UsageEventsPage must keep its exact pre-#2944 document:\n got %s\nwant %s",
+		t.Errorf("UsageEventsPage must keep its exact document (no appKey, #2944; S6 argument names, #3081):\n got %s\nwant %s",
 			gen.UsageEventsPage_Operation, usageEventsPageGolden1203)
 	}
 	if strings.Contains(gen.UsageEventsPage_Operation, "appKey") {
