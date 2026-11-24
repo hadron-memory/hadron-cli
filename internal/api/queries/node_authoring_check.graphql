@@ -1,0 +1,22 @@
+# cli#3089 — the authoring attestation check as a preview (cor:dmo:060:17). One
+# read, nothing written. The input is bound to gqltypes.NodeAuthoringCheckInput
+# because `role` is three-state.
+query NodeAuthoringCheck($input: NodeAuthoringCheckInput!) {
+  nodeAuthoringCheck(input: $input) {
+    state
+    code
+    message
+    role
+    recovery {
+      taskAccess
+      task
+      taskId
+      taskRevision
+      load {
+        cli
+        graphql
+        mcp
+      }
+    }
+  }
+}

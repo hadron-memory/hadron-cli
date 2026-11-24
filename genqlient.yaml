@@ -52,3 +52,7 @@ bindings:
     type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.CreateAgentTasksItemInput
   AiServiceConfigTestOverride:
     type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.AiServiceConfigTestOverride
+  # nodeAuthoringCheck's role is three-state (omit keeps, string sets, null
+  # clears) — see gqltypes.NodeAuthoringCheckInput (cli#3089).
+  NodeAuthoringCheckInput:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeAuthoringCheckInput

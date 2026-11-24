@@ -204,6 +204,7 @@ Read
   get         show one or more notes, with content and edges
   list        list the notes of a memory
   next        step to the next note under a parent
+  authoring-check  preview whether a governed write would pass the authoring check
   open        open a note in the web portal
   export      save a note to a file
 History
@@ -230,6 +231,7 @@ Maintainers
 	cmd.AddCommand(newCmdGet(f))
 	cmd.AddCommand(newCmdOpen(f))
 	cmd.AddCommand(newCmdNext(f))
+	cmd.AddCommand(newCmdAuthoringCheck(f))
 	cmd.AddCommand(newCmdAdd(f))
 	cmd.AddCommand(newCmdUpdate(f))
 	cmd.AddCommand(newCmdSetProperties(f))
