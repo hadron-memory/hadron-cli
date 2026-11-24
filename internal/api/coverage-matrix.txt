@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 244: 213 command, 6 gap, 25 excluded
+[Query] 245: 213 command, 7 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -130,6 +130,7 @@ exchangeConnections  command email connections
 exchangeConnectionsPage  command email connections
 exchangeFolders  command email folders
 exchangeMessages  command email messages
+externalTasksReport  gap #3039
 findNodes  command search
 findObjects  command object find
 globalSearch  command find
@@ -273,7 +274,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 369: 340 command, 12 gap, 17 excluded
+[Mutation] 370: 340 command, 13 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -498,6 +499,7 @@ replyToComment  command comment reply
 reportContextResetAgentStopped  excluded host-protocol: agent-stop reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no stop is reported
 reportContextResetRelaunchFailed  excluded host-protocol: relaunch-failure reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no relaunch failure is reported
 reportContextResetRelaunched  excluded host-protocol: relaunch reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no relaunch is reported
+reportExternalTasks  gap #3039
 reportHostOperation  command team host run
 requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
