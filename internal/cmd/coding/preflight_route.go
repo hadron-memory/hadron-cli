@@ -72,13 +72,13 @@ own description is used, which is usually what you want.
 --cross-memory marks the route as an INTENTIONAL cross-memory route: it stores
 {"crossMemory": true} in the route edge's data (never in its name), on the route
 edge and, under the mirrored model, the back-edge. With --no-back-edge or the
-leaf model there is no back-edge, so only the route edge takes the marker. ` + "`preflight lint`" + ` then skips
-only ` + "`route-target-moved-memory`" + ` for it, so the warning keeps meaning "this
-target moved" for every unmarked route; an unreadable, retired or badly labelled
-target is still reported. ` + "`preflight list`" + ` shows the marker. A target in the
-router's own memory is refused (there is nothing to mark). Marking an existing
-route needs a re-run with the flag, which adds the marker and keeps the edge's
-other data.
+leaf model there is no back-edge, so only the route edge takes the marker.
+` + "`preflight lint`" + ` then skips only ` + "`route-target-moved-memory`" + ` for a marked
+route, so the warning keeps meaning "this target moved" for every unmarked
+route; an unreadable, retired or badly labelled target is still reported.
+` + "`preflight list`" + ` shows the marker. A target in the router's own memory is
+refused (there is nothing to mark). Marking an existing route needs a re-run
+with the flag, which adds the marker and keeps the edge's other data.
 
 Re-running is safe: an edge that already exists (same label, same target) is
 reported as already routed and is not created again, and a body that already
