@@ -56238,7 +56238,20 @@ func (v *GetRegisterEntryResponse) GetRegisterEntry() *GetRegisterEntryRegisterE
 // One org-owned BYO Resend sender. The API key is encrypted and write-only.
 type GetResendSenderResendSender struct {
 	ResendSenderFields `json:"-"`
+	// #4865 — report only. Whether the domain of the from address is verified at Resend, read
+	// live through the hadrontool-resend capability tool each time this field is selected: never
+	// cached, so it is current as of this read, and it costs one tool call per sender. Core never
+	// calls Resend itself (hrn:node:hadronmemory.com:specs:cor:int:030:01).
+	// true: Resend reports the domain verified.
+	// false: Resend reports it not verified, including when Resend has no record of the domain.
+	// null: the state could not be read. The caller is not a member of the sender's organization
+	// (an App key may list senders, but reads null here); the tool is not configured; or the
+	// lookup failed or ran past its bound of 12 seconds. A null says nothing about the domain.
+	DomainVerified *bool `json:"domainVerified"`
 }
+
+// GetDomainVerified returns GetResendSenderResendSender.DomainVerified, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetDomainVerified() *bool { return v.DomainVerified }
 
 // GetId returns GetResendSenderResendSender.Id, and is useful for accessing the field via an interface.
 func (v *GetResendSenderResendSender) GetId() string { return v.ResendSenderFields.Id }
@@ -56295,6 +56308,8 @@ func (v *GetResendSenderResendSender) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalGetResendSenderResendSender struct {
+	DomainVerified *bool `json:"domainVerified"`
+
 	Id string `json:"id"`
 
 	OrganizationId string `json:"organizationId"`
@@ -56325,6 +56340,7 @@ func (v *GetResendSenderResendSender) MarshalJSON() ([]byte, error) {
 func (v *GetResendSenderResendSender) __premarshalJSON() (*__premarshalGetResendSenderResendSender, error) {
 	var retval __premarshalGetResendSenderResendSender
 
+	retval.DomainVerified = v.DomainVerified
 	retval.Id = v.ResendSenderFields.Id
 	retval.OrganizationId = v.ResendSenderFields.OrganizationId
 	retval.From = v.ResendSenderFields.From
@@ -169175,6 +169191,7 @@ const GetResendSender_Operation = `
 query GetResendSender ($ref: ID!) {
 	resendSender(ref: $ref) {
 		... ResendSenderFields
+		domainVerified
 	}
 }
 fragment ResendSenderFields on ResendSender {
@@ -169190,6 +169207,8 @@ fragment ResendSenderFields on ResendSender {
 }
 `
 
+// domainVerified is selected HERE and nowhere else: the server reads it live from Resend, one tool call per
+// sender, every time it is selected (hadron-server#4865), so list/create/update must not ask for it (cli#2588).
 func GetResendSender(
 	ctx_ context.Context,
 	client_ graphql.Client,

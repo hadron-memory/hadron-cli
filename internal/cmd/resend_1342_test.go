@@ -62,7 +62,13 @@ func TestResend1342Commands(t *testing.T) {
 				if dto["id"] != "sender1" || dto["organizationId"] != "org1" || dto["hasApiKey"] != true {
 					t.Fatalf("DTO: %v", dto)
 				}
-				if len(dto) != 9 {
+				// cli#2588: get alone carries the tenth key, domainVerified (null when the server could not
+				// read it, or this fake's answer omits it); create and update print the nine they always did.
+				want := 9
+				if tc.name == "get" {
+					want = 10
+				}
+				if len(dto) != want {
 					t.Fatalf("unexpected DTO keys: %v", dto)
 				}
 			}
