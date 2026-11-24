@@ -10,9 +10,17 @@
 # checkout and fails when the generated client would change for an operation the CLI
 # uses; the schema-drift workflow runs it nightly against server main, and its snapshot-reproduces job exports exactly server_sha with the tool versions below and compares the bytes.
 #
+# PRE-MERGE PIN (hadron-cli#3098, the CLI companion of hadron-server#4368): server_sha below is the
+# hadron-server#5046 HEAD 7b9aea39, not a main commit. schema.graphql is a plain export of that head, whose merge
+# base with main is 181ee447 (the previous pin), so the snapshot differs from main's export by #5046's one change:
+# SetAgentAssetUploadEnabledInput.agentUrn -> agentRef, a hard rename with no alias (ruling 0274). #5046 is not on
+# main, so the nightly snapshot-reproduces job cannot fetch server_sha until it merges. Exit: after #5046 merges,
+# re-export at the server main SHA carrying it, set server_sha to it and delete this block, before the ready call.
+# This PR must not merge before #5046 merges and deploys (lockstep; the coordinator orders the two merges).
+#
 # tsx= and graphql= are the exporter's tool versions, the single place they live: the
 # schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),
 # because a floating graphql minor can change printSchema bytes. Bump deliberately.
-server_sha=181ee447421fd09695668fcf318a0f162eee71c1
+server_sha=7b9aea392a4da832e11312ced059981cee0f9735
 tsx=4.23.15
 graphql=16.15.0

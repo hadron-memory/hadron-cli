@@ -18,6 +18,8 @@ func TestAppAssetUploadSendsAgentRef_3098(t *testing.T) {
 		{"enable", "hrn:agent:acme.com:bot", `["asset:upload"]`, true},
 		{"disable", "hrn:agent:acme.com:bot", `[]`, false},
 		{"enable", "agent-id-1", `["asset:upload"]`, true},
+		// Passed through exactly as typed: no case folding or other rewriting of the reference.
+		{"enable", "hrn:agent:Acme.com:Support-Bot", `["asset:upload"]`, true},
 	} {
 		t.Run(tc.verb+" "+tc.ref, func(t *testing.T) {
 			resp := `{"data":{"setAgentAssetUploadEnabled":{"id":"a1","urn":"hrn:app:acme.com:team","agentTools":` + tc.tools + `}}}`

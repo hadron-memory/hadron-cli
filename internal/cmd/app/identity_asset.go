@@ -119,7 +119,7 @@ same: run the command again to be sure.`, Example: "  hadron app asset-upload " 
 			if err != nil {
 				return err
 			}
-			r, err := gen.SetAgentAssetUploadEnabled(cmd.Context(), client, &gen.SetAgentAssetUploadEnabledInput{AgentUrn: ref, Enabled: enabled})
+			r, err := gen.SetAgentAssetUploadEnabled(cmd.Context(), client, &gen.SetAgentAssetUploadEnabledInput{AgentRef: ref, Enabled: enabled})
 			if err != nil {
 				// Shared classification preserves the typed wire code; no scoped override.
 				return api.MapErrorKeepingCode(err)
