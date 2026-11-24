@@ -76,10 +76,14 @@ Settings for automation (optional; an ordinary link needs none of them):
 			if err != nil {
 				return err
 			}
-			// A memory ID on -m is read once for both endpoints (cli#3000); after this
-			// the memory is a URN and the two ResolveNodeRef calls below read nothing.
-			if memory, err = cmdutil.ResolveMemoryRefForNodes(cmd, client, memory); err != nil {
-				return err
+			// A memory ID on -m is read once for both endpoints (cli#3000), and only when an
+			// endpoint is a bare loc: two URN endpoints name their own nodes, so -m (and a
+			// fault reading it) must not affect them. After this the memory is a URN and the
+			// two ResolveNodeRef calls below read nothing.
+			if cmdutil.ComposesWithMemory(from) || cmdutil.ComposesWithMemory(to) {
+				if memory, err = cmdutil.ResolveMemoryRefForNodes(cmd, client, memory); err != nil {
+					return err
+				}
 			}
 			sourceID, err := cmdutil.ResolveNodeRef(cmd, client, memory, from)
 			if err != nil {

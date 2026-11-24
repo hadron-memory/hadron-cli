@@ -158,6 +158,14 @@ func ResolveNodeRef(cmd *cobra.Command, client graphql.Client, memory, ref strin
 	return ResolveNodeURN(cmd, client, ref)
 }
 
+// ComposesWithMemory reports whether ResolveNodeRef would compose ref with the -m memory: a bare
+// loc does; a node ID, a qualified ref and an action URN name their own node, so -m is not used for
+// them. A command that resolves several refs against one -m uses it to read a memory ID only when
+// some ref needs it (cli#3000).
+func ComposesWithMemory(ref string) bool {
+	return !IsActionRef(ref) && !IsNodeID(ref) && !IsQualifiedNodeRef(ref)
+}
+
 // ResolveMemoryRefForNodes turns a memory ID given to -m into the memory's URN, so a bare node loc
 // can be composed against it (cli#3000; Xabat's ruling: resolve-ID). It rides the memory read every
 // other -m command uses, so an ID resolves to exactly what the caller can already read by URN and

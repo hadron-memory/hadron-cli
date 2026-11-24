@@ -238,3 +238,19 @@ func TestIsQualifiedNodeRef(t *testing.T) {
 		}
 	}
 }
+
+// ComposesWithMemory mirrors ResolveNodeRef's branch order: only a bare loc composes with -m.
+func TestComposesWithMemory(t *testing.T) {
+	for ref, want := range map[string]bool{
+		"sheds:rolling-checkpoint":                   true,
+		"start-here":                                 true,
+		"01a1d9c2453a782189ceeafb18c37d61":           false, // a node id
+		"hrn:node:acme.com:kb:findings:x":            false, // a qualified URN
+		"acme.com::kb::findings:x":                   false, // a legacy qualified ref
+		"hrn:action:acme.com:agent:task.finish.open": false, // an action URN
+	} {
+		if got := ComposesWithMemory(ref); got != want {
+			t.Errorf("ComposesWithMemory(%q) = %v, want %v", ref, got, want)
+		}
+	}
+}

@@ -320,3 +320,54 @@ func TestNodeGetBatchUnresolvableMemoryID3000(t *testing.T) {
 		}
 	}
 }
+
+// Two URN endpoints name their own nodes, so -m is not used for them: a memory ID on -m must not
+// cost a memory read, and a fault reading it must not fail an add that does not need it (an
+// add with URN endpoints and an ignored -m passed before cli#3000 and still does).
+func TestEdgeAddURNEndpointsNeverReadTheMemoryID3000(t *testing.T) {
+	url, calls := serve3000(t, "HTTP 502", map[string]string{"ResolveUrn": resolveNode3000})
+	_ = run3000(t, url, "edge", "add", "-m", memID3000,
+		"--from", "hrn:node:acme.com:kb:a:one", "--to", "hrn:node:acme.com:kb:b:two", "--name", "routes-to")
+	c := calls()
+	if got := find3000(c, "GetMemory"); len(got) != 0 {
+		t.Fatalf("URN endpoints must not read the -m memory: %v", ops3000(c))
+	}
+	if got := find3000(c, "ResolveUrn"); len(got) != 2 {
+		t.Fatalf("both endpoints should resolve by their URN: %v", ops3000(c))
+	}
+}
+
+// One bare endpoint is enough to need the memory (either one), and it is still read exactly once.
+func TestEdgeAddOneBareEndpointReadsTheMemoryOnce3000(t *testing.T) {
+	for _, tc := range []struct{ name, from, to string }{
+		{"bare source", "a:one", "hrn:node:acme.com:kb:b:two"},
+		{"bare target", "hrn:node:acme.com:kb:a:one", "b:two"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolveNode3000})
+			_ = run3000(t, url, "edge", "add", "-m", memID3000, "--from", tc.from, "--to", tc.to, "--name", "routes-to")
+			c := calls()
+			if got := find3000(c, "GetMemory"); len(got) != 1 {
+				t.Fatalf("want one memory read, got %v", ops3000(c))
+			}
+		})
+	}
+}
+
+// node move and clone compose -m with the SOURCE loc only: the destination is the explicit
+// --to-urn or --to-memory and goes to the server as typed. A memory ID given as the destination
+// memory is not read (and not resolved) by the CLI.
+func TestMoveAndCloneDestinationIsNeverComposedWithMemoryID3000(t *testing.T) {
+	const dest = "01a1d9c2453a782189ceeafb18c37d62"
+	for _, cmdName := range []string{"move", "clone"} {
+		t.Run(cmdName, func(t *testing.T) {
+			url, calls := serve3000(t, memFound3000, map[string]string{"ResolveUrn": resolveNode3000})
+			_ = run3000(t, url, "node", cmdName, "-m", memID3000, "sheds:x", "--to-memory", dest)
+			c := calls()
+			mem := find3000(c, "GetMemory")
+			if len(mem) != 1 || str3000(mem[0], "ref") != memID3000 {
+				t.Fatalf("only the -m source memory is read, got %v", ops3000(c))
+			}
+		})
+	}
+}
