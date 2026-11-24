@@ -40,7 +40,9 @@ type inboxIdentityOpts3004 struct {
 	bindingRaw string
 	noToken    bool
 	configErr  error
-	args       []string
+	// noServerFlag leaves --server unset, so the server URL is resolved from config (cli#3069).
+	noServerFlag bool
+	args         []string
 }
 
 // driveInboxIdentity3004 writes a complete binding (App id "own-app"), points a
@@ -75,7 +77,9 @@ func driveInboxIdentity3004(t *testing.T, o inboxIdentityOpts3004) inboxIdentity
 	}))
 	t.Cleanup(srv.Close)
 	f := cmdutil.NewFactory()
-	f.ServerFlag = srv.URL
+	if !o.noServerFlag {
+		f.ServerFlag = srv.URL
+	}
 	f.AppFlag = o.appFlag
 	if o.configErr != nil {
 		f.ConfigFn = func() (*config.Config, error) { return nil, o.configErr }
