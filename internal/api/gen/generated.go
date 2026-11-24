@@ -162516,9 +162516,9 @@ fragment MemUserFields on User {
 }
 `
 
-// #769/#304: granteeRef is server-resolved (id / email / handle / hrn:user URN) —
-// resolution sees the full user table, so a cross-org share by email works
-// without a client-side lookup. #4137: memoryRef (an id or URN) replaced memoryId,
+// #769/#304: granteeRef is server-resolved (id / email / handle / hrn:user URN),
+// but the share commands resolve --grantee client-side first
+// (cmdutil.ResolveUserID) and send the user id. #4137: memoryRef (an id or URN) replaced memoryId,
 // and the server declares the ref arguments ID!, so the variables are ID! too.
 func CreateMemoryShare(
 	ctx_ context.Context,
@@ -164758,15 +164758,16 @@ mutation DeleteMemoryShare ($memoryRef: ID!, $granteeRef: String) {
 `
 
 // hadron-server#785: renamed from revokeMemoryShare, and the authority widened
-// from principal-only to principal-OR-self. `granteeId` is optional now — omit
+// from principal-only to principal-OR-self. `granteeRef` is optional now — omit
 // it and the server deletes the CALLER'S own share (leave / stop-sharing-with-me).
 // The contract is OMITTED, not null, so the variable carries omitempty: a nil
-// *string must drop the key rather than serialize "granteeId": null.
+// *string must drop the key rather than serialize "granteeRef": null.
 // memoryRef takes an id or a URN and is passed through WITHOUT a client-side
 // memory(ref:) lookup — that lookup can't see a soft-deleted memory, and leaving
 // one is exactly a case this mutation supports.
 // #304: granteeRef is server-resolved (id / email / handle / hrn:user URN);
-// omitted entirely it targets the caller's own share (self-removal / leave).
+// share rm resolves --grantee client-side first and sends the user id. Omitted
+// entirely, it targets the caller's own share (self-removal / leave).
 func DeleteMemoryShare(
 	ctx_ context.Context,
 	client_ graphql.Client,
