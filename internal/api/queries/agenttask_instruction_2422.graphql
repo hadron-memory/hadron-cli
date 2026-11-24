@@ -9,6 +9,7 @@
 # directives repeat here: a type is generated once, and a document that lacks
 # them would flip its bindings from one generate run to the next.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.isProject", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.finishBy", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)

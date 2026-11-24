@@ -71,17 +71,20 @@ own description is used, which is usually what you want.
 
 --cross-memory marks the route as an INTENTIONAL cross-memory route: it stores
 {"crossMemory": true} in the route edge's data (never in its name), on the route
-edge and, under the mirrored model, the back-edge. ` + "`preflight lint`" + ` then skips
-only ` + "`route-target-moved-memory`" + ` for it, so the warning keeps meaning "this
-target moved" for every unmarked route; an unreadable, retired or badly labelled
-target is still reported. ` + "`preflight list`" + ` shows the marker. A target in the
-router's own memory is refused (there is nothing to mark). Marking an existing
-route needs a re-run with the flag, which adds the marker and keeps the edge's
-other data.
+edge and, under the mirrored model, the back-edge. With --no-back-edge or the
+leaf model there is no back-edge, so only the route edge takes the marker.
+` + "`preflight lint`" + ` then skips only ` + "`route-target-moved-memory`" + ` for a marked
+route, so the warning keeps meaning "this target moved" for every unmarked
+route; an unreadable, retired or badly labelled target is still reported.
+` + "`preflight list`" + ` shows the marker. A target in the router's own memory is
+refused (there is nothing to mark). Marking an existing route needs a re-run
+with the flag, which adds the marker and keeps the edge's other data.
 
 Re-running is safe: an edge that already exists (same label, same target) is
 reported as already routed and is not created again, and a body that already
-references the target is left alone. A different edge at the same loc is not
+references the target is left alone; a body that does not is given its routing
+line even when both edges exist, and the output says so; a --dry-run says the
+same, without writing. A different edge at the same loc is not
 that route: the server's refusal ("already occupied", exit 5) is passed through
 as it is.
 
@@ -155,7 +158,7 @@ router body that was not updated. The message says which part is missing.`,
 			}
 			if targetID == router.Node.Id {
 				return exitcode.Newf(exitcode.Usage,
-					"%q is the router itself — a route must lead somewhere else", args[0])
+					"the node given is the router itself — a route must lead somewhere else (the ref given is not shown)")
 			}
 			// Read the target for its loc, memory and description. This is the
 			// difference from `create`: the node is already authored, so its own
@@ -165,7 +168,7 @@ router body that was not updated. The message says which part is missing.`,
 				return api.MapError(err)
 			}
 			if target.Node == nil {
-				return exitcode.Newf(exitcode.NotFound, "node %q could not be read", args[0])
+				return exitcode.Newf(exitcode.NotFound, "the node could not be read (the ref given is not shown)")
 			}
 
 			if crossMemory && target.Node.MemoryId == router.Node.MemoryId {
@@ -251,9 +254,14 @@ router body that was not updated. The message says which part is missing.`,
 
 			// Already routed: every edge this run would write is on the graph and none
 			// needs the marker added, so nothing is written to it (cli#2844).
+			// The back-edge belongs to this run only when the mirrored model writes it: under
+			// --no-back-edge or the leaf model it is not this run's work, so its marker
+			// (or its absence) cannot keep the route from reading as already routed. A
+			// --dry-run is judged the same way, so a rehearsal says what the run will.
 			needsMarker := func(e *existingEdge) bool { return crossMemory && e != nil && !edgeCrossMemory(e.Data) }
-			if !dryRun && existingFwd != nil && (leaf || noBackEdge || existingBack != nil) &&
-				!needsMarker(existingFwd) && !needsMarker(existingBack) {
+			writesBack := !leaf && !noBackEdge
+			if existingFwd != nil && (!writesBack || existingBack != nil) &&
+				!needsMarker(existingFwd) && (!writesBack || !needsMarker(existingBack)) {
 				dto.AlreadyRouted = true
 			}
 

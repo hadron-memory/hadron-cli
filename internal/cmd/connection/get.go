@@ -39,7 +39,7 @@ scopes, expiresAt and createdAt (the same fields as one list row).`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.ConnectionGrant == nil {
-				return exitcode.Newf(exitcode.NotFound, "connection grant %q not found (or not yours)", args[0])
+				return exitcode.Newf(exitcode.NotFound, "connection grant not found, or not yours (the id given is not shown)")
 			}
 			dto := dtoFromFields(resp.ConnectionGrant.ConnectionGrantFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

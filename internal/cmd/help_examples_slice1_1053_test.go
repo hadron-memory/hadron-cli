@@ -348,9 +348,9 @@ func TestSlice1HelpExamplesAreWired1053(t *testing.T) {
 				for i, a := range args {
 					file := ""
 					switch {
-					case i > 0 && (args[i-1] == "--policy-file" || args[i-1] == "--payload-file" || args[i-1] == "--override-file"):
+					case i > 0 && (args[i-1] == "--policy-file" || args[i-1] == "--payload-file" || args[i-1] == "--override-file" || args[i-1] == "--body-file"):
 						file = a
-					case strings.HasPrefix(a, "--policy-file=") || strings.HasPrefix(a, "--payload-file=") || strings.HasPrefix(a, "--override-file="):
+					case strings.HasPrefix(a, "--policy-file=") || strings.HasPrefix(a, "--payload-file=") || strings.HasPrefix(a, "--override-file=") || strings.HasPrefix(a, "--body-file="):
 						file = a[strings.Index(a, "=")+1:]
 					}
 					if file != "" {

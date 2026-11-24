@@ -138,7 +138,9 @@ func TestOrgPublic1858NotFoundUnchanged(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"org", "public", "ghost.com", "--server", gql.URL})
 	err := root.Execute()
-	if exitCodeFor(err) != exitcode.NotFound || err.Error() != `organization "ghost.com" is not discoverable (or does not exist)` {
+	// cli#2902: the same one answer for a missing and a non-discoverable org, now without the ref
+	// (cor:acl:080:02's anti-enumeration posture is the uniformity, which stays).
+	if exitCodeFor(err) != exitcode.NotFound || err.Error() != `organization is not discoverable, or does not exist (the ref given is not shown)` {
 		t.Fatalf("notfound contract: %v", err)
 	}
 }

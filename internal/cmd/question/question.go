@@ -12,9 +12,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -383,7 +385,14 @@ validates the object (QUESTION_INVALID names each bad field by JSON pointer) and
 decides who may ask: any writer of the log's Memory.
 
 On success the question prints as question get shows it, prefixed "✓ asked";
---json prints the same question as one object.`,
+--json prints the same question as one object.
+
+Exit ` + strconv.Itoa(exitcode.Unavailable) + ` is an unknown outcome: the reply never arrived, came back without the
+question, or reported a server error, so the question may have been created.
+Nothing is resent, and it is not retry-safe: the server gives every ask the
+next code, so asking again can create a second question.
+
+` + wrapHelp("To recover, "+AskReadBack("<log>")+".", 80),
 		Example: `  cat > ask.json <<'EOF'
 {"title":"Pick a database","options":[{"key":"pg","label":"Postgres","whyChoose":"we run it"},{"key":"my","label":"MySQL"}],"recommendation":{"key":"pg","reason":"we run it already"}}
 EOF
@@ -438,7 +447,7 @@ EOF
 			if err != nil {
 				return err
 			}
-			readBack := "list the log with `hadron question list --log " + cmdutil.ShellQuote(logRef) + "` and look for the title you sent (the listing is paged: use --limit and --offset) before asking again"
+			readBack := AskReadBack(cmdutil.ShellQuote(logRef))
 			resp, err := gen.AskQuestion(cmd.Context(), client, logRef, &input)
 			if err != nil {
 				return questionWriteError(err, "askQuestion", "ask", readBack, resp != nil && resp.AskQuestion != nil)
@@ -485,7 +494,14 @@ it again and retry with the new revision. The server decides who may amend what:
 before any answer any writer, after one a decider only, and priority and tier
 are a decider's to change.
 
-On success the question prints as question get shows it, prefixed "✓ amended".`,
+On success the question prints as question get shows it, prefixed "✓ amended".
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the amend may have been recorded.
+Nothing is resent: read the question with question get before trying again. A
+refusal before the mutation ran keeps its ordinary exit, and a connection that
+never opened is "could not reach the server" (also exit 7) with no claim about
+the amend.`,
 		Example: `  hadron question amend hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "clarify" --title "Pick a primary database"
   cat > amend.json <<'EOF'
 {"assignee":null,"specsTouched":[{"spec":"<a spec citation>"}]}
@@ -1061,7 +1077,14 @@ func newCmdWithdraw(f *cmdutil.Factory) *cobra.Command {
 		Short: "Withdraw a question (final; its code stays used)",
 		Long: `Withdraw a question. This is final, and its code is never reused. The server
 decides who may: the asker or a decider, and only a decider once it is answered.
-Prompts on a terminal; --yes is required otherwise.`,
+Prompts on a terminal; --yes is required otherwise.
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the withdrawal may have been recorded.
+Nothing is resent: read the question with question get before trying again. A
+refusal before the mutation ran keeps its ordinary exit, and a connection that
+never opened is "could not reach the server" (also exit 7) with no claim about
+the withdrawal.`,
 		Example: `  hadron question withdraw hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "no longer needed" --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1111,7 +1134,15 @@ question is refused (QUESTION_ANSWERED). A question left in the older question
 format (before the shape change of November 2026) counts as never answered only
 while its payload holds no answer or answer history: the server refuses one that
 does. Prompts on a
-terminal; --yes is required otherwise.`,
+terminal; --yes is required otherwise.
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the purge may have happened. Nothing is
+resent: read it with question get. A question that is not found most likely
+means the purge happened (check the ref is the one you meant); one that is
+still there means it did not. A refusal before the mutation ran keeps its
+ordinary exit, and a connection that never opened is "could not reach the
+server" (also exit 7) with no claim about the purge.`,
 		Example: `  hadron question purge hrn:node:acme.com:eng:questions:QC --reason "test data" --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1247,6 +1278,64 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 		return false
 	}
 	return q.Answers[len(q.Answers)-1].Kind == string(gen.QuestionAnswerKindRetraction) && q.Revision > expectedRevision
+}
+
+// wrapHelp breaks text on spaces so no line is longer than width (a word longer than
+// width stays whole). It lets a sentence shared with an error, which is one line, sit in
+// help text that is kept to 80 columns.
+func wrapHelp(text string, width int) string {
+	var lines []string
+	line := ""
+	for _, w := range helpWords(text) {
+		if line != "" && utf8.RuneCountInString(line)+1+utf8.RuneCountInString(w) > width {
+			lines = append(lines, line)
+			line = w
+			continue
+		}
+		if line != "" {
+			line += " "
+		}
+		line += w
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// helpWords splits on spaces but keeps a `backticked span` whole, so a command in the text is
+// never broken across lines (it must stay copyable from --help).
+func helpWords(text string) []string {
+	var words []string
+	cur := ""
+	inCode := false
+	for _, r := range text {
+		switch {
+		case r == '`':
+			inCode = !inCode
+			cur += string(r)
+		case r == ' ' && !inCode:
+			if cur != "" {
+				words = append(words, cur)
+				cur = ""
+			}
+		default:
+			cur += string(r)
+		}
+	}
+	if cur != "" {
+		words = append(words, cur)
+	}
+	return words
+}
+
+// AskReadBack (exported so the cmd tests can assert against the same sentence the help and
+// the error carry) is the one recovery sentence for an unknown `question ask` outcome. The ask
+// help and the exit-7 error are both built from it, so they cannot word the advice
+// differently. logRef is the log as it should appear in the command: the caller's ref,
+// shell-quoted, in the error; the placeholder <log> in the help.
+func AskReadBack(logRef string) string {
+	return "list the log with `hadron question list --log " + logRef + " --json` and look for the title you sent, matching askedBy and askedAt when titles repeat (the listing is paged: use --limit and --offset) before asking again"
 }
 
 // questionWriteError maps a failed question write (ask, amend, answer, retract, withdraw,

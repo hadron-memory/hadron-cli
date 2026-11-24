@@ -1231,9 +1231,7 @@ func TestQuestionWriteTransportShapesAreRefusalOrUnknownAccordingly(t *testing.T
 			}
 		}
 		// A connection that never opened: nothing was sent, and nothing is claimed about the write.
-		dead := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-		url := dead.URL
-		dead.Close()
+		url := neverOpenedServerURL
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(append([]string{"question"}, verb...), "--server", url))

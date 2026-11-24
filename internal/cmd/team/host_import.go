@@ -508,7 +508,7 @@ per entry, what an apply would do:
   unchanged  the server already holds exactly this assignment
   differs    the server holds another one; an import never replaces it
   unchecked  the server cannot report its assignments yet (it predates
-             hadron-server#4241), so what it holds is unknown; the dry run
+             2026-11-15), so what it holds is unknown; the dry run
              still works and says so
   conflict   two entries name the same worker (a name and its id or URN) and
              ask for different things; neither is written
@@ -518,7 +518,7 @@ per entry, what an apply would do:
 An entry's workdir is its single listed worktree, its family the configured
 one; the model is not in the file, so none is sent. The launch line is reported
 as program and argument count only, never its arguments; its launcher profile
-(hadron-server#4230, not served yet) reads "unmapped": a line is never guessed.
+reads "unmapped": a line is never guessed.
 "missing" lists the roster workers the file has no entry for. Read the copy of
 the file, not the one a live host reads. The cutover and rollback steps are in
 the runbook node
@@ -553,7 +553,7 @@ host without the runbook: the orca1 import is the host manager's step.`,
 			if !hostSetupHostIDRe.MatchString(hostID) {
 				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; got %q", hostID)
 			}
-			cfg, err := hostpoller.LoadConfig(from)
+			cfg, err := hostpoller.LoadConfigForImport(from)
 			if err != nil {
 				return exitcode.Newf(exitcode.Usage, "%v", err)
 			}

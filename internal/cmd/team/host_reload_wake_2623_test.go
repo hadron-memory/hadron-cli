@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"path/filepath"
 	"slices"
@@ -111,7 +112,7 @@ func TestAWorkerAddedToARunningPollersConfigGetsItsWake2623(t *testing.T) {
 		if err := os.MkdirAll(filepath.Join(tree, ".git"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if err := os.WriteFile(filepath.Join(tree, ".git", "hadron-team-session.json"), []byte(fmt.Sprintf(`{"workerId":"wkr-%s"}`, w)), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(tree, ".git", "hadron-team-session.json"), []byte(hostyaml.Supervised(fmt.Sprintf(`{"workerId":"wkr-%s"}`, w))), 0o600); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -138,7 +139,7 @@ workers:
     launch: [claude-worker]
     worktrees: [iris]
 `, keyFile, root, root)
-	if err := os.WriteFile(conf, []byte(base), 0o600); err != nil {
+	if err := os.WriteFile(conf, []byte(hostyaml.Supervised(base)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := hostpoller.LoadConfig(conf)
@@ -174,7 +175,7 @@ workers:
 
 	// The operator adds her to the file while the poller runs.
 	added := base + "  Billie:\n    family: claude\n    launch: [claude-worker]\n    worktrees: [billie]\n"
-	if err := os.WriteFile(conf, []byte(added), 0o600); err != nil {
+	if err := os.WriteFile(conf, []byte(hostyaml.Supervised(added)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	step() // the poller sees the new content for the first time

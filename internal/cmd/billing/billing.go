@@ -268,7 +268,7 @@ one you cannot see, so the CLI cannot tell them apart. Check the id against
 				return api.MapError(err)
 			}
 			if resp.AiModelPrice == nil {
-				return exitcode.Newf(exitcode.NotFound, "rate row %s not found or not visible", output.SafeCell(args[0]))
+				return exitcode.Newf(exitcode.NotFound, "rate row not found or not visible (the id given is not shown)")
 			}
 			dto := priceFrom(&resp.AiModelPrice.AiModelPriceFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -313,7 +313,7 @@ see what made up the number, run "hadron billing ledger".`,
 				return api.MapError(err)
 			}
 			if resp.CreditBalance == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no balance for %s", args[0])
+				return exitcode.Newf(exitcode.Error, "the server returned no balance for the organization (the org given is not shown)")
 			}
 			dto := balanceDTO{
 				OrganizationID:    resp.CreditBalance.OrganizationId,

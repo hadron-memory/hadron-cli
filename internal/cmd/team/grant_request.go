@@ -32,14 +32,6 @@ A requested grant is pending and allows nothing until a person signs it on the
 ceremony page. This command never signs and never activates a grant. It prints
 no grant state label, only the facts and allows.
 
-lastRefusedAt is the latest time the server observed a verified signing attempt
-that was refused as ineligible, shown as a timestamp only. A dash (null in
---json) means none was observed, not that none happened: the server records
-these best effort. It names no one and changes nothing about the request.
-It shows on request-signature, signing-request get and signing-request withdraw,
-which need a server with hadron-server#4581 (an older server refuses them);
-'hadron team grant request' does not read it.
-
 These commands exist only where signing is switched on. On a server without it
 the command says "does not offer" and exits 2.
 
@@ -49,6 +41,16 @@ no longer in a state that allows it (GRANT_NOT_PENDING, GRANT_EXPIRED,
 GRANT_TERMS_UNREPRESENTABLE, SIGNING_REQUEST_ENDED); 8 not permitted
 (GRANT_REQUESTER_NOT_WORKER, GRANT_HOLDER_NOT_ALLOWED,
 SIGNING_REQUEST_NOT_REQUESTER, FORBIDDEN). --json errors carry serverCode.`
+
+// grantSigningRefusedHelp is the lastRefusedAt note, shown only on the pages
+// that read a signing request.
+const grantSigningRefusedHelp = `lastRefusedAt is the latest time the server observed a verified signing attempt
+that was refused as ineligible, shown as a timestamp only. A dash (null in
+--json) means none was observed, not that none happened: the server records
+these best effort. It names no one and changes nothing about the request.
+It shows on request-signature, signing-request get and signing-request withdraw,
+which need a server from 2026-11-20 or later (an older server refuses them);
+'hadron team grant request' does not read it.`
 
 const unboundNote = "no worker binding in this worktree; sent without a worker session"
 
@@ -251,7 +253,7 @@ person.
 func signingRequestVerb(f *cmdutil.Factory, use, short, what, example string, call func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error)) *cobra.Command {
 	return &cobra.Command{
 		Use: use, Short: short, Args: cobra.ExactArgs(1), Example: example,
-		Long: short + "\n\n" + what + "\n\n" + grantRequestHelp,
+		Long: what + "\n\n" + grantSigningRefusedHelp + "\n\n" + grantRequestHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := requiredID("the id", args[0])
 			if err != nil {
@@ -279,7 +281,7 @@ func signingRequestVerb(f *cmdutil.Factory, use, short, what, example string, ca
 
 func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 	return signingRequestVerb(f, "request-signature <grant-id>", "Ask for a pending grant to be signed",
-		"Prints the signing request and its ceremonyUrl, the page where a person signs\nthe grant. <grant-id> is the id that 'hadron team grant request' printed. Hand\nthe URL to that person as printed; it is never composed, shortened or rewritten\nhere. Text mode refuses a URL carrying control or format characters (exit 1);\n--json always carries it; the decoded JSON string is the URL exactly.",
+		"Ask the server for a signing request on a pending grant. It prints the\nrequest and its ceremonyUrl, the page where a person signs the grant.\n<grant-id> is the id that 'hadron team grant request' printed. Hand\nthe URL to that person as printed; it is never composed, shortened or rewritten\nhere. Text mode refuses a URL carrying control or format characters (exit 1);\n--json always carries it; the decoded JSON string is the URL exactly.",
 		"  hadron team grant request-signature <grant-id>",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamRequestGrantSignature(ctx, c, id)
@@ -294,7 +296,7 @@ func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
-	group := &cobra.Command{Use: "signing-request <command>", Short: "Read or withdraw a grant signing request", Long: "Read or withdraw a signing request this worker made.\n\n" + grantRequestHelp}
+	group := &cobra.Command{Use: "signing-request <command>", Short: "Read or withdraw a grant signing request", Long: "Read or withdraw a signing request this worker made.\n\n" + grantSigningRefusedHelp + "\n\n" + grantRequestHelp}
 	get := signingRequestVerb(f, "get <request-id>", "Read a grant signing request",
 		"Shows whether the URL you handed over was signed. <request-id> is the id printed\nby 'hadron team grant request-signature'. state is the server's own word,\nprinted as sent:\n  OPEN       not signed yet: the person can still sign; ask them, or wait\n  COMPLETED  signed and recorded: read the grant with 'hadron team grant get\n             <grant-id>' (the id 'hadron team grant request' printed)\n  DECLINED   the signer turned it down: change the request or ask someone else\n  EXPIRED    its lifetime passed (24 hours by default): run\n             'hadron team grant request-signature <grant-id>' again\n  STALE      the grant was revoked, its holder went, or its terms changed:\n             request again\n  WITHDRAWN  the requester withdrew it: run request-signature again if still\n             wanted",
 		"  hadron team grant signing-request get <request-id> --json",

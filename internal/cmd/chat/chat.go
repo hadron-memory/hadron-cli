@@ -178,11 +178,11 @@ func splitNodeURN(ref string) (memory, loc string, err error) {
 	// single-colon form is ambiguous once the loc itself has colons, so require
 	// the scheme prefix for those.
 	if !urnlib.HasSchemePrefix(raw) && strings.Count(raw, "::") < 2 {
-		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc>", ref)
+		return "", "", exitcode.Newf(exitcode.Usage, "the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc>")
 	}
 	parts, splitErr := urnlib.SplitNodeUrn(raw)
 	if splitErr != nil {
-		return "", "", exitcode.Newf(exitcode.Usage, "%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc>", ref)
+		return "", "", exitcode.Newf(exitcode.Usage, "the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc>")
 	}
 	// SplitNodeUrn hands back the memory as a bare <root>:<slug>; canonicalize it
 	// to the grammar-v2 flat URN (hrn:mem:<root>:<slug>) the server now emits and

@@ -44,7 +44,7 @@ the delegated access.`,
 			// honor a false defensively instead of reporting a revoke that didn't
 			// happen.
 			if !resp.RevokeConnectionGrant {
-				return exitcode.Newf(exitcode.NotFound, "connection grant %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "connection grant not found (the id given is not shown)")
 			}
 			dto := map[string]string{"id": args[0], "status": "revoked"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

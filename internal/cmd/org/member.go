@@ -59,7 +59,7 @@ member set-role and member rm take.`,
 				return api.MapError(err)
 			}
 			if resp.Organization == nil {
-				return exitcode.Newf(exitcode.NotFound, "organization %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "organization not found (the ref given is not shown)")
 			}
 			members := make([]memberDTO, 0, len(resp.Organization.Members))
 			for _, m := range resp.Organization.Members {

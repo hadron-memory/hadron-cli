@@ -145,7 +145,7 @@ leaves the org or stops being an ADMIN or OWNER.`,
 			// — surface it as a non-zero exit so automation doesn't read it as
 			// success, rather than printing a cheerful line and exiting 0.
 			if !resp.AcceptInvitation {
-				return exitcode.Newf(exitcode.Error, "invitation %s was not accepted (it may be expired, already used, or revoked)", args[0])
+				return exitcode.Newf(exitcode.Error, "the invitation was not accepted: it may be expired, already used, or revoked (the slug given is not shown)")
 			}
 			dto := map[string]any{"slug": args[0], "accepted": true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -179,7 +179,7 @@ the acceptance token; treat it as a secret. An unknown or revoked slug exits 4.`
 				return api.MapError(err)
 			}
 			if resp.Invitation == nil {
-				return exitcode.Newf(exitcode.NotFound, "invitation %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "invitation not found (the slug given is not shown)")
 			}
 			inv := resp.Invitation
 			dto := publicInvitationDTO{

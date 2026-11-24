@@ -63,6 +63,7 @@ import (
 	speccmd "github.com/hadron-memory/hadron-cli/internal/cmd/spec"
 	taskcmd "github.com/hadron-memory/hadron-cli/internal/cmd/task"
 	teamcmd "github.com/hadron-memory/hadron-cli/internal/cmd/team"
+	telegramcmd "github.com/hadron-memory/hadron-cli/internal/cmd/telegram"
 	tickercmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticker"
 	ticketcmd "github.com/hadron-memory/hadron-cli/internal/cmd/ticket"
 	usagecmd "github.com/hadron-memory/hadron-cli/internal/cmd/usage"
@@ -167,9 +168,7 @@ never ran that command, this does not apply to you.`,
 	root.PersistentFlags().StringArrayVar(&unlock.Files, "unlock-passphrase-file", nil, "file holding the --unlock passphrase, one per --unlock in the same order; refused unless only you can read it (chmod 600)")
 	root.PersistentFlags().BoolVar(&unlock.Stdin, "unlock-passphrase-stdin", false, "read the passphrase for a single --unlock memory from stdin")
 
-	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
-		return exitcode.New(exitcode.Usage, err)
-	})
+	root.SetFlagErrorFunc(flagErrorWithoutValue)
 
 	root.AddCommand(admincmd.NewCmdAdmin(f))
 	root.AddCommand(authcmd.NewCmdAuth(f))
@@ -199,6 +198,7 @@ never ran that command, this does not apply to you.`,
 	root.AddCommand(agentcmd.NewCmdAgent(f))
 	root.AddCommand(orcacmd.NewCmdOrca(f))
 	root.AddCommand(teamcmd.NewCmdTeam(f))
+	root.AddCommand(telegramcmd.NewCmdTelegram(f))
 	root.AddCommand(tickercmd.NewCmdTicker(f))
 	root.AddCommand(usercmd.NewCmdUser(f))
 	root.AddCommand(usercmd.NewCmdProfile(f))
@@ -429,6 +429,7 @@ func humanErrorText(err error) string {
 }
 
 func renderError(f *cmdutil.Factory, err error) int {
+	err = withoutEchoedCommand(err)
 	code := exitCodeFor(err)
 	err = withStoredCredentialHint(f, code, err)
 

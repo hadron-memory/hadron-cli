@@ -23,10 +23,11 @@ var ErrBindingLockBusy = errors.New("the worktree's session binding is being wri
 
 // LockBinding takes the worktree's session-binding lock, waiting at most wait
 // for a writer to finish. The caller holds it from its final binding read
-// through its action: Unix releases after each signal syscall, before grace
-// waits; Windows holds through synchronous taskkill and its cancellation/drain.
-// A binding writer waits until this authority is released. The kernel
-// drops the lock when the descriptor closes, including on process death.
+// through its action: the stop path releases after each signal syscall,
+// before grace waits (it is Linux-only; a host without /proc and pidfd errors
+// out and never signals). A binding writer waits until this authority is
+// released. The kernel drops the lock when the descriptor closes, including
+// on process death.
 //
 // A path that is not a worktree or a plain directory at all has no binding
 // location and nothing to lock: the release is a no-op and the error nil.

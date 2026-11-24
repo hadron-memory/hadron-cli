@@ -75,7 +75,7 @@ publicAgentsTotal/publicAgentsHasMore.`,
 				return api.MapError(err)
 			}
 			if resp.PublicOrganization == nil {
-				return exitcode.Newf(exitcode.NotFound, "organization %q is not discoverable (or does not exist)", args[0])
+				return exitcode.Newf(exitcode.NotFound, "organization is not discoverable, or does not exist (the ref given is not shown)")
 			}
 			if resp.PublicOrganization.PublicMemoriesPage == nil || resp.PublicOrganization.PublicAgentsPage == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned an incomplete public organization page")

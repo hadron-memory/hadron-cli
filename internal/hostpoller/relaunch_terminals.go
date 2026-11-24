@@ -79,7 +79,10 @@ func (p *Poller) afterRelaunchCleanup(ctx context.Context, d *RelaunchDependenci
 		report("CLEANUP_BINDING_UNPROVEN")
 		return
 	}
-	snap, err := d.Source.RelaunchSnapshot(ctx, target.HostID)
+	// The cleanup's fresh read is about the worker it cleaned up after
+	// (cli#2816): a read that fails or names no row proves nothing, and the
+	// receipt says so.
+	snap, err := d.Source.RelaunchWorker(ctx, target.HostID, target.WorkerID)
 	current := false
 	if err == nil && snap.SweepMode == "APPLY" {
 		for _, row := range snap.Workers {

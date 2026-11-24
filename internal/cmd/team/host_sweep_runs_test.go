@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -55,7 +56,7 @@ func TestSweepRecordUsesOnlyHostKeyAndCodeLines2056(t *testing.T) {
 	}
 	cfg := filepath.Join(dir, "host.yaml")
 	raw := fmt.Sprintf("server: %s\napp: test-app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n    worktrees: [iris]\n", srv.URL, key, dir)
-	if err := os.WriteFile(cfg, []byte(raw), 0600); err != nil {
+	if err := os.WriteFile(cfg, []byte(hostyaml.Supervised(raw)), 0600); err != nil {
 		t.Fatal(err)
 	}
 	io, _, _ := output.Test()
@@ -121,7 +122,7 @@ func TestSweepRecordCompatibilityAndRefusals2056(t *testing.T) {
 			key := filepath.Join(dir, "key")
 			_ = os.WriteFile(key, []byte("host-key"), 0600)
 			cfg := filepath.Join(dir, "host.yaml")
-			_ = os.WriteFile(cfg, []byte(fmt.Sprintf("server: %s\napp: app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n", srv.URL, key, dir)), 0600)
+			_ = os.WriteFile(cfg, []byte(hostyaml.Supervised(fmt.Sprintf("server: %s\napp: app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n", srv.URL, key, dir))), 0600)
 			io, _, _ := output.Test()
 			f := &cmdutil.Factory{IOStreams: io, ServerFlag: srv.URL}
 			got := recordSweepRun(context.Background(), f, cfg, "app", "orca1", "run1", time.Now(), false, hostup.Result{SweepMode: "OBSERVE"})
@@ -261,7 +262,7 @@ func TestSweepIdentityProvesHostWithScopedRead2137(t *testing.T) {
 				// trims both sides (cli#2153), so this is not a mismatch.
 				cfgServer += "/"
 			}
-			if err := os.WriteFile(cfg, []byte(fmt.Sprintf("server: %s\napp: app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n", cfgServer, key, dir)), 0600); err != nil {
+			if err := os.WriteFile(cfg, []byte(hostyaml.Supervised(fmt.Sprintf("server: %s\napp: app\nkey_file: %s\nworktrees_root: %s\nworkers:\n  Iris:\n    family: claude\n    launch: [echo]\n", cfgServer, key, dir))), 0600); err != nil {
 				t.Fatal(err)
 			}
 			streams, _, _ := output.Test()

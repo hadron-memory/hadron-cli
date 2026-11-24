@@ -189,7 +189,8 @@ func TestRetiredStubsRejectUnknownFlagsAsUsage(t *testing.T) {
 			if got := exitOf(err); got != exitcode.Usage {
 				t.Fatalf("exit = %d (%v), want %d", got, err, exitcode.Usage)
 			}
-			if !strings.Contains(err.Error(), "unknown flag: --bogus") || strings.Contains(err.Error(), "retired") {
+			// cli#3029: the unknown-flag refusal no longer echoes the typed flag (#2898 policy).
+			if !strings.Contains(err.Error(), "unknown flag") || strings.Contains(err.Error(), "bogus") || strings.Contains(err.Error(), "retired") {
 				t.Fatalf("message = %q, want cobra's unknown-flag error", err.Error())
 			}
 		})
@@ -218,7 +219,7 @@ func TestRetiredStubsHelp(t *testing.T) {
 				t.Fatal(err)
 			}
 			help := out.String()
-			if !strings.Contains(help, "retired (hadron-server#2027)") {
+			if !strings.Contains(help, "is retired") && !strings.Contains(help, "are retired") {
 				t.Errorf("help does not say retired:\n%s", help)
 			}
 			for _, fl := range tc.flags {
@@ -262,8 +263,8 @@ func TestRetiredStubsListedAsRetired(t *testing.T) {
 				}
 			}
 			for _, sub := range tc.subs {
-				if !strings.HasPrefix(rows[sub], "Retired (hadron-server#2027)") {
-					t.Errorf("%s is listed as %q, want it to start with Retired (hadron-server#2027):\n%s", sub, rows[sub], out.String())
+				if !strings.HasPrefix(rows[sub], "Retired") {
+					t.Errorf("%s is listed as %q, want it to start with Retired:\n%s", sub, rows[sub], out.String())
 				}
 			}
 		})

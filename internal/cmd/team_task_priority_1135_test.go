@@ -341,7 +341,7 @@ func TestTaskPriorityHelpReferenceScope1135(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(out.String(), "active App") || !strings.Contains(out.String(), "--app does not") || !strings.Contains(out.String(), "hrn:agenttask:example.com:team:AT1.2") {
+			if strings.Contains(out.String(), "active App") || !strings.Contains(out.String(), "--app names the App") || !strings.Contains(out.String(), "hrn:agenttask:example.com:team:AT1.2") {
 				t.Fatalf("misleading task ref scope: %s", out.String())
 			}
 		})

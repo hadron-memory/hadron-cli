@@ -45,7 +45,7 @@ func CanonicalNodeURN(ref string) (string, error) {
 	if urnlib.HasSchemePrefix(urn) {
 		if err := urnlib.AssertFullyQualifiedUrn(urn, "node"); err != nil {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:tasks:nightly-digest)", ref)
+				"the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:tasks:nightly-digest)")
 		}
 		return urn, nil
 	}
@@ -54,7 +54,7 @@ func CanonicalNodeURN(ref string) (string, error) {
 	// rejected as ambiguous rather than passed on (cf. ResolveNodeURN).
 	if strings.Count(urn, "::") < 2 || urnlib.AssertFullyQualifiedUrn(urn, "node") != nil {
 		return "", exitcode.Newf(exitcode.Usage,
-			"%q is not a fully-qualified node URN — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:tasks:nightly-digest)", ref)
+			"the node reference is not a fully-qualified node URN (the value given is not shown) — expected hrn:node:<root>:<slug>:<loc> (e.g. hrn:node:hadronmemory.com:dev:tasks:nightly-digest)")
 	}
 	return "hrn:node:" + urn, nil
 }
@@ -69,10 +69,11 @@ func KeyValsToJSON(pairs []string, flag string) (*json.RawMessage, error) {
 		return nil, nil
 	}
 	obj := map[string]any{}
-	for _, p := range pairs {
+	for i, p := range pairs {
 		k, v, ok := strings.Cut(p, "=")
 		if !ok || k == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "--%s must be key=value, got %q", flag, p)
+			// named by position, never by text (cli#2902)
+			return nil, exitcode.Newf(exitcode.Usage, "--%s entry %d must be key=value (the entry given is not shown)", flag, i+1)
 		}
 		var jv any
 		if json.Unmarshal([]byte(v), &jv) == nil {

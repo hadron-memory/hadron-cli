@@ -41,7 +41,7 @@ func ParseStrictDateTime(v string) (time.Time, bool) {
 func ParseTimeFlag(name, value string) (*string, error) {
 	v := strings.TrimSpace(value)
 	if _, ok := ParseStrictDateTime(v); !ok {
-		return nil, exitcode.Newf(exitcode.Usage, "--%s takes an ISO date-time with Z or an explicit offset, e.g. 2026-10-22T00:00:00Z, got %q", name, value)
+		return nil, exitcode.Newf(exitcode.Usage, "--%s takes an ISO date-time with Z or an explicit offset, e.g. 2026-10-22T00:00:00Z (the value given is not shown)", name)
 	}
 	return &v, nil
 }

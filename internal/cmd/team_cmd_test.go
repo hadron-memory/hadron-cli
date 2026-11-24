@@ -2598,9 +2598,7 @@ func TestTeamSessionWhoamiCheckExitCodes1835(t *testing.T) {
 	// real transport classifier: exactly 7, never 0 or 14.
 	t.Run("an unreachable server exits exactly 7", func(t *testing.T) {
 		root, _ := bindWhoami(t, map[string]string{}, "team", "session", "whoami", "--check")
-		dead := httptest.NewServer(http.NotFoundHandler())
-		url := dead.URL
-		dead.Close()
+		url := neverOpenedServerURL
 		root.SetArgs([]string{"team", "session", "whoami", "--check", "--server", url})
 		if code := exitCodeFor(root.Execute()); code != exitcode.Unavailable {
 			t.Errorf("an unanswered check must exit %d, got %d", exitcode.Unavailable, code)
@@ -3909,9 +3907,12 @@ func TestTeamSessionLogLegacyBindingDegrades(t *testing.T) {
 func TestTeamSessionLogSucceedsWhenLocalWriteFails(t *testing.T) {
 	dir := teamGitDir(t)
 	// readBinding follows the symlink; WriteFileAtomic refuses to write
-	// through one — a deterministic read-ok/write-fails binding.
+	// through one — a deterministic read-ok/write-fails binding. Tooled
+	// (cli#2940): a toolless modern binding is refused before the record, so
+	// an empty-tool row was a shape only this permissive fake ever accepted.
 	target := filepath.Join(dir, "real-binding.json")
-	if err := os.WriteFile(target, []byte(bindingFixture), 0o600); err != nil {
+	tooled := strings.Replace(bindingFixture, `"prNumbers":[]}`, `"tool":"claude-code","prNumbers":[]}`, 1)
+	if err := os.WriteFile(target, []byte(tooled), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.Symlink(target, filepath.Join(dir, "hadron-team-session.json")); err != nil {

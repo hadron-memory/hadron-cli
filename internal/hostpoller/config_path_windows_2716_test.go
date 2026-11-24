@@ -28,7 +28,12 @@ repos:
 workers:
   iris:
     family: claude
-    launch: [claude-worker]
+    launcher_profile: {family: claude, mode: long, account: a}
+    disk_tmp: %ROOT%/disk
+account_profiles:
+  a: {bin: claude-worker}
+orca_launch:
+  orca_bin: %ROOT%/orca
 `
 
 func TestLoadConfigNativeWindowsPaths2716(t *testing.T) {

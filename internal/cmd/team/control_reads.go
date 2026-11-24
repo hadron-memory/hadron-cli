@@ -34,13 +34,18 @@ func newCmdWorkerHeld(f *cmdutil.Factory) *cobra.Command {
 	var user string
 	var retired bool
 	var limit, offset int
-	c := &cobra.Command{Use: "held --user <ref>", Short: "Read workers currently held by a user across readable Apps", Long: `Read one page, oldest casting first, without changing any hold or session.
+	c := &cobra.Command{Use: "held --user <ref>", Short: "Read workers currently held by a user across readable Apps", Long: `List the workers a person holds, across every App you can read. A person
+holds a worker's name once they bind it (team session start) until they release
+it (team worker release); a held name is theirs to bind and nobody else's.
+Reads one page, oldest casting first (a casting is one worker, the named cast of
+an agent), and changes no hold or session.
 --user accepts a user id, handle, URN or email. A missing user, no holds and
 holds confined to unreadable Apps return the same empty page: no reason is
 inferred. Retired castings are hidden unless --include-retired. Pagination
 and the total apply after the server's App-read filter. --app does not narrow
 this cross-App query. --json returns {items:[],total:N}, retaining nullable
-server values, including hasLiveSession (not availability).`, Example: "  hadron team worker held --user alice --limit 20 --json", Args: cobra.NoArgs}
+server values; hasLiveSession says whether the worker has a live session and is
+not its availability. Text mode prints one row per held worker.`, Example: "  hadron team worker held --user alice --limit 20 --json", Args: cobra.NoArgs}
 	c.Flags().StringVar(&user, "user", "", "user id, handle, URN or email (required)")
 	c.Flags().BoolVar(&retired, "include-retired", false, "include retired castings")
 	c.Flags().IntVar(&limit, "limit", 20, "page size, 0 counts only")

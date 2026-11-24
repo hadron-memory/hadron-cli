@@ -1,5 +1,10 @@
 # `worker.reset-context`: the host handler
 
+> **SUPERSEDED (CLI half) — the host handler this doc describes was removed by
+> [#3017](https://github.com/hadron-memory/hadron-cli/issues/3017): this CLI
+> declares no `worker.reset-context` capability and answers a collected reset
+> op FAILED. The server-side protocol (cor:agt:050:27) stands.**
+
 Issue [#1043](https://github.com/hadron-memory/hadron-cli/issues/1043), the
 CLI half of hadron-server#2162 (an Agent's `resetContextAfterTask`: when a
 worker's task finishes, the platform sheds its context and keeps its

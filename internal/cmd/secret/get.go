@@ -43,7 +43,7 @@ secrets) and protected.`,
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.Secret == nil {
-				return exitcode.Newf(exitcode.NotFound, "secret %q not found (or not visible to you)", args[0])
+				return exitcode.Newf(exitcode.NotFound, "secret not found, or not visible to you (the id or URN given is not shown)")
 			}
 			dto := dtoFromFields(resp.Secret.SecretFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

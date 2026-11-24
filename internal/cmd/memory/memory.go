@@ -208,8 +208,9 @@ func annotateMemoryRefHelp(cmd *cobra.Command) {
 }
 
 // resolveMemoryID maps a memory URN to its ID via memory(ref:), which
-// dispatches PKs and URNs server-side (hadron-server#473). The mutations
-// this feeds (updateMemory, member/share writes) still accept PK ids only.
+// dispatches PKs and URNs server-side (hadron-server#473). The member/share
+// writes now take memoryRef (an id or URN, #4137), but these commands keep the
+// lookup: it fails fast on an unknown memory before the write is sent.
 func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (string, error) {
 	if err := validateMemoryRef(ref); err != nil {
 		return "", err
@@ -223,7 +224,7 @@ func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (str
 		return "", api.MapError(err)
 	}
 	if resp.Memory == nil {
-		return "", notFoundMemory(ref)
+		return "", notFoundMemory()
 	}
 	return resp.Memory.Id, nil
 }
@@ -247,14 +248,14 @@ func validateMemoryRef(ref string) error {
 			return nil
 		}
 	}
-	return exitcode.Newf(exitcode.Usage, "invalid memory reference %q — %s", ref, memoryRefGuidance)
+	return exitcode.Newf(exitcode.Usage, "invalid memory reference (the value given is not shown) — %s", memoryRefGuidance)
 }
 
 const memoryRefGuidance = "expected a memory id or a URN: hrn:mem:<root>:<slug> (canonical), the <root>::<slug> / <root>:<slug> short forms, or the legacy hrn:memory: prefix"
 
 // notFoundMemory is the shared "no memory" error, naming the accepted forms so a
 // rejected short form isn't mistaken for a genuinely-absent memory (#108).
-func notFoundMemory(ref string) error {
+func notFoundMemory() error {
 	return exitcode.Newf(exitcode.NotFound,
-		"no memory found for %q — %s", ref, memoryRefGuidance)
+		"no memory found (the memory ref given is not shown) — %s", memoryRefGuidance)
 }

@@ -21,7 +21,7 @@ const workerGrantAccess = `Reads worker action grants through this worktree's wo
 no binding (start one with 'hadron team session start') it refuses locally:
 exit 2, "worker-bound grants require a worker session", and sends nothing.
 Bound, the server answers only for a person-driven worker session (one a person
-is driving), in its own App, not a headless run, an App key or a plain person
+is driving), in its own App, not an unattended run, an App key or a plain person
 login: any other caller gets null or an empty page, with no error. An empty
 result is therefore not proof that you have no grants. --app cannot switch the
 bound App.`
@@ -65,7 +65,7 @@ session start'). Organization action grants are managed with 'hadron grant'
 ('hadron grant list'), not here; 'hadron auth grants' reads the grants you hold
 personally across Apps.`}
 	var limit, offset int
-	list := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one page of worker grants", Long: workerGrantAccess + `
+	list := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one page of worker grants", Long: "List this worker's own grants: what it holds, and its requests still waiting\nto be signed.\n\n" + workerGrantAccess + `
 
 The list includes grants naming this worker directly as holder (any timestamps),
 plus this worker's own requests that are neither activated nor revoked. Grants
@@ -149,7 +149,7 @@ worker, a person or an App is not visible here.
 			return api.MapError(err)
 		}
 		if resp == nil || resp.Grant == nil {
-			return exitcode.Newf(exitcode.NotFound, "grant %q not found (or not visible to this worker-bound caller)", args[0])
+			return exitcode.Newf(exitcode.NotFound, "grant not found, or not visible to this worker-bound caller (the id given is not shown)")
 		}
 		dto := workerGrantFrom(resp.Grant)
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

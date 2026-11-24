@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -52,7 +53,7 @@ workers:
     launch: [claude-worker]
 ` + extraTop
 	p := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(p, []byte(cfg), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(cfg)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -92,6 +93,24 @@ func TestStatusConfigPicksOrcaBin(t *testing.T) {
 	code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: "+bin+"\n"))
 	if code != 0 || len(h.bins) != 1 || h.bins[0] != bin {
 		t.Fatalf("exit %d bins %v out %s", code, h.bins, out)
+	}
+}
+
+// cli#3045 item 10: `orca status` reads delivery.orca_bin, as the field docs say, even when
+// orca_launch.orca_bin is also set (the sweep's worker launch reads that one first). The delivery-only
+// case is TestStatusConfigPicksOrcaBin; this is the case with both keys.
+func TestStatusConfigTakesDeliveryOrcaBinWhenOrcaLaunchIsAlsoSet3045(t *testing.T) {
+	h := newHostRig(t)
+	h.reads.workers = []Worker{{ID: "w_i", Name: "Iris"}}
+	dir := t.TempDir()
+	bin := filepath.Join(dir, "orca-delivery")
+	if err := os.WriteFile(bin, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	launch := filepath.Join(dir, "orca-launch")
+	code, out := h.run(t, true, "--all", "--config", hostCfg(t, "delivery:\n  orca_bin: "+bin+"\norca_launch:\n  orca_bin: "+launch+"\n"))
+	if code != 0 || len(h.bins) != 1 || h.bins[0] != bin {
+		t.Fatalf("status must run delivery.orca_bin %q, not orca_launch's: exit %d bins %v out %s", bin, code, h.bins, out)
 	}
 }
 
@@ -147,7 +166,7 @@ func TestStatusConfigBadConfigIsUsage(t *testing.T) {
 	for name, body := range map[string]string{"bad yaml": "app: [", "unknown field": "app: x\nbogus: 1\n"} {
 		h := newHostRig(t)
 		p := filepath.Join(t.TempDir(), "host.yaml")
-		if err := os.WriteFile(p, []byte(body), 0o600); err != nil {
+		if err := os.WriteFile(p, []byte(hostyaml.Supervised(body)), 0o600); err != nil {
 			t.Fatal(err)
 		}
 		code, _ := h.run(t, true, "--all", "--config", p)
@@ -202,7 +221,7 @@ func TestStatusConfigNoKeyFileSettingIsAuthRequired(t *testing.T) {
 			lines = append(lines, l)
 		}
 	}
-	if err := os.WriteFile(p, []byte(strings.Join(lines, "\n")), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(strings.Join(lines, "\n"))), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	code, _ := h.run(t, true, "--all", "--config", p)

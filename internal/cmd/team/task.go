@@ -42,29 +42,18 @@ owns the lifecycle, the matcher and every permission check; each lifecycle
 write sends one mutation and prints the task the server returns, and each read
 prints the view its page describes.
 
-Server compatibility: task-record commands require a provider containing
-hadron-server#3245 (matching metadata), hadron-server#3088 (finishBy) and
-hadron-server#3029 (model groups), even when neither flag is named and no
-matching flag is named. The shared projection selects matchFailure,
-requirements.roles/teamWorkerId, finishBy and modelGroupIn/modelGroupNotIn
-for every command returning a task record, including hand-back and
-find-untracked. An older server rejects those documents as schema skew,
-exit 2: upgrade that provider first, including self-hosted or staging servers.
-Omitted input keys do not hide output selections. The separate dependencies
-paging query is unaffected.
-
 A typical flow, from the person or worker handing out the work to the
 assignee working in its bound worktree (the handles here and on every page are
 illustrative: use the one create, list or mine prints):
   hadron team task create "Fix login" --app acme.com:eng-team --assignee worker:Iris --source https://github.com/acme/app/issues/7
   hadron team task mine                        # as Iris: the PENDING and STARTED tasks
-  hadron team task start AT0.7
+  hadron team task start AT0.7                 # AT0.7 is a task handle, explained below
   hadron team task progress AT0.7              # while working; carries no text
   hadron team task finish AT0.7 --outcome succeeded --evidence https://github.com/acme/app/pull/9
 
 Statuses: BACKLOG (parked), PENDING (queued with no assignee, or assigned and
 not yet started), STARTED, then FINISHED or CANCELLED, which are end states.
-Who may do what, from which status (cor:agt:050:08-:09):
+Who may do what, from which status:
   start                     PENDING with an assignee, not blocked   the assignee
   progress, finish          STARTED                                 the assignee
   create --parent           (a new child task)                      the parent's assignee
@@ -86,18 +75,22 @@ parties and blockers before you retry.
 Who acts: with a worktree worker-session binding, writes are made by the bound
 WORKER (the server records the session); without one, by you, the signed-in
 person. The App: create and list use --app, else the configured App context,
-else the worktree binding; commands that take a task id or handle work out the
-App from the task. A task is named by its id or its handle (AT0.7: AT0 holds
+else the worktree binding; commands that take a task id, a qualified handle or
+an unambiguous handle work out the App from it. A task is named by its id or its handle (AT0.7: AT0 holds
 tasks outside any project, AT1, AT2, … are projects, AT1.2 is a task under AT1);
 if you belong to more than one App, a bare handle is refused: pass --app <app>,
-or qualify it as hrn:agenttask:acme.com:eng-team:AT1.2. --app qualifies bare
-handles only (in every task argument and in --parent/--blocked-by); it must be
-the App's URN or <root>:<slug>, not an App id. A task id, or a qualified
+or qualify it as hrn:agenttask:acme.com:eng-team:AT1.2. --app qualifies a bare
+handle on every command (in every task argument and in --parent/--blocked-by);
+it must be the App's URN or <root>:<slug>, not an App id. A task id, or a qualified
 handle in that same App, is sent unchanged; one naming another App is refused.
 
 A party is named worker:<id, URN or name> or user:<id or handle> — the kind
 prefix is required: a worker's name and a person's handle are both bare
 words, so a bare value is ambiguous and refused rather than guessed.
+
+A STARTED task that is stuck cannot be parked (park is for PENDING tasks with no
+assignee): reassign it to another worker, have its assignee hand it back, or
+cancel it (or finish it) and create a new task.
 
 Stalled work raises alarms: a PENDING assigned task not started in time, a
 STARTED task with no progress, an owner who did not react to a finished child,
@@ -111,7 +104,20 @@ owner records what became of each one.
   hadron team task findings <seat-task>                 # read them (immutable once finished)
   hadron team task dispose-finding <seat-task> F1 --disposition fixed --ref <kind>=<target>
   hadron team task finding-dispositions <seat-task>     # list the latest disposition of each
-Each page below says what its command takes.`,
+
+For AI workers: --instruction <kind>:<ref> is on every single-task write (a batch
+create takes none). The holder is the person responsible for the worker; the flag
+claims, for that one call, that the holder told the worker to make this change.
+A person, or a worker acting on its own authority, leaves it out. The full rules:
+` + taskInstructionHelp + `
+
+Server needs: task-record commands (every command that returns a task) require a
+server released on or after 2026-11-17; an older server fails each of them with
+exit 2 (schema skew), even when you pass no model-group flag (--model-group,
+--model-group-not). ` + "`task dependencies`" + ` runs its own query, which reads
+only each task's id, handle, title and status, so an older server answers it. Ask the
+server's operator when it was released (` + "`hadron server-info`" + ` shows only that it
+answers). Each page below says what its command takes.`,
 	}
 	cmd.AddCommand(newCmdTeamTaskCreate(f))
 	cmd.AddCommand(newCmdTeamTaskClone(f))
@@ -173,6 +179,15 @@ func taskRefArg(f *cmdutil.Factory, args []string) (string, error) {
 		return "", exitcode.Newf(exitcode.Usage, "pass the task id shown by `team task list`/`get`")
 	}
 	return qualifyTaskRef(f, strings.TrimSpace(args[0]))
+}
+
+// taskRefArgFromBinding is taskRefArg for `team task get`, which also qualifies a bare handle from the
+// worktree binding when there is no --app (qualifyTaskRefFromBinding, cli#3037).
+func taskRefArgFromBinding(ctx context.Context, f *cmdutil.Factory, args []string) (string, error) {
+	if len(args) != 1 || strings.TrimSpace(args[0]) == "" {
+		return "", exitcode.Newf(exitcode.Usage, "pass the task id shown by `team task list`/`get`")
+	}
+	return qualifyTaskRefFromBinding(ctx, f, strings.TrimSpace(args[0]))
 }
 
 // taskOutcomeRe is the one-word outcome contract (cor:agt:050:01): the
@@ -248,7 +263,8 @@ Who goes on it:
   go unchanged to the server for validation. Groups resolve live at match time:
   editing a group can change matches without a task edit. They are matching
   inputs only, never authorization. All task-record reads and mutation receipts
-  require hadron-server#3029, even with no group flag (see team task --help).
+  require a server released on or after 2026-11-17, even with no group flag
+  (see team task --help).
   Comma splitting keeps each item verbatim; the server trims and drops empty items.
 - --status backlog parks it instead: no assignee (the server refuses both),
   never matched, no alarms, until ` + "`task assign`" + ` or ` + "`task ready`" + `
@@ -293,7 +309,7 @@ minimum is set. Tier is a matching input, never an authorization rule.
 ` + "`task list --overdue`" + ` lists the task while it is still pending, whether or
 not it is assigned or blocked; that is a filter, not an alarm (this is the
 start-by arm — a passed --finish-by lists a task under the same filter; see
-below). The not-started stall alarm is separate (cor:agt:050:14): it fires
+below). The not-started stall alarm is separate: it fires
 only for an assigned, unblocked PENDING task, and its clock starts at the
 release if the task was blocked. The deadline is the start-by when that falls
 after the clock starts; otherwise, and with no --start-by, it is the App's
@@ -302,26 +318,27 @@ task released or reassigned after its start-by gets a fresh window.
 
 --finish-by <RFC 3339 time> sets a deadline to finish. While set, ordinary
 stall windows do not apply; stall.finish-by is the deadline alarm for an
-unfinished task (a backlog task raises none, a blocked task waits for release).
-Once the finish-by passes, ` + "`task list --overdue`" + ` also lists the task, pending
-or started, until it ends — the same filter, not an alarm (this arm needs a
-provider containing hadron-server#2654; an older one filters by start-by only).
-The server refuses a past value or one earlier than start-by (BAD_USER_INPUT,
-exit 2); equal times are allowed. It owns the clock and all alarm behavior.
-With no flag the key is omitted. Change or clear it with task update.
+unfinished task (a backlog task raises none, a blocked task waits for
+release). Once the finish-by passes, ` + "`task list --overdue`" + ` also lists the
+task, pending or started, until it ends — the same filter, not an alarm (this
+arm needs a server released on or after 2026-11-17; an older one filters by
+start-by only). The server refuses a past value or one earlier than start-by
+(BAD_USER_INPUT, exit 2); equal times are allowed. It owns the clock
+and all alarm behavior. With no flag the key is omitted. Change or
+clear it with task update.
 
---family, --model or --tier, and --effort set the task's run settings
-(cor:agt:050:01): what to launch, not whom to match (that is --family-in and
---min-tier). --model and --tier exclude each other. They apply only when the
-assigned worker's Agent is short-lived; a platform start of a long-lived worker
-uses the worker's own record and ignores them, so --family codex does not
-relaunch a long-lived Claude worker. They are set at creation and never edited,
+--family, --model or --tier, and --effort set the task's run settings: what to
+launch, not whom to match (that is --family-in and --min-tier). --model and
+--tier exclude each other. They apply only when the assigned worker's Agent is
+short-lived; a platform start of a long-lived worker uses the worker's own
+record and ignores them, so --family codex does not relaunch a long-lived
+Claude worker. They are set at creation and never edited,
 and a clone copies none. The CLI refuses a model with a tier and an effort of
 NOT_APPLICABLE (exit 2); anything depending on the task's requirements is the
 server's, shown as TASK_RUN_SETTINGS_INVALID (exit 2) with its reason.
 
-By default finishing or cancelling does not ask the assignee to end its
-worker session. Pass --close-session to ask (cor:agt:050:10); the platform
+Close-session: by default finishing or cancelling does not ask the assignee to end its
+worker session. Pass --close-session to ask; the platform
 may end it through the worker's live host after a grace period, 10 minutes by
 default, set per App, and declining the request does not prevent that.
 --no-close-session states the default explicitly. ` + "`task update`" + ` changes
@@ -329,15 +346,15 @@ the choice later; to set it up front, when the assignee's session should end
 with the task, pass --close-session at create, or on the assign that first
 names the assignee of a queued task.
 
---owner defaults to you (the bound worker, or you as a person when no session
+Owner: --owner defaults to you (the bound worker, or you as a person when no session
 is bound); a root task's creator may name any other participating worker or
-person (#1757, cor:agt:050:01). The owner, a worker the owner reports to and a
+person. The owner, a worker the owner reports to and a
 person who manages the App may then assign, reassign, park, cancel, prioritize
 and block it. For a child task the owner is the parent's assignee — naming a
 different owner is refused (TASK_CHILD_OWNER_MISMATCH).
 
---external-id <id> records the outside item the task CLAIMS, such as the
-issue URL (cor:agt:120:02). At most one ACTIVE task (backlog, pending or
+Outside items: --external-id <id> records the outside item the task CLAIMS, such as the
+issue URL. At most one ACTIVE task (backlog, pending or
 started) per App holds a given value, and it is set once, never edited. A
 finished or cancelled task keeps its value but no longer blocks a new claim. A
 claim on a value an active task holds is refused TASK_EXTERNAL_ID_TAKEN (exit
@@ -348,10 +365,13 @@ first). The value is sent as given; only the server judges its form.
 
 --ref <kind>=<target>[|<label>] (repeatable, kept in order) records what the
 task points at: kind is issue, pull-request, node, task or url, and the label
-starts at the first |. The CLI checks only that shape; the server owns the form
-of each target and the caps (BAD_USER_INPUT, exit 2, naming the item's position).
+starts at the first |.
+` + taskRefCapsSentence + `
+The CLI checks that shape and the label length; the server owns the form of
+each target and the other caps (BAD_USER_INPUT, exit 2, naming the item's
+position).
 
---properties <json|@file> gives it its own JSON object (the team's schedule
+Properties: --properties <json|@file> gives it its own JSON object (the team's schedule
 and review notes, for example), which the platform stores and never reads. It
 is set only when the creator may write properties (the owner, someone above
 the owner, a manager, or the assignee named here); any other creator gets the
@@ -362,17 +382,33 @@ PROPERTIES_SCHEMA_UNUSABLE). Change it later with ` + "`task update --properties
 
 The server owns eligibility, authority and matching; the CLI never selects a
 worker. Every task command reads fields that older servers lack, whichever flags
-you pass: run settings (hadron-server#4295 or later), the finish-by time
-(#2648/#3088), the matching metadata (#3245), the minimum tier (#2983) and the
-model-group records (#3029). A server that lacks any one of them refuses every
-task command, even a plain create; there is no fallback.
+you pass: the run settings, the finish-by time, the matching metadata, the
+minimum tier and the model-group records. The newest of them needs a server
+released on or after 2026-11-17, which is the floor for every task command. A
+server that lacks any one of them refuses every task command, even a plain
+create; there is no fallback.
+
+Several at once: --batch-file <path|-> creates 1 to 25 tasks in one call, all or
+none (a path, or - for piped stdin). The file is a JSON array; each item is
+{"task": {...}, "blockedByPositions": [...]}. "task" takes the same fields as the
+flags above, by their API names (title, assignee, description, tags, ...): for
+example {"title": "Fix login", "assignee": {"worker": "Iris"}}. Every field is
+listed in the published schema: an item is CreateAgentTasksItemInput and its
+"task" is CreateAgentTaskInput
+(https://github.com/hadron-memory/hadron-cli/blob/main/schema/schema.graphql;
+a server newer than that file can have fields it does not list yet).
+"blockedByPositions" lists the 1-based positions, in this same file, of tasks
+that must end first; a self-block or a cycle is refused (TASK_BLOCKER_CYCLE). The
+single-create flags do not combine with it (--distinct-assignees does), and the
+call either creates every task or none, naming the failing position. The
+batch takes no --instruction.
 
 Success prints the task's handle, id and status, "queued" when it has no
 assignee, the App and the close-session choice; --json returns the task with a
-warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor) + "\n\n--instruction does not combine with --batch-file: the batch write takes no instruction.",
+warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 		Example: `  # assign to a named worker, with a deadline to start
   hadron team task create "Fix login redirect" --app acme.com:eng-team --assignee worker:Iris \
-    --priority 2 --start-by 2026-11-02T09:00:00Z --source https://github.com/acme/app/issues/7
+    --priority 2 --start-by 2027-01-15T09:00:00Z --source https://github.com/acme/app/issues/7
 
   # queue it for any QA engineer not running as codex
   hadron team task create "Retest the export fix" --app acme.com:eng-team \
@@ -383,7 +419,12 @@ warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor) + "\n\
 
   # a project, then (as its assignee) a child under it
   hadron team task create "Q4 billing" --app acme.com:eng-team --project --assignee worker:Iris
-  hadron team task create "Draft the invoice schema" --parent AT1 --assignee worker:Uma`,
+  hadron team task create "Draft the invoice schema" --parent AT1 --assignee worker:Uma
+
+  # two tasks in one call, the second blocked by the first (positions are 1-based)
+  # tasks.json: [{"task": {"title": "Build the export"}},
+  #              {"task": {"title": "Retest the export"}, "blockedByPositions": [1]}]
+  hadron team task create --app acme.com:eng-team --batch-file tasks.json`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if cmd.Flags().Changed("batch-file") {
 				if len(args) != 0 {
@@ -700,7 +741,7 @@ warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor) + "\n\
 	runFlags.register(cmd)
 	cmd.Flags().StringVar(&externalID, "external-id", "", "the outside item this task claims, such as its issue URL; one ACTIVE task per App holds a value (finished and cancelled tasks keep it); set once, never edited")
 	cmd.Flags().StringSliceVar(&tags, "tag", nil, "tag (repeatable)")
-	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc)
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable, kept in order; kind is "+taskRefKindsDoc+taskRefCapsFlagDoc)
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high (lowest sufficient preferred; unknown ineligible)")
 	cmd.Flags().StringArrayVar(&requireRoles, "require-role", nil, "eligible role, comma-separated or repeatable; any one suffices")
 	cmd.Flags().BoolVar(&match, "match", false, "run one blocking match now; failed match prints the created task then exits 5")
@@ -728,7 +769,7 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 	cmd := &cobra.Command{
 		Use:   fmt.Sprintf("%s <taskId> --assignee <party>", verb),
 		Short: short,
-		Long:  assignLong(verb) + "\n\n" + taskInstructionHelp,
+		Long:  assignLong(verb) + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 		Example: map[bool]string{
 			false: "  hadron team task assign AT0.7 --assignee worker:Iris\n  hadron team task assign AT0.7 --assignee worker:Iris --close-session",
 			true:  "  hadron team task reassign AT0.7 --assignee worker:Uma",
@@ -752,6 +793,19 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 				return err
 			}
 			var closeWhenDone *bool
+			// Presence, not value (as `task update` does, #1137): a plain bool
+			// cannot tell `--close-session=false` from an absent flag, so the
+			// =false spelling is refused before any request instead of silently
+			// keeping the stored choice.
+			for _, c := range []struct {
+				name string
+				on   bool
+				use  string
+			}{{"close-session", closeSession, "--no-close-session"}, {"no-close-session", noCloseSession, "--close-session"}} {
+				if cmd.Flags().Changed(c.name) && !c.on {
+					return exitcode.Newf(exitcode.Usage, "--%s=false changes nothing; to say the opposite pass %s", c.name, c.use)
+				}
+			}
 			if closeSession && noCloseSession {
 				return exitcode.Newf(exitcode.Usage, "--close-session and --no-close-session contradict each other")
 			}
@@ -818,6 +872,15 @@ func newCmdTeamTaskAssign(f *cmdutil.Factory, verb string, short string, reassig
 	return cmd
 }
 
+// closeSessionVerbNote is the one sentence on assign/reassign's close-session
+// flags that differs by verb.
+func closeSessionVerbNote(verb string) string {
+	if verb == "reassign" {
+		return "A choice you give applies to the new assignee; reassigning a task to its\ncurrent assignee is refused (TASK_INVALID_TRANSITION) with the choice unchanged."
+	}
+	return "A choice you give is set on this assignment; reassigning a task to its\ncurrent assignee is refused (TASK_INVALID_TRANSITION) with the choice unchanged."
+}
+
 // assignLong is the assign/reassign page: what each verb accepts, who may
 // run it (cor:agt:050:09), then the shared close-when-done paragraph.
 func assignLong(verb string) string {
@@ -833,27 +896,27 @@ assignee is refused (TASK_INVALID_TRANSITION, exit 5): use ` + "`task assign`" +
 	}
 	return head + `
 
-Who may: ` + taskAssignerDoc + ` (cor:agt:050:09).
+Who may: ` + taskAssignerDoc + `.
 Anyone else is refused with TASK_NOT_OWNER (exit 8). An ended task is refused
 (exit 5). --assignee is required (worker:<id, URN or name> or
-user:<id or handle>). The App comes from the task.
+user:<id or handle>). The App comes from the task; --app qualifies a bare handle.
 
 The server may add a warning that does not block the assignment, for example
 when the assignee is unavailable, busy or paused (task.assign.assignee-*).
 Success prints the task, its status, the assignee and the close-session
 choice; --json returns the task with a warnings list.
 
---close-session/--no-close-session replace the task's close-when-done choice
-(cor:agt:050:10); with neither, the task keeps its current value. Give at most
-one: both together is a usage error, and ` + "`--close-session=false`" + ` is
-indistinguishable from absence here and also means "keep the current value".
-The flags ride on a real assignment, and reassigning a task to its current
-assignee is refused (TASK_INVALID_TRANSITION) with the choice unchanged. To
-change the choice without assigning, use ` + "`task update`" + `. To have the
-assignee's session end with the task from the start, pass --close-session at
-create, or on the assign that first names the assignee of a queued task. The default of not asking applies at creation; assign and
-reassign with neither flag keep the value the task already has. What the
-request does is described under ` + "`task create --help`" + `.`
+Close-session choice (should the assignee's session end when it finishes the task):
+--close-session turns it on, --no-close-session turns it off, and giving neither
+keeps the task's current value. Give at most one; both together is a usage error,
+and ` + "`--close-session=false`" + ` (or --no-close-session=false) is refused with exit 2,
+because it cannot be told from leaving the flag out: say no with
+--no-close-session. ` + closeSessionVerbNote(verb) + `
+The default of not asking applies at creation; assign and reassign with neither
+flag keep the value the task already has. To change the choice without assigning,
+use ` + "`task update`" + `. To have the assignee's session end with the task from the start,
+pass --close-session at create, or on the assign that first names the assignee of a
+queued task.`
 }
 
 // ---- start / progress / cancel -------------------------------------------
@@ -894,7 +957,7 @@ func newTaskMutation(
 ) *cobra.Command {
 	var rawInstruction string
 	if instructable {
-		long += "\n\n" + taskInstructionHelp
+		long += "\n\n" + taskInstructionHelpShort(taskInstructionFloor)
 	}
 	cmd := &cobra.Command{
 		Use:     fmt.Sprintf("%s <taskId>", verb),
@@ -934,7 +997,7 @@ func newTaskMutation(
 func newCmdTeamTaskStart(f *cmdutil.Factory) *cobra.Command {
 	return newSimpleTaskMutation(f, "start", "startAgentTask", "Start a pending task",
 		`Start a task assigned to you: PENDING becomes STARTED and the server records
-task.started. Only the assignee may start it (cor:agt:050:08) — with a
+task.started. Only the assignee may start it — with a
 worktree binding that is the bound worker. Find yours with `+"`task mine`"+`.
 
 Refusals: someone else's task exits 8. A task that is already started is
@@ -962,12 +1025,11 @@ the task with a warnings list, and a server warning also prints on stderr.`,
 
 func newCmdTeamTaskProgress(f *cmdutil.Factory) *cobra.Command {
 	return newSimpleTaskMutation(f, "progress", "recordAgentTaskProgress", "Record progress on a started task",
-		`Record that you are still working on a STARTED task: its assignee only
-(cor:agt:050:08). It carries no text. It writes task.progress to the event
-stream and resets the no-progress stall alarm's clock (cor:agt:050:15), which
-fires when a STARTED task with no open child sees no activity from its
-assignee for the App's window (`+"`team stall-schedule get`"+`; alarms in
-`+"`team events --alarms`"+`).
+		`Record that you are still working on a STARTED task: its assignee only. It
+carries no text. It writes task.progress to the event stream and resets the
+no-progress stall alarm's clock, which fires when a STARTED task with no open
+child sees no activity from its assignee for the App's window
+(`+"`team stall-schedule get`"+`; alarms in `+"`team events --alarms`"+`).
 
 To leave a written account, put it in the result: `+"`task finish --summary`"+`
 and --evidence (a PR, an issue comment or a node URN). There is no free-text
@@ -998,7 +1060,7 @@ CANCELLED is an end state: nobody can start, progress or finish it afterwards,
 and it no longer blocks the tasks waiting for it. The command does not ask for
 confirmation.
 
-Who may: `+taskAssignerDoc+` (cor:agt:050:09);
+Who may: `+taskAssignerDoc+`;
 anyone else is refused with TASK_NOT_OWNER (exit 8). The assignee finishes its
 own work with `+"`task finish`"+` instead, and a task that should wait rather
 than end is parked (`+"`task park`"+`, queued tasks only).
@@ -1036,14 +1098,14 @@ task with a warnings list ([] when none).`,
 func newCmdTeamTaskPark(f *cmdutil.Factory) *cobra.Command {
 	return newInstructableTaskMutation(f, "park", "parkAgentTask", "Park a queued task (BACKLOG)",
 		`Park the task: a pending task with no assignee becomes BACKLOG —
-unassigned, never matched, never waited on, no alarms (cor:agt:050:02).
+unassigned, never matched, never waited on, no alarms.
 A task that has an assignee, or is STARTED, is refused (exit 5); to stop
 started work for good, cancel it. Make it ready (`+"`team task ready`"+`) — or
 assign it — to move it back to PENDING. Success prints the task and BACKLOG;
 --json returns the task with a warnings list, and a server warning also
 prints on stderr.
 
-Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
+Who may: `+taskAssignerDoc+`.`,
 		"  hadron team task park AT0.7",
 		func(ctx context.Context, client graphql.Client, taskId string, claim *gen.ActInstructionInput) (taskDTO, error) {
 			if claim != nil {
@@ -1067,13 +1129,12 @@ Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
 func newCmdTeamTaskReady(f *cmdutil.Factory) *cobra.Command {
 	return newInstructableTaskMutation(f, "ready", "makeAgentTaskReady", "Make a backlog task ready to work",
 		`Make the backlog task ready: BACKLOG becomes PENDING with no assignee and the
-task enters the queue, where the platform's matcher picks a worker
-(cor:agt:050:02). To choose the worker yourself, `+"`task assign`"+` the
-BACKLOG task instead. Success prints the task, PENDING, and "queued" while
-no one has it; --json returns the task with a warnings list, and a server
-warning also prints on stderr.
+task enters the queue, where the platform's matcher picks a worker. To choose
+the worker yourself, `+"`task assign`"+` the BACKLOG task instead. Success prints
+the task, PENDING, and "queued" while no one has it; --json returns the task
+with a warnings list, and a server warning also prints on stderr.
 
-Who may: `+taskAssignerDoc+` (cor:agt:050:09).`,
+Who may: `+taskAssignerDoc+`.`,
 		"  hadron team task ready AT0.7",
 		func(ctx context.Context, client graphql.Client, taskId string, claim *gen.ActInstructionInput) (taskDTO, error) {
 			if claim != nil {
@@ -1106,7 +1167,7 @@ func newCmdTeamTaskFinish(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "finish <taskId> --outcome <word>",
 		Short: "Finish a started task with its result",
-		Long: `Finish a STARTED task with its result: its assignee only (cor:agt:050:08).
+		Long: `Finish a STARTED task with its result: its assignee only.
 FINISHED is an end state, and the tasks it blocked stop waiting for it.
 
 --outcome is one word, up to 64 letters, digits, underscores, hyphens or dots,
@@ -1133,7 +1194,7 @@ exit 2 before any mutation and never echo input text.
 
 Omitting this flag keeps the ordinary finish request and output unchanged;
 explicit [] is a present empty list. Only opt-in findings finish and the new
-findings read need a provider containing server#3248 (server#2662).
+findings read need a server released on or after 2026-11-02.
 Opt-in finish sends one mutation and shows its first page (20) with total and
 hasMore; use team task findings for continuation, never task get or a finish
 retry. JSON keeps the task/warnings shape and adds result.findings as a page.
@@ -1141,7 +1202,7 @@ After a lost/malformed answer state may have changed: inspect the immutable
 findings before deciding what to do. No automatic retry or page drain.
 Human findings neutralize controls; JSON retains original valid text.
 
---worked-from REF records the role tasks you followed (cor:agt:050:30): repeat it
+--worked-from REF records the role tasks you followed: repeat it
 for each, at most 10 (an eleventh exits 2 before any request). REF is a node id
 or URN of a live runnable node you can read, and may not repeat. The server
 keeps each as node id, URN and revision, in the order given, and never changes
@@ -1228,7 +1289,7 @@ and in --json as result.workedFromRoleTaskRefs [{nodeId, urn, revision}].`,
 	cmd.Flags().StringVar(&outcome, "outcome", "", "one-word result, e.g. succeeded or failed (required)")
 	cmd.Flags().StringVar(&summary, "summary", "", "one-line result summary")
 	cmd.Flags().StringVar(&evidence, "evidence", "", "URL or node URN backing the result")
-	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "JSON findings array file, or - for piped stdin (requires server#3248)")
+	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "JSON findings array file, or - for piped stdin (needs a server from 2026-11-02)")
 	cmd.Flags().StringArrayVar(&workedFrom, "worked-from", nil, "role task node id or URN you followed; repeat for each, at most 10 (live, runnable, readable, no repeats)")
 	return cmd
 }
@@ -1279,9 +1340,9 @@ func newCmdTeamTaskHandBack(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "hand-back <taskRef> --code <code> [--text <text>]",
 		Short: "Hand a started task back with a reason",
-		Long: `Hand a STARTED task back to the queue with a reason: its assignee only
-(cor:agt:050:29). The task returns to PENDING for the platform's matcher
-(cor:agt:050:03); nothing is finished and nothing is lost.
+		Long: `Hand a STARTED task back to the queue with a reason: its assignee only.
+The task returns to PENDING for the platform's matcher; nothing is finished
+and nothing is lost.
 
 --code is required, one of: ` + strings.Join(handBackCodes, ", ") + `
 (case-insensitive; the enum names such as MISSING_INPUT are accepted too).

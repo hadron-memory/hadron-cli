@@ -757,7 +757,7 @@ query MemoryLocSegments(
   # @genqlient(omitempty: true)
   $after: String
 ) {
-  memoryLocSegments(memoryIds: $memoryIds, parentLoc: $parentLoc, limit: $limit, after: $after) {
+  memoryLocSegments(memoryRefs: $memoryIds, parentLoc: $parentLoc, limit: $limit, after: $after) {
     items { segment hasNode memoryId }
     hasMore
     endCursor

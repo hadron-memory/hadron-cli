@@ -385,7 +385,7 @@ or UNSUPPORTED_VERSION.`,
 				return mapSigningError(err, newCeremonyTokenProbe(cmd.Context(), f))
 			}
 			if resp.Node == nil {
-				return exitcode.Newf(exitcode.NotFound, "node %s not found or not readable by you", args[0])
+				return exitcode.Newf(exitcode.NotFound, "node not found or not readable by you (the ref given is not shown)")
 			}
 			n := resp.Node
 			dto := signatureStatusDTO{NodeID: n.Id, URN: n.Urn, Loc: n.Loc, Revision: n.Revision, Signatures: []signatureDTO{}}
@@ -486,7 +486,7 @@ request can still be signed (--json carries ceremonyUrl for every state).`,
 				return mapSigningError(err, newCeremonyTokenProbe(cmd.Context(), f))
 			}
 			if resp.SigningRequest == nil {
-				return exitcode.Newf(exitcode.NotFound, "signing request %s not found or not readable by you", args[0])
+				return exitcode.Newf(exitcode.NotFound, "signing request not found or not readable by you (the id given is not shown)")
 			}
 			dto := signingRequestFrom(&resp.SigningRequest.SigningRequestFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -570,7 +570,7 @@ page) beside requests.`,
 				return mapSigningError(err, newCeremonyTokenProbe(cmd.Context(), f))
 			}
 			if resp.Node == nil {
-				return exitcode.Newf(exitcode.NotFound, "node %s not found or not readable by you", args[0])
+				return exitcode.Newf(exitcode.NotFound, "node not found or not readable by you (the ref given is not shown)")
 			}
 			n := resp.Node
 			if n.SigningRequestsPage == nil {

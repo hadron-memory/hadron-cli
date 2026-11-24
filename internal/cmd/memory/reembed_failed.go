@@ -67,7 +67,7 @@ gate applies (memory owner or org ADMIN), as do its limits on encrypted memories
 			// was sent and its outcome did not reach us, so say so (Unavailable)
 			// and do not retry it for the caller.
 			if resp == nil || resp.RetryFailedEmbeddings == nil {
-				return exitcode.Newf(exitcode.Unavailable, "reembed-failed outcome unknown: the server's answer carried no re-stamped count (the request was sent once and is not retried; check with `hadron memory validate %s --check embed-failed`)", args[0])
+				return exitcode.Newf(exitcode.Unavailable, "reembed-failed outcome unknown: the server's answer carried no re-stamped count (the request was sent once and is not retried; check with `hadron memory validate <memoryRef> --check embed-failed`; the memory ref given is not shown)")
 			}
 			dto := reembedFailedDTO{
 				Memory:    cmdutil.CanonicalMemoryRef(args[0]),

@@ -25,16 +25,34 @@ type agentlessSource struct {
 	reads  int
 	nth    func(read int) RelaunchSnapshot
 	failAt int
+	// cli#2816: how many of those reads were host-wide and how many named one worker.
+	snapshotReads, workerReads int
 }
 
-func (s *agentlessSource) RelaunchSnapshot(context.Context, string) (RelaunchSnapshot, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+func (s *agentlessSource) read() (RelaunchSnapshot, error) {
 	s.reads++
 	if s.failAt != 0 && s.reads == s.failAt {
 		return RelaunchSnapshot{}, errors.New("server unreachable")
 	}
 	return s.nth(s.reads), nil
+}
+
+func (s *agentlessSource) RelaunchSnapshot(context.Context, string) (RelaunchSnapshot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.snapshotReads++
+	return s.read()
+}
+
+func (s *agentlessSource) RelaunchWorker(_ context.Context, _ string, worker string) (RelaunchSnapshot, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.workerReads++
+	snap, err := s.read()
+	if err != nil {
+		return RelaunchSnapshot{}, err
+	}
+	return narrow2816(snap, worker), nil
 }
 
 type agentlessFixture struct {
