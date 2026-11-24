@@ -27,7 +27,7 @@ used.
 
 The App is named with --app (or the App context) and goes to the server exactly
 as given; nothing resolves or looks it up first. Every refused caller (not in
-the App, an unknown or malformed App, a retired worker, an App key, a run)
+the App, an unknown or malformed App, a retired worker, an App key, an unattended run)
 gets the same answer as an empty list, so an empty result is not proof the App
 has no actions.
 
@@ -35,8 +35,10 @@ Each action has: name (its dotted code, such as schedule.create), parameters
 (the values a grant of it must supply, as name:kind; "no wildcard" means a
 wildcard value is refused), issuerRule (a key naming who may issue a grant of
 it; the platform's own spelling), source (PLATFORM today), tool (the tool that
-performs it, if any) and enforcement. enforcement is the level the action DECLARES: what the platform
-promises, not an active guarantee that a gate enforces it today.
+performs it, if any) and enforcement. enforcement is the level the action
+DECLARES: what the platform promises, not an active guarantee that a gate
+enforces it today. issuerRule is informational: it tells you who would sign or
+issue a grant of the action.
 
 To read ANOTHER App's actions while this worktree is bound, run the command
 from a directory with no worker binding, with your own sign-in and --app: the

@@ -88,12 +88,15 @@ const appGrantHelp = `
 The names are a closed list:
   TICKER_SUBSCRIBE_WORKERS  subscribe and unsubscribe other workers of the App,
                             at any cadence.
-  WORKERS_STAFF             headless casting, retiring and deleting of workers;
-                            the holder's own staffing rights still apply.
-  APP_MEMBERS               headless App-member add and remove; the holder's own
-                            member-management rights still apply.
-The last two are recorded now; the server may not yet enforce them against a
-headless action, and this CLI adds no gating of its own.
+  WORKERS_STAFF             casting, retiring and deleting workers without a
+                            person at the keyboard; the holder's own staffing
+                            rights still apply.
+  APP_MEMBERS               adding and removing App members the same way; the
+                            holder's own member-management rights still apply.
+"Without a person at the keyboard" means an action run by an automation or
+agent rather than a signed-in person. The last two grants are recorded now; the
+server may not yet enforce them for such an action, and this CLI adds no gating
+of its own.
 
 Pass the worker as an id or URN; it goes to the server as given. --app selects
 the App; otherwise the configured App or the binding supplies it. --json prints
@@ -113,7 +116,7 @@ func newCmdAppGrant(f *cmdutil.Factory, remove bool) *cobra.Command {
 	}
 	c := &cobra.Command{Use: verb + " <worker-ref> <name>", Short: short, Long: appGrantHelpIntro + lead + appGrantHelp, Example: "  hadron team grant " + verb + " hrn:worker:acme.com:eng:iris WORKERS_STAFF --app acme.com:eng", Args: cobra.ExactArgs(2)}
 	if remove {
-		c.Long += "\n\nrm prompts on a terminal; otherwise pass --yes.\nWith --instruction and a prompt, the App is selected once from --app, the\nconfigured App, or the binding AppID; that exact App is confirmed and sent.\nA legacy binding with only teamMemory needs --app or a configured App for\nthis instructed interactive path (exit 2 before any prompt or request).\nThe plain path and instructed --yes path retain their existing scope resolution."
+		c.Long += "\n\nrm prompts on a terminal; otherwise pass --yes.\nWith --instruction and a prompt, the App is selected once from --app, the\nconfigured App, or the worktree binding; that exact App is confirmed and sent.\nAn older worktree binding that records no App needs --app or a configured App\nfor this instructed interactive path (exit 2 before any prompt or request).\nThe plain path and instructed --yes path retain their existing scope resolution."
 		c.Flags().BoolVar(&yes, "yes", false, "skip the revocation confirmation")
 		// The shared body says "Needs server 2026-11-04 or later", so the flag
 		// states the same version (cli#2607 item 4), not the commit.
