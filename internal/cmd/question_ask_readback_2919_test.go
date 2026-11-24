@@ -26,9 +26,10 @@ var askReadBack2919 = question.AskReadBack("LOG")
 func TestQuestionAskReadBackSentenceContent2995(t *testing.T) {
 	got := question.AskReadBack("LOG")
 	for _, want := range []string{
-		"`hadron question list --log LOG`",
+		"`hadron question list --log LOG --json`",
 		"look for the title you sent",
-		"the asker and creation time",
+		// the text table has no asker or time column; --json does (askedBy, askedAt)
+		"matching askedBy and askedAt when titles repeat",
 		"(the listing is paged: use --limit and --offset)",
 		"before asking again",
 	} {
@@ -40,7 +41,7 @@ func TestQuestionAskReadBackSentenceContent2995(t *testing.T) {
 
 // Every unknown outcome of an ask ends with the whole reworded sentence: the log
 // listing, the title to look for, and the paging hint.
-func TestQuestionAskReadBackWordingIsPinned2919(t *testing.T) {
+func TestQuestionAskErrorEndsWithTheSharedReadBack2919(t *testing.T) {
 	askFile := filepath.Join(t.TempDir(), "ask.json")
 	if err := os.WriteFile(askFile, []byte(`{"title":"Pick a database"}`), 0o600); err != nil {
 		t.Fatal(err)

@@ -12,9 +12,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -385,7 +387,7 @@ decides who may ask: any writer of the log's Memory.
 On success the question prints as question get shows it, prefixed "✓ asked";
 --json prints the same question as one object.
 
-Exit 7 is an unknown outcome: the reply never arrived, came back without the
+Exit ` + strconv.Itoa(exitcode.Unavailable) + ` is an unknown outcome: the reply never arrived, came back without the
 question, or reported a server error, so the question may have been created.
 Nothing is resent, and it is not retry-safe: the server gives every ask the
 next code, so asking again can create a second question.
@@ -1278,24 +1280,14 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 	return q.Answers[len(q.Answers)-1].Kind == string(gen.QuestionAnswerKindRetraction) && q.Revision > expectedRevision
 }
 
-// questionWriteError maps a failed question write (ask, amend, answer, retract, withdraw,
-// purge; cli#2680, cli#2854). A coded refusal at the mutation's own level (no path, or exactly
-// [field]), an HTTP 400/401/403/404/405/413/415/429 whose body shows no data and no error
-// below the mutation, and a connection that never opened are definitive: nothing was written,
-// so the ordinary typed exit applies. When the reply carries the result beside the error
-// (dataSeen) a resolver ran, so it is never definitive. A coded error BELOW the field comes
-// from resolving the returned value and so may follow the write (cli#398, cli#2680), and a
-// reset or timeout after the request left, a 5xx, an internal error or an unusable answer may
-// follow the commit too: those are an unknown outcome, exit 7, never resent, with the
-// read-back sentence.
 // wrapHelp breaks text on spaces so no line is longer than width (a word longer than
 // width stays whole). It lets a sentence shared with an error, which is one line, sit in
 // help text that is kept to 80 columns.
 func wrapHelp(text string, width int) string {
 	var lines []string
 	line := ""
-	for _, w := range strings.Fields(text) {
-		if line != "" && len(line)+1+len(w) > width {
+	for _, w := range helpWords(text) {
+		if line != "" && utf8.RuneCountInString(line)+1+utf8.RuneCountInString(w) > width {
 			lines = append(lines, line)
 			line = w
 			continue
@@ -1311,14 +1303,51 @@ func wrapHelp(text string, width int) string {
 	return strings.Join(lines, "\n")
 }
 
-// AskReadBack is the one recovery sentence for an unknown `question ask` outcome. The ask
+// helpWords splits on spaces but keeps a `backticked span` whole, so a command in the text is
+// never broken across lines (it must stay copyable from --help).
+func helpWords(text string) []string {
+	var words []string
+	cur := ""
+	inCode := false
+	for _, r := range text {
+		switch {
+		case r == '`':
+			inCode = !inCode
+			cur += string(r)
+		case r == ' ' && !inCode:
+			if cur != "" {
+				words = append(words, cur)
+				cur = ""
+			}
+		default:
+			cur += string(r)
+		}
+	}
+	if cur != "" {
+		words = append(words, cur)
+	}
+	return words
+}
+
+// AskReadBack (exported so the cmd tests can assert against the same sentence the help and
+// the error carry) is the one recovery sentence for an unknown `question ask` outcome. The ask
 // help and the exit-7 error are both built from it, so they cannot word the advice
 // differently. logRef is the log as it should appear in the command: the caller's ref,
 // shell-quoted, in the error; the placeholder <log> in the help.
 func AskReadBack(logRef string) string {
-	return "list the log with `hadron question list --log " + logRef + "` and look for the title you sent, checking the asker and creation time when titles repeat (the listing is paged: use --limit and --offset) before asking again"
+	return "list the log with `hadron question list --log " + logRef + " --json` and look for the title you sent, matching askedBy and askedAt when titles repeat (the listing is paged: use --limit and --offset) before asking again"
 }
 
+// questionWriteError maps a failed question write (ask, amend, answer, retract, withdraw,
+// purge; cli#2680, cli#2854). A coded refusal at the mutation's own level (no path, or exactly
+// [field]), an HTTP 400/401/403/404/405/413/415/429 whose body shows no data and no error
+// below the mutation, and a connection that never opened are definitive: nothing was written,
+// so the ordinary typed exit applies. When the reply carries the result beside the error
+// (dataSeen) a resolver ran, so it is never definitive. A coded error BELOW the field comes
+// from resolving the returned value and so may follow the write (cli#398, cli#2680), and a
+// reset or timeout after the request left, a 5xx, an internal error or an unusable answer may
+// follow the commit too: those are an unknown outcome, exit 7, never resent, with the
+// read-back sentence.
 func questionWriteError(err error, field, what, readBack string, dataSeen bool) error {
 	// The server returned the question beside the error: a resolver ran and the write may
 	// have followed, whatever the error says.
