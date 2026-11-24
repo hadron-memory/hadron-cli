@@ -13,7 +13,7 @@ import (
 
 // wireRelaunch has no independent trigger or RPC. An explicitly typed Orca
 // config enables the periodic owner; the fresh server APPLY/desired proofs
-// still decide every action. Exec-only hosts keep their existing poller.
+// still decide every action. Every worker launches through Orca (cli#2914), so every host wires it.
 func wireRelaunch(p *hostpoller.Poller, cfg *hostpoller.Config, server *hostServer) error {
 	if !cfg.UsesOrcaLaunch() {
 		return nil

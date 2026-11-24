@@ -311,7 +311,7 @@ func TestTaskModelGroupRefusalSink1485(t *testing.T) {
 
 func TestTaskModelGroupCompatibilityHelp1485(t *testing.T) {
 	for _, tc := range []struct{ verb, want string }{
-		{"", "even when neither flag is named"},
+		{"", "even when you pass no model-group flag"},
 		{"create", "even with no group flag"},
 		{"update", "even without group flags"},
 	} {
@@ -325,8 +325,9 @@ func TestTaskModelGroupCompatibilityHelp1485(t *testing.T) {
 			if err != nil || len(*calls) != 0 {
 				t.Fatalf("help err=%v calls=%v", err, *calls)
 			}
-			for _, want := range []string{"task-record", "hadron-server#3029", tc.want} {
-				if !strings.Contains(out, want) {
+			flat := strings.Join(strings.Fields(out), " ") // the help wraps lines: compare on one line
+			for _, want := range []string{"task-record", "released on or after 2026-11-17", tc.want} {
+				if !strings.Contains(flat, want) && !strings.Contains(out, want) {
 					t.Fatalf("help missing %q: %s", want, out)
 				}
 			}
@@ -367,6 +368,29 @@ func TestTaskModelGroupNullRequirements1485(t *testing.T) {
 		}
 		if string(task["requirements"]) != "null" {
 			t.Fatalf("requirements=%s", task["requirements"])
+		}
+	}
+}
+
+// cli#2811 review: the task-record floor is ONE date across the group page, create and update
+// (the projection every task command reads includes the run settings, the newest field, 2026-11-17), stated as
+// "on or after" so the first release that carries it is not excluded, and no page keeps an older
+// or "after"-only floor for the same statement.
+func TestTaskRecordFloorIsOneDateOnOrAfter(t *testing.T) {
+	for _, args := range [][]string{{"team", "task", "--help"}, {"team", "task", "create", "--help"}, {"team", "task", "update", "--help"}} {
+		_, out, err := runTeamTask(t, taskResponses(), args...)
+		if err != nil {
+			t.Fatal(err)
+		}
+		flat := strings.Join(strings.Fields(out), " ")
+		if !strings.Contains(flat, "released on or after 2026-11-17") {
+			t.Errorf("%v: the task-record floor is 2026-11-03 on or after:\n%s", args, flat)
+		}
+		if strings.Contains(flat, "released after 20") {
+			t.Errorf("%v: floors are stated \"on or after\", never \"after\"", args)
+		}
+		if strings.Contains(flat, "on or after 2026-11-03)") || strings.Contains(flat, "released on or after 2026-11-01") {
+			t.Errorf("%v: the task-record floor is the newest field's date, 2026-11-17, on every page", args)
 		}
 	}
 }

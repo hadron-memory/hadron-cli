@@ -28,6 +28,14 @@ import (
 // environment variable, which a same-user agent could read from the
 // poller's /proc entry.
 type Config struct {
+	// Warnings are findings that do not stop a load (cli#3026), filled by validate (validateOrcaWorker adds
+	// a worker's) and reset at the top of each pass. `host run` says each once at start, and a hot reload says a
+	// newly added worker's once (cli#3045); the sweep and the status read reload the file every run and say nothing.
+	Warnings []string `yaml:"-"`
+	// legacyLaunchPath is set only by LoadConfigForImport: validation then skips the per-worker
+	// launch-path rules (the removed exec path's, and the supervised path's prerequisites) because
+	// the config is being read to be migrated away from them (cli#2914).
+	legacyLaunchPath bool
 	// sourcePath and sourceHash name the file this Config was loaded from and
 	// the content it held; a poller compares them to the file each poll.
 	// Empty for a Config built in code. A Config is a snapshot: once loaded
@@ -69,17 +77,19 @@ type Config struct {
 	Accounts map[string]AccountProfile `yaml:"account_profiles"`
 	// OrcaLaunch configures launches through Orca (launch_via: orca).
 	OrcaLaunch OrcaLaunchConfig `yaml:"orca_launch"`
-	// ResetContext reserves the C3 reader path for an explicitly declared reset capability.
+	// ResetContext was the reserved reset-context block. The reset-context
+	// host handler was removed (hadron-cli#3017), so it is parsed only so a
+	// legacy file is refused naming the removal, never "unknown key".
 	ResetContext ResetContextConfig `yaml:"reset_context"`
 }
 
-// ResetContextConfig neither activates resets nor proves a terminal/process binding.
+// ResetContextConfig is no longer read: validate() refuses a file that sets it.
 type ResetContextConfig struct {
 	OrcaBin string `yaml:"orca_bin"`
 }
 
-// ResetContextEnabled reports the operator's explicit capability declaration.
-func (c *Config) ResetContextEnabled() bool {
+// declaresResetContext reports the operator's explicit capability declaration.
+func (c *Config) declaresResetContext() bool {
 	for _, capability := range c.Capabilities {
 		if capability == CapabilityResetContext {
 			return true
@@ -93,7 +103,8 @@ type OrcaLaunchConfig struct {
 	// CleanupDeadTabs opts into C5's conservative post-relaunch tab cleanup.
 	// Default false until the operator validates the live close path.
 	CleanupDeadTabs bool `yaml:"cleanup_dead_tabs"`
-	// OrcaBin is the absolute Orca CLI path.
+	// OrcaBin is the absolute Orca CLI path. The worker launch and the one-minute host sweep read this
+	// one; the sweep falls back to delivery.orca_bin, then to "orca" on PATH, only when it is empty.
 	OrcaBin string `yaml:"orca_bin"`
 	// Group is refused (cli#2121): it ran the command under `sg <group>`,
 	// and the launch proof reads the process through /proc, which an
@@ -103,14 +114,20 @@ type OrcaLaunchConfig struct {
 	Group string `yaml:"group"`
 }
 
-// The launch_via values.
+// The launch_via values. Every worker starts through the supervised (Orca) launch: an EMPTY value
+// means it, and "exec" (the transitional launch-the-argv-as-the-poller's-own-child path) was removed
+// (cli#2914, ruled by Holger 2026-11-22), so an explicit "exec" is refused at load.
 const (
-	LaunchViaExec = "exec"
 	LaunchViaOrca = "orca"
+	// launchViaExecRemoved is the removed value, kept only to refuse it by name.
+	launchViaExecRemoved = "exec"
 )
 
-// launchesViaOrca is the one lookup for "this worker starts through Orca".
-func (w WorkerConfig) launchesViaOrca() bool { return w.LaunchVia == LaunchViaOrca }
+// launchesViaOrca is the one lookup for "this worker starts through Orca": the default (an empty
+// launch_via) and the explicit "orca". Nothing else launches (cli#2914).
+func (w WorkerConfig) launchesViaOrca() bool {
+	return w.LaunchVia == "" || w.LaunchVia == LaunchViaOrca
+}
 
 // UsesOrcaLaunch reports whether any worker here starts through Orca.
 func (c *Config) UsesOrcaLaunch() bool {
@@ -129,7 +146,16 @@ func (c *Config) UsesOrcaLaunch() bool {
 func validateOrcaWorker(c *Config, ref string, w WorkerConfig) []string {
 	var errs []string
 	if w.Profile == nil {
+		if len(w.Launch) > 0 {
+			// An old exec-style worker: say what the removed key was and what replaces it.
+			return append(errs, fmt.Sprintf("worker %q: launch (an argv) belonged to the exec launch path, which was removed; set a launcher_profile (and an absolute disk_tmp) instead: every worker now launches through Orca", ref))
+		}
 		return append(errs, fmt.Sprintf("worker %q: launch_via orca needs a launcher_profile", ref))
+	}
+	if len(w.Launch) > 0 {
+		// cli#3026: worker.start launches from the profile; a launch argv beside it is a leftover that
+		// used to be ignored without a word. Load still succeeds: it is a warning, said once by `host run`.
+		c.Warnings = append(c.Warnings, fmt.Sprintf("worker %q: launch is ignored by worker.start, which launches from launcher_profile; remove the launch line", ref))
 	}
 	a, ok := c.Accounts[w.Profile.Account]
 	if !ok {
@@ -170,7 +196,9 @@ type DeliveryConfig struct {
 	// AckMixed asserts that the server carries A-prime (issue #2072, PR #2102): mixed wake
 	// acknowledgment records ticks/tasks without advancing any chat mark.
 	AckMixed bool `yaml:"ack_mixed"`
-	// OrcaBin is the absolute path of the orca CLI.
+	// OrcaBin is the absolute path of the orca CLI that delivery, the health checks and `orca status`
+	// use. The sweep reads it only when orca_launch.orca_bin is empty. The two can differ; nothing
+	// checks that they agree.
 	OrcaBin string `yaml:"orca_bin"`
 }
 
@@ -178,14 +206,14 @@ type DeliveryConfig struct {
 type WorkerConfig struct {
 	// Family is the model family it runs as here, e.g. claude or codex.
 	Family string `yaml:"family"`
-	// Launch is the argv that starts its agent in a worktree. The poller adds
-	// HADRON_LAUNCH_GRANT to its environment and nothing else of Hadron's.
+	// Launch was the argv of the removed exec launch path (cli#2914). It is still parsed so a config
+	// that carries it is refused with a message naming the replacement, and so `host import` can read
+	// a legacy config it migrates; the poller never launches it.
 	Launch []string `yaml:"launch"`
-	// LaunchVia selects how worker.start launches (hadron-cli#2058 C3):
-	// "exec" or empty (the default: Launch, as the poller's own child) or
-	// "orca" (through an Orca terminal, from Profile; G3: the agent is a
-	// child of the Orca daemon in Orca's capped per-terminal scope).
-	// TRANSITIONAL: the exec path goes with worker-supervise (C4).
+	// LaunchVia is "orca" or empty, and both mean the same thing: worker.start launches through an
+	// Orca terminal, from Profile (G3: the agent is a child of the Orca daemon in Orca's capped
+	// per-terminal scope). The transitional "exec" value (Launch as the poller's own child) was
+	// removed (cli#2914) and is refused at load.
 	LaunchVia string `yaml:"launch_via"`
 	// Profile is the typed launcher profile an Orca launch builds its argv
 	// from (G1). TRANSITIONAL: S1b's server fields replace it.
@@ -218,11 +246,12 @@ type WorkerConfig struct {
 	// or one that failed, there is nothing to wait for and the stop is
 	// immediate.
 	StopWait string `yaml:"stop_wait"`
-	// Recover is an optional argv that hands a relaunched agent its recovery
-	// prompt after a worker.reset-context (#1043), the way End prompts an
-	// end. It gets HADRON_SESSION_ID, HADRON_WORKER_ID and
-	// HADRON_RECOVERY_NODE (the checkpoint node's reference): ids only. A
-	// worker without it is never reset on this host.
+	// Recover was the argv that handed a relaunched agent its recovery prompt
+	// after a worker.reset-context (#1043). That consumer was removed with the
+	// reset handler (hadron-cli#3017); the key is still parsed so a legacy
+	// config loads (the decoder refuses unknown keys), but it is no longer
+	// judged on reload: nothing runs it, so a changed recover program must
+	// not refuse a reload.
 	Recover []string `yaml:"recover"`
 	// Worktrees are this worker's existing worktree name tokens, relative to
 	// worktrees_root, beyond the ones this poller created. A plain directory
@@ -310,10 +339,26 @@ func LoadConfig(path string) (*Config, error) {
 	return loadConfigBytes(path, raw)
 }
 
+// LoadConfigForImport reads a host configuration for `host import`, which migrates a legacy
+// (exec-style) config: everything is validated EXCEPT the per-worker launch-path rules, which a
+// config being migrated away from the removed exec path cannot satisfy (cli#2914).
+func LoadConfigForImport(path string) (*Config, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading host config: %w", err)
+	}
+	return loadConfigBytesFor(path, raw, true)
+}
+
 // loadConfigBytes is LoadConfig for content already read, so a reload judges
 // exactly the bytes it hashed.
 func loadConfigBytes(path string, raw []byte) (*Config, error) {
+	return loadConfigBytesFor(path, raw, false)
+}
+
+func loadConfigBytesFor(path string, raw []byte, legacyLaunchPath bool) (*Config, error) {
 	var c Config
+	c.legacyLaunchPath = legacyLaunchPath
 	dec := yaml.NewDecoder(strings.NewReader(string(raw)))
 	dec.KnownFields(true)
 	if err := dec.Decode(&c); err != nil {
@@ -403,6 +448,7 @@ const CodeOrcaGroupUnprovable = "ORCA_GROUP_UNPROVABLE"
 
 func (c *Config) validate() error {
 	var errs []string
+	c.Warnings = nil // findings of this pass only: validating again must not repeat them
 	if c.OrcaLaunch.Group != "" {
 		errs = append(errs, CodeOrcaGroupUnprovable+": orca_launch.group is not supported: the launch proves its process through /proc, which a process started through sg did not allow on the tested deployment (orca1, even for a group the poller already held) (cli#2121); remove it, and start the Orca daemon with the groups the agent needs")
 	}
@@ -456,22 +502,21 @@ func (c *Config) validate() error {
 		if !familyRE.MatchString(w.Family) {
 			errs = append(errs, fmt.Sprintf("worker %q: family %q must match %s", ref, w.Family, familyRE))
 		}
-		// An Orca-launched worker's argv comes from its launcher profile; only
-		// the exec path needs a configured command.
-		if !w.launchesViaOrca() && (len(w.Launch) == 0 || strings.TrimSpace(w.Launch[0]) == "") {
-			errs = append(errs, fmt.Sprintf("worker %q: launch must name a command", ref))
-		}
 		if w.EndWait != "" {
 			if d, err := time.ParseDuration(w.EndWait); err != nil || d <= 0 {
 				errs = append(errs, fmt.Sprintf("worker %q: end_wait %q is not a positive duration", ref, w.EndWait))
 			}
 		}
-		switch w.LaunchVia {
-		case "", LaunchViaExec:
-		case LaunchViaOrca:
+		switch {
+		case c.legacyLaunchPath:
+			// host import reads a legacy exec-style config to migrate it: the launch path's own
+			// rules are not applied to what is being migrated away from (cli#2914).
+		case w.LaunchVia == launchViaExecRemoved:
+			errs = append(errs, fmt.Sprintf("worker %q: launch_via: exec was removed (the host no longer starts an argv as its own child); use launch_via: orca (or leave it empty) with a launcher_profile and an absolute disk_tmp", ref))
+		case w.launchesViaOrca():
 			errs = append(errs, validateOrcaWorker(c, ref, w)...)
 		default:
-			errs = append(errs, fmt.Sprintf("worker %q: launch_via %q must be %s or %s", ref, w.LaunchVia, LaunchViaExec, LaunchViaOrca))
+			errs = append(errs, fmt.Sprintf("worker %q: launch_via %q must be %s, or empty (the default)", ref, w.LaunchVia, LaunchViaOrca))
 		}
 		switch w.StopOnEnd {
 		case "", StopOnEndNever, StopOnEndManager, StopOnEndAlways:
@@ -503,8 +548,16 @@ func (c *Config) validate() error {
 			errs = append(errs, "delivery.orca_bin must be an absolute path")
 		}
 	}
-	if c.ResetContextEnabled() && !filepath.IsAbs(c.ResetContext.OrcaBin) {
-		errs = append(errs, "reset_context.orca_bin must be an absolute path when worker.reset-context is declared")
+	// The reset-context host handler is gone (hadron-cli#3017): no host
+	// performs the operation, so declaring the capability would invite
+	// resets this host cannot carry out (cor:agt:070:03), and the reserved
+	// block is read by nothing. Refuse both at load — the registration
+	// payload can never carry the name.
+	if c.declaresResetContext() {
+		errs = append(errs, "capabilities: worker.reset-context is no longer supported: the reset-context host handler was removed (hadron-cli#3017) and no host performs it; remove the capability")
+	}
+	if c.ResetContext.OrcaBin != "" {
+		errs = append(errs, "reset_context is no longer read (hadron-cli#3017); remove the block")
 	}
 	if len(errs) > 0 {
 		return errors.New(strings.Join(errs, "; "))

@@ -65,14 +65,14 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   re-validates every group name on update, including names deleted since creation.
   Groups resolve live at match time: editing a group can change matches without
   a task edit. They are matching inputs only, never authorization.
-  All task-record reads and mutation receipts require hadron-server#3029,
-  even without group flags (see team task --help). Comma-split items stay
-  verbatim for the server to trim and drop empties.
+  All task-record reads and mutation receipts require a server released
+  on or after 2026-11-17, even without group flags (see team task --help).
+  Comma-split items stay verbatim for the server to trim and drop empties.
   --min-tier low|mid|high sets a minimum: the lowest sufficient tier is preferred;
   an unknown tier is ineligible when a minimum is set. Requires a server
-  containing hadron-server#2983 (2026-10-31 or later).
+  released on or after 2026-10-31.
 - --start-by <RFC 3339 time> or --clear-start-by. --start-by re-anchors only the
-  not-started clock (cor:agt:050:14): it moves the deadline that task list
+  not-started clock: it moves the deadline that task list
   --overdue and the not-started alarm read. An alarm already raised stays raised.
 - --finish-by <RFC 3339 time> or --clear-finish-by. A set deadline replaces
   ordinary stall windows with stall.finish-by for an unfinished task (no alarm
@@ -82,7 +82,7 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   than startBy is refused by the server (BAD_USER_INPUT, exit 2); changing only
   startBy to later than finishBy is also refused. Equal times are allowed;
   a refused edit changes nothing. The server owns time validation and alarms.
-  All task-record reads require a provider containing hadron-server#2648/#3088.
+  All task-record reads require a server released on or after 2026-11-17.
 - --properties <json|@file>: the task's own JSON object (the team's schedule
   and review notes, for example), which the platform stores and never reads.
   It replaces the whole value, never merges: send every key you want to keep.
@@ -92,6 +92,10 @@ replaces a value has a --clear-… twin that empties it; naming both is refused.
   against the team's task-properties schema (PROPERTIES_SCHEMA_VIOLATION, or
   PROPERTIES_SCHEMA_UNUSABLE when that schema itself cannot be used). The
   assignee may edit properties and references alone (see Who may edit).
+- --ref <kind>=<target>[|<label>] (repeatable) replaces the whole reference
+  list. A label is at most 120 characters, a target at most 512, and a task
+  takes at most 20 references; the CLI refuses a longer label before sending,
+  and the server judges the rest.
 - --close-session asks the assignee's worker session to end when the task
   finishes or is cancelled; --no-close-session says it should not. Neither flag
   leaves the choice as it is. ` + "`--close-session=false`" + ` is refused, because
@@ -106,12 +110,12 @@ manages the App. An assignee alone may set, change or remove only the task's
 properties (--properties, --clear-properties) and references (--ref,
 --clear-refs), alone or together in one call; if the call names any other field,
 even beside those, the whole edit is refused (TASK_NOT_OWNER) and nothing
-changes. The assignee's reference edit needs a server at or after
-hadron-server#3718 (2026-11-08); an older server refuses it with TASK_NOT_OWNER.
+changes. The assignee's reference edit needs a server released on or
+after 2026-11-08; an older server refuses it with TASK_NOT_OWNER.
 A finished or cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
 a stall alarm. Success prints the task as task get does; --json returns it.
 
-` + taskInstructionHelp,
+` + taskInstructionHelpShort(taskInstructionFloor),
 		Example: `  # fix a title and clear the description
   hadron team task update AT1.2 --title "Fix the login redirect" --clear-description
 
@@ -119,7 +123,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.
   hadron team task update AT1.2 --tag auth --tag urgent --require-role qa-engineer --family-not-in codex
 
   # push the not-started deadline out, and ask the session to end with the task
-  hadron team task update AT1.2 --start-by 2026-11-02T09:00:00Z --close-session`,
+  hadron team task update AT1.2 --start-by 2027-01-15T09:00:00Z --close-session`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			claim, err := taskClaim(cmd, rawInstruction)
@@ -307,10 +311,10 @@ a stall alarm. Success prints the task as task get does; --json returns it.
 	cmd.Flags().BoolVar(&clearDescription, "clear-description", false, "remove the description")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole list")
 	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "remove every tag")
-	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole list; kind is "+taskRefKindsDoc)
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole list; kind is "+taskRefKindsDoc+taskRefCapsFlagDoc)
 	cmd.Flags().BoolVar(&clearRefs, "clear-refs", false, "remove every reference")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
-	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
+	cmd.Flags().StringVar(&requireRole, "require-role", "", "the one role a worker must hold (a single name: a comma is part of it, not a list; task create takes a list); replaces the task's whole requirements")
 	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")

@@ -46,8 +46,11 @@ func sendTeamStopSignalLift(ctx context.Context, client graphql.Client, appRef, 
 		return gen.TeamStopSignalLift(ctx, client, appRef, id)
 	}
 	// A null liftTeamStopSignal result with no error mirrors the plain
-	// twin's shape (a non-nil response with a nil field), never (nil, nil)
-	// — the caller only checks err before reading resp (#2774 review P2-1).
+	// twin's shape (a non-nil response with a nil field). The r == nil
+	// return below is unreachable with genqlient, which returns a non-nil
+	// response even on a transport error; it is kept as a guard so a nil r
+	// still travels with err. The caller checks err before reading resp
+	// (#2774 review P2-1).
 	r, err := gen.TeamStopSignalLiftInstructed(ctx, client, appRef, id, claim)
 	if r == nil {
 		return nil, err

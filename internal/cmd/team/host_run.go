@@ -52,6 +52,13 @@ type hostServer struct {
 	// document, and look again every refusedReprobeEvery, so a server upgraded
 	// while the host runs is noticed (cli#2091, cli#2100).
 	noRefusedAt atomic.Int64
+	// noSelectorAt is when this server refused the one-worker desired read's
+	// `worker` selector (cli#2816) while the host-wide read worked (unix
+	// nanos; 0 = not pinned): it predates hadron-server#4693, so per-worker
+	// freshness reads fall back to the host-wide document, and ask for the
+	// selector again every refusedReprobeEvery, so an upgrade while the host
+	// runs is noticed.
+	noSelectorAt atomic.Int64
 	// now dates a batch read, for its proof's expiry; time.Now when nil.
 	now func() time.Time
 }
@@ -224,6 +231,22 @@ func operationFrom(o *gen.HostOperationFields) hostpoller.Operation {
 	return op
 }
 
+// writeHostConfigWarnings says each load warning once, on stderr, when `host run` starts. The sweep
+// timer and the status read load the same file every run and stay quiet, so a warning does not
+// repeat each minute (cli#3026).
+//
+// A warning is advice, so a stderr that cannot be written (closed, a dead pipe) ends the writing and
+// nothing else: it returns no error. `host run` aborting on it would stop the check-ins, and a host
+// that stops checking in lapses (cor:agt:070:01); an unreadable warning is not worth a lapsed host
+// (cli#3045 item 2).
+func writeHostConfigWarnings(w io.Writer, cfg *hostpoller.Config) {
+	for _, warning := range cfg.Warnings {
+		if _, err := fmt.Fprintf(w, "warning: %s\n", warning); err != nil {
+			return
+		}
+	}
+}
+
 // loadHostPoller reads the configuration and the key, and builds the client
 // the poller uses: the host key only, and no session header (a session on a
 // host call is refused APP_KEY_SESSION_BOUND).
@@ -272,8 +295,13 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
    workers:
      jonas:
        family: claude
-       launch: [claude-worker, --model, opus]
+       launcher_profile: {family: claude, mode: long, model: opus, account: holger}
+       disk_tmp: /srv/tmp/jonas
        worktrees: [hadron-cli/jonas-2]
+   account_profiles:
+     holger: {bin: claude-holger}
+   orca_launch:
+     orca_bin: /usr/bin/orca
 
 4. Try one poll: hadron team host run --config host.yaml --once — then drop
    --once to keep the host running. Each step prints its own errors; the
@@ -292,17 +320,19 @@ reports every outcome. One poller per host or container.
 
   worktree.create  git worktree add from a configured repo, as
                    <repo>/<label> under worktrees_root
-  worker.start     run the worker's configured launch argv in a registered
-                   worktree with HADRON_LAUNCH_GRANT, then report once the
-                   agent's session binds (team session start reads the grant);
+  worker.start     launch the worker's agent through an Orca terminal in a
+                   registered worktree with HADRON_LAUNCH_GRANT, then report
+                   once the agent's session binds (team session start reads
+                   the grant);
                    refused before launching when any process is working in the
                    tree (Linux /proc, the pid and a short redacted argv
-                   named), and a start that fails stops the process group it
-                   launched and leaves no agents entry in the state file.
+                   named), and a start that fails stops what it launched
+                   (the Orca terminal's whole scope) and leaves no agents
+                   entry in the state file.
                    With reset_on_start (default off; TRANSITIONAL like
                    stop_on_end, replaced by the Agent's lifecycle) the
                    worker's EXISTING worktree is first brought back to a
-                   clean base (hadron-cli#2057): a dirty or untracked tree
+                   clean base: a dirty or untracked tree
                    refuses the start (WORKTREE_DIRTY), as does a HEAD on no
                    remote branch (WORKTREE_UNPUSHED), reported as the
                    failure so the task waits; commits no remote branch has
@@ -310,20 +340,25 @@ reports every outcome. One poller per host or container.
                    tree is fetched from origin and checked out detached at
                    origin's default branch. A directory with no Git starts
                    with no reset. Nothing is created or removed.
-                   With launch_via: orca (default exec; Linux; TRANSITIONAL)
-                   it launches through an Orca terminal instead, from the
-                   worker's launcher_profile and fixed per-family templates,
-                   always fresh (never --resume), the grant and first prompt
-                   passed through a 0600 file beside the state, never typed;
-                   the agent runs plainly in Orca's terminal scope; it never
-                   falls back to the exec path. Both launcher_profile modes
+                   Every worker launches this way (launch_via: orca, or left
+                   empty; Linux): from the worker's launcher_profile and
+                   fixed per-family templates, always fresh (never --resume),
+                   the grant and first prompt passed through a 0600 file
+                   beside the state, never typed; the agent runs plainly in
+                   Orca's terminal scope. The older exec launch (the worker's
+                   launch argv as the poller's own child) was removed:
+                   launch_via: exec is refused when the file loads, and a
+                   worker that still names launch without a
+                   launcher_profile is refused saying what to set. A family
+                   with no launch template (anything but claude, glm, kimi
+                   and codex) cannot start. Both launcher_profile modes
                    (long, short) start the same interactive agent, so a
                    stalled run shows on screen and can be taken over; short
                    no longer runs headless or exits when its prompt ends.
                    A short run is ended by its own agent's session end, by
                    worker.end's stop, or by the host after its no-agent
-                   proof (cli#2201)
-  worker.deliver   reported failed: no delivery path yet (hadron-cli#829)
+                   proof
+  worker.deliver   reported failed: no delivery path yet
   worker.end       run the worker's configured end prompt, wait end_wait
                    (default 15m), and report FAILED (the server records an
                    ended session as success; the host ends none). With
@@ -340,17 +375,17 @@ reports every outcome. One poller per host or container.
                    session-binding lock (the one session start writes
                    under), released at once after it: a bind landing
                    between the check and the signal waits, and a lock
-                   not taken within 2s declines the stop (#2068).
+                   not taken within 2s declines the stop.
                    A plain directory whose binding cache or lock file is
                    missing is declined, not created, when this host runs
                    as a different user from the worktree's owner; the
                    same refusal applies wherever the host takes that
-                   lock (the stop, a reset relaunch and its cleanup).
+                   lock (the stop and a relaunch's cleanup).
                    An existing lock is opened under ordinary file
                    permissions, so a user who cannot read and write it
                    is refused by the OS, not by this rule.
                    TRANSITIONAL: the field goes with host.yaml
-                   (Agent.lifecycle replaces it, hadron-server#4224)
+                   (Agent.lifecycle replaces it)
   worktree.remove  only the operation's own worker's registered tree;
                    refused for uncommitted or untracked changes, no
                    upstream, unpushed commits, an agent this host launched
@@ -364,7 +399,7 @@ belongs to one worker: the config refuses one listed for two.
 An unknown type is refused here as well as by the server, and reported
 failed. There is no shell passthrough of any kind.
 
-AGENTLESS SESSION END (cli#2201): a short-lived worker that finished its task
+AGENTLESS SESSION END: a short-lived worker that finished its task
 without ending its session is closed only on the strict process census (the
 one recovery uses). worker.end for a stop_on_end: always worker with no live
 agent reports FAILED leading AGENT_ABSENT when the census proves its
@@ -423,75 +458,16 @@ Slack, sk-, AWS access-key ids, the webhook hpt value and path secret). A
 credential with neither a keyword nor a listed prefix still renders
 verbatim: there is no entropy or general secret scanning.
 
-THE LAUNCH COMMAND must stay in the foreground for the agent's whole life:
-its exit is read as the agent's. A launcher that starts a detached session
-and returns (a tmux or wrapper script) is reported failed if no session has
-bound by then, which revokes the grant. A start reported failed stops what
-it launched and forgets its entry in the state file, so a wrapper that keeps
-relaunching its agent does not outlive the failure. On Unix that stop is
-TERM, a short grace, then KILL to the whole process group — which still
-covers a wrapper's children after the launcher itself exited. On Linux the
-launch's group id is its own for the agent's whole tracked life: an exited
-leader is kept as an unreaped zombie while anything of its group still runs,
-and is reaped only once the group is observed empty (or after the stop's
-KILL), so another process cannot take the group's number while the launch
-may still signal it — the stop can only ever reach this launch's group. A
-launch that provably left nothing behind (its group was empty at the exit)
-confirms a later stop without signalling anything at all. A Linux kernel
-or policy that refuses waitid (an exotic environment) has no hold either:
-the stop takes the same shape as the platforms below. Other Unix
-platforms (macOS, the BSDs) reap the leader at its exit and have no such
-hold, so their stop signals the group id only while the leader is still
-live — the number is bound to a live leader and cannot be reused — and
-once the leader's exit is observed there, the stop refuses to reach for
-the number (an exit frees it at a moment no mutex governs, and a process
-that took the reused number would answer a probe or take a signal): the
-stop reports it unconfirmed and keeps the records instead. On those
-platforms, and on a Linux host that refuses waitid (the same no-hold
-path), a stop that signals a live launch is reported unconfirmed even when
-the launch did stop, and its entry is kept (an approximation: a probe that
-lands between the kernel's reap and the exit being recorded can confirm
-soundly). The instant
-between a stop's last exit-check and its signal is those platforms'
-un-closable window — no syscall there both proves the number is bound and
-signals it. Linux is the hardened platform for this stop. On Windows the
-process tree is force-killed at once. If the launch's exit is observed after
-the binding-authorization wait, taskkill is skipped (its pid may have been
-reused). The final exit check and taskkill are not atomic: the launch can
-still exit between them. Children it left behind cannot be reached without
-a Job Object, which this runner does not yet assign. Binding authority stays
-held until taskkill returns. Its cancellation is requested after 10 seconds;
-a timeout leaves the stop unconfirmed and its records kept even if taskkill
-then reports success. The tree may already be dead or partly stopped.
-Available runner error/output is retained as bounded, control-safe single-line
-diagnostic context. If a successful helper exits but inherited output pipes
-stay open past the 1-second WaitDelay, output collection is incomplete: the
-stop remains unconfirmed and records are kept. Cancellation takes precedence
-if both conditions occur. These are not real-time OS latency guarantees.
-The stopper waits up to 2 seconds to acquire binding authority. Session writers
-block on flock/LockFileEx without that deadline; a session start can wait until
-the synchronous Windows taskkill and cancellation/drain return releases it.
-An entry survives a stop that could not be confirmed. A refusal
-saying the operation was already reported stops the launch only when it
-names the recorded outcome as failed; one naming success, or naming nothing,
-leaves what was launched running.
-
 A worker.start waiting for its bind is re-delivered by each collect and
 skipped as in flight. The server must not re-mint its grant meanwhile (a
 re-collect omits a start whose grant is still live): run this against a
 server with that fix.
 
 Capabilities are an explicit full declaration on every registration refresh:
-Omitted or [] means none. On Linux, capabilities: [worker.reset-context]
-wires the reset protocol and requires an absolute reset_context.orca_bin
-(reserved for the C3 reader). This driver cannot yet bind an Orca terminal
-and its controlling tty to the process it launched. It therefore remains
-built and off: even a matching binding/process refuses NOT_IDLE:
-TARGET_UNBOUND, before a new claim or stop. An idle-looking screen at the
-same worktree proves nothing about that process. C3 (hadron-cli#2058) owns
-the terminal-aware success path; enabling a config cannot bypass this refusal.
-Existing Git/identity refusals and no-signal recovery of recorded resets stay.
-Leave the capability unset until that path is built and separately authorized.
+omitted or [] means none. worker.reset-context is carried out by no host of
+this CLI: the reset handler was removed, and a config naming the capability —
+or setting the reserved reset_context block — is refused when the file loads,
+so a registration can never declare it.
 Installing this CLI grants no live-host activation. Unknown declarations
 still warn on stderr before registration and add no handler.
 
@@ -503,66 +479,60 @@ The configuration (YAML):
   key_file: /etc/hadron/host.key    # an App key with host:operate, mode 0600
   worktrees_root: /srv/worktrees
   state_file: /var/lib/hadron/host-state.json   # default: beside the config
-  # Reserved C3 reset configuration; this build stays fail-closed, no activation:
-  # capabilities: [worker.reset-context]
-  # reset_context:
-  #   orca_bin: /absolute/path/to/orca
   repos:
     hadron-memory/hadron-cli: /srv/repos/hadron-cli
   workers:
     jonas:                          # name in the App, URN or id
       family: claude
-      launch: [claude-worker, --model, opus]
+      launcher_profile: {family: claude, mode: long, model: opus, account: holger}
+      disk_tmp: /srv/tmp/jonas      # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
       end: [orca-send, jonas, "please end your session with a handoff"]
       end_wait: 15m
       stop_on_end: never            # never (default) | manager | always
       stop_wait: 60s                # the wait before a stopping end acts
       reset_on_start: false         # true: reset the existing worktree at worker.start
-      # recover: [recover-worker]   # required for this worker to reset
       worktrees: [hadron-cli/jonas-2]
-    # Through Orca (hadron-cli#2058; launch is not needed then):
+    # A short-lived worker:
     # iris:
     #   family: claude
-    #   launch_via: orca
     #   # mode: long|short. Both start the same interactive agent; short is for a
     #   # worker that ends its own session when its task is done.
     #   launcher_profile: {family: claude, mode: short, model: opus, account: holger}
-    #   disk_tmp: /home/orca/scratch/tmp/iris   # TMPDIR, CLAUDE_CODE_TMPDIR, node cache
+    #   disk_tmp: /home/orca/scratch/tmp/iris   # absolute; TMPDIR, CLAUDE_CODE_TMPDIR, node cache
     #   worktrees: [hadron-cli/iris]
-  # account_profiles:                # account name -> launcher (and Codex home)
-  #   holger: {bin: claude-holger}
-  #   codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
-  # orca_launch:
-  #   orca_bin: /absolute/path/to/orca
-  #   cleanup_dead_tabs: false      # opt in only after live host validation
+  account_profiles:                 # account name -> launcher (and Codex home)
+    holger: {bin: claude-holger}
+    # codex1: {bin: codex, codex_home: /home/orca/.config/orca/codex-accounts/<id>/home}
+  orca_launch:
+    orca_bin: /absolute/path/to/orca
+    # cleanup_dead_tabs: false    # opt in only after live host validation
 
 The file is re-read every poll. A worker added to or removed from workers, a
 worker's entry changed in place, and changes to repos and account_profiles
 take effect on the next poll, with no restart (the poller logs
-config-reloaded, naming the workers). Content is applied on the second poll
+config-reloaded, naming the workers, and config-warning once for a load
+warning a newly added or changed worker brings). Content is applied on the second poll
 that sees it, so a file still being written is never applied half-written.
 Everything else in the file (the key file, poll_interval_seconds,
-capabilities, state_file, delivery, reset_context, orca_launch and the rest)
+capabilities, state_file, delivery, orca_launch and the rest)
 is read once at start: a change to it is logged as config-restart-needed,
 naming the settings, and is not applied until the poller restarts.
 
 A reload makes the poller run what the file says on its next poll, so it is
 held to more than a restart: the file, and every program or directory a
-changed entry names (launch, end and recover programs, account programs, repo
+changed entry names (end and recover programs, account programs, repo
 clones, codex_home, claude_config_dir, disk_tmp), and every directory above
 them and above the file, must be owned by the poller's user (or root) and not
 writable by group or others (a sticky directory such as /tmp is accepted above
-them), or the reload is refused. A launch, end, recover or account
-program named as a relative path (with a slash) is refused on reload: it is
-run from the worker's directory, which the check cannot judge — use an
+them), or the reload is refused. An end, recover or account program
+named as a relative path (with a slash) is refused on reload: it is run
+from the worker's directory, which the check cannot judge — use an
 absolute path or a bare name, or restart the poller. The check stops other
 users and loose modes; a process running as the poller's own user is inside
 the poller's trust boundary, as it is for a restart. A file that does not load
 or fails the start-time checks changes nothing either: the poller keeps
 the configuration it has and logs config-reload-refused with the reason, once
-for that content and reason. A worker that now launches through Orca is
-refused too, since that wiring is made at start (restart to apply it). A
-worker removed from the file keeps any live agent: worker.end for it is still
+for that content and reason. A worker removed from the file keeps any live agent: worker.end for it is still
 carried out, with the entry it last had (the poller logs removed-worker-end),
 since ending a session only de-escalates; other operations for it are refused
 as not configured. Directories on the way to a path are judged as the kernel
@@ -586,27 +556,25 @@ turns delivery off (a delivery-off event); it re-checks on a backoff of one to
 fifteen minutes and turns itself back on (a delivery-on event); operations
 carry on throughout. It also reads this host's
 due tick and task wakes (dueWakes) and types each as one line through the
-same path, then hands its proof back (hadron-cli#1178). A wake that names
+same path, then hands its proof back. A wake that names
 channels or a mention is typed once and, by default, held from acknowledgment.
-Set delivery.ack_mixed: true only when the server carries A-prime (issue
-#2072, merged 2026-10-19: the date is for orientation, since a build from that day can predate the merge, so
-confirm the deployed build includes that change): its mixed acknowledgment records
-ticks/tasks without moving chat marks. Mention text still arrives through its own batch. ack_mixed must be a
+Set delivery.ack_mixed: true only when the server supports mixed acknowledgment
+(server change A-prime, merged 2026-10-19; confirm your deployed build
+includes it): it records ticks and tasks without moving chat marks. Mention
+text still arrives through its own batch. ack_mixed must be a
 real boolean wherever it is written, including through a YAML merge (<<) or an
 alias: null, ~, yes and on are refused with the line. A merged non-boolean is
 refused even when an explicit ack_mixed: true beside it would win; that
-strictness is deliberate (hadron-cli#1263). Status reports the
+strictness is deliberate. Status reports the
 configured ack-mixed on/off setting; it does not detect server capability.
 A held delivery is not reported to the
-server yet (hadron-cli#940): it raises no server alarm, and team host
+server: it raises no server alarm, and team host
 status shows it as UNREPORTED.
 
 A single message longer than 131,071 bytes of UTF-8 cannot be typed (orca
 terminal send carries text as one argument). It fails as too-long-to-type,
 is never truncated or acknowledged, and stays due. The server delivers the
-oldest message first, so it BLOCKS all later chat delivery to that worker
-until hadron-server#2121 lands. Delivery for real workers stays off until
-then.
+oldest message first, so it BLOCKS all later chat delivery to that worker.
 
 --once runs a single poll and waits for what it collected. Events print one
 per line; --json prints each as a JSON object.`,
@@ -618,14 +586,12 @@ per line; --json prints each as a JSON object.`,
 			if err != nil {
 				return err
 			}
-			// Only implemented declarations avoid the unsupported warning.
+			writeHostConfigWarnings(f.IOStreams.ErrOut, cfg)
+			// Only implemented declarations avoid the unsupported warning
+			// (worker.reset-context never gets this far: config load refuses it).
 			for _, capability := range cfg.Capabilities {
-				if capability == hostpoller.CapabilityResetContext {
-					continue
-				}
-				if _, err := fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability); err != nil {
-					return err
-				}
+				// Advice too (cli#3045): a stderr that cannot be written must not stop the check-ins.
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "warning: declared capability %q has no handler in this poller; collected operations of this type will be reported FAILED. Remove it from capabilities when using this runner.\n", capability)
 			}
 			state, err := hostpoller.LoadState(cfg.StateFile)
 			if err != nil {
@@ -635,10 +601,7 @@ per line; --json prints each as a JSON object.`,
 				return exitcode.Newf(exitcode.Usage, "%s: %v", configPath, err)
 			}
 			emit := hostEventPrinter(f)
-			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{OnDrain: emit}, state, key, emit)
-			if err := wireResets(p, cfg, srv); err != nil {
-				return err
-			}
+			p := hostpoller.New(cfg, srv, hostpoller.ExecHost{}, state, key, emit)
 			if cfg.Delivery.Enabled {
 				wireDelivery(p, cfg, srv, emit)
 			}
@@ -980,7 +943,9 @@ func orDash(s string) string {
 func newCmdTeamHostStatus(f *cmdutil.Factory) *cobra.Command {
 	var configPath string
 	cmd := &cobra.Command{
-		Use:   "status --config <host.yaml>",
+		Use: "status --config <host.yaml>",
+		Example: `  hadron team host status --config /etc/hadron/host.yaml
+  hadron team host status --config host.yaml --json`,
 		Short: "Check a host configuration and show its registration",
 		Long: `Check a host poller's configuration and key, and show what it would
 register (each worker's family, launch and end argv, and worktrees, created

@@ -8,7 +8,7 @@ import (
 // flat collapses the hard-wrapped help into one line so a pin survives re-wrapping.
 func flat(s string) string { return strings.Join(strings.Fields(s), " ") }
 
-func slackHelp(t *testing.T, args ...string) string {
+func cmdHelp(t *testing.T, args ...string) string {
 	t.Helper()
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -24,7 +24,7 @@ func slackHelp(t *testing.T, args ...string) string {
 // that exists (an org admin registers the workspace again with slack connect,
 // cli#206), with no portal pointer.
 func TestSlackGroupHelpDoesNotPromiseHealth(t *testing.T) {
-	h := slackHelp(t, "slack")
+	h := cmdHelp(t, "slack")
 	for _, bad := range []string{"healthy", "health"} {
 		if strings.Contains(strings.ToLower(h), bad) {
 			t.Errorf("slack help must not mention %q: %s", bad, h)
@@ -50,7 +50,7 @@ func TestSlackGroupHelpDoesNotPromiseHealth(t *testing.T) {
 }
 
 func TestSlackLeafHelpStatesTheirContract(t *testing.T) {
-	st := slackHelp(t, "slack", "status")
+	st := cmdHelp(t, "slack", "status")
 	for _, want := range []string{
 		"the list",
 		"read-only",
@@ -66,7 +66,7 @@ func TestSlackLeafHelpStatesTheirContract(t *testing.T) {
 			t.Errorf("slack status help missing %q: %s", want, st)
 		}
 	}
-	g := slackHelp(t, "slack", "get")
+	g := cmdHelp(t, "slack", "get")
 	for _, want := range []string{
 		"read-only",
 		"sign in first",

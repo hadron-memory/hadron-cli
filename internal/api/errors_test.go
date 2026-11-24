@@ -68,6 +68,18 @@ func TestMapError(t *testing.T) {
 		// #2308: a worker without a signed schedule.create grant.
 		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
 
+		// cli#3050: restartWorkerSession's refusals (cor:agt:070:08 S4a). The
+		// grant door is the authority class — and must beat the _REQUIRED
+		// suffix rule, which would call it a usage error. The target's state
+		// refusals are conflicts; the gone target rides _NOT_FOUND below.
+		{"restart grant required 3050", gqlErr("RESTART_GRANT_REQUIRED"), exitcode.Forbidden},
+		{"restart no open session 3050", gqlErr("NO_OPEN_SESSION"), exitcode.Conflict},
+		{"restart no live host 3050", gqlErr("NO_LIVE_HOST"), exitcode.Conflict},
+		{"restart team paused 3050", gqlErr("TEAM_PAUSED"), exitcode.Conflict},
+		{"restart worker stopped 3050", gqlErr("WORKER_STOPPED"), exitcode.Conflict},
+		{"restart worker not found 3050", gqlErr("WORKER_NOT_FOUND"), exitcode.NotFound},
+		{"restart app not found 3050", gqlErr("APP_NOT_FOUND"), exitcode.NotFound},
+
 		// #1706 content-validation report refusals.
 		{"validation reporter_unknown", gqlErr("CONTENT_VALIDATION_REPORTER_UNKNOWN"), exitcode.Forbidden},
 		{"validation reporter_is_author", gqlErr("CONTENT_VALIDATION_REPORTER_IS_AUTHOR"), exitcode.Forbidden},

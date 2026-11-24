@@ -148,15 +148,28 @@ func TestAModifiedWorkersNewLaunchProgramIsJudged2623(t *testing.T) {
 	}
 }
 
-func TestAnEndOrRecoverProgramIsJudged2623(t *testing.T) {
-	for _, key := range []string{"end", "recover"} {
-		t.Run(key, func(t *testing.T) {
-			fx := newReloadFixture(t)
-			fx.step()
-			prog := looseProgram(t, fx.dir, key+"-prog")
-			fx.edit(reloadBase + billie + "    " + key + ": [" + prog + "]\n")
-			fx.wantRefusedNaming(prog)
-		})
+func TestAnEndProgramIsJudged2623(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	prog := looseProgram(t, fx.dir, "end-prog")
+	fx.edit(reloadBase + billie + "    end: [" + prog + "]\n")
+	fx.wantRefusedNaming(prog)
+}
+
+// A recover program is no longer judged (hadron-cli#3017): nothing has run a
+// worker's recover argv since the reset-context handler was removed, so a
+// changed recover key must not refuse a reload. The key still parses, so the
+// worker's reload applies.
+func TestARecoverProgramIsNoLongerJudged3017(t *testing.T) {
+	fx := newReloadFixture(t)
+	fx.step()
+	prog := looseProgram(t, fx.dir, "recover-prog")
+	fx.edit(reloadBase + billie + "    recover: [" + prog + "]\n")
+	if ev := fx.kinds("config-reload-refused"); len(ev) != 0 {
+		t.Fatalf("a dead recover key refused a reload: %+v", ev)
+	}
+	if ev := fx.kinds("config-reloaded"); len(ev) != 1 {
+		t.Fatalf("want the reload applied once, got %+v", fx.allEvents())
 	}
 }
 
@@ -285,7 +298,7 @@ func TestAConfigFileInADirectoryOthersCanWriteIsRefused2623(t *testing.T) {
 	d := looseDir(t, fx.dir, "cfg", false)
 	path := filepath.Join(d, "host.yaml")
 	text := strings.NewReplacer("%KEY%", filepath.Join(fx.dir, "host.key"), "%ROOT%", fx.dir).Replace(reloadBase)
-	if err := os.WriteFile(path, []byte(text), 0o600); err != nil { // the file itself is tight
+	if err := os.WriteFile(path, []byte(supervisedYAML(text)), 0o600); err != nil { // the file itself is tight
 		t.Fatal(err)
 	}
 	cfg, err := LoadConfig(path)

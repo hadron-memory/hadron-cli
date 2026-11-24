@@ -133,7 +133,8 @@ func TestUsage65ActualDocumentUsesLoc(t *testing.T) {
 		t.Fatal(field.Name)
 	}
 	loc := field.Arguments.ForName("loc")
-	if loc == nil || loc.Value.Raw != "loc" || field.Arguments.ForName("nodeId") == nil || field.Arguments.ForName("nodeId").Value.Raw != "nodeId" {
+	// cli#3081: the argument is nodeRef (hadron-server#4822); the variable keeps its name.
+	if loc == nil || loc.Value.Raw != "loc" || field.Arguments.ForName("nodeRef") == nil || field.Arguments.ForName("nodeRef").Value.Raw != "nodeId" {
 		t.Fatal("actual document must keep loc and nodeId as distinct variables")
 	}
 }

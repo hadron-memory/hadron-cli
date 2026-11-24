@@ -198,7 +198,6 @@ type Poller struct {
 	// reader of startCfg in production code is a bug (cli#2623).
 	startCfg      *Config
 	live          atomic.Pointer[Config]
-	orcaWired     bool                     // a worker launched through Orca when the poller started: that wiring exists (cli#2623)
 	removed       map[string]removedWorker // by worker id: workers a reload removed, with their last entry (cli#2623)
 	trust         trustWalk                // the filesystem the reload trust check reads; a per-poller seam so tests may override it in parallel (cli#2653 item 3)
 	reloadSeen    [32]byte                 // content of a configuration file already refused or reported
@@ -286,13 +285,6 @@ type Poller struct {
 	// budgetLogged is the UTC day an exhausted wake budget was last logged.
 	budgetLogged string
 
-	// worker.reset-context (#1043): off unless EnableResets.
-	resets    ResetServer
-	resetDeps ResetDeps
-	// resetStopWait bounds how long the old agent has to exit after the
-	// one stop; zero means defaultResetStopWait.
-	resetStopWait time.Duration
-
 	// Exit relaunch (cli#2161): exitWake is made by EnableRelaunch and wakes
 	// the run loop when a tracked agent exits; exited holds those agents by
 	// worker id until an exit pass takes them.
@@ -308,7 +300,7 @@ type Poller struct {
 // launched agents' environments (defence in depth: it is never put there).
 func New(cfg *Config, server Server, host Host, state *State, key string, emit func(Event)) *Poller {
 	return &Poller{
-		startCfg: cfg, orcaWired: cfg != nil && cfg.UsesOrcaLaunch(), server: server, host: host, state: state, key: key, emit: emit,
+		startCfg: cfg, server: server, host: host, state: state, key: key, emit: emit,
 		now:         time.Now,
 		sleep:       sleepCtx,
 		bound:       delivery.WorktreeBinding,
@@ -615,7 +607,16 @@ func (p *Poller) carryOut(ctx context.Context, op Operation) {
 	case OpWorkerEnd:
 		p.workerEnd(ctx, op)
 	case OpWorkerResetContext:
-		p.workerResetContext(ctx, op)
+		// The reset-context host handler was removed (hadron-cli#3017): no
+		// host declares the capability, so the server issues this to no host.
+		// A server that does anyway is answered, not left to time out. The
+		// reason must carry the pre-claim code HOST_UNSUPPORTED: the server
+		// judges a FAILED reset report's leading code against its allow-list
+		// (hadron-server src/lib/contextReset/types.ts; pinned by
+		// internal/cmd/team_host_reset_refusal_3017_test.go) and refuses
+		// anything else with BAD_CONTEXT_RESET_INPUT, re-delivering the
+		// operation forever.
+		p.finish(ctx, op, Failed, "", "HOST_UNSUPPORTED: this host carries out no worker.reset-context (hadron-cli#3017)")
 	case OpWorkerDeliver:
 		// A per-task-event operation (hostOperations/types.ts:45). Chat
 		// delivery reads S1's batches instead (cli#907), so this host has

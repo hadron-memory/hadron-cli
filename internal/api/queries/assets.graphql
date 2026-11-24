@@ -22,7 +22,7 @@ query MemoryAssets(
   $count: Int
 ) {
   memoryAssets(
-    memoryId: $memoryId
+    memoryRef: $memoryId
     mimeType: $mimeType
     mine: $mine
     includeDeleted: $includeDeleted

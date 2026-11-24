@@ -14,7 +14,9 @@ delivery continue while a launch or repair report waits. Run cancels and joins
 the job on exit, including fatal check-in errors; a one-shot poll waits for it.
 The first guard uses that job's discovery snapshot, so healthy workers add no
 host-wide snapshot reads. Guards after admission and before/after launch still
-read fresh state. A recovery sweep means an actual owned pass, not a tick that
+read fresh state — about the one worker they guard, through the targeted
+desired-worker read (#2816, hadron-server#4693's `worker` selector), not the
+host-wide list. A recovery sweep means an actual owned pass, not a tick that
 skipped a busy job. Only completed observations contribute to continuity.
 An owned live agent is tracked before admission and binding release; repair
 network I/O follows release.
@@ -156,12 +158,22 @@ slash. Different aliases are not inferred to identify the same deployment.
 
 The host-wide desired snapshot contains no prompts or transcripts. Healthy
 workers share one discovery snapshot. A launched worker requires up to four
-additional fresh snapshots and one repair mutation. Colin's independent report
-adapter measurement used 16,311-byte snapshots and 101 reads plus 100 writes
-for 100 reports; that component measurement excludes runner guards and launch
-preflight, so it is not a complete recovery benchmark. Targeted host-key worker
-reads are filed as nonblocking server follow-on #4260. Generic honest failure
-codes from #4259 are adopted by CLI#2149.
+additional fresh reads — targeted at its one worker since #2816 — and one
+repair mutation, whose own fresh read is targeted too. A targeted read keeps
+its three outcomes apart: a row is the worker's fresh state; an empty list is
+the selector's own definite answer (`NOT_DESIRED_ON_HOST` — this host key is
+not shown the worker as desired on this host, which says nothing about the
+worker anywhere else); any failure is unknown (`RELAUNCH_SOURCE_UNAVAILABLE`,
+after a launch's proof `RELAUNCH_UNVERIFIED` with a rollback) and is never
+read as an empty answer. A server without the selector (pre-hadron-server#4693)
+refuses only the targeted document; that refusal alone, and only while the
+host-wide read then succeeds, narrows the host-wide answer locally, and is
+re-examined every `refusedReprobeEvery` so an upgrade is noticed without a
+restart. #4260 stays open for the rest of the host-key read surface.
+Colin's independent report adapter measurement used 16,311-byte snapshots and
+101 reads plus 100 writes for 100 reports; that component measurement excludes
+runner guards and launch preflight, so it is not a complete recovery benchmark.
+Generic honest failure codes from #4259 are adopted by CLI#2149.
 
 ## #2159 F1 timing and locks
 

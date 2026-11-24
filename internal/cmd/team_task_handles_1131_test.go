@@ -173,7 +173,8 @@ func TestTeamTaskWithoutHandleIsUnchanged1131(t *testing.T) {
 }
 
 // Every id-taking verb passes the reference through untouched, bare or
-// qualified: the CLI neither parses nor composes a handle.
+// qualified: the CLI neither parses nor composes a handle. The one exception (cli#3037): `task get`, a read,
+// qualifies a bare handle from the worktree binding, which these tests bind.
 func TestTeamTaskReferencesPassThroughByteForByte1131(t *testing.T) {
 	for _, ref := range []string{"AT3.405", "at3.405", "hrn:agenttask:acme.com:eng-team:AT3.405"} {
 		for _, tc := range []struct {
@@ -205,8 +206,12 @@ func TestTeamTaskReferencesPassThroughByteForByte1131(t *testing.T) {
 						if got == nil {
 							got = c.Vars["root"]
 						}
-						if got != ref {
-							t.Fatalf("%s sent %v, want %q", tc.op, got, ref)
+						want := ref
+						if tc.op == "AgentTaskGet" && ref == "AT3.405" {
+							want = "hrn:agenttask:acme.com:eng-team:AT3.405"
+						}
+						if got != want {
+							t.Fatalf("%s sent %v, want %q", tc.op, got, want)
 						}
 						return
 					}

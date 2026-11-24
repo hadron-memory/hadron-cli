@@ -7,6 +7,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 	"io"
 	"net/http"
@@ -102,7 +103,7 @@ func TestPostHostProductionPreparationAndFreshDuePass(t *testing.T) {
 			}
 			cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  wkr1:\n    family: claude\n    launch: [fake]\n    worktrees: [tree]\ndelivery:\n  enabled: true\n  orca_bin: /bin/false\n", srv.URL, dir)
 			path := filepath.Join(dir, "host.yaml")
-			if err := os.WriteFile(path, []byte(cfg), 0600); err != nil {
+			if err := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0600); err != nil {
 				t.Fatal(err)
 			}
 			f := cmdutil.NewFactory()

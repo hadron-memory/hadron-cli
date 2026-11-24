@@ -42,8 +42,7 @@ type reviewStatsDTO struct {
 }
 
 const reviewStatsHelp = `Read an App's review-quality measures for one UTC calendar month: one row
-per reviewer model family and model, from the server's report (hadron-server
-#4281; spec cor:agt:130:06, Proposed). Read only, descriptive only: the
+per reviewer model family and model, from the server's report. Read only, descriptive only: the
 numbers never decide readiness or matching.
 
 --month YYYY-MM is required and is a UTC month; anything else exits 2 before

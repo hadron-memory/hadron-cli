@@ -1,88 +1,43 @@
 package team
 
-// `hadron team task find-untracked` (hadron-cli#1524 C3; hadron-server#3125 S3,
-// cor:agt:120:03; plan plans:1524-find-untracked). It lists the open items of
-// one of the App's task integrations that no task of the App claims, and with
-// --assign-to-me claims some as STARTED tasks assigned to the caller. A thin
-// client (D1): the list comes from hadron-server, never from `gh` on this host;
-// bounds, who may ask and every refusal are the server's (cor:api:240:01). One
-// GraphQL call per invocation, never retried.
+// `hadron team task find-untracked` (hadron-cli#1961, cor:agt:120:04): lists
+// the outside items the team's intake adapter reports that no task of the App
+// holds, and with --track claims some. The adapter is a local executable that
+// knows the tracker; Hadron never calls the tracker. The server-side task
+// integration path (hadron-cli#1524) is retired with the server's (cli#1964):
+// its flags are gone, and naming one is refused with the way out.
 
 import (
 	"errors"
-	"fmt"
-	"io"
-	"strconv"
-	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
-	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/hadron-memory/hadron-cli/internal/output"
 )
-
-// untrackedItemDTO is one outside item (--json). Labels is always an array.
-type untrackedItemDTO struct {
-	ExternalID              string   `json:"externalId"`
-	Repository              string   `json:"repository"`
-	Number                  int      `json:"number"`
-	Title                   string   `json:"title"`
-	URL                     string   `json:"url"`
-	Labels                  []string `json:"labels"`
-	CreatedAt               string   `json:"createdAt"`
-	UpdatedAt               string   `json:"updatedAt"`
-	LinkedPullRequestMerged bool     `json:"linkedPullRequestMerged"`
-}
-
-// untrackedPageDTO is the list's --json shape.
-type untrackedPageDTO struct {
-	Items            []untrackedItemDTO `json:"items"`
-	Total            int                `json:"total"`
-	Complete         bool               `json:"complete"`
-	IncompleteReason *string            `json:"incompleteReason"`
-}
-
-// claimResultDTO is the --assign-to-me --json shape: the tasks this call
-// created, in claim order, and why the walk stopped short, if it did.
-type claimResultDTO struct {
-	Tasks            []taskDTO `json:"tasks"`
-	Complete         bool      `json:"complete"`
-	IncompleteReason *string   `json:"incompleteReason"`
-	RefusalCode      *string   `json:"refusalCode"`
-}
-
-const (
-	claimRefused = "claim_refused"
-	claimFailed  = "claim_failed"
-)
-
-var readyFilters = map[string]gen.ReadyFilter{
-	"only": gen.ReadyFilterOnly, "exclude": gen.ReadyFilterExclude, "any": gen.ReadyFilterAny,
-}
 
 func newCmdTaskFindUntracked(f *cmdutil.Factory) *cobra.Command {
-	var integration, team, ready, repo, assignee, owner string
-	var adapterPath, forWorker string
-	var skip, limit int
-	var assignToMe, noTeam, track bool
+	var limit int
+	var adapterPath, forWorker, assignee, owner string
+	var track bool
 	cmd := &cobra.Command{
-		Use:   "find-untracked (--adapter <exe> | --integration <name>) [flags]",
+		Use:   "find-untracked --adapter <exe> [flags]",
 		Short: "List outside items (issues) no task claims, or claim some",
-		Long: `Find outside items (issues in a tracker) that no task of the App holds, and
-optionally claim some as tasks.
+		Long: `Find outside items (for example GitHub issues) that no task of the App
+holds, and optionally claim some as tasks. An outside item is a record in your
+team's tracker; "tracked" means an active task of this App holds it as its
+external id (` + "`task create --external-id`" + `).
 
-Which source? Name exactly one; naming both, or neither, is refused (exit 2).
-If your App has a task integration configured (its properties name one:
-"hadron app properties get"), use --integration <name>: the server reads the
-tracker, and the section SERVER INTEGRATION below is the one for you. If your
-team runs its own intake adapter (a local program that knows your tracker), use
---adapter <executable> (or set $` + adapterEnv + `; the variable counts only when
---integration is not given), the section INTAKE ADAPTER. The adapter is the newer
-path; the integration path is kept until its retirement. Each section lists its
-own flags.
+The source is the team's intake adapter: a small executable your team owns that
+talks to the tracker, so Hadron never does. Ask whoever runs your intake for its
+path, or see "App properties, task externalId and find-untracked" in
+` + "`hadron agentic-usage`" + ` and docs/plans/1961-intake-adapter-runner.md in the CLI
+repository for the contract it must speak. Name it with --adapter <executable>,
+or set $HADRON_INTAKE_ADAPTER (it counts only when no --adapter is given).
+Without an adapter the command cannot run. The server's task integrations are
+retired, and so are --integration and the flags that belonged to it (--team,
+--no-team, --ready, --repo, --skip, --assign-to-me): naming one is refused by name
+(exit 2, nothing sent), with what the adapter offers in its place.
 
 INTAKE ADAPTER (--adapter <executable> [--for <worker>] [--track] [--assignee
 <party>] [--owner <party>] [--limit N]): the team's own local
@@ -132,351 +87,45 @@ run only what is new, and nothing is told twice. A change the adapter refuses
 holds the cursor there so the next run retries it: the list and claim still run,
 the run exits 1, and the output's reconcile object names the refusal. An
 adapter whose describe does not list a call is simply not told. The summary is a
-note on stderr, and the reconcile object in --json.
-
-SERVER INTEGRATION (--integration <name> [--team <worker> | --no-team] [--ready
-only|exclude|any] [--repo <owner/name>] [--skip N] [--limit N] [--assign-to-me
-[--assignee <party>] [--owner <party>]]): the older path, kept until its
-retirement. List the open items of one of the App's task integrations that no
-task of the App claims (any status), or claim some with --assign-to-me. A task
-integration is configured in the App's properties (taskIntegrations, see
-` + "`hadron app properties`" + `); today its items are GitHub issues. The server reads
-the tracker: the CLI never calls GitHub.
-
---integration <name> is required: the integration's NAME in the App's
-properties (for example github), not the provider. --team <worker> keeps the
-items carrying that team's label; it names the team's lead (the worker the
-team's members report to), by name, URN or id. --no-team keeps the opposite set:
-the items carrying NONE of the integration's team labels (matched without regard
-to case; an item with an unrelated label is still such an item, and when the
-integration maps no teams every item qualifies). --no-team cannot be combined
-with --team, even an empty one: that is refused here, exit 2, before anything
-is sent; --no-team=false is the same as leaving it out. It works for the list
-and for --assign-to-me (with or without --assignee/--owner), filtering the
-list the claim walks, and needs a server with hadron-server#3422: an older one
-answers that it does not support --no-team, and the CLI never retries the call
-without the filter. --ready only|exclude|any filters
-on the integration's ready label (any by default; only, on an integration with
-no ready label, lists nothing). --repo <owner/name> keeps one connected
-repository. Omitted flags send nothing, so the server's defaults apply.
-
-ORDER: oldest item first, then repository, then number. --skip and --limit page
-that list (--limit 1 to 100, default 20; the server refuses a value out of
-range, BAD_USER_INPUT, exit 2). Consecutive pages neither repeat nor skip an
-item only while the tracker and the App's tasks do not change.
-
-An item whose closing pull request has merged is listed with "merged PR:
-close check" (--json linkedPullRequestMerged): it needs a close check, not a
-new task. A list the server could not read in full is complete: false with
-incompleteReason (rate_limited, github_error, page_limit, item_truncated); the
-command still exits 0, and notes it on stderr.
-
---assign-to-me CLAIMS up to --limit items (1 to 10, default 1) in that order,
-in one call: each becomes a STARTED root task with externalId and source the
-item's URL, owned by and assigned to you unless --owner or --assignee names
-another party (below). "You" is this worktree's bound worker when one is bound
-for this server and App, else the signed-in person. Concurrent callers get
-different items. It takes no --skip. Each claim commits on its own. When a
-refusal stops the walk part-way, the tasks already claimed are printed (they
-stay claimed) and the command exits with the refusal's code; an unexpected
-failure after a claim exits 1 the same way. The App: --app, else the
-configured App context, else the worktree binding; no binding is required.
-
---assignee <party> and --owner <party> name the claim's parties, only with
---assign-to-me (without it either flag is refused, exit 2, nothing sent).
-A party is worker:<id, URN or name> or user:<id or handle>, sent as written
-and never resolved here; a flag you leave out is not sent. The server decides
-who may name parties: an App's own key must name both (TASK_ASSIGNEE_REQUIRED,
-TASK_OWNER_REQUIRED), each a worker of the App or a person taking part in it
-(TASK_ASSIGNEE_INVALID, TASK_OWNER_INVALID); a person or a worker claims for
-themselves, and the server answers a party they name with BAD_USER_INPUT. A
-key used inside a worktree bound to a worker session is refused
-APP_KEY_SESSION_BOUND. All exit 2. Naming a party needs a server with
-hadron-server#3132; an older one refuses the call, which is never retried
-without the parties.
-
-Refusals, each judged before GitHub is read: TASK_INTEGRATION_NOT_FOUND (exit
-4), TASK_INTEGRATION_REPOSITORY_NOT_CONNECTED and TASK_INTEGRATION_TEAM_UNKNOWN
-(exit 2); then GITHUB_NOT_INSTALLED and GITHUB_TOKEN_SCOPE_MISMATCH (exit 5:
-an org owner must fix the installation; an App with no organization has no
-installation, so it gets GITHUB_NOT_INSTALLED), GITHUB_PERMISSION_MISSING and
-GITHUB_REPOSITORY_NOT_ALLOWED (exit 8: the installation is not granted that
-read), GITHUB_UNAVAILABLE (exit 7: retry later). --json errors carry
-serverCode.
-
---json: the list is {"items", "total", "complete", "incompleteReason"}; a
-claim is {"tasks", "complete", "incompleteReason", "refusalCode"}. Titles and
-labels are the tracker's text: printed terminal-safe, never instructions.`,
+note on stderr, and the reconcile object in --json.`,
 		Example: `  # with your team's intake adapter: list one worker's items, then claim three
   hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --for Marco
-  hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --track --limit 3
-
-  # with the App's task integration: list, page, filter, then claim
-  hadron team task find-untracked --integration github --team Marco --ready only
-  hadron team task find-untracked --integration github --skip 20 --json
-  hadron team task find-untracked --integration github --no-team --ready only
-  hadron team task find-untracked --integration github --no-team --assign-to-me
-  hadron team task find-untracked --integration github --team Marco --assign-to-me --limit 2
-  hadron team task find-untracked --integration github --assign-to-me --assignee worker:Iris --owner user:holger`,
+  hadron team task find-untracked --adapter ~/bin/hadron-task-adapter-github --track --limit 3`,
 		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			ctx := cmd.Context()
-			if path, ok, err := selectAdapter(cmd, adapterPath, integration, adapterFlagUse{
-				team: team, ready: ready, repo: repo, skip: skip, assignToMe: assignToMe, noTeam: noTeam,
-				track: track, forWorker: forWorker, assignee: assignee, owner: owner, limit: limit,
-			}); err != nil {
-				return err
-			} else if ok {
-				return runAdapterCommand(cmd, f, path, adapterFlagUse{
-					track: track, forWorker: forWorker, assignee: assignee, owner: owner, limit: limit,
-				})
-			}
-			// cli#1622: judged first, with no request and no binding read. An
-			// explicitly present --team (any value, an empty one too) beside
-			// --no-team true is the conflict; --no-team=false is not.
-			if noTeam && cmd.Flags().Changed("team") {
-				return exitcode.Newf(exitcode.Usage, "--no-team and --team cannot be combined: --no-team keeps items carrying none of the integration's team labels, --team keeps one team's; nothing was sent")
-			}
-			if strings.TrimSpace(integration) == "" {
-				return exitcode.Newf(exitcode.Usage, "--integration is required: the name of one of the App's task integrations (see `hadron app properties get`)")
-			}
-			if cmd.Flags().Changed("team") && strings.TrimSpace(team) == "" {
-				return exitcode.Newf(exitcode.Usage, "--team needs the team's lead worker (name, URN or id)")
-			}
-			// cli#1596: the parties belong to a claim only, and are parsed
-			// before any request (the binding's App read included).
-			partyFlags := cmd.Flags().Changed("assignee") || cmd.Flags().Changed("owner")
-			if partyFlags && !assignToMe {
-				return exitcode.Newf(exitcode.Usage, "--assignee and --owner name a claim's parties: they need --assign-to-me (a list takes neither); nothing was sent")
-			}
-			var assigneeArg, ownerArg *gen.AgentTaskPartyInput
-			if cmd.Flags().Changed("assignee") {
-				if assigneeArg, err = parseTaskPartyFlag("--assignee", assignee); err != nil {
-					return err
-				}
-			}
-			if cmd.Flags().Changed("owner") {
-				if ownerArg, err = parseTaskPartyFlag("--owner", owner); err != nil {
-					return err
-				}
-			}
-			if assignToMe && cmd.Flags().Changed("skip") {
-				return exitcode.Newf(exitcode.Usage, "--skip does not combine with --assign-to-me: a claim walks the list from its start")
-			}
-			var readyArg *gen.ReadyFilter
-			if cmd.Flags().Changed("ready") {
-				v, ok := readyFilters[ready]
-				if !ok {
-					return exitcode.Newf(exitcode.Usage, "--ready takes only, exclude or any, got %q", ready)
-				}
-				readyArg = &v
-			}
-			intArg := func(name string, v int) *int {
-				if !cmd.Flags().Changed(name) {
-					return nil
-				}
-				return &v
-			}
-			b, err := readBindingOrNilWithApp(ctx, f)
-			if err != nil && !errors.Is(err, errNoWorktree) {
-				return err
-			}
-			scope, err := resolveTeamAppScope(ctx, f, b)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			u := adapterFlagUse{track: track, forWorker: forWorker, assignee: assignee, owner: owner, limit: limit}
+			path, err := selectAdapter(cmd, adapterPath, u)
 			if err != nil {
 				return err
 			}
-			client, err := f.GraphQLClient()
-			if err != nil {
-				return err
-			}
-			if noTeam {
-				return runFindUntrackedNoTeam(ctx, f, client, scope.Ref, integration, repo, readyArg, intArg("skip", skip), intArg("limit", limit), assignToMe, assigneeArg, ownerArg)
-			}
-			if assignToMe && (assigneeArg != nil || ownerArg != nil) {
-				resp, err := gen.ClaimUntrackedTaskItemsForParties(ctx, client, scope.Ref, integration, optStr(team), optStr(repo), readyArg, intArg("limit", limit), assigneeArg, ownerArg)
-				if err != nil {
-					return api.WithServerCode(mapTaskError(err), err)
-				}
-				r := resp.ClaimUntrackedTaskItems
-				if r == nil {
-					return writeClaimResult(f, nil)
-				}
-				tasks := make([]*gen.AgentTaskFields, 0, len(r.Tasks))
-				for _, t := range r.Tasks {
-					if t != nil {
-						tasks = append(tasks, &t.AgentTaskFields)
-					}
-				}
-				return writeClaimResult(f, &claimOutcome{tasks, r.Complete, r.IncompleteReason, r.RefusalCode})
-			}
-			if assignToMe {
-				resp, err := gen.ClaimUntrackedTaskItems(ctx, client, scope.Ref, integration, optStr(team), optStr(repo), readyArg, intArg("limit", limit))
-				if err != nil {
-					return api.WithServerCode(mapTaskError(err), err)
-				}
-				r := resp.ClaimUntrackedTaskItems
-				if r == nil {
-					return writeClaimResult(f, nil)
-				}
-				tasks := make([]*gen.AgentTaskFields, 0, len(r.Tasks))
-				for _, t := range r.Tasks {
-					if t != nil {
-						tasks = append(tasks, &t.AgentTaskFields)
-					}
-				}
-				return writeClaimResult(f, &claimOutcome{tasks, r.Complete, r.IncompleteReason, r.RefusalCode})
-			}
-			resp, err := gen.UntrackedTaskItems(ctx, client, scope.Ref, integration, optStr(team), optStr(repo), readyArg, intArg("skip", skip), intArg("limit", limit))
-			if err != nil {
-				return api.WithServerCode(mapTaskError(err), err)
-			}
-			return writeUntrackedPage(f, untrackedPageFrom(resp.UntrackedTaskItems))
+			return runAdapterCommand(cmd, f, path, u)
 		},
 	}
-	cmd.Flags().StringVar(&adapterPath, "adapter", "", "the team's intake adapter executable (else $"+adapterEnv+"); not with --integration")
+	cmd.Flags().StringVar(&adapterPath, "adapter", "", "the team's intake adapter executable (else $"+adapterEnv+")")
 	cmd.Flags().BoolVar(&track, "track", false, "with an adapter: claim items as tasks (the create is the claim); --limit is how many to hold")
 	cmd.Flags().StringVar(&forWorker, "for", "", "with an adapter: only `worker` X's items, and X holds the claims unless --assignee names another")
-	cmd.Flags().StringVar(&integration, "integration", "", "the task integration's name in the App's properties (required unless an adapter is used)")
-	cmd.Flags().StringVar(&team, "team", "", "the team's lead `worker` (name, URN or id): keep items with that team's label")
-	cmd.Flags().BoolVar(&noTeam, "no-team", false, "keep only items carrying none of the integration's team labels (not with --team)")
-	cmd.Flags().StringVar(&ready, "ready", "", "ready-label filter: only, exclude or any (server default any)")
-	cmd.Flags().StringVar(&repo, "repo", "", "one connected repository, owner/name")
-	cmd.Flags().IntVar(&skip, "skip", 0, "items to skip from the start of the list (not with --assign-to-me)")
-	cmd.Flags().IntVar(&limit, "limit", 0, "items to list (1-100, server default 20), or to claim with --assign-to-me (1-10, default 1)")
-	cmd.Flags().BoolVar(&assignToMe, "assign-to-me", false, "claim the items as STARTED tasks, assigned to you unless --assignee names a party")
-	cmd.Flags().StringVar(&assignee, "assignee", "", "with --assign-to-me: the claim's assignee, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
-	cmd.Flags().StringVar(&owner, "owner", "", "with --assign-to-me: the claim's owner, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
+	cmd.Flags().IntVar(&limit, "limit", 0, "items to list (1-100, default 20), or with --track how many claims to hold (default 1)")
+	cmd.Flags().StringVar(&assignee, "assignee", "", "with --track: the claim's assignee, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
+	cmd.Flags().StringVar(&owner, "owner", "", "with --track: the claim's owner, worker:<ref> or user:<ref>, sent as written (an App key names both parties)")
+	// The flags of the retired server integration path are gone, so cobra
+	// rejects them while parsing, before RunE. A stale call (a script or a
+	// prompt still naming --integration or --ready) gets the retirement and
+	// the way out instead of a bare "unknown flag" (cli#1964).
+	//
+	// Every other flag error goes to the parent's handler (the root's, which
+	// makes it a usage error, exit 2): setting a handler here would otherwise
+	// shadow it, and a malformed value such as --limit abc would exit 1.
+	cmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
+		var unknown *pflag.NotExistError
+		if errors.As(err, &unknown) && unknown.GetSpecifiedShortnames() == "" {
+			if _, retired := retiredFindUntrackedFlags[unknown.GetSpecifiedName()]; retired {
+				return errFlagRetired(unknown.GetSpecifiedName())
+			}
+		}
+		if p := c.Parent(); p != nil {
+			return p.FlagErrorFunc()(c, err)
+		}
+		return err
+	})
 	return cmd
-}
-
-// untrackedPageFrom adapts the generated list type to the DTO; the no-team
-// document (cli#1622) has its own generated type with the same fields.
-func untrackedPageFrom(p *gen.UntrackedTaskItemsUntrackedTaskItemsUntrackedTaskItemPage) *untrackedPageDTO {
-	if p == nil {
-		return nil
-	}
-	dto := &untrackedPageDTO{Items: []untrackedItemDTO{}, Total: p.Total, Complete: p.Complete, IncompleteReason: p.IncompleteReason}
-	for _, it := range p.Items {
-		if it == nil {
-			continue
-		}
-		dto.Items = append(dto.Items, untrackedItemDTO{ExternalID: it.ExternalId, Repository: it.Repository, Number: it.Number,
-			Title: it.Title, URL: it.Url, Labels: append([]string{}, it.Labels...), CreatedAt: it.CreatedAt, UpdatedAt: it.UpdatedAt,
-			LinkedPullRequestMerged: it.LinkedPullRequestMerged})
-	}
-	return dto
-}
-
-func writeUntrackedPage(f *cmdutil.Factory, p *untrackedPageDTO) error {
-	if p == nil {
-		return exitcode.Newf(exitcode.Error, "the server returned no untracked-items page")
-	}
-	dto := *p
-	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		if len(dto.Items) == 0 {
-			_, err := fmt.Fprintf(w, "no untracked items (total %d)\n", dto.Total)
-			return err
-		}
-		t := output.NewTable(w, "REPOSITORY", "NUMBER", "TITLE", "LABELS", "CLOSE CHECK", "URL")
-		for _, it := range dto.Items {
-			closeCheck := ""
-			if it.LinkedPullRequestMerged {
-				closeCheck = "merged PR: close check"
-			}
-			t.Row(output.SafeCell(it.Repository), strconv.Itoa(it.Number), output.SafeCell(it.Title),
-				output.SafeCell(strings.Join(it.Labels, ",")), closeCheck, output.SafeCell(it.URL))
-		}
-		if err := t.Flush(); err != nil {
-			return err
-		}
-		_, err := fmt.Fprintf(w, "%d of %d shown\n", len(dto.Items), dto.Total)
-		return err
-	}); err != nil {
-		return err
-	}
-	noteIncomplete(f, dto.Complete, dto.IncompleteReason)
-	return nil
-}
-
-// claimOutcome is either claim document's result (the plain claim and the
-// party claim, cli#1596), so both print and fail the same way.
-type claimOutcome struct {
-	tasks            []*gen.AgentTaskFields
-	complete         bool
-	incompleteReason *string
-	refusalCode      *string
-}
-
-// writeClaimResult prints the claim result FIRST (stdout is the tasks this call
-// created, one JSON document under --json), then fails for a stopped walk
-// (plan A3): the root renderer puts the error on stderr because stdout is
-// already written.
-func writeClaimResult(f *cmdutil.Factory, r *claimOutcome) error {
-	if r == nil {
-		return exitcode.Newf(exitcode.Error, "the server returned no claim result")
-	}
-	dto := claimResultDTO{Tasks: []taskDTO{}, Complete: r.complete, IncompleteReason: r.incompleteReason, RefusalCode: r.refusalCode}
-	// The claim has already been written when its answer is read: name every task
-	// it returned, so a refused answer can be verified, not blindly retried.
-	claimedRefs := make([]string, 0, len(r.tasks))
-	for _, t := range r.tasks {
-		claimedRefs = append(claimedRefs, writtenTaskRef(t.Handle, t.Id))
-	}
-	for _, t := range r.tasks {
-		task, err := taskDTOFrom(*t)
-		if err != nil {
-			return writeAnswerUncertain(err, claimedRefs...)
-		}
-		dto.Tasks = append(dto.Tasks, task)
-	}
-	if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-		if len(dto.Tasks) == 0 {
-			_, err := fmt.Fprintln(w, "claimed nothing: no untracked item matched")
-			return err
-		}
-		t := output.NewTable(w, "TASK", "STATUS", "EXTERNAL ID", "TITLE")
-		for _, task := range dto.Tasks {
-			ext := ""
-			if task.ExternalID != nil {
-				ext = output.SafeCell(*task.ExternalID)
-			}
-			t.Row(output.SafeCell(taskRef(task.Handle, task.ID)), output.SafeCell(task.Status), ext, output.SafeCell(task.Title))
-		}
-		return t.Flush()
-	}); err != nil {
-		return err
-	}
-	reason := ""
-	if dto.IncompleteReason != nil {
-		reason = *dto.IncompleteReason
-	}
-	claimed := fmt.Sprintf("%d task", len(dto.Tasks))
-	if len(dto.Tasks) != 1 {
-		claimed += "s"
-	}
-	switch {
-	case reason == claimRefused && dto.RefusalCode != nil && *dto.RefusalCode != "":
-		code := *dto.RefusalCode
-		return api.WithCode(exitcode.Newf(api.ExitCodeForExtension(code),
-			"the claim stopped at a refusal (%s) after %s; those are committed", output.SafeCell(code), claimed), code)
-	case reason == claimRefused || reason == claimFailed:
-		// No code to map: never reported as success.
-		return exitcode.Newf(exitcode.Error,
-			"the claim stopped (%s) after %s; those are committed", output.SafeCell(reason), claimed)
-	}
-	noteIncomplete(f, dto.Complete, dto.IncompleteReason)
-	return nil
-}
-
-// noteIncomplete is the one-line stderr note for a read the server could not
-// finish (V44): not a refusal, so the exit stays 0.
-func noteIncomplete(f *cmdutil.Factory, complete bool, reason *string) {
-	if complete {
-		return
-	}
-	why := "unknown"
-	if reason != nil {
-		why = *reason
-	}
-	_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "note: the server could not read the tracker in full (%s); the result is partial\n", output.SafeCell(why))
 }

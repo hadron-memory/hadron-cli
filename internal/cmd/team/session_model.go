@@ -46,21 +46,20 @@ func newCmdSessionSyncModel(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "sync-model [--hook]",
 		Short: "Report this worktree's session model, read from its recorded transcript (hook entry)",
-		Long: `Report the model the bound worker session is running, as the model reporting
-slice of hadron-server#2252 (hadron-cli#995). Built to be a native tool's hook
-command: the tool pipes its hook JSON ({"session_id","transcript_path","cwd"})
-on stdin.
+		Long: `Report the model the bound worker session is running. Built to be a native
+tool's hook command: the tool pipes its hook JSON
+({"session_id","transcript_path","cwd"}) on stdin.
 
 WHAT IT WILL AND WILL NOT READ. The only transcript it reads is the one the
-bound Hadron session ALREADY RECORDED as its transcriptPath (` + "`session start|resume --transcript`" + `).
-The hook's path, native session id and cwd are claims it verifies against
-that file — never an association source. It does not pick a "newest" file, and
+bound Hadron session ALREADY RECORDED as its transcriptPath (` + "`session start --transcript`" + `).
+The hook's path, native session id and cwd are only checked against that
+file; they never choose which file is read. It does not pick a "newest" file, and
 a session with no recorded transcript reports nothing. The file must sit under
 the tool's transcript root, be the same file the recorded path names, carry
 the hook's native session id in its own header, and stay unchanged while read.
 Anything unproven means UNAVAILABLE: nothing is sent.
 
-ONE write: updateSession with the model only — never family or tier (the
+ONE write: a session update with the model only — never family or tier (the
 server derives them; only set-model --family ever sends a family), never clearing a stored model. The worktree binding is
 re-read just before the write; if it changed meanwhile the observation is
 discarded, not retried against either session.
@@ -252,13 +251,13 @@ func newCmdSessionSetModel(f *cmdutil.Factory) *cobra.Command {
 		Use:   "set-model [<model>] [--family <token>] [--effort <level>]",
 		Short: "Report the model, family or effort this worktree's session is running (manual)",
 		Long: `Report the model, family or effort of the worker session bound to this
-worktree, through the same updateSession as ` + "`sync-model`" + `. Give at least one of
+worktree, through the same session update as ` + "`sync-model`" + `. Give at least one of
 <model>, --family or --effort; only what you give is sent, so anything omitted
 is PRESERVED (never cleared). With a model alone the server derives family and
 tier, and never clears family on a model it does not map.
 
---family is the deliberate way to state a family (hadron-server#1931: an
-explicit family wins over the derivation from the model). The token is passed
+--family is the deliberate way to state a family (an explicit family wins
+over the one the server derives from the model). The token is passed
 to the server as typed — the CLI normalizes and infers nothing, and a host
 such as claude-code is not a family. The server owns what it accepts; its
 refusal is shown and no success receipt is printed. The receipt names only

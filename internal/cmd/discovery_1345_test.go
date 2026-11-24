@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 func TestFind1345(t *testing.T) {
@@ -274,5 +277,233 @@ func TestDiscoveryTerminalCells1345(t *testing.T) {
 		if strings.Contains(out.String(), "\x1b") || !strings.Contains(out.String(), "31mB") {
 			t.Fatal(out.String())
 		}
+	}
+}
+
+// agentTaskHit is a task hit exactly as the server serves it (cli#1897,
+// hadron-server#3945): the bare stored handle in the common optional `handle`
+// field, the title in `name`, `urn` null in this slice, the title or handle
+// match reported as matchedField `name`.
+const agentTaskHit = `{"id":"01a2093fa3447c9bbd2e57b15dd8d67d","entityType":"agentTask","name":"Wire up the nightly digest","urn":null,"handle":"AT0.8313","score":2.5,"matchedField":"name","description":null,"memoryId":null,"organizationId":null}`
+
+func findAgentTask(t *testing.T, query, body string, extra ...string) (string, string, map[string]json.RawMessage) {
+	t.Helper()
+	// Any operation other than GlobalSearch (a per-hit lookup, a second read)
+	// fails the test: captureGraphQLFunc reports an unstubbed operation.
+	g, c := captureGraphQLFunc(t, func(op string) string {
+		if op == "GlobalSearch" {
+			return body
+		}
+		return ""
+	})
+	f, out := testFactory(t)
+	errOut := &strings.Builder{}
+	f.IOStreams.ErrOut = errOut
+	r := NewRootCmd(f)
+	r.SetArgs(append([]string{"find", query, "--entity-type", "agentTask", "--server", g.URL}, extra...))
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var v map[string]json.RawMessage
+	if err := json.Unmarshal(c["GlobalSearch"], &v); err != nil {
+		t.Fatal(err)
+	}
+	return out.String(), errOut.String(), v
+}
+
+// cli#1897: the eighth kind is accepted and sent, and the query selects the
+// ruled common `handle` field (a hit field the CLI drops unless selected).
+func TestFindAgentTaskRequest1897(t *testing.T) {
+	_, _, v := findAgentTask(t, "AT0.8313", `{"data":{"globalSearch":{"hits":[],"total":0,"degraded":[],"scope":null}}}`, "--json")
+	if string(v["entityTypes"]) != `["agentTask"]` {
+		t.Fatalf("entityTypes = %s", v["entityTypes"])
+	}
+	op := strings.Join(strings.Fields(gen.GlobalSearch_Operation), " ")
+	start := strings.Index(op, "hits {")
+	if start < 0 {
+		t.Fatalf("no hits selection in the operation:\n%s", op)
+	}
+	hits := op[start:]
+	hits = hits[:strings.Index(hits, "}")]
+	if !strings.Contains(" "+hits+" ", " handle ") {
+		t.Fatalf("the hits selection does not carry handle: %s", hits)
+	}
+}
+
+// cli#1897: a task hit renders the server's handle, title, matched field and
+// score as given, in --json and in the table; nothing is composed or parsed.
+func TestFindAgentTaskRendering1897(t *testing.T) {
+	body := `{"data":{"globalSearch":{"hits":[` + agentTaskHit + `],"total":1,"degraded":[],"scope":null}}}`
+	js, _, _ := findAgentTask(t, "nightly digest", body, "--json")
+	var d struct {
+		Hits []struct {
+			ID           string  `json:"id"`
+			EntityType   string  `json:"entityType"`
+			Handle       *string `json:"handle"`
+			Name         *string `json:"name"`
+			URN          *string `json:"urn"`
+			MatchedField string  `json:"matchedField"`
+			Score        float64 `json:"score"`
+		}
+		Total int
+	}
+	if err := json.Unmarshal([]byte(js), &d); err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Hits) != 1 || d.Total != 1 {
+		t.Fatal(js)
+	}
+	h := d.Hits[0]
+	if h.EntityType != "agentTask" || h.Handle == nil || *h.Handle != "AT0.8313" || h.Name == nil || *h.Name != "Wire up the nightly digest" || h.URN != nil || h.MatchedField != "name" || h.Score != 2.5 {
+		t.Fatalf("hit = %+v\n%s", h, js)
+	}
+	// The key is always present (null for kinds without a handle), never omitted.
+	if !strings.Contains(js, `"handle": "AT0.8313"`) && !strings.Contains(js, `"handle":"AT0.8313"`) {
+		t.Fatal(js)
+	}
+	text, _, _ := findAgentTask(t, "nightly digest", body)
+	for _, want := range []string{"HANDLE", "AT0.8313", "Wire up the nightly digest", "agentTask", "name", "Ranked matches (bounded): 1"} {
+		if !strings.Contains(text, want) {
+			t.Fatalf("table lacks %q:\n%s", want, text)
+		}
+	}
+	// urn is null in this slice: rendered as absent, never as a composed URN.
+	if strings.Contains(text, "hrn:agenttask") {
+		t.Fatal(text)
+	}
+}
+
+// cli#1897: kinds without a handle keep a null handle (JSON) and a dash (table).
+func TestFindNonTaskHandleNull1897(t *testing.T) {
+	g, _ := captureGraphQL(t, map[string]string{"GlobalSearch": `{"data":{"globalSearch":{"hits":[{"id":"m1","entityType":"memory","name":"KB","urn":"hrn:mem:acme.com:kb","handle":null,"score":1,"matchedField":"name","description":null,"memoryId":null,"organizationId":null}],"total":1,"degraded":[],"scope":null}}}`})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"find", "kb", "--json", "--server", g.URL})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var d struct{ Hits []map[string]json.RawMessage }
+	if err := json.Unmarshal([]byte(out.String()), &d); err != nil {
+		t.Fatal(err)
+	}
+	if len(d.Hits) != 1 {
+		t.Fatal(out.String())
+	}
+	if got, ok := d.Hits[0]["handle"]; !ok || string(got) != "null" {
+		t.Fatalf("handle = %s (present %v)", got, ok)
+	}
+	// Text mode: HANDLE is a labelled column and the row shows a dash in it.
+	f2, out2 := testFactory(t)
+	r2 := NewRootCmd(f2)
+	r2.SetArgs([]string{"find", "kb", "--server", g.URL})
+	if err := r2.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(out2.String()), "\n")
+	var header, row string
+	for i, l := range lines {
+		if strings.HasPrefix(l, "TYPE") && i+1 < len(lines) {
+			header, row = l, lines[i+1]
+		}
+	}
+	col := strings.Index(header, "HANDLE")
+	if col < 0 || len(row) <= col || !strings.HasPrefix(row[col:], output.Dash(nil)) {
+		t.Fatalf("HANDLE column or its dash missing:\n%s", out2.String())
+	}
+}
+
+// cli#1897: find now selects `handle` on every search, so a server older than
+// hadron-server#3945 rejects the document. The failure is a typed error with
+// nothing printed to stdout, never a partial or empty success.
+func TestFindOlderServerRejectsHandle1897(t *testing.T) {
+	g, _ := captureGraphQL(t, map[string]string{"GlobalSearch": `{"errors":[{"message":"Cannot query field \"handle\" on type \"GlobalSearchHit\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`})
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"find", "kb", "--server", g.URL})
+	err := r.Execute()
+	if err == nil || !strings.Contains(err.Error(), "handle") {
+		t.Fatalf("want an error naming the rejected field, got %v", err)
+	}
+	if out.Len() != 0 {
+		t.Fatal(out.String())
+	}
+}
+
+// cli#1897 (sharpened, cor:api:050:02/:03): an outsider's, a userless caller's
+// and a nonexistent handle's answers all arrive as the server's empty page; the
+// CLI prints that page and nothing else, in both renderings, and computes no
+// total or next-page hint of its own. It also runs no per-hit enrichment (only
+// GlobalSearch is stubbed: any other operation would fail the run).
+func TestFindAgentTaskNoHitIndistinguishable1897(t *testing.T) {
+	empty := `{"data":{"globalSearch":{"hits":[],"total":0,"degraded":[],"scope":null}}}`
+	for _, q := range []string{"AT0.404404", "hrn:agenttask:hadronmemory.com:hadron-dev-team:at0.8313", "nonexistent handle"} {
+		js, errOut, v := findAgentTask(t, q, empty, "--json")
+		want, _ := json.Marshal(q)
+		if string(v["query"]) != string(want) {
+			t.Fatalf("query was rewritten: %s", v["query"])
+		}
+		var d struct {
+			Hits  []json.RawMessage
+			Total int
+		}
+		if err := json.Unmarshal([]byte(js), &d); err != nil || d.Hits == nil || len(d.Hits) != 0 || d.Total != 0 {
+			t.Fatalf("%v\n%s", err, js)
+		}
+		if errOut != "" {
+			t.Fatalf("stderr = %q", errOut)
+		}
+		text, errOut, _ := findAgentTask(t, q, empty)
+		if !strings.Contains(text, "Ranked matches (bounded): 0") || strings.Contains(text, "agentTask") || errOut != "" {
+			t.Fatalf("%q\n%s", errOut, text)
+		}
+	}
+}
+
+// cli#1897: the printed total and the next-page hint are the server's, even
+// when the page shows fewer hits than the total (the server may hide some).
+func TestFindAgentTaskTotalAsGiven1897(t *testing.T) {
+	body := `{"data":{"globalSearch":{"hits":[` + agentTaskHit + `],"total":7,"degraded":[],"scope":null}}}`
+	text, errOut, _ := findAgentTask(t, "digest", body, "--limit", "1")
+	if !strings.Contains(text, "Ranked matches (bounded): 7") || !strings.Contains(errOut, "showing 1 of 7") || !strings.Contains(errOut, "--offset 1 --limit 1") {
+		t.Fatalf("%s\n%s", text, errOut)
+	}
+}
+
+// cli#1897: agentTask is listed in the flag help, find --help and the agentic
+// contract beside the other kinds, and the refusal still names bad values.
+func TestFindAgentTaskHelp1897(t *testing.T) {
+	f, out := testFactory(t)
+	r := NewRootCmd(f)
+	r.SetArgs([]string{"find", "--help"})
+	if err := r.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out.String(), "aiServiceConfig,user,agentTask") {
+		t.Fatalf("--entity-type help omits agentTask:\n%s", out.String())
+	}
+	b, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(b), "[--entity-type organization,memory,node,agent,app,aiServiceConfig,user,agentTask]") {
+		t.Fatal("agentic-usage.md find synopsis omits agentTask")
+	}
+	g, c := captureGraphQL(t, map[string]string{})
+	f2, _ := testFactory(t)
+	r2 := NewRootCmd(f2)
+	r2.SetArgs([]string{"find", "x", "--entity-type", "agentTasks", "--server", g.URL})
+	wantExit(t, r2.Execute(), exitcode.Usage)
+	if len(c) > 0 {
+		t.Fatal(c)
+	}
+}
+
+// cli#1897: the HANDLE cell is server text and goes through SafeCell like every
+// other cell, so a control sequence in a handle cannot reach the terminal.
+func TestFindHandleTerminalCell1897(t *testing.T) {
+	body := `{"data":{"globalSearch":{"hits":[{"id":"t1","entityType":"agentTask","name":"T","urn":null,"handle":"AT0.1\u001b[31mX","score":1,"matchedField":"name","description":null,"memoryId":null,"organizationId":null}],"total":1,"degraded":[],"scope":null}}}`
+	text, _, _ := findAgentTask(t, "AT0.1", body)
+	if strings.Contains(text, "\x1b") || !strings.Contains(text, "31mX") {
+		t.Fatalf("handle cell not sanitised:\n%q", text)
 	}
 }

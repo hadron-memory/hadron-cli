@@ -58,7 +58,7 @@ func newCmdCheckTools(f *cmdutil.Factory) *cobra.Command {
 		Short: "Flag hadron_* tool references in specs that aren't real registered tools",
 		Long: `Scan every spec's body and abstract for ` + "`hadron_*`" + ` MCP/runner tool
 references and flag any that are not a real registered tool — the drift that let
-stale ` + "`h-*`" + ` shorthand rot silently (issue #240).
+stale ` + "`h-*`" + ` shorthand rot silently.
 
 The set of real tools is a manifest baked into this binary — the union of
 hadron-server's two tool registries (the MCP ` + "`server.tool()`" + ` names and the
@@ -66,6 +66,11 @@ runner ` + "`RunToolDef`" + ` names), regenerated with ` + "`make tools-manifest
 kept honest by CI. A small hand-maintained ignore-list carries the known
 non-tool ` + "`hadron_*`" + ` identifiers that legitimately appear in prose (e.g. the
 ` + "`hadron_token`" + ` sign-in cookie), so they are never flagged.
+
+A retired spec (one marked superseded, whether replaced or rescinded) is
+skipped: it is the record of what the contract said, so it may cite a tool the
+server has since removed. The skip is counted in the output ("1 retired spec
+skipped"); a live spec is always checked.
 
 Exits 5 when any unregistered token is found (like ` + "`spec lint`" + `), so it can
 gate CI; ` + "`--json`" + ` emits the findings. A clean corpus prints a one-line OK and
@@ -101,9 +106,17 @@ exits 0.`,
 			}
 			ids := make([]string, 0, len(all))
 			locByID := map[string]string{}
+			retired := 0
 			for _, n := range all {
 				if n == nil || !underPrefix(n.Loc, prefix) {
 					continue // the server's prefix is character-wise; keep the branch
+				}
+				// A retired spec (the superseded tag, which supersede and rescind both write:
+				// cor:spc:010:02) is history: it may cite a tool the server has since removed.
+				// It is not read, and it is counted so the gate stays auditable (cli#3051).
+				if hasTag(n.Tags, supersededTag) {
+					retired++
+					continue
 				}
 				ids = append(ids, n.Id)
 				locByID[n.Id] = n.Loc
@@ -162,7 +175,7 @@ exits 0.`,
 
 			if err := output.Write(f.IOStreams, f.JSON, findings, func(w io.Writer) error {
 				if len(findings) == 0 {
-					fmt.Fprintf(w, "✓ no unregistered hadron_* tool references (checked against %d registered tools)\n", len(registered))
+					fmt.Fprintf(w, "✓ no unregistered hadron_* tool references (checked against %d registered tools%s)\n", len(registered), retiredSkipNote(retired, "; "))
 					return nil
 				}
 				t := output.NewTable(w, "CITATION", "KIND", "LOCATION", "DETAIL")
@@ -175,7 +188,13 @@ exits 0.`,
 					}
 					t.Row(output.SafeCell(fnd.Citation), fnd.Kind, loc, output.SafeCell(detail))
 				}
-				return t.Flush()
+				if err := t.Flush(); err != nil {
+					return err
+				}
+				if retired > 0 {
+					fmt.Fprintf(w, "(%s)\n", retiredSkipNote(retired, ""))
+				}
+				return nil
 			}); err != nil {
 				return err
 			}
@@ -191,6 +210,18 @@ exits 0.`,
 	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory ID or fully-qualified URN (defaults to the memory set by hadron spec use, then the active memory)")
 	cmd.Flags().StringVar(&prefix, "prefix", "", "restrict to a citation prefix (that node + its descendants)")
 	return cmd
+}
+
+// retiredSkipNote says how many retired specs the scan skipped ("1 retired spec skipped"), led by
+// sep, or nothing when none were: the word is "retired" because a rescinded spec is skipped too.
+func retiredSkipNote(n int, sep string) string {
+	switch n {
+	case 0:
+		return ""
+	case 1:
+		return sep + "1 retired spec skipped"
+	}
+	return fmt.Sprintf("%s%d retired specs skipped", sep, n)
 }
 
 // parseToolList reads a manifest/ignore file into a set: one identifier per
