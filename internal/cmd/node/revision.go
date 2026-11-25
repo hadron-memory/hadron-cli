@@ -157,7 +157,9 @@ sets one; node revision label changes it) and its validation state. The
 current version is not listed; node get shows it.
 
 Use a revision id with node revision get to see that version's content, or
-with node revision restore to go back to it. 20 are listed unless --limit
+with node revision restore to go back to it; get, restore, label and delete
+also take a revision URN (hrn:noderev:...), passed to the server as written.
+20 are listed unless --limit
 says otherwise. stderr says "showing a-b of N" with the real total and, when
 more exist, "more: --offset N"; --offset pages on. --limit 0 only counts.`,
 		Example: `  hadron node revision list hrn:node:hadronmemory.com:dev:start-here
