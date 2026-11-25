@@ -448,8 +448,8 @@ func TestPreflightRouteCrossMemoryLeafMessageDirection2736(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory", "--route-model", "leaf"))
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "did not confirm its cross-memory marker") || strings.Contains(err.Error(), "tasks:mint") {
-		t.Fatalf("the marker is unconfirmed, and the locs typed are not shown, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "the route from the target to the router ") || strings.Contains(err.Error(), "tasks:mint") {
+		t.Fatalf("the leaf edge runs target -> router, and the message must say so without the locs typed, got %v", err)
 	}
 }
 

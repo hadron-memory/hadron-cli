@@ -753,8 +753,11 @@ func retire(cmd *cobra.Command, client graphql.Client, oldNode *gen.GetNodeNode,
 // replacementName names a replacement whose create got no answer, so nothing reported it: by the
 // number allocated for it, or as the --to loc. Never by a citation the operator typed.
 func replacementName(named bool, seq *int) string {
-	if named || seq == nil {
+	if named {
 		return "the replacement named with --to (not shown)"
+	}
+	if seq == nil {
+		return "the replacement (the citation given is not shown)"
 	}
 	return fmt.Sprintf("the replacement numbered %02d under its parent (the citation given is not shown)", *seq)
 }

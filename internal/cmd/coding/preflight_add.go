@@ -367,7 +367,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, wikiLink(loc))
 				if err != nil {
 					return partialRoute(f, dto, true, err,
-						"created and routed the node reported above, but the router's body was not updated — the route is invisible to anyone READING it; add its routing line to the body yourself (a list item that wikilinks the node and carries its description)")
+						"created and routed the node reported above, but the router's body was not updated — the route is invisible to anyone READING it; add it with `hadron coding preflight route <loc> -m <memory> --route <label>` and this run's other flags (an existing route is kept, only the missing line is written)")
 				}
 				if !written.Skipped {
 					dto.BodyLine, dto.Section = line, written.Section

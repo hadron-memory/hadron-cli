@@ -967,12 +967,12 @@ func resolveSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc s
 // Targets travel by id, never by loc, so the server resolves nothing itself.
 func resolveSpecEdges(cmd *cobra.Command, client graphql.Client, memoryURN string, edges []plannedEdgeDTO, created map[string]string) ([]*gen.NodeEdgeInput, error) {
 	out := make([]*gen.NodeEdgeInput, 0, len(edges))
-	for _, e := range edges {
+	for i, e := range edges {
 		id, ok := created[e.Target]
 		if !ok {
 			rid, err := resolveSpecNode(cmd, client, memoryURN, e.Target)
 			if err != nil {
-				return nil, fmt.Errorf("cannot wire an edge of the new spec (its ends are not shown), so nothing was created: %w", err)
+				return nil, fmt.Errorf("cannot wire edge %d of %d of the new spec (its ends are not shown; --dry-run lists them), so nothing was created: %w", i+1, len(edges), err)
 			}
 			id = rid
 		}

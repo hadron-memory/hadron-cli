@@ -1095,14 +1095,14 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	}
 	resolved := map[string]string{}
 	if !noEdges {
-		for _, pn := range plan {
-			for _, e := range pn.edges {
+		for n, pn := range plan {
+			for i, e := range pn.edges {
 				if inPlan[e.Target] || resolved[e.Target] != "" {
 					continue
 				}
 				id, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
 				if rerr != nil {
-					return fmt.Errorf("cannot wire an edge of the new spec (its ends are not shown), so nothing was created: %w", rerr)
+					return fmt.Errorf("cannot wire edge %d of node %d of %d, top-down (its ends are not shown; --dry-run lists them), so nothing was created: %w", i+1, n+1, len(plan), rerr)
 				}
 				resolved[e.Target] = id
 			}
@@ -1113,7 +1113,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	// scaffold as a whole is not one transaction, so a failure part-way names
 	// what was already written — each of those is complete, edges included.
 	nodeType := "info"
-	written := 0
+	var written []string // node ids the server returned
 	for _, pn := range plan {
 		ab, bd := pn.abstract, pn.body
 		input := gen.CreateNodeInput{
@@ -1132,13 +1132,13 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		}
 		up, uerr := api.CreateSpecNode(cmd.Context(), client, &input)
 		if uerr != nil {
-			if written > 0 {
-				return fmt.Errorf("scaffolding the chain (the citation given is not shown) failed after creating its first %d of %d node(s), top-down (each with its edges): %w", written, len(plan), api.MapError(uerr))
+			if len(written) > 0 {
+				return fmt.Errorf("scaffolding the chain (the citation given is not shown) failed after creating its first %d of %d node(s), top-down (each with its edges; ids %s): %w", len(written), len(plan), strings.Join(written, ", "), api.MapError(uerr))
 			}
 			return fmt.Errorf("scaffolding the chain (the citation given is not shown): %w", api.MapError(uerr))
 		}
 		resolved[pn.cit.Format()] = up.Id
-		written++
+		written = append(written, up.Id)
 	}
 	return render()
 }

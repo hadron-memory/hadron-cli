@@ -272,18 +272,16 @@ router body that was not updated. The message says which part is missing.`,
 			}
 
 			from, to := router.Node.Id, targetID
-			fromLoc, toLoc := attachLoc, dto.Loc
 			if leaf {
 				from, to = targetID, router.Node.Id
-				fromLoc, toLoc = dto.Loc, attachLoc
 			}
 			// An EXISTING edge is never re-created when marking: a real server refuses
 			// createEdge on an occupied loc ("Edge loc ... is already occupied", QA on
 			// cli#2736), so the edge already on the graph takes the marker through
 			// updateEdge. Without --cross-memory the write is exactly what it was.
 			fwdID, fwdMarked, err := writeRouteEdge(ctx, client, routeEdge{
-				From: from, To: to, FromLoc: fromLoc, ToLoc: toLoc, Label: label,
-				Existing: existingFwd, Mark: crossMemory, Memory: mem.raw,
+				From: from, To: to, Dir: routeDir(leaf), Label: label,
+				Existing: existingFwd, Mark: crossMemory,
 			})
 			if err != nil {
 				return err
@@ -297,8 +295,8 @@ router body that was not updated. The message says which part is missing.`,
 
 			if !leaf && !noBackEdge {
 				_, backMarked, err := writeRouteEdge(ctx, client, routeEdge{
-					From: targetID, To: router.Node.Id, FromLoc: dto.Loc, ToLoc: attachLoc, Label: label,
-					Existing: existingBack, Mark: crossMemory, Memory: mem.raw, Back: true,
+					From: targetID, To: router.Node.Id, Dir: true, Label: label,
+					Existing: existingBack, Mark: crossMemory, Back: true,
 				})
 				if err != nil {
 					var markerErr *markerNotConfirmedError
@@ -318,7 +316,7 @@ router body that was not updated. The message says which part is missing.`,
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, link)
 				if err != nil {
 					return partialRoute(f, dto, false, err,
-						"routed the node reported above, but the router's body was not updated — the route is invisible to anyone READING it; add its routing line to the body yourself (a list item that wikilinks the node and carries its description)")
+						"routed the node reported above, but the router's body was not updated — the route is invisible to anyone READING it; add it with `hadron coding preflight route <loc> -m <memory> --route <label>` and this run's other flags (an existing route is kept, only the missing line is written)")
 				}
 				if !written.Skipped {
 					dto.BodyLine, dto.Section = line, written.Section
@@ -380,12 +378,23 @@ type existingEdge struct {
 	Data *json.RawMessage
 }
 
+// routeDir is which way a route edge runs: true from the target to the router.
+type routeDir bool
+
+func (d routeDir) words() string {
+	if d {
+		return "from the target to the router"
+	}
+	return "from the router to the target"
+}
+
 // routeEdge is one edge write of `preflight route`.
 type routeEdge struct {
-	From, To, FromLoc, ToLoc, Label, Memory string
-	Existing                                *existingEdge
-	Mark                                    bool // write the cross-memory marker (cli#2736)
-	Back                                    bool // the mirrored back-edge (messages only)
+	From, To, Label string
+	Dir             routeDir
+	Existing        *existingEdge
+	Mark            bool // write the cross-memory marker (cli#2736)
+	Back            bool // the mirrored back-edge (messages only)
 }
 
 // markerNotConfirmedError says an edge exists but the marker update was not
@@ -414,7 +423,7 @@ func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (st
 		if edgeCrossMemory(e.Existing.Data) {
 			return e.Existing.ID, true, nil
 		}
-		confirmed, err := updateCrossMemoryMarker(ctx, client, e.Existing.ID, e.Existing.Data)
+		confirmed, err := updateCrossMemoryMarker(ctx, client, e.Dir, e.Existing.ID, e.Existing.Data)
 		return e.Existing.ID, confirmed, err
 	}
 	var data *json.RawMessage
@@ -449,7 +458,7 @@ func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (st
 	}
 	// createEdge answered an edge without the marker (an edge that already
 	// existed on a server that returns it): add it through updateEdge.
-	confirmed, err := updateCrossMemoryMarker(ctx, client, resp.CreateEdge.Id, resp.CreateEdge.Data)
+	confirmed, err := updateCrossMemoryMarker(ctx, client, e.Dir, resp.CreateEdge.Id, resp.CreateEdge.Data)
 	return resp.CreateEdge.Id, confirmed, err
 }
 
@@ -457,7 +466,7 @@ func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (st
 // keeping its other data exactly, and CONFIRMS it from the answer: a null result
 // or data without the marker is an unknown outcome (the write may have
 // committed), reported with a read-back instruction and never retried.
-func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, edgeID string, current *json.RawMessage) (bool, error) {
+func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, dir routeDir, edgeID string, current *json.RawMessage) (bool, error) {
 	merged, err := withCrossMemoryMarker(current)
 	if err != nil {
 		return false, err
@@ -466,11 +475,11 @@ func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, edgeID 
 	if err != nil {
 		mapped := api.MapError(err)
 		return false, newMarkerNotConfirmed(exitcode.FromError(mapped),
-			"the route (the locs given are not shown) exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m <memory>`; a re-run with --cross-memory only sets the marker: %v", mapped)
+			"the route %s (the locs given are not shown) exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m <memory>`; a re-run with --cross-memory only sets the marker: %v", dir.words(), mapped)
 	}
 	if resp == nil || resp.UpdateEdge == nil || !edgeCrossMemory(resp.UpdateEdge.Data) {
 		return false, newMarkerNotConfirmed(exitcode.Unavailable,
-			"the route (the locs given are not shown) exists, but the server did not confirm its cross-memory marker, so it may not have been written — check with `hadron coding preflight list -m <memory>`; nothing was retried")
+			"the route %s (the locs given are not shown) exists, but the server did not confirm its cross-memory marker, so it may not have been written — check with `hadron coding preflight list -m <memory>`; nothing was retried", dir.words())
 	}
 	return true, nil
 }
