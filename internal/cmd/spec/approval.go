@@ -190,6 +190,9 @@ func renderSpecApproval(w io.Writer, s *specApprovalDTO) {
 	case string(gen.NodeApprovalStateSuperseded):
 		if s.Approval != nil {
 			fmt.Fprintf(w, "Approval: SUPERSEDED (title, abstract or content changed since the approval recorded at revision %d by %s at %s)\n", s.Approval.Revision, specApprover(*s.Approval), s.Approval.ApprovedAt)
+			// cli#1906 item 4: the value is the server's and stays; this says what
+			// it is, because it reads like "replaced" and is not.
+			fmt.Fprintln(w, "  SUPERSEDED here is the approval state of the current text. It does not mean the spec was replaced or retired.")
 			return
 		}
 	}

@@ -88,7 +88,7 @@ func TestSpecListReplacedJSONIsAdditive(t *testing.T) {
 				t.Errorf("existing key %q dropped: %v", k, row)
 			}
 		}
-		if len(row) != 10 { // existing keys plus replaced/replacedBy and governed
+		if len(row) != 11 { // existing keys plus replaced/replacedBy/retirement and governed
 			t.Errorf("unexpected key set: %v", row)
 		}
 	}
@@ -98,7 +98,9 @@ func TestSpecListReplacedJSONIsAdditive(t *testing.T) {
 }
 
 // No edge, an unreadable target, another memory's target and two different
-// targets all say "replaced" and name nothing.
+// targets name nothing, and with no rescind prefix on the spec's own abstract
+// they say the neutral "retired", never "replaced" (cli#1906: absence of a
+// readable edge does not prove a rescind, and replaced would claim a successor).
 func TestSpecListReplacedNeverGuessesTheTarget(t *testing.T) {
 	for name, batch := range map[string]string{
 		"no edge":                 replacedBatchNode(),
@@ -111,8 +113,8 @@ func TestSpecListReplacedNeverGuessesTheTarget(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			text, _ := replacedList(t, `["spec","superseded"]`, batch)
-			if !strings.Contains(text, "(replaced)") || strings.Contains(text, "replaced by") {
-				t.Fatalf("want bare (replaced):\n%s", text)
+			if !strings.Contains(text, "(retired)") || strings.Contains(text, "replaced") {
+				t.Fatalf("want neutral (retired):\n%s", text)
 			}
 			_, rows := replacedList(t, `["spec","superseded"]`, batch, "--json")
 			if rows[0]["replaced"] != true || rows[0]["replacedBy"] != nil {
@@ -186,7 +188,7 @@ func TestSpecRegisterReplacedJSONIsAdditive(t *testing.T) {
 	if fmt.Sprint(fe["rules"]) != "[01 02 03]" || fe["nextRule"] != "04" || fe["feature"] != "010" {
 		t.Fatalf("existing keys changed: %v", fe)
 	}
-	want := []any{map[string]any{"rule": "01", "replaced": true, "replacedBy": "msg:010:03"}}
+	want := []any{map[string]any{"rule": "01", "replaced": true, "replacedBy": "msg:010:03", "retirement": "replaced"}}
 	if fmt.Sprint(fe["replacedRules"]) != fmt.Sprint(want) {
 		t.Fatalf("replacedRules: %v", fe["replacedRules"])
 	}
