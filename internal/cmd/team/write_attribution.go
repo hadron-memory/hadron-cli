@@ -143,19 +143,34 @@ func SetQueryParser(wrap func(func(*ast.Source) (*ast.QueryDocument, error)) fun
 // its generated operation names. Every root field must be authored; mixed
 // maintenance requests and unresolved/cyclic fragments fail closed.
 func authoredWriteRequest(req *graphql.Request) bool {
+	doc, mutation := parseMutation(req)
+	return mutation != nil && authoredMutation(doc, mutation)
+}
+
+// parseMutation parses the request once and returns the mutation it selects,
+// or nil when it selects none (a read, or a document that does not parse).
+func parseMutation(req *graphql.Request) (*ast.QueryDocument, *ast.OperationDefinition) {
 	if req == nil {
-		return false
+		return nil, nil
 	}
 	doc, err := parseQuery(&ast.Source{Input: req.Query})
 	if err != nil {
-		return false
+		return nil, nil
 	}
 	op := doc.Operations.ForName(req.OpName)
 	if op == nil && req.OpName == "" && len(doc.Operations) == 1 {
 		op = doc.Operations[0]
 	}
-	return op != nil && op.Operation == ast.Mutation && authoredSelections(doc, op.SelectionSet, map[string]bool{})
+	if op == nil || op.Operation != ast.Mutation {
+		return nil, nil
+	}
+	return doc, op
 }
+
+func authoredMutation(doc *ast.QueryDocument, mutation *ast.OperationDefinition) bool {
+	return authoredSelections(doc, mutation.SelectionSet, map[string]bool{})
+}
+
 func authoredSelections(doc *ast.QueryDocument, selections ast.SelectionSet, visiting map[string]bool) bool {
 	if len(selections) == 0 {
 		return false

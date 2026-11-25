@@ -110,6 +110,7 @@ func TestForeignBindingSessionMatch3135(t *testing.T) {
 		"no string in it":         {map[string]any{"a": 1, "b": nil, "c": true}, false},
 		"unencodable":             {map[string]any{"a": make(chan int), "s": "s-new"}, false},
 		"no variables":            {nil, false},
+		"after a huge number":     {json.RawMessage(`{"n":1e999,"s":"S-NEW"}`), true},
 		"raw, duplicate key":      {json.RawMessage(`{"s":"s-new","s":"other"}`), true},
 		"tail of a quoted string": {map[string]any{"body": `see "s-new`}, true},
 	} {
