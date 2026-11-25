@@ -1950,6 +1950,11 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "GRANT_NOT_PENDING" || code == "GRANT_EXPIRED" || code == "GRANT_TERMS_UNREPRESENTABLE":
 		return exitcode.Conflict
+	// A selection of grants (requestGrantSelectionSignature, cor:acl:140:07;
+	// cli#3197): the list itself is the caller's input, which it fixes: 2. The
+	// per-grant codes are the one-grant request's, mapped above.
+	case code == "SELECTION_EMPTY" || code == "SELECTION_TOO_LARGE" || code == "SELECTION_DUPLICATE_GRANT" || code == "SELECTION_MIXED_APPS":
+		return exitcode.Usage
 	// cli#2631 (issuing a secret read client): auto-delete needs a window or read
 	// budget: the caller's own input (2). cli#2720: SECRET_AUTO_DELETE_NOT_ALLOWED
 	// (the caller neither manages the App nor wrote the secret's current version) is
