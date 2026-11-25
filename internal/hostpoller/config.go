@@ -308,6 +308,10 @@ func (w WorkerConfig) tui() string {
 	return ""
 }
 
+// RunsClaudeCode reports whether the worker's agent is Claude Code (GLM and
+// Kimi workers included). Only an interface known to be Codex is excluded.
+func (w WorkerConfig) RunsClaudeCode() bool { return w.tui() != "codex" }
+
 const (
 	defaultPollInterval = 30
 	defaultEndWait      = 15 * time.Minute
