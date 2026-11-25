@@ -86,6 +86,10 @@ func TestMapError(t *testing.T) {
 		{"restart worker not found 3050", gqlErr("WORKER_NOT_FOUND"), exitcode.NotFound},
 		{"restart app not found 3050", gqlErr("APP_NOT_FOUND"), exitcode.NotFound},
 
+		// cli#3200: a strict collection's undeclared field is the caller's
+		// input to fix (server#5196).
+		{"field not declared 3200", gqlErr("FIELD_NOT_DECLARED"), exitcode.Usage},
+
 		// #1706 content-validation report refusals.
 		{"validation reporter_unknown", gqlErr("CONTENT_VALIDATION_REPORTER_UNKNOWN"), exitcode.Forbidden},
 		{"validation reporter_is_author", gqlErr("CONTENT_VALIDATION_REPORTER_IS_AUTHOR"), exitcode.Forbidden},
