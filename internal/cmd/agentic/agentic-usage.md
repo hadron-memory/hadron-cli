@@ -850,7 +850,7 @@ Conventions:
   **re-minted** (the anonymous one stops resolving — `--json` returns
   `{memory, previousUrn, encrypted}` so both are visible), and its anonymous TTL
   is cleared so it is no longer garbage-collected. Adding `--data-key-file <file|->`
-  (mode 600; `-` reads stdin; also `--data-key -`; a literal `--data-key <key>` is
+  (mode 600; `-` reads piped stdin, refused on a terminal with exit 2, cli#2689; also `--data-key -`; a literal `--data-key <key>` is
   DEPRECATED: one stderr warning that never echoes the key, refused in a later
   release, cli#1657) encrypts every node in the same transaction and lands the memory `private` and
   owned by that user — ONE-WAY, like `memory encrypt`. The key must be canonical
@@ -1011,8 +1011,9 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
 - `memory encrypt <memory> --data-key-file <file|->` converts a plaintext memory to
   encrypted-at-rest: you provide the data key in a file only you can read (a file
   that group or others can access is refused before any request, exit 2, the
-  `readPassphraseFile` rule; `-` reads stdin, as `--data-key -` still does, with
-  the confirmation answered before stdin is read; `--data-key-file` is exclusive
+  `readPassphraseFile` rule; `-` reads PIPED stdin, as `--data-key -` does, so it
+  needs `--yes`; on a terminal both, and `--passphrase-file -`, are refused before
+  any read, prompt or request (exit 2, cli#2689, a paste would echo); `--data-key-file` is exclusive
   with `--data-key` and `--passphrase-file`; a literal `--data-key <key>` still
   works but is DEPRECATED, printing one stderr warning that never echoes the key,
   `--json` stdout unchanged, and will be refused in a later release: cli#1657,
@@ -2638,7 +2639,8 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   provider, model, endpoint, apiStyle, apiKey, params, enabled), keeping the secret out of argv;
   an explicit flag overrides the matching file field. `--file -` is for a PIPE
   and is refused (exit 2) from an interactive terminal (#648); `--api-key -` is
-  a secret, not a document, and deliberately still reads from a terminal.
+  a secret, not a document, so that document refusal does not apply to it, and it
+  still reads from a terminal, where a paste echoes (cli#3214).
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `--endpoint <url>` stores a provider base URL; on update,
@@ -4215,7 +4217,7 @@ invocation:
   available on Windows (permissions cannot be checked): use the prompt or stdin.
 - `--unlock-passphrase-stdin`: reads ALL of stdin as the passphrase for a
   single `--unlock` (two or more is exit 2); the command then cannot also read
-  stdin.
+  stdin. Piped only: on a terminal it is exit 2 before any read (cli#2689).
 
 Every local refusal is exit 2 with NOTHING sent: a 9th `--unlock`, a duplicate
 memory, an empty ref or passphrase, a source flag without `--unlock`, stdin
@@ -5800,7 +5802,7 @@ encrypted-memory prompt, skipped and never sent; a tampered row), 7 (lost) and 8
 
 `memory verify <memory>` reads verifyMemoryNodes (#1591): `--json` `{memory,checked,intact,notApproved,superseded,tampered,problems[{nodeId,urn,loc,state,revision,approvedRevision,expectedHash,actualHash}]}` (problems = every non-INTACT node, by loc; `[]` when none). Exit 5 when `tampered > 0`, after printing; NOT_APPROVED/SUPERSEDED alone exit 0.
 
-`memory set` settings: on a change, an omitted flag keeps the value and an empty one (`--license ""`, `--data null`) clears it; on create an empty value is exit 2 (nothing to clear). `--chunk-tokens/--chunk-overlap/--force-fixed-size/--acknowledge-vector-inversion-risk` are change-only (exit 2 on create). With `--app --agent` only `--data/--embedding-source/--vector-index` apply; `--app` alone takes none (exit 2). An explicit `=false` is a value: `--vector-index=false` sends false and `--no-vector-index=false` sends true; a pair that disagrees (`--vector-index --no-vector-index`, the fixed-size pair likewise) exits 2. An empty `--data-file` path exits 2 (use `--data ""` to clear); the file is read once. The server owns the rules (class defaults, GitHub-only `--git-source`, branch syntax, chunk arithmetic, the encrypted-vector acknowledgement). Moving a memory to another organization is `memory transfer`, not `memory set`. `memory list --org <org>` is that organization's view (empty for a non-member); `--visibility PUBLIC` lists the marketplace. `scope list --app-context <app>` lists the scopes a bare name resolves to in that App. `memory encrypt --passphrase-file <file|->`: the server derives the key; the passphrase is never printed. Files must be private (chmod 600); stdin is unchanged. Encryption key material travels in the mutation's request header only, never GraphQL arguments or lookup requests. The server-resolved USER principal sends a target-only memory-key entry; an owning APP completion uses a data key in the operation-key header, never a passphrase. No argument fallback or automatic retry. An older server or stripped header refuses loudly; a null answer or isEncrypted:false is not confirmed, so inspect before retrying. A confirmed isEncrypted:true answer stays exit 0 even if metadata repeats the secret: those string fields are blanked, detailsWithheld:true is added, and text prints a fixed successful receipt. Other metadata is unchanged. On Windows use --passphrase-file - (stdin), because private-file permission checks are unsupported.
+`memory set` settings: on a change, an omitted flag keeps the value and an empty one (`--license ""`, `--data null`) clears it; on create an empty value is exit 2 (nothing to clear). `--chunk-tokens/--chunk-overlap/--force-fixed-size/--acknowledge-vector-inversion-risk` are change-only (exit 2 on create). With `--app --agent` only `--data/--embedding-source/--vector-index` apply; `--app` alone takes none (exit 2). An explicit `=false` is a value: `--vector-index=false` sends false and `--no-vector-index=false` sends true; a pair that disagrees (`--vector-index --no-vector-index`, the fixed-size pair likewise) exits 2. An empty `--data-file` path exits 2 (use `--data ""` to clear); the file is read once. The server owns the rules (class defaults, GitHub-only `--git-source`, branch syntax, chunk arithmetic, the encrypted-vector acknowledgement). Moving a memory to another organization is `memory transfer`, not `memory set`. `memory list --org <org>` is that organization's view (empty for a non-member); `--visibility PUBLIC` lists the marketplace. `scope list --app-context <app>` lists the scopes a bare name resolves to in that App. `memory encrypt --passphrase-file <file|->`: the server derives the key; the passphrase is never printed. Files must be private (chmod 600); piped stdin is unchanged, and `-` on a terminal is exit 2 before any read, prompt or request (cli#2689; `--data-key -` and `--data-key-file -` likewise, on `link-user` too). Encryption key material travels in the mutation's request header only, never GraphQL arguments or lookup requests. The server-resolved USER principal sends a target-only memory-key entry; an owning APP completion uses a data key in the operation-key header, never a passphrase. No argument fallback or automatic retry. An older server or stripped header refuses loudly; a null answer or isEncrypted:false is not confirmed, so inspect before retrying. A confirmed isEncrypted:true answer stays exit 0 even if metadata repeats the secret: those string fields are blanked, detailsWithheld:true is added, and text prints a fixed successful receipt. Other metadata is unchanged. On Windows pipe it to `--passphrase-file -` (with `--yes`), because private-file permission checks are unsupported.
 
 ## Opt-in node source-lint warnings (#916 C3c)
 
