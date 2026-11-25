@@ -6,6 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -56,7 +57,7 @@ func TestUtilizationReleaseNoteFloorAndEmptyReason2987(t *testing.T) {
 	}
 	note := flat(string(b))
 	for _, want := range []string{
-		"needs server 2026-11-21 or later (the day it merged)",
+		"needs server " + team.UtilizationServerFloor + " or later (the day it merged)",
 		"a null reason prints the time alone, an empty or blank one the time and `(empty)`",
 	} {
 		if !strings.Contains(note, want) {
@@ -68,7 +69,7 @@ func TestUtilizationReleaseNoteFloorAndEmptyReason2987(t *testing.T) {
 func TestUtilizationHelpNamesTheServerFloorAndTheNotes2964(t *testing.T) {
 	help := flat(utilHelpLong2964(t))
 	for _, want := range []string{
-		"Needs server 2026-11-21 or later (the day it merged)",
+		"Needs server " + team.UtilizationServerFloor + " or later (the day it merged)",
 		"--family cannot select an open-family row",
 		"shown only with --all",
 		"a null reason prints the time alone",
@@ -83,7 +84,7 @@ func TestUtilizationHelpNamesTheServerFloorAndTheNotes2964(t *testing.T) {
 func TestAgenticUsageUtilizationNamesTheFloorAndTheNotes2964(t *testing.T) {
 	entry := utilContractEntry2964(t)
 	for _, want := range []string{
-		"needs server 2026-11-21 or later (the day it merged)",
+		"needs server " + team.UtilizationServerFloor + " or later (the day it merged)",
 		"`family` is as served: the server sends null",
 		"--family cannot select an open-family row",
 		"the time alone for a null reason",
