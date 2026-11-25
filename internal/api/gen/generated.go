@@ -73968,7 +73968,18 @@ type NodeExportResponse struct {
 	// tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
 	// left out. No sections named prints the content only. Comments is not a
 	// section yet.
-	// Auth: same node-read gate as node(ref:). (HTML + asUrl delivery land
+	// Edges: an outgoing edge is exported only when the caller can read its
+	// TARGET's memory (the Edge.target rule, denied ≡ absent), so a
+	// partial-access caller's file — full: true included — omits those edges.
+	// The round trip is additive: "hadron node import --with-edges" wires the
+	// edges the file carries and never deletes an edge the file lacks, so an
+	// omitted edge survives a restore into a memory that still has it. The
+	// PDF's Edges section applies the same readability rule and additionally
+	// drops soft-deleted targets (it prints locs, so it keeps only live ones).
+	// ref: the node's PK or URN (hrn:node:hadronmemory.com:specs:cor:api:140). Auth: the same node-read gate as
+	// node(ref:), including read-only PUBLIC knowledge for an App key or userless
+	// run (hrn:node:hadronmemory.com:specs:cor:acl:010:01). A node the caller can't read, a missing ref and a
+	// soft-deleted node all refuse as NODE_NOT_FOUND. (HTML + asUrl delivery land
 	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportNodeExportNodeExportResult `json:"nodeExport"`
 }
@@ -74043,7 +74054,18 @@ type NodeExportSectionsResponse struct {
 	// tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
 	// left out. No sections named prints the content only. Comments is not a
 	// section yet.
-	// Auth: same node-read gate as node(ref:). (HTML + asUrl delivery land
+	// Edges: an outgoing edge is exported only when the caller can read its
+	// TARGET's memory (the Edge.target rule, denied ≡ absent), so a
+	// partial-access caller's file — full: true included — omits those edges.
+	// The round trip is additive: "hadron node import --with-edges" wires the
+	// edges the file carries and never deletes an edge the file lacks, so an
+	// omitted edge survives a restore into a memory that still has it. The
+	// PDF's Edges section applies the same readability rule and additionally
+	// drops soft-deleted targets (it prints locs, so it keeps only live ones).
+	// ref: the node's PK or URN (hrn:node:hadronmemory.com:specs:cor:api:140). Auth: the same node-read gate as
+	// node(ref:), including read-only PUBLIC knowledge for an App key or userless
+	// run (hrn:node:hadronmemory.com:specs:cor:acl:010:01). A node the caller can't read, a missing ref and a
+	// soft-deleted node all refuse as NODE_NOT_FOUND. (HTML + asUrl delivery land
 	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportSectionsNodeExportNodeExportResult `json:"nodeExport"`
 }
@@ -139884,12 +139906,12 @@ func (v *__NodeEdgesAttributedInput) GetRef() string { return v.Ref }
 
 // __NodeExportInput is used internally by genqlient
 type __NodeExportInput struct {
-	Id     string           `json:"id"`
+	Ref    string           `json:"ref"`
 	Format NodeExportFormat `json:"format"`
 }
 
-// GetId returns __NodeExportInput.Id, and is useful for accessing the field via an interface.
-func (v *__NodeExportInput) GetId() string { return v.Id }
+// GetRef returns __NodeExportInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeExportInput) GetRef() string { return v.Ref }
 
 // GetFormat returns __NodeExportInput.Format, and is useful for accessing the field via an interface.
 func (v *__NodeExportInput) GetFormat() NodeExportFormat { return v.Format }
@@ -139904,13 +139926,13 @@ func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
 // __NodeExportSectionsInput is used internally by genqlient
 type __NodeExportSectionsInput struct {
-	Id       string              `json:"id"`
+	Ref      string              `json:"ref"`
 	Format   NodeExportFormat    `json:"format"`
 	Sections []NodeExportSection `json:"sections"`
 }
 
-// GetId returns __NodeExportSectionsInput.Id, and is useful for accessing the field via an interface.
-func (v *__NodeExportSectionsInput) GetId() string { return v.Id }
+// GetRef returns __NodeExportSectionsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeExportSectionsInput) GetRef() string { return v.Ref }
 
 // GetFormat returns __NodeExportSectionsInput.Format, and is useful for accessing the field via an interface.
 func (v *__NodeExportSectionsInput) GetFormat() NodeExportFormat { return v.Format }
@@ -175724,8 +175746,8 @@ func NodeEdgesAttributed(
 
 // The query executed by NodeExport.
 const NodeExport_Operation = `
-query NodeExport ($id: ID!, $format: NodeExportFormat!) {
-	nodeExport(id: $id, format: $format, full: true) {
+query NodeExport ($ref: ID!, $format: NodeExportFormat!) {
+	nodeExport(ref: $ref, format: $format, full: true) {
 		format
 		mimeType
 		filename
@@ -175739,17 +175761,19 @@ query NodeExport ($id: ID!, $format: NodeExportFormat!) {
 // renderer (#106) — so `hadron node export` emits byte-for-byte what the portal
 // and every other API client get from the one shared renderer. full: true is the
 // canonical form (all sections, importable); format selects MD or JSON.
+// cli#2899 (hadron-server#4763, #4139): the node is passed as `ref` (a PK or a node URN);
+// a missing, soft-deleted, unreadable or concealed node refuses as NODE_NOT_FOUND.
 func NodeExport(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	format NodeExportFormat,
 ) (data_ *NodeExportResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeExport",
 		Query:  NodeExport_Operation,
 		Variables: &__NodeExportInput{
-			Id:     id,
+			Ref:    ref,
 			Format: format,
 		},
 	}
@@ -175810,8 +175834,8 @@ func NodeExportMeta(
 
 // The query executed by NodeExportSections.
 const NodeExportSections_Operation = `
-query NodeExportSections ($id: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
-	nodeExport(id: $id, format: $format, full: false, sections: $sections) {
+query NodeExportSections ($ref: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
+	nodeExport(ref: $ref, format: $format, full: false, sections: $sections) {
 		format
 		mimeType
 		filename
@@ -175827,7 +175851,7 @@ query NodeExportSections ($id: ID!, $format: NodeExportFormat!, $sections: [Node
 func NodeExportSections(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	format NodeExportFormat,
 	sections []NodeExportSection,
 ) (data_ *NodeExportSectionsResponse, err_ error) {
@@ -175835,7 +175859,7 @@ func NodeExportSections(
 		OpName: "NodeExportSections",
 		Query:  NodeExportSections_Operation,
 		Variables: &__NodeExportSectionsInput{
-			Id:       id,
+			Ref:      ref,
 			Format:   format,
 			Sections: sections,
 		},
