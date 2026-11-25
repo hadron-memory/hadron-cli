@@ -286,8 +286,13 @@ an App that does not exist. Text mode says so; --json stays the bare page.
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Items) == 0 && dto.Total > 0 {
-					// The server counted grants but this page holds none: the offset is
-					// past the end. That is not the empty answer of an unauthorised caller.
+					// The server counted grants but this page holds none, which is not the
+					// empty answer of an unauthorised caller. Below the total the page
+					// should have held rows, so it is not called past the end (cli#3193).
+					if offset < dto.Total {
+						_, e := fmt.Fprintf(w, "No rows on this page: the server counted %d grants but returned none on this page (offset %d).\n", dto.Total, offset)
+						return e
+					}
 					_, e := fmt.Fprintf(w, "No rows on this page: offset %d is past the end of %d grants.\n", offset, dto.Total)
 					return e
 				}

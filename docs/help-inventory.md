@@ -525,8 +525,8 @@ section between the markers.
 | `team grant add` |  |  | y | #1054 | cb7210e017cc |  | unread |  |
 | `team grant app-list` |  |  | y | #1054 | 0958baf2c5f2 |  | unread |  |
 | `team grant create` |  |  | y | #1054 | d719af9db0b7 |  | unread |  |
-| `team grant get` |  |  | y | #1054 | be7f57a0797c |  | unread |  |
-| `team grant list` | ls |  | y | #1054 | d56154d02611 |  | unread |  |
+| `team grant get` |  |  | y | #1054 | cedf605d7e14 |  | unread |  |
+| `team grant list` | ls |  | y | #1054 | 8f90e695128f |  | unread |  |
 | `team grant request` |  |  | y | #1054 | f77bf4276c65 |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | dd785a61045e |  | unread |  |
 | `team grant revoke` |  |  | y | #1054 | f0740bd5515d |  | unread |  |
