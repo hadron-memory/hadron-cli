@@ -283,7 +283,7 @@ func TestHowToSampleAdapterRefusesOtherContractVersion3062(t *testing.T) {
 // The page says what `limit` the CLI sends to list-untracked: the user's
 // --limit raised to 20, so --limit 1 and no --limit both send 20 and --limit 50
 // sends 50 (above 100 the flag is refused before any call, pinned in
-// TestAdapterUsageRefusalsSendNothing1961's --limit 101 row).
+// TestAdapterFlagsRefusedLocallyWithZeroRequests1961's --limit 101 row).
 func TestHowToPageLimitWordingMatchesWhatTheCLISends3062(t *testing.T) {
 	for argv, want := range map[string]float64{"": 20, "--limit 1": 20, "--limit 20": 20, "--limit 50": 50, "--limit 100": 100} {
 		path, log := fakeAdapter1961(t, "", `echo '{"items":[]}'`, "")
@@ -314,6 +314,11 @@ func TestHowToPageLimitWordingMatchesWhatTheCLISends3062(t *testing.T) {
 // The page's two exit-2 messages: an adapter that does not answer a call this
 // run needs, and --track with no one to hold the claim.
 func TestHowToPageExitTwoMessages3062(t *testing.T) {
+	// The page says "exits 2" in prose; the assertions below use exitcode.Usage.
+	// Tie the two, so a changed constant fails here instead of leaving the page stale.
+	if exitcode.Usage != 2 {
+		t.Fatalf("the page says exit 2, but exitcode.Usage is %d: update the page", exitcode.Usage)
+	}
 	describe := `{"name":"fake","contractVersion":1,"calls":["describe","list-untracked"],"filters":[],"order":"x"}`
 	path, _ := fakeAdapter1961(t, describe, `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
 	_, _, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, "--track")
