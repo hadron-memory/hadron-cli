@@ -590,7 +590,7 @@ func pickRole(rows []gen.TeamRoleFields, arg string) (gen.TeamRoleFields, error)
 	}
 	var zero gen.TeamRoleFields
 	return zero, exitcode.Newf(exitcode.NotFound,
-		"no role %q in this App — `hadron team role list` shows the definitions", arg)
+		"no such role in this App (the role given is not shown) — `hadron team role list` shows the definitions")
 }
 
 // describeRetirement is the confirmation QUESTION (Confirm takes the whole

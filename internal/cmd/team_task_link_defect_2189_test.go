@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"unicode/utf8"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
@@ -241,55 +240,36 @@ func TestTaskLinkDefect2296EmptyResponse(t *testing.T) {
 				t.Fatalf("want exactly one TaskLinkDefect and no retry, got %d", n)
 			}
 			// hadron-cli#2329 F4: the advice and the ref are one string.
-			if want := recovery2329("AT1.2"); !strings.HasSuffix(err.Error(), want) {
+			if want := recovery2329(); !strings.HasSuffix(err.Error(), want) {
 				t.Fatalf("message must end with %q, got %q", want, err.Error())
 			}
 		})
 	}
 }
 
-// recovery2329 is the no-link recovery advice: the command, then the full task
-// ref alone on the last line, so it needs no shell quoting.
-func recovery2329(ref string) string {
-	return "read the task's events before retrying, with hadron team events --task and this task ref:\n  " + ref
+// recovery2329 is the no-link recovery advice: the command, without the task ref typed (cli#3114).
+func recovery2329() string {
+	return "read the task's events before retrying, with hadron team events --task <task> (the ref given is not shown)"
 }
 
-// hadron-cli#2329 F1: the recovery advice names the task ref in full on its
-// own line, however long it is and whatever characters it holds; it is never
-// cut short. Terminal control characters are still neutralised.
-func TestTaskLinkDefect2329RecoveryRefInFull(t *testing.T) {
-	long := "hrn:agenttask:" + strings.Repeat("deep.sub.domain.", 20) + "acme.com:team-app:AT1.2"
-	// A multibyte ref past 200 RUNES (and past 200 bytes too, since a rune is at
-	// least one byte): the rune and byte counts differ, so a guard or a bound that
-	// counts bytes where it means runes cannot pass this by accident (cli#2371 F3).
-	multibyte := "hrn:agenttask:" + strings.Repeat("é", 200) + ":AT1.2"
-	// The invariants live in the case, not in the case's name (cli#2417 F1):
-	// renaming a case cannot stop them being enforced.
-	for name, tc := range map[string]struct {
-		ref, shown         string
-		runeThreshold      int  // the ref must have MORE runes than this (0: no length requirement)
-		moreBytesThanRunes bool // the ref must hold multibyte runes
-	}{
-		"longer than 200":                 {ref: long, shown: long, runeThreshold: 200},
-		"multibyte longer than 200 runes": {ref: multibyte, shown: multibyte, runeThreshold: 200, moreBytesThanRunes: true},
-		"shell metachars":                 {ref: "AT1.2;rm -rf $(x) 'q'", shown: "AT1.2;rm -rf $(x) 'q'"},
-		"control chars":                   {ref: "AT1.2\x1b[31m\nforged", shown: "AT1.2 [31m forged"},
+// hadron-cli#2329 F1, as cli#3114 leaves it: whatever the ref holds, the advice is the same fixed text,
+// so no part of the ref (cut short, spliced or raw) reaches the terminal.
+func TestTaskLinkDefect2329RecoveryNeverShowsTheRef(t *testing.T) {
+	for name, ref := range map[string]string{
+		"long":            "hrn:agenttask:" + strings.Repeat("deep.sub.domain.", 20) + "acme.com:team-app:AT1.2",
+		"multibyte":       "hrn:agenttask:" + strings.Repeat("é", 200) + ":AT1.2",
+		"shell metachars": "AT1.2;rm -rf $(x) 'q'",
+		"control chars":   "AT1.2\x1b[31m\nforged",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if runes := utf8.RuneCountInString(tc.ref); tc.runeThreshold > 0 && runes <= tc.runeThreshold {
-				t.Fatalf("fixture must exceed %d runes, is %d", tc.runeThreshold, runes)
-			}
-			if tc.moreBytesThanRunes && len(tc.ref) == utf8.RuneCountInString(tc.ref) {
-				t.Fatalf("the multibyte fixture must have more bytes than runes, both are %d", len(tc.ref))
-			}
 			r := taskResponses()
 			r["TaskLinkDefect"] = `{"data":{"linkDefectToPullRequest":null}}`
-			_, _, err := runTeamTask(t, r, "team", "task", "link-defect", tc.ref, "--defect", defect2189)
+			_, _, err := runTeamTask(t, r, "team", "task", "link-defect", ref, "--defect", defect2189)
 			if got := exitCodeFor(err); got != exitcode.Error {
 				t.Fatalf("exit = %d, want Error (%v)", got, err)
 			}
-			if want := recovery2329(tc.shown); !strings.HasSuffix(err.Error(), want) {
-				t.Fatalf("message must end with %q, got %q", want, err.Error())
+			if !strings.HasSuffix(err.Error(), recovery2329()) || strings.Contains(err.Error(), "AT1.2") {
+				t.Fatalf("message must end with %q and hold no ref, got %q", recovery2329(), err.Error())
 			}
 		})
 	}

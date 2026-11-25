@@ -92,9 +92,9 @@ func checkRoleList(names []string) error {
 		case r == "":
 			return exitcode.Newf(exitcode.Usage, "a role is empty (an unset variable?): name each role, or pass --clear to empty the list; %s", roleListLimits)
 		case len(utf16.Encode([]rune(r))) > 64:
-			return exitcode.Newf(exitcode.Usage, "role %q is over 64 characters: %s", output.SafeCell(raw), roleListLimits)
+			return exitcode.Newf(exitcode.Usage, "a role (the name given is not shown) is over 64 characters: %s", roleListLimits)
 		case strings.ContainsRune(r, ':') || strings.IndexFunc(r, isJSSpace) >= 0:
-			return exitcode.Newf(exitcode.Usage, "role %q holds a ':' or whitespace: %s", output.SafeCell(raw), roleListLimits)
+			return exitcode.Newf(exitcode.Usage, "a role (the name given is not shown) holds a ':' or whitespace: %s", roleListLimits)
 		}
 		distinct[r] = true
 	}

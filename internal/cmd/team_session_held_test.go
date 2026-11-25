@@ -93,8 +93,9 @@ func TestTeamSessionStartHeldRemedyIsRunnableWithoutAppScope(t *testing.T) {
 	if err == nil {
 		t.Fatal("a name held by someone else must refuse")
 	}
-	// The release command carries the App-independent URN, never the name.
-	if !strings.Contains(err.Error(), "worker release hrn:worker:acme.com:eng-team:iris") {
+	// The release command carries the server's worker id, App-independent and never what was typed
+	// (cli#3114): the URN typed here holds the name, so it is not shown either.
+	if !strings.Contains(err.Error(), "worker release wkr1") || strings.Contains(err.Error(), "eng-team:iris") {
 		t.Errorf("release must be spelled with an App-independent ref: %v", err)
 	}
 	if strings.Contains(err.Error(), "worker release Iris") {
@@ -132,7 +133,7 @@ func TestTeamSessionStartHeldRemedyFallsBackToIDWhenURNIsNull(t *testing.T) {
 		t.Fatal("a name held by someone else must refuse")
 	}
 	if !strings.Contains(err.Error(), "worker release wkr1") {
-		t.Errorf("a URN-less worker must fall back to its id: %v", err)
+		t.Errorf("the remedy names the id: %v", err)
 	}
 
 	// An EMPTY urn is the other absent shape, and it needs its own case: a

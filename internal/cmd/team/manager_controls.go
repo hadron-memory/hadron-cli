@@ -217,7 +217,7 @@ before deciding what to do next.`,
 					return api.MapErrorKeepingCode(err)
 				}
 				if result == nil || result.Worker == nil {
-					return exitcode.Newf(exitcode.NotFound, "no worker %q", workerRef)
+					return exitcode.Newf(exitcode.NotFound, "no worker has that ref (the ref given is not shown)")
 				}
 				worker = result.Worker.WorkerFields
 			} else {

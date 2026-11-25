@@ -129,7 +129,7 @@ cursor — it is known not to make progress.`,
 					return err
 				}
 				if p.Worker == nil {
-					return exitcode.Newf(exitcode.Usage, "--team names a worker (worker:<id, URN or name>), got %q", team)
+					return exitcode.Newf(exitcode.Usage, "--team names a worker (worker:<id, URN or name>); the value given is not shown")
 				}
 			}
 			wanted := map[string]bool{}
@@ -138,7 +138,7 @@ cursor — it is known not to make progress.`,
 			}
 			for _, s := range statuses {
 				if !taskStatuses[strings.ToUpper(s)] {
-					return exitcode.Newf(exitcode.Usage, "--status takes %s, got %q", taskStatusDoc, s)
+					return exitcode.Newf(exitcode.Usage, "--status takes %s", taskStatusDoc)
 				}
 				wanted[strings.ToUpper(s)] = true
 			}
@@ -149,7 +149,7 @@ cursor — it is known not to make progress.`,
 			}
 			if cmd.Flags().Changed("since") {
 				if _, err := time.Parse(time.RFC3339, since); err != nil {
-					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 timestamp, e.g. 2026-10-12T00:00:00Z, got %q", since)
+					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 timestamp, e.g. 2026-10-12T00:00:00Z")
 				}
 			}
 			b, err := readBindingOrNilWithApp(ctx, f)
@@ -173,7 +173,7 @@ cursor — it is known not to make progress.`,
 				return mapTaskError(err)
 			}
 			if rosterResp.TeamRoster == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no roster for %s; nothing was read", appLabel())
+				return exitcode.Newf(exitcode.Error, "the server returned no roster for the App; nothing was read")
 			}
 			workers := []rosterWorker{}
 			rosterByWorker := map[string]*alarmRosterDTO{}
@@ -205,7 +205,7 @@ cursor — it is known not to make progress.`,
 				}
 				coordinator, members, ok := resolveTeam(workers, coordinatorRef)
 				if !ok {
-					return exitcode.Newf(exitcode.NotFound, "worker %s is not on the roster of %s (the roster lists active workers; a retired worker leads no team here)", coordinatorRef, appLabel())
+					return exitcode.Newf(exitcode.NotFound, "the worker (the ref given is not shown) is not on the roster of the App (the roster lists active workers; a retired worker leads no team here)")
 				}
 				inTeam = map[string]bool{}
 				for _, m := range members {

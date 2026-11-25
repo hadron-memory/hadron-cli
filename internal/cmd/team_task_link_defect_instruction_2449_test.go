@@ -125,7 +125,7 @@ func TestLinkDefectInstruction2449UnknownOutcome(t *testing.T) {
 	r := taskResponses()
 	r["TaskLinkDefectInstructed"] = `{"data":{"linkDefectToPullRequest":null}}`
 	calls, _, err := runTeamTask(t, r, "team", "task", "link-defect", "task-id", "--defect", defect2189, "--instruction", "task:ref")
-	if exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "read the task's events before retrying") || !strings.HasSuffix(err.Error(), "task-id") {
+	if exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "read the task's events before retrying") || strings.Contains(err.Error(), "task-id") {
 		t.Fatalf("err=%v", err)
 	}
 	oneCall2422(t, calls, "TaskLinkDefectInstructed")

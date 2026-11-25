@@ -325,7 +325,7 @@ state, not the exit code; a failed push never undoes the post.`,
 			if s := strings.TrimSpace(replyTo); s != "" {
 				seq, err := strconv.Atoi(s)
 				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "--reply-to takes the seq shown by `team chat read`, got %q", replyTo)
+					return exitcode.Newf(exitcode.Usage, "--reply-to takes the seq shown by `team chat read`")
 				}
 				replyToSeq = &seq
 			}

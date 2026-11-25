@@ -309,7 +309,7 @@ func TestWorkerReleaseForbiddenJSONEnvelopeUnchanged(t *testing.T) {
 	}
 	// #1863 item 3: not merely "some message" — the exact text agents read: the
 	// holder and remedy first, the server's own sentence kept after them.
-	const want = "Iris is held by Dara (@dara); only the holder, or an App or org admin, can release it: " +
+	const want = "the worker (the ref given is not shown) is held by Dara (@dara); only the holder, or an App or org admin, can release it: " +
 		"You are not authorized to manage workers in this App."
 	if got := env.Error["message"]; got != want {
 		t.Errorf("--json message = %q, want %q", got, want)

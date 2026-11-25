@@ -305,7 +305,7 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 		}
 		unlock, err := hostup.Lock(dir, o.host)
 		if errors.Is(err, hostup.ErrLocked) {
-			return exitcode.Newf(exitcode.Conflict, "another host up run holds the lock for host %s; nothing issued", o.host)
+			return exitcode.Newf(exitcode.Conflict, "another host up run holds the lock for the host (the host id given is not shown); nothing issued")
 		}
 		if err != nil {
 			return exitcode.Newf(exitcode.Error, "the host up lock: %v", err)
@@ -343,9 +343,9 @@ func runHostUp(cmd *cobra.Command, f *cmdutil.Factory, o hostUpOptions) error {
 			runErr = exitcode.New(exitcode.Usage, runErr)
 		}
 	case len(res.Failed) > 0:
-		runErr = exitcode.Newf(exitcode.Error, "%d step(s) failed on host %s; see the failed list", len(res.Failed), o.host)
+		runErr = exitcode.Newf(exitcode.Error, "%d step(s) failed on the host (the host id given is not shown); see the failed list", len(res.Failed))
 	case o.worker != "" && len(res.Skipped) == 1 && res.Skipped[0].Reason == hostup.ReasonNotOnHost:
-		runErr = exitcode.Newf(exitcode.NotFound, "host %s is not meant to run a worker %q; nothing created", o.host, o.worker)
+		runErr = exitcode.Newf(exitcode.NotFound, "the host is not meant to run the --worker given (neither is shown); nothing created")
 	}
 	if runErr != nil {
 		message := runErr.Error()
@@ -452,12 +452,12 @@ func (s hostUpServerSource) DesiredState(ctx context.Context, hostID string) (ho
 	// missing field) must not be dereferenced: it is the server's failure,
 	// reported like any other, and nothing is planned (cli#2077 blind P2).
 	if r == nil || r.HostDesiredState == nil {
-		return hostup.Snapshot{}, exitcode.Newf(exitcode.Error, "the server answered without a desired state for host %s; nothing planned", hostID)
+		return hostup.Snapshot{}, exitcode.Newf(exitcode.Error, "the server answered without a desired state for the host (the host id given is not shown); nothing planned")
 	}
 	d := r.HostDesiredState
 	if d.HostId != hostID {
 		// Not usage: the server answered for a host nobody asked about.
-		return hostup.Snapshot{}, exitcode.Newf(exitcode.Error, "the server's desired state is for host %s, not %s; nothing planned", d.HostId, hostID)
+		return hostup.Snapshot{}, exitcode.Newf(exitcode.Error, "the server's desired state is for host %s, not the one asked for (the host id given is not shown); nothing planned", output.SafeCell(d.HostId))
 	}
 	setupSource, assigned, err := s.hostSetup(ctx, hostID)
 	if err != nil {
@@ -543,7 +543,7 @@ func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (strin
 		return "", nil, api.MapError(err)
 	}
 	if r == nil || r.HostSetup == nil {
-		return "", nil, exitcode.Newf(exitcode.Error, "the server answered without a host setup for host %s; nothing planned", hostID)
+		return "", nil, exitcode.Newf(exitcode.Error, "the server answered without a host setup for the host (the host id given is not shown); nothing planned")
 	}
 	switch r.HostSetup.Source {
 	case gen.HostSetupSourceHost:
@@ -561,7 +561,7 @@ func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (strin
 			continue
 		}
 		if _, exists := assigned[a.WorkerId]; exists {
-			return "", nil, exitcode.Newf(exitcode.Error, "the server answered hostSetup with duplicate assignments for worker %s on host %s; nothing planned", a.WorkerId, hostID)
+			return "", nil, exitcode.Newf(exitcode.Error, "the server answered hostSetup with duplicate assignments for worker %s on the host (the host id given is not shown); nothing planned", a.WorkerId)
 		}
 		assigned[a.WorkerId] = a
 	}

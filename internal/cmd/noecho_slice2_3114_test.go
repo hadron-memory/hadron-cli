@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -100,4 +101,54 @@ func TestSlice2EnumRefusalsNameTheFormNotTheValue3114(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A missing body line is finished by re-running `preflight route` (BLIND, #3173): the edges that exist are
+// kept, only the line is written, and every flag the refusal names is one `route` has.
+func TestSlice2MissingBodyLineRemedyWorks3114(t *testing.T) {
+	captured, _, err := runPlainRoute2844(t, existingRouter2736("null"), existingTarget2736("null"), "")
+	if err != nil || len(captured["CreateEdge"]) != 0 || len(captured["UpdateNode"]) != 1 {
+		t.Fatalf("a re-run writes only the line: err %v, CreateEdge %d, UpdateNode %d", err, len(captured["CreateEdge"]), len(captured["UpdateNode"]))
+	}
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {codingRouterWithBody(flatRouterBody), codingRouterWithBody(flatRouterBody)},
+		"GetNode":    {newRouteNodeRead(backEdgeJSON)},
+		"CreateNode": {`{"data":{"createNode":` + newRouteNodeJSON + `}}`},
+		"CreateEdge": {`{"data":{"createEdge":` + newRouteEdgeJSON + `}}`},
+		"UpdateNode": {`{"errors":[{"message":"write refused"}]}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(preflightCreateArgs(gql.URL))
+	cerr := root.Execute()
+	rerr := runPlainRouteRefused3114(t)
+	help := cmdHelpOut(t, "coding", "preflight", "route")
+	for name, e := range map[string]error{"create": cerr, "route": rerr} {
+		if e == nil {
+			t.Fatalf("%s: want the partial-write refusal", name)
+		}
+		flags := regexp.MustCompile(`--[a-z-]+`).FindAllString(e.Error(), -1)
+		if len(flags) < 6 || !strings.Contains(e.Error(), "hadron coding preflight route <loc>") {
+			t.Errorf("%s: names the command and its flags: %v", name, e)
+		}
+		for _, fl := range flags {
+			if !strings.Contains(help, fl+" ") {
+				t.Errorf("%s names %s, which preflight route does not take", name, fl)
+			}
+		}
+	}
+}
+
+func runPlainRouteRefused3114(t *testing.T) error {
+	t.Helper()
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {existingRouter2736("null"), existingRouter2736("null")},
+		"GetNode":    {existingTarget2736("null")},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+		"UpdateNode": {`{"errors":[{"message":"write refused"}]}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(routeCrossArgs2736(gql.URL))
+	return root.Execute()
 }

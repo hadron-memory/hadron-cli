@@ -47,7 +47,7 @@ func taskRefKind(flag, s string) (gen.AgentTaskReferenceKind, error) {
 	case "url":
 		return gen.AgentTaskReferenceKindUrl, nil
 	}
-	return "", exitcode.Newf(exitcode.Usage, "%s: unknown kind %q: use one of %s", flag, s, taskRefKindsDoc)
+	return "", exitcode.Newf(exitcode.Usage, "%s: unknown kind (the value given is not shown): use one of %s", flag, taskRefKindsDoc)
 }
 
 // parseTaskRefFlags turns the repeatable --ref values into the input list, in
@@ -57,7 +57,7 @@ func parseTaskRefFlags(values []string) ([]*gen.AgentTaskReferenceInput, error) 
 	for i, v := range values {
 		kindText, rest, ok := strings.Cut(v, "=")
 		if !ok {
-			return nil, exitcode.Newf(exitcode.Usage, "--ref takes <kind>=<target>[|<label>] with kind one of %s, got %q", taskRefKindsDoc, v)
+			return nil, exitcode.Newf(exitcode.Usage, "--ref takes <kind>=<target>[|<label>] with kind one of %s (the value given is not shown)", taskRefKindsDoc)
 		}
 		kind, err := taskRefKind("--ref", kindText)
 		if err != nil {
@@ -65,12 +65,12 @@ func parseTaskRefFlags(values []string) ([]*gen.AgentTaskReferenceInput, error) 
 		}
 		target, label, hasLabel := strings.Cut(rest, "|")
 		if target == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "--ref %q has no target: <kind>=<target>[|<label>] with kind one of %s", v, taskRefKindsDoc)
+			return nil, exitcode.Newf(exitcode.Usage, "a --ref (the value given is not shown) has no target: <kind>=<target>[|<label>] with kind one of %s", taskRefKindsDoc)
 		}
 		ref := &gen.AgentTaskReferenceInput{Kind: kind, Target: target}
 		if hasLabel {
 			if label == "" {
-				return nil, exitcode.Newf(exitcode.Usage, "--ref %q has an empty label after |: drop the | or name the label", v)
+				return nil, exitcode.Newf(exitcode.Usage, "a --ref (the value given is not shown) has an empty label after |: drop the | or name the label")
 			}
 			// Count UTF-16 code units like the server's label.length, after trimming: this check
 			// can only be more permissive than the server, never refuse what it accepts. Same

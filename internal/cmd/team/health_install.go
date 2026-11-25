@@ -108,7 +108,7 @@ written (uninstall removes them).`,
 			}
 			d, err := time.ParseDuration(strings.TrimSpace(interval))
 			if err != nil {
-				return exitcode.Newf(exitcode.Usage, "--interval %q is not a duration like 5m or 1h", interval)
+				return exitcode.Newf(exitcode.Usage, "--interval is not a duration like 5m or 1h")
 			}
 			if config == "" {
 				return exitcode.Newf(exitcode.Usage, "--config is required: the host configuration the sweep reads")
@@ -130,7 +130,7 @@ written (uninstall removes them).`,
 				return exitcode.Newf(exitcode.Usage, "--config %s is not a valid host configuration; its contents are not echoed (check it with `hadron team host run --config`)", abs)
 			}
 			if bin != "" && !filepath.IsAbs(bin) {
-				return exitcode.Newf(exitcode.Usage, "--bin must be an absolute path, got %q", bin)
+				return exitcode.Newf(exitcode.Usage, "--bin must be an absolute path")
 			}
 			if bin == "" {
 				if p, lerr := exec.LookPath("hadron"); lerr == nil {

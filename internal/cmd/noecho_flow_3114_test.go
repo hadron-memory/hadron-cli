@@ -23,13 +23,6 @@ import (
 // FlagSet.Args/Arg). Flag values are pinned by behavior (noecho_3114_test.go), not by this guard. It is
 // flow-insensitive, does not look inside error values, and does not follow a value through an interface
 // method or a server answer.
-//
-// noEchoPendingDirs are the directory groups whose slice of #3114 has not landed. They are not exempt:
-// each slice deletes its group, and the last one deletes this list.
-// Each carries its hit count, so a new echo there fails the guard.
-var noEchoPendingDirs = map[string]int{
-	"internal/cmd/team/": 20,
-}
 
 type echoFlow struct {
 	objs    map[types.Object]bool // tainted variables, parameters, fields
@@ -390,32 +383,17 @@ func TestNoRefusalEchoesATypedValueThroughACopyOrHelper3114(t *testing.T) {
 		t.Fatalf("the guard loaded only %d packages", len(pkgs))
 	}
 	var found []string
-	inPending := map[string]int{}
 	for _, hit := range refusalEchoes(pkgs) {
 		rel, err := filepath.Rel(root, hit)
 		if err != nil {
 			t.Fatal(err)
 		}
 		rel = filepath.ToSlash(rel)
-		pending := false
-		for d := range noEchoPendingDirs {
-			if strings.HasPrefix(rel, d) {
-				pending = true
-				inPending[d]++
-			}
-		}
-		if !pending {
-			found = append(found, rel)
-		}
+		found = append(found, rel)
 	}
 	if len(found) > 0 {
 		t.Errorf("%d refusal(s) echo a positional argument through a copy or a helper; name its kind and say the value is not shown (#2898 policy, cli#3114):\n  %s",
 			len(found), strings.Join(found, "\n  "))
-	}
-	for d, want := range noEchoPendingDirs {
-		if inPending[d] != want {
-			t.Errorf("%s has %d pending echo(es), want %d: a new refusal must not echo, and a fixed one lowers the count", d, inPending[d], want)
-		}
 	}
 }
 

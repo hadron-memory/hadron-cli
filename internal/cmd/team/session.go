@@ -751,23 +751,6 @@ func soleWorkerForRepo(ctx context.Context, client graphql.Client, bound gen.Wor
 	return found
 }
 
-// appIndependentRef picks the spelling of a worker that resolves with NO App
-// scope: its URN, or its id when the App's URN predates the grammar-v2 arity
-// a worker URN needs and there is none.
-//
-// Never the NAME. A name resolves only within an App (cor:agt:020:02), so a
-// remedy command spelled with one fails not-found for precisely the caller
-// most likely to be reading it — whoever reached this refusal through
-// `--as hrn:worker:…` with no ambient App, which is a supported path and the
-// one `--as`'s own help now recommends for scripts. (PR #511 review, Codex
-// P2 + Copilot, independently.)
-func appIndependentRef(w gen.WorkerFields) string {
-	if w.Urn != nil && *w.Urn != "" {
-		return *w.Urn
-	}
-	return w.Id
-}
-
 // heldRefusal is the WORKER_HELD refusal, in one place because two paths
 // reach it — the pre-flight that reads the hold off the worker row, and the
 // server's own refusal, which is the authority and also covers the race the
@@ -782,8 +765,11 @@ func appIndependentRef(w gen.WorkerFields) string {
 // A remedy is only a remedy if the caller can run it as written, so BOTH
 // commands here name their App scope: `release` through an App-independent
 // ref, and `cast`, which has no such spelling — a worker that does not exist
-// yet cannot be addressed — through an explicit --app placeholder.
-func heldRefusal(name, ref, holder string, heldAt *string) error {
+// yet cannot be addressed — through an explicit --app placeholder. The release
+// ref is the server's worker id: it resolves with no App (a name resolves only
+// within one, cor:agt:020:02), and unlike the name or the URN it never holds
+// what the operator typed (cli#3114).
+func heldRefusal(workerID, holder string, heldAt *string) error {
 	who := holder
 	if who == "" {
 		// Reached when the server sent no heldByName and no heldBy, or when
@@ -796,9 +782,9 @@ func heldRefusal(name, ref, holder string, heldAt *string) error {
 		since = fmt.Sprintf(" since %s", *heldAt)
 	}
 	return exitcode.Newf(exitcode.Conflict,
-		"the name %s is held by %s%s — a HELD name is not a TAKEN one: no session ending, idle window, expiry or reap frees it, and --force does NOT apply (cor:agt:020:09). "+
+		"the name (not shown) is held by %s%s — a HELD name is not a TAKEN one: no session ending, idle window, expiry or reap frees it, and --force does NOT apply (cor:agt:020:09). "+
 			"Cast your own worker for the role (`hadron team worker cast --app <app> --name <n> --role <role>`), or ask the holder — or an App/org admin — to run `hadron team worker release %s`",
-		name, who, since, ref)
+		who, since, workerID)
 }
 
 func newCmdSessionStart(f *cmdutil.Factory) *cobra.Command {
@@ -1249,11 +1235,11 @@ ends the recovered session: run start again to pick it up.`,
 					// to refuse anyway; it is not, and must not become, the gate.
 					switch holder, verdict := classifyHold(ctx, client, w); verdict {
 					case holdByOther:
-						return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
+						return heldRefusal(w.Id, holder, w.HeldAt)
 					case holdUnknownWhose:
 						return exitcode.Newf(exitcode.Conflict,
-							"worker %s is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
-							w.Name, drivenBy(narr, live, describe), holder)
+							"the worker (the ref given is not shown) is live — being driven by %s — and the name is held by %s: this CLI could not read your own identity to tell whether that is you. If it is, --force takes over; if it is not, nothing does: a held name is not forceable, and the remedy is to cast your own worker (cor:agt:020:09)",
+							drivenBy(narr, live, describe), holder)
 					}
 					// "clears on its own", NOT "nothing frees it by waiting"
 					// (@codex, P2). The first draft said the second, which is the
@@ -1263,8 +1249,8 @@ ends the recovered session: run start again to pick it up.`,
 					// a real remedy here and the sentence sent readers at --force
 					// instead. #550's own defect, in the message announcing the fix.
 					return exitcode.Newf(exitcode.Conflict,
-						"worker %s is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
-						w.Name, drivenBy(narr, live, describe))
+						"the worker (the ref given is not shown) is live — being driven by %s. Live means DRIVEN RECENTLY (the server derives it; an open session row is not it), so it lapses on its own once nobody is driving; --force takes over now",
+						drivenBy(narr, live, describe))
 				}
 				// Under --force a LIVE worker is classified too (#1859): the takeover
 				// line below is a claim that --force is about to take the name from
@@ -1280,7 +1266,7 @@ ends the recovered session: run start again to pick it up.`,
 				if live == liveYes && force {
 					switch holder, verdict := classifyHold(ctx, client, w); verdict {
 					case holdByOther:
-						return heldRefusal(w.Name, appIndependentRef(w), holder, w.HeldAt)
+						return heldRefusal(w.Id, holder, w.HeldAt)
 					case holdUnknownWhose:
 						// Could not tell whether the hold is the caller's: refusing
 						// would block a legitimate self-takeover whenever the
@@ -1371,7 +1357,7 @@ ends the recovered session: run start again to pick it up.`,
 				// takeover would be the exact misdirection this branch exists
 				// to remove.
 				if detail, held := api.WorkerHeldDetail(err); held {
-					return heldRefusal(w.Name, appIndependentRef(w), detail.Holder(), optStr(detail.HeldAt))
+					return heldRefusal(w.Id, detail.Holder(), optStr(detail.HeldAt))
 				}
 				if detail, taken := api.WorkerTakenDetail(err); taken {
 					who := detail.LastDriver
@@ -1397,8 +1383,8 @@ ends the recovered session: run start again to pick it up.`,
 					// Round 6 of #549 in miniature: one explanation in two
 					// places, edited in one.
 					return exitcode.Newf(exitcode.Conflict,
-						"worker %s is live — being driven by %s, last seen %s (worker session %s). Live means DRIVEN RECENTLY, derived server-side, not merely a session left open; it lapses on its own once nobody is driving. --force takes over now (informed override, cor:agt:020:03)",
-						w.Name, who, seen, detail.SessionID)
+						"the worker (the ref given is not shown) is live — being driven by %s, last seen %s (worker session %s). Live means DRIVEN RECENTLY, derived server-side, not merely a session left open; it lapses on its own once nobody is driving. --force takes over now (informed override, cor:agt:020:03)",
+						who, seen, detail.SessionID)
 				}
 				return api.MapError(err)
 			}
@@ -2959,7 +2945,7 @@ func appForTeamMemory(ctx context.Context, client graphql.Client, teamMem string
 	}
 	if resp.Memory == nil || resp.Memory.AppId == nil || *resp.Memory.AppId == "" {
 		return "", exitcode.Newf(exitcode.Usage,
-			"%s is not an App memory — the worklog lives in a team App's shared memory", teamMem)
+			"the memory (the ref given is not shown) is not an App memory — the worklog lives in a team App's shared memory")
 	}
 	return *resp.Memory.AppId, nil
 }
@@ -3009,10 +2995,9 @@ func checkBindingServer(f *cmdutil.Factory, b *binding) error {
 	if bindingServerMatches(f, b) {
 		return nil
 	}
-	server, _ := f.Server()
 	return exitcode.Newf(exitcode.Usage,
-		"this worktree's session was started against %s, but the current server is %s — rerun with `--server %s`",
-		b.Server, server, b.Server)
+		"this worktree's session was started against %s, but the current server is another one (not shown) — rerun with `--server %s`",
+		b.Server, b.Server)
 }
 
 // bindingServerMatches is the same comparison as a predicate, for the caller

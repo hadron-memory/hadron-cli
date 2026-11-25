@@ -1138,7 +1138,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 			return fmt.Errorf("scaffolding the chain (the citation given is not shown): %w", api.MapError(uerr))
 		}
 		resolved[pn.cit.Format()] = up.Id
-		written = append(written, up.Id)
+		written = append(written, output.SafeCell(up.Id))
 	}
 	return render()
 }
