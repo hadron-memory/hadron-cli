@@ -81,8 +81,11 @@ func readScope(cmd *cobra.Command, org, app, user string) (scopeRefs, error) {
 			continue
 		}
 		if strings.TrimSpace(r.val) == "" {
-			return s, exitcode.Newf(exitcode.Usage, "--%s is empty; pass a value, or leave --%s out", r.flag, r.flag)
+			return s, exitcode.Newf(exitcode.Usage, "--%s is empty; pass a value", r.flag)
 		}
+		// Sent exactly as typed, padding included: trimming (or resolving) a ref here would make
+		// this command answer for something other than what the person wrote, and the server's
+		// same-answer-for-denied-and-unknown behaviour is only safe if nothing differs per ref.
 		v := r.val
 		*r.dst = &v
 	}

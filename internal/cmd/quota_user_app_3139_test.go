@@ -296,11 +296,14 @@ func TestQuotaHelpPerForm3139(t *testing.T) {
 	for _, want := range []string{
 		"--user", "platform admin", "Every refusal of this form is exit 4",
 		"shared by all their Apps", "once a person's App can run",
-		"An impersonated session cannot set a limit at all", "an older server refuses them as a schema mismatch",
+		"An impersonated session cannot set a limit at all", "an older server's own refusal is passed through",
 	} {
 		if !strings.Contains(set, want) {
 			t.Errorf("quota set --help lacks %q:\n%s", want, set)
 		}
+	}
+	if strings.Contains(set, "schema mismatch") {
+		t.Errorf("quota set --help must not promise a schema-mismatch refusal nobody has observed for set:\n%s", set)
 	}
 	grp := flat("quota")
 	if strings.Contains(grp, "Both need ADMIN or OWNER in the org") {
@@ -356,5 +359,41 @@ func TestQuotaRefsAreSentAsTypedPaddingIncluded3139(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// What an older server does with the new forms, pinned as the help states it. `quota list` sends the
+// scoped document, which an older server rejects as a validation failure: the CLI's schema-skew
+// message, exit 2. `quota set` has no second document, so the server's own refusal reaches the user
+// with its code and nothing more is promised. The org forms send the original document either way
+// (TestQuotaOrgDocumentNamesNoUserRef3139).
+func TestQuotaOlderServerRefusalsAreWhatTheHelpSays3139(t *testing.T) {
+	validation := `{"errors":[{"message":"Unknown argument \"userRef\" on field \"Query.quotaCounters\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}],"data":null}`
+	for _, flags := range [][]string{{"--app", "bot"}, {"--user", "u1"}} {
+		r := runQuota3139(t, map[string]string{"QuotaCountersScoped": validation}, "", append([]string{"quota", "list"}, flags...)...)
+		if exitCodeFor(r.err) != exitcode.Usage || !strings.Contains(r.errOut, "out of sync") {
+			t.Errorf("list %v against an older server: want exit 2 and the schema-skew line, got exit %d %q", flags, exitCodeFor(r.err), r.errOut)
+		}
+		if len(r.captured) != 1 {
+			t.Errorf("one request, never retried: %v", keys1343(r.captured))
+		}
+	}
+	bad := `{"errors":[{"message":"Variable \"$input\" got invalid value: field \"userRef\" is not defined","extensions":{"code":"BAD_USER_INPUT"}}],"data":null}`
+	for _, flags := range [][]string{{"--app", "bot"}, {"--user", "u1"}} {
+		r := runQuota3139(t, map[string]string{"SetQuotaLimit": bad}, "", append([]string{"quota", "set"}, append(flags, "--action", "run.execute", "--limit", "5")...)...)
+		if r.err == nil || !strings.Contains(r.errOut, "is not defined") {
+			t.Errorf("set %v: the older server's own refusal reaches the user: err=%v %q", flags, r.err, r.errOut)
+		}
+		if len(r.captured) != 1 {
+			t.Errorf("one request, never retried: %v", keys1343(r.captured))
+		}
+	}
+}
+
+// A blank ref's refusal does not suggest leaving that flag out when it is the only ref given.
+func TestQuotaBlankRefMessageDoesNotSuggestLeavingTheOnlyRefOut3139(t *testing.T) {
+	r := runQuota3139(t, quotaReplies3139(), "", "quota", "list", "--app", "")
+	if exitCodeFor(r.err) != exitcode.Usage || strings.Contains(r.errOut, "leave --app out") || !strings.Contains(r.errOut, "--app is empty") {
+		t.Errorf("want the empty-ref refusal without a leave-it-out suggestion, got exit %d %q", exitCodeFor(r.err), r.errOut)
 	}
 }
