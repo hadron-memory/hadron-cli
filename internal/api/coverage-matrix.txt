@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 249: 215 command, 9 gap, 25 excluded
+[Query] 250: 215 command, 10 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -138,6 +138,7 @@ globalSearch  command find
 grant  command team grant get
 grantActions  command team grant actions
 grantSigningRequest  command team grant signing-request get
+grantSigningSelection  gap #3197
 grants  command team grant list
 heldWorkers  command team worker held
 homeAssistantInstance  command ha get
@@ -278,7 +279,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 373: 341 command, 15 gap, 17 excluded
+[Mutation] 375: 341 command, 17 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -507,6 +508,7 @@ reportContextResetRelaunchFailed  excluded host-protocol: relaunch-failure repor
 reportContextResetRelaunched  excluded host-protocol: relaunch reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no relaunch is reported
 reportExternalTasks  gap #3039
 reportHostOperation  command team host run
+requestGrantSelectionSignature  gap #3197
 requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
 reserveSpecCitation  command spec reserve
@@ -648,6 +650,7 @@ updateUserRoles  command user set-roles
 updateWorker  command team worker update
 withdrawGrant  command team grant withdraw
 withdrawGrantSigningRequest  command team grant signing-request withdraw
+withdrawGrantSigningSelection  gap #3197
 withdrawQuestion  command question withdraw
 withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
