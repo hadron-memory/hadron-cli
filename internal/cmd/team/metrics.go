@@ -29,13 +29,13 @@ const metricsNotVisible = "not visible to you"
 type metricsCountDTO struct {
 	Total     int                 `json:"total"`
 	IDs       []string            `json:"ids"`
-	Named     []metricsNamedIdDTO `json:"named"`
+	Named     []metricsNamedIDDTO `json:"named"`
 	Truncated bool                `json:"truncated"`
 }
 
-// metricsNamedIdDTO is one id of ids with its name — a task title or a worker
+// metricsNamedIDDTO is one id of ids with its name — a task title or a worker
 // name — null when no name is readable.
-type metricsNamedIdDTO struct {
+type metricsNamedIDDTO struct {
 	ID   string  `json:"id"`
 	Name *string `json:"name"`
 }
@@ -217,7 +217,10 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 			if resp.TeamMetrics == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned no metrics (teamMetrics was null)")
 			}
-			dto := metricsFromGen(resp.TeamMetrics)
+			dto, err := metricsFromGen(resp.TeamMetrics)
+			if err != nil {
+				return err
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return renderMetrics(w, dto, ids)
 			})
@@ -229,16 +232,22 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func countFromGen(c gen.TeamMetricsCountFields) metricsCountDTO {
-	out := metricsCountDTO{Total: c.Total, IDs: []string{}, Named: []metricsNamedIdDTO{}, Truncated: c.Truncated}
+// countFromGen copies one count. named runs beside ids, one entry per id in the
+// same order (cor:agt:150), and a missing name is an entry with a null name, not
+// a gap. A nil entry has no id at all, so only a malformed response carries one;
+// dropping it would shorten named and misalign it with ids, padding it would
+// invent a label, so it is refused.
+func countFromGen(c gen.TeamMetricsCountFields) (metricsCountDTO, error) {
+	out := metricsCountDTO{Total: c.Total, IDs: []string{}, Named: []metricsNamedIDDTO{}, Truncated: c.Truncated}
 	out.IDs = append(out.IDs, c.Ids...)
-	for _, n := range c.Named {
+	for i, n := range c.Named {
 		if n == nil {
-			continue
+			return metricsCountDTO{}, exitcode.Newf(exitcode.Error,
+				"the server returned a malformed answer: named entry %d of a count is null (the schema rules that out); nothing was read", i)
 		}
-		out.Named = append(out.Named, metricsNamedIdDTO{ID: n.Id, Name: n.Name})
+		out.Named = append(out.Named, metricsNamedIDDTO{ID: n.Id, Name: n.Name})
 	}
-	return out
+	return out, nil
 }
 
 func projectFromGen(p gen.TeamMetricsProjectFields) metricsProjectDTO {
@@ -251,7 +260,15 @@ func projectFromGen(p gen.TeamMetricsProjectFields) metricsProjectDTO {
 // [X!]! in the SDL, so a nil list entry is unreachable from a conforming server;
 // the loops skip one rather than crash, and cannot make a truncated list read as
 // whole (truncation is its own flag, copied as sent).
-func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
+func metricsFromGen(m *gen.TeamMetricsTeamMetrics) (metricsDTO, error) {
+	var firstErr error
+	count := func(c gen.TeamMetricsCountFields) metricsCountDTO {
+		out, err := countFromGen(c)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+		return out
+	}
 	empty := metricsCountDTO{IDs: []string{}}
 	dto := metricsDTO{AppID: m.AppId, AsOf: m.AsOf}
 	if m.Window != nil {
@@ -260,7 +277,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 	if so := m.StartedOwned; so != nil {
 		out := &metricsStartedOwnedDTO{All: empty, ByOwner: []metricsOwnerGroupDTO{}, OwnersTruncated: so.OwnersTruncated}
 		if so.All != nil {
-			out.All = countFromGen(so.All.TeamMetricsCountFields)
+			out.All = count(so.All.TeamMetricsCountFields)
 		}
 		for _, g := range so.ByOwner {
 			if g == nil {
@@ -271,7 +288,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 				og.Owner = &metricsOwnerDTO{ID: g.Owner.Id, Kind: string(g.Owner.Kind), Name: g.Owner.Name, URN: g.Owner.Urn}
 			}
 			if g.Tasks != nil {
-				og.Tasks = countFromGen(g.Tasks.TeamMetricsCountFields)
+				og.Tasks = count(g.Tasks.TeamMetricsCountFields)
 			}
 			for _, pg := range g.ByProject {
 				if pg == nil {
@@ -282,7 +299,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 					row.Project = projectFromGen(pg.Project.TeamMetricsProjectFields)
 				}
 				if pg.Tasks != nil {
-					row.Tasks = countFromGen(pg.Tasks.TeamMetricsCountFields)
+					row.Tasks = count(pg.Tasks.TeamMetricsCountFields)
 				}
 				og.ByProject = append(og.ByProject, row)
 			}
@@ -306,7 +323,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 				}
 				c := metricsChildStatusDTO{Status: string(ch.Status), Tasks: empty}
 				if ch.Tasks != nil {
-					c.Tasks = countFromGen(ch.Tasks.TeamMetricsCountFields)
+					c.Tasks = count(ch.Tasks.TeamMetricsCountFields)
 				}
 				row.Children = append(row.Children, c)
 			}
@@ -317,29 +334,29 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 	dto.Workers = metricsWorkersDTO{Active: empty, Idle: empty, Overdue: empty, Inop: empty}
 	if w := m.Workers; w != nil {
 		if w.Active != nil {
-			dto.Workers.Active = countFromGen(w.Active.TeamMetricsCountFields)
+			dto.Workers.Active = count(w.Active.TeamMetricsCountFields)
 		}
 		if w.Idle != nil {
-			dto.Workers.Idle = countFromGen(w.Idle.TeamMetricsCountFields)
+			dto.Workers.Idle = count(w.Idle.TeamMetricsCountFields)
 		}
 		if w.Overdue != nil {
-			dto.Workers.Overdue = countFromGen(w.Overdue.TeamMetricsCountFields)
+			dto.Workers.Overdue = count(w.Overdue.TeamMetricsCountFields)
 		}
 		if w.Inop != nil {
-			dto.Workers.Inop = countFromGen(w.Inop.TeamMetricsCountFields)
+			dto.Workers.Inop = count(w.Inop.TeamMetricsCountFields)
 		}
 	}
 	if fl := m.Flow; fl != nil {
 		out := &metricsFlowDTO{Completed: empty, Started: empty}
 		if fl.Completed != nil {
-			out.Completed = countFromGen(fl.Completed.TeamMetricsCountFields)
+			out.Completed = count(fl.Completed.TeamMetricsCountFields)
 		}
 		if fl.Started != nil {
-			out.Started = countFromGen(fl.Started.TeamMetricsCountFields)
+			out.Started = count(fl.Started.TeamMetricsCountFields)
 		}
 		dto.Flow = out
 	}
-	return dto
+	return dto, firstErr
 }
 
 func renderMetrics(w io.Writer, dto metricsDTO, ids bool) error {

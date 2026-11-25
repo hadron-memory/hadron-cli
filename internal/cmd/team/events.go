@@ -323,7 +323,9 @@ has not reacted (stall.owner-unreactive), that cannot be assigned
 or a dark-worker alarm (a worker that has gone dark), or a cadence alarm
 (alarm.lead-cadence: a coordinator that has missed its cadence; events raised
 before the rename say alarm.coordinator-cadence, and both are handled alike).
-An alarm wakes its nearest owner first, and the owners above only while it stays unacknowledged.
+An alarm wakes its nearest owner first, and the owners above only while it stays
+unacknowledged. The one exception is a team.dark alarm, which has no chain of
+owners (see "hadron team alarm ack").
 
 To see alarms, use "hadron team alarms" (the alarms in effect now, one row per
 alarm) or "hadron team events --alarms" (the raw event stream). Both show each
