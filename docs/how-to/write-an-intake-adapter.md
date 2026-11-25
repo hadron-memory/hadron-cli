@@ -89,8 +89,10 @@ Hadron.
     **15** at once: nothing else is asked of the adapter and Hadron is not
     touched. Upgrade the adapter or the CLI.
   - `calls`: every call you answer. A run needs `list-untracked`, and `--track`
-    needs `mark-tracked`; without them the CLI exits 2 and claims nothing. A
-    call you leave out is simply never made.
+    needs `mark-tracked`; without them the CLI exits 2 and claims nothing (the
+    message names the missing call; `--track` with no assignee also exits 2,
+    and its message names the assignee instead). A call you leave out is
+    simply never made.
   - `filters`, `order`: optional metadata. The CLI reads them but does not use
     them yet.
   - `notMine` (optional, default `false`): see `mark-tracked` below.
@@ -102,9 +104,11 @@ One page of the items you do not (yet) know to be tracked.
 - Request: `{"contractVersion": 1, "limit": 20, "cursor": "…", "for": "Marco"}`.
   `cursor` is absent on the first page. `for` is present only when the user
   passed `--for <worker>`; return that worker's items, as your tracker
-  understands it. `limit` is the page size the CLI asks for (at least 20, at
-  most 100), not the user's `--limit`: the CLI stops reading once it has enough,
-  so answer up to `limit` items a page and let it stop.
+  understands it. `limit` is the page size the CLI asks for: the user's `--limit`,
+  raised to 20 if it is lower and capped at 100. So it is not the user's
+  `--limit` below 20 (a `--limit 1` run still asks for 20), and above 100 it is
+  100. The CLI stops reading once it has enough, so answer up to `limit` items a
+  page and let it stop.
 - Answer:
 
   ```json

@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -188,6 +189,16 @@ func TestHowToSampleAdapterPages3062(t *testing.T) {
 	}
 }
 
+// The behavioural claims the page makes about the runner (exit 15 on a wrong
+// describe version, exit 2 for a describe missing a call, exit 1 with
+// marked:false on a mark-tracked refusal, the 60 s timeout, the HADRON_*
+// environment scrub, the repeated-cursor refusal, the reconcile cursor) are
+// not pinned here: they are pinned where the runner lives, in
+// internal/intake/intake_test.go, find_untracked_adapter_1961_test.go and
+// find_untracked_reconcile_1962_test.go. TestRunnerEnforcesTheExportedRules
+// ties the runner to pkg/intakecontract. This file pins the page: that its
+// sample builds and runs, and that its stated numbers are the contract's.
+
 // The page states the runner's bounds and exit codes as numbers. They are
 // the published package's constants (pkg/intakecontract, which the page
 // names for Go adapter authors): if a constant changes, the page must too.
@@ -204,10 +215,11 @@ func TestHowToPageNumbersAreThePublishedContract3062(t *testing.T) {
 		"with exit status **20**":                                intakecontract.ExitNotMine == 20,
 		"github.com/hadron-memory/hadron-cli/pkg/intakecontract": true,
 	} {
-		if !strings.Contains(page, want) {
+		stated := strings.Contains(page, want)
+		if !stated {
 			t.Errorf("the page must state %q", want)
 		}
-		if !ok {
+		if stated && !ok {
 			t.Errorf("the page states %q but pkg/intakecontract disagrees", want)
 		}
 	}
@@ -239,5 +251,23 @@ func TestHowToSampleAdapterTracks3062(t *testing.T) {
 	}
 	if n := len(opsOf1961(calls, "IntakeClaimTask")); n != 1 {
 		t.Fatalf("one create is the claim: %d", n)
+	}
+}
+
+// The sample refuses a request that speaks another contract version: exit 2
+// and the reason on stderr. Deleting that check from the page must fail here.
+func TestHowToSampleAdapterRefusesOtherContractVersion3062(t *testing.T) {
+	bin := buildSample3062(t)
+	cmd := exec.Command(bin, "describe")
+	cmd.Stdin = strings.NewReader(`{"contractVersion": 2}`)
+	var stderr strings.Builder
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	var ee *exec.ExitError
+	if !errors.As(err, &ee) || ee.ExitCode() != 2 {
+		t.Fatalf("a contractVersion 2 request must exit 2, got %v", err)
+	}
+	if !strings.Contains(stderr.String(), "speaks contract version 1") {
+		t.Fatalf("stderr must say the adapter speaks contract version 1: %q", stderr.String())
 	}
 }
