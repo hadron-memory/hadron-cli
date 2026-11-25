@@ -26,7 +26,7 @@ func rmCensusHelp2959(t *testing.T) string {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	return flat2906(out.String())
+	return flat(out.String())
 }
 
 // censusFacts2959 are the claims both texts carry. The refusal says what is KNOWN (nothing was
@@ -56,7 +56,7 @@ func TestWorkerRmHelpNamesTheCensusRefusal2959(t *testing.T) {
 }
 
 func TestAgenticUsageNamesTheCensusRefusal2959(t *testing.T) {
-	contract := flat2906(string(readContract(t)))
+	contract := flat(string(readContract(t)))
 	for _, want := range append([]string{"`WORKER_CENSUS_INCOMPLETE` (exit 5)", "a passing preview is not a promise"}, censusFacts2959...) {
 		if !strings.Contains(contract, want) {
 			t.Errorf("agentic-usage must say %q about the census refusal", want)
