@@ -12,7 +12,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"unicode"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -42,34 +41,7 @@ func redactConnectError(raw error, secrets []string, lead, tail string) error {
 		// LAST thing in the message, so copying the end of the line is the command.
 		base = exitcode.Newf(class, "%s: %s. %s", lead, mapped, tail)
 	}
-	return api.Detached(api.WithServerCode(base, raw), func(s string) string { return api.RedactSecretText(s, secrets) })
-}
-
-// hasControlOrFormatCharacter reports whether s carries a Unicode control or
-// format character (an id with ESC/CSI or a newline would reach the terminal
-// raw once it is no longer Go-quoted), or a line/paragraph separator
-// (U+2028/U+2029: Zl/Zp are not Cc, but some terminals and clipboards treat
-// them as line breaks — the same line-forgery the guard exists to stop). Shell
-// quoting is a separate step.
-func hasControlOrFormatCharacter(s string) bool {
-	return strings.IndexFunc(s, func(r rune) bool {
-		return unicode.IsControl(r) || unicode.Is(unicode.Cf, r) || unicode.Is(unicode.Zl, r) || unicode.Is(unicode.Zp, r)
-	}) >= 0
-}
-
-// getConnectionSuggestion is the closing sentence of a disconnect message: how to check the
-// outcome. The id the operator typed is never repeated (#2898 policy), so it names the listing,
-// which runs as printed; a command in a message is always its last line.
-const getConnectionSuggestion = "The listing is paged, so follow its --offset hint before concluding it is gone. Check whether it still exists by listing connections with:\n  hadron slack status"
-
-// readToken reads one token from its file flag. "-" is stdin and is refused on
-// a terminal (the token would be typed in the clear); the file reader itself
-// never puts the path or the material in an error.
-func readToken(f *cmdutil.Factory, source, flag, label, what string) (string, error) {
-	if source == "-" && f.IOStreams.IsInputTerminal() {
-		return "", exitcode.Newf(exitcode.Usage, "--%s - reads stdin, which is a terminal: pipe the token in, or name a file. Nothing was sent", flag)
-	}
-	return cmdutil.ReadSecretInput(f.IOStreams, source, flag, label, what)
+	return cmdutil.FinishConnectError(raw, base, secrets)
 }
 
 func newConnect(f *cmdutil.Factory) *cobra.Command {
@@ -135,11 +107,11 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 					}
 				}
 			}
-			bot, err := readToken(f, botFile, "bot-token-file", "Slack bot token", "bot token")
+			bot, err := cmdutil.ReadConnectionToken(f, botFile, "bot-token-file", "Slack bot token", "bot token")
 			if err != nil {
 				return err
 			}
-			appTok, err := readToken(f, appFile, "app-token-file", "Slack app-level token", "app-level token")
+			appTok, err := cmdutil.ReadConnectionToken(f, appFile, "app-token-file", "Slack app-level token", "app-level token")
 			if err != nil {
 				return err
 			}
@@ -179,7 +151,7 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 				// "slack get" and "slack status" refuse the same unknown status, so they
 				// would loop: the one command that always works is disconnect. An id
 				// with control characters is never printed (the terminal would act on it).
-				if hasControlOrFormatCharacter(v.Id) {
+				if cmdutil.HasControlOrFormatCharacter(v.Id) {
 					// No command is suggested: get/status refuse this same status, and the id
 					// cannot be named safely. Upgrade, or an administrator removes it.
 					return exitcode.Newf(exitcode.Unavailable, "the server answered with a connection id this CLI will not print (it contains control characters) and a status it does not recognize (a newer server?); upgrade hadron, or ask the server's administrator to remove that registration")
@@ -248,12 +220,12 @@ before trying again.`,
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)
 				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
-					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried): %s. %s", mapped, getConnectionSuggestion), err)
+					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried): %s. %s", mapped, cmdutil.ConnectionStatusSuggestion("slack")), err)
 				}
 				return mapped
 			}
 			if resp == nil || !resp.DeleteSlackConnection {
-				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect. %s", getConnectionSuggestion)
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect. %s", cmdutil.ConnectionStatusSuggestion("slack"))
 			}
 			dto := disconnectDTO{ConnectionID: id, Disconnected: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
