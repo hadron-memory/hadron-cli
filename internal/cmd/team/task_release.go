@@ -20,8 +20,11 @@ func newCmdTeamTaskRelease(f *cmdutil.Factory) *cobra.Command {
 	return newInstructableTaskMutation(f, "release", "releaseAgentTaskExternalId", "Give a task's outside item back",
 		`Release the outside item a task claims (its external id, for example an
 issue's URL): the task keeps its status, assignee and history, but no longer
-holds the item, so the next `+"`task create --external-id`"+` naming it, or the
-next `+"`team task find-untracked`"+` claim, gets it. The receipt gives the item
+holds the item. The next `+"`task create --external-id`"+` naming it gets it only
+when no other active task (backlog, pending or started) of the App holds it; a
+finished or cancelled task that holds it does not block the create. The next
+`+"`team task find-untracked`"+` claim gets it only when no other task of the App,
+finished or cancelled included, still holds it. The receipt gives the item
 back. `+"`task cancel`"+` ends a task and keeps the item; release is the way to hand
 the item to someone else. An id is never set again on the same task. Release
 hands an outside item back; it does not move work between workers: for that use

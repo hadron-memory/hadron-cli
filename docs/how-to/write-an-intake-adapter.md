@@ -194,9 +194,10 @@ Every run (`find-untracked --adapter …`, with or without `--track`):
 1. `describe`, and the version check.
 2. **Reconcile.** The CLI reads from the server what changed on the App's tasks
    that hold an outside item since its last run, and tells the adapter: a
-   reassignment calls `mark-tracked` again, a release calls `untrack`, a cancel
-   calls `report` if you list it. A finish, a hand-back or a first assignment
-   calls nothing. Its position is kept in `intake-cursors.json` beside the CLI's
+   reassignment calls `mark-tracked` again, a release calls `untrack` only when
+   no task of the App, finished or cancelled included, still holds the released
+   id, and a cancel calls `report` if you list it. A finish, a hand-back or a
+   first assignment calls nothing. Its position is kept in `intake-cursors.json` beside the CLI's
    config, per server, App and adapter, so nothing is told twice. A refusal
    holds the position there, and the next run retries that change.
 3. `list-untracked`, page by page, until the list ends or `--limit` is reached.
