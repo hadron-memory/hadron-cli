@@ -633,7 +633,7 @@ section between the markers.
 | `team task progress` |  |  | y | #1054 | 6253ca7ee818 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task ready` |  |  | y | #1054 | 11f5ef7f837c | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task reassign` |  |  | y | #1054 | 9d1a99e0a2bc |  | unread |  |
-| `team task release` |  |  | y | #1054 | aad929bfcfbf | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task release` |  |  | y | #1054 | 17a331e3bed4 |  | unread |  |
 | `team task remove-blocker` |  |  | y | #1054 | f1ed8abccc2c | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task set-priority` |  |  | y | #1054 | 251518f2aaf9 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task start` |  |  | y | #1054 | fbda4606d956 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
