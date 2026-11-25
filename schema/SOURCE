@@ -14,6 +14,6 @@
 # tsx= and graphql= are the exporter's tool versions, the single place they live: the
 # schema-drift workflow installs exactly these (scripts/read-tool-pins.sh reads them),
 # because a floating graphql minor can change printSchema bytes. Bump deliberately.
-server_sha=a300f291e2e61911f876272e1629c76bbfa157b9
+server_sha=e07173d777b28567c460b143c7cb45ad4915437a
 tsx=4.23.15
 graphql=16.15.0

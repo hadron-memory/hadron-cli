@@ -179,6 +179,11 @@ type lintFindingDTO struct {
 	Rule     string `json:"rule"`
 	Severity string `json:"severity"` // error | warning | info
 	Message  string `json:"message"`
+	// Line and Sentence are set only by the server's content lint (#3127): the
+	// 1-based line of the finding and the offending sentence. Omitted otherwise,
+	// so every other finding keeps its shape.
+	Line     *int   `json:"line,omitempty"`
+	Sentence string `json:"sentence,omitempty"`
 }
 
 // ledgerDTO is the --json shape for `spec register`.
@@ -1373,6 +1378,7 @@ type specEdge struct {
 // specNode is a lint/render-friendly projection of a node, decoupled from
 // the genqlient types so the rule engine is trivially unit-testable.
 type specNode struct {
+	ID                 string // the node's PK, for the server's spec lint read (#3127)
 	Loc                string
 	Unavailable        bool
 	Name               string
@@ -1407,6 +1413,7 @@ type specNode struct {
 
 func nodeFromGQL(n *gen.GetNodeNode) specNode {
 	sn := specNode{
+		ID:                 n.Id,
 		Loc:                n.Loc,
 		Name:               n.Name,
 		NodeType:           n.NodeType,

@@ -101987,6 +101987,170 @@ func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatu
 	return &retval, nil
 }
 
+// SpecLintBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type SpecLintBatchNodeBatchNodeBatchResult struct {
+	Truncated   bool                                              `json:"truncated"`
+	Omitted     []string                                          `json:"omitted"`
+	Unavailable []string                                          `json:"unavailable"`
+	Nodes       []*SpecLintBatchNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns SpecLintBatchNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns SpecLintBatchNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns SpecLintBatchNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResult) GetUnavailable() []string { return v.Unavailable }
+
+// GetNodes returns SpecLintBatchNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResult) GetNodes() []*SpecLintBatchNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// SpecLintBatchNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type SpecLintBatchNodeBatchNodeBatchResultNodesNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+	// #5109 (server half of hadron-cli#3127) — spec content lint, computed on read from this node's stored text and never stored: a Rule spec with no Why We Need This Rule section, or an empty one, is an ERROR; a sentence above the divider line that restricts something and gives no reason (no because, so that, since or why in its paragraph, and no link to a ruling or a Why section) is a WARNING that names the sentence. A node that is not a spec, and a retired one, have no findings; an empty list is a real answer. Null means the node's text was not loaded for this read. Read under the node's own read gate; at most 200 findings.
+	SpecLint []*SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding `json:"specLint"`
+}
+
+// GetId returns SpecLintBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetLoc returns SpecLintBatchNodeBatchNodeBatchResultNodesNode.Loc, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNode) GetLoc() string { return v.Loc }
+
+// GetSpecLint returns SpecLintBatchNodeBatchNodeBatchResultNodesNode.SpecLint, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNode) GetSpecLint() []*SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding {
+	return v.SpecLint
+}
+
+// SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding includes the requested fields of the GraphQL type SpecLintFinding.
+// The GraphQL type's documentation follows.
+//
+// #5109 — one spec lint finding.
+type SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding struct {
+	// The spec's citation (its loc).
+	Citation string `json:"citation"`
+	// 1-based line of the sentence's paragraph or of the Why heading; null when there is none.
+	Line    *int         `json:"line"`
+	Message string       `json:"message"`
+	Rule    SpecLintRule `json:"rule"`
+	// The offending sentence, for LIMIT_WITHOUT_REASON; null for a structural finding.
+	Sentence *string          `json:"sentence"`
+	Severity SpecLintSeverity `json:"severity"`
+}
+
+// GetCitation returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Citation, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetCitation() string {
+	return v.Citation
+}
+
+// GetLine returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Line, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetLine() *int {
+	return v.Line
+}
+
+// GetMessage returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Message, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetMessage() string {
+	return v.Message
+}
+
+// GetRule returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Rule, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetRule() SpecLintRule {
+	return v.Rule
+}
+
+// GetSentence returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Sentence, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetSentence() *string {
+	return v.Sentence
+}
+
+// GetSeverity returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Severity, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetSeverity() SpecLintSeverity {
+	return v.Severity
+}
+
+// SpecLintBatchResponse is returned by SpecLintBatch on success.
+type SpecLintBatchResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
+	NodeBatch *SpecLintBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns SpecLintBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchResponse) GetNodeBatch() *SpecLintBatchNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
+// #5109 — which spec lint check a finding comes from.
+type SpecLintRule string
+
+const (
+	// A sentence restricts something and gives no reason in its paragraph or through a link to a ruling or a Why section.
+	SpecLintRuleLimitWithoutReason SpecLintRule = "LIMIT_WITHOUT_REASON"
+	// A Rule spec has the section, but it is empty or only whitespace.
+	SpecLintRuleRuleWhyEmpty SpecLintRule = "RULE_WHY_EMPTY"
+	// A Rule spec has no Why We Need This Rule section.
+	SpecLintRuleRuleWhyMissing SpecLintRule = "RULE_WHY_MISSING"
+)
+
+var AllSpecLintRule = []SpecLintRule{
+	SpecLintRuleLimitWithoutReason,
+	SpecLintRuleRuleWhyEmpty,
+	SpecLintRuleRuleWhyMissing,
+}
+
+// #5109 — how serious a spec lint finding is. The sentence check is a WARNING for now (it has false positives).
+type SpecLintSeverity string
+
+const (
+	SpecLintSeverityError   SpecLintSeverity = "ERROR"
+	SpecLintSeverityWarning SpecLintSeverity = "WARNING"
+)
+
+var AllSpecLintSeverity = []SpecLintSeverity{
+	SpecLintSeverityError,
+	SpecLintSeverityWarning,
+}
+
 // #1448 — why the mint report lists an item.
 type SpecMintFindingKind string
 
@@ -142421,6 +142585,14 @@ func (v *__SpecDocumentInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetLoc returns __SpecDocumentInput.Loc, and is useful for accessing the field via an interface.
 func (v *__SpecDocumentInput) GetLoc() string { return v.Loc }
+
+// __SpecLintBatchInput is used internally by genqlient
+type __SpecLintBatchInput struct {
+	Refs []string `json:"refs"`
+}
+
+// GetRefs returns __SpecLintBatchInput.Refs, and is useful for accessing the field via an interface.
+func (v *__SpecLintBatchInput) GetRefs() []string { return v.Refs }
 
 // __SpecPlaceholderScanInput is used internally by genqlient
 type __SpecPlaceholderScanInput struct {
@@ -185976,6 +186148,61 @@ func SpecDocument(
 	}
 
 	data_ = &SpecDocumentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecLintBatch.
+const SpecLintBatch_Operation = `
+query SpecLintBatch ($refs: [ID!]!) {
+	nodeBatch(refs: $refs) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			loc
+			specLint {
+				citation
+				line
+				message
+				rule
+				sentence
+				severity
+			}
+		}
+	}
+}
+`
+
+// hadron-cli#3127 / hadron-server#5109 — the server's spec content lint
+// (Node.specLint): a Rule spec with no Why section (ERROR) and a restricting
+// sentence with no reason (WARNING). Computed on read from the stored text, so
+// the body is asked raw, which is what the server lints. Null specLint means the
+// node's text was not loaded for this read — NOT "no findings" — so it stays a
+// pointer. Its own operation, never part of an ordinary node read: an older
+// server rejects the field, and only `spec lint` should have to tolerate that.
+func SpecLintBatch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+) (data_ *SpecLintBatchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecLintBatch",
+		Query:  SpecLintBatch_Operation,
+		Variables: &__SpecLintBatchInput{
+			Refs: refs,
+		},
+	}
+
+	data_ = &SpecLintBatchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

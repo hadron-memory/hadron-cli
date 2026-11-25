@@ -1,0 +1,29 @@
+# hadron-cli#3127 / hadron-server#5109 — the server's spec content lint
+# (Node.specLint): a Rule spec with no Why section (ERROR) and a restricting
+# sentence with no reason (WARNING). Computed on read from the stored text, so
+# the body is asked raw, which is what the server lints. Null specLint means the
+# node's text was not loaded for this read — NOT "no findings" — so it stays a
+# pointer. Its own operation, never part of an ordinary node read: an older
+# server rejects the field, and only `spec lint` should have to tolerate that.
+query SpecLintBatch($refs: [ID!]!) {
+  nodeBatch(refs: $refs) {
+    truncated
+    omitted
+    unavailable
+    nodes {
+      id
+      loc
+      # @genqlient(pointer: true)
+      specLint {
+        citation
+        # @genqlient(pointer: true)
+        line
+        message
+        rule
+        # @genqlient(pointer: true)
+        sentence
+        severity
+      }
+    }
+  }
+}
