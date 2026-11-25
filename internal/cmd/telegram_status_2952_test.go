@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 )
 
 // cli#2952 telegram status/get (reads). Fake HTTP only: no Telegram, no network.
@@ -96,7 +98,7 @@ func TestTelegramStatusHumanHintTableAndEscapes(t *testing.T) {
 			t.Fatalf("table missing column %s:\n%s", col, out.String())
 		}
 	}
-	if got := f.IOStreams.ErrOut.(*strings.Builder).String(); !strings.Contains(got, "showing 1 of 3; next page: --offset 1") {
+	if got := telegramStderr(t, f); !strings.Contains(got, "showing 1 of 3; next page: --offset 1") {
 		t.Fatal("missing continuation hint:", got)
 	}
 }
@@ -109,7 +111,7 @@ func TestTelegramStatusFinalPageHasNoHint(t *testing.T) {
 	if e := root.Execute(); e != nil {
 		t.Fatal(e)
 	}
-	if got := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(got, "next page") {
+	if got := telegramStderr(t, f); strings.Contains(got, "next page") {
 		t.Fatal("unexpected hint:", got)
 	}
 }
@@ -126,7 +128,7 @@ func TestTelegramStatusFailedWritePrintsNoHint(t *testing.T) {
 	if e := root.Execute(); e == nil {
 		t.Fatal("a failed write fails the command")
 	}
-	if got := f.IOStreams.ErrOut.(*strings.Builder).String(); strings.Contains(got, "next page") {
+	if got := telegramStderr(t, f); strings.Contains(got, "next page") {
 		t.Fatal("no hint after a page that failed to render:", got)
 	}
 }
@@ -198,4 +200,15 @@ func TestTelegramGet(t *testing.T) {
 	if _, _, e := runTelegram(t, `{}`, "get", "  "); exitCodeFor(e) != 2 {
 		t.Fatal("a blank id is a usage refusal", e)
 	}
+}
+
+// telegramStderr is the stderr text of a test factory, with the checked type
+// assertion: a wrong stream type fails with a message instead of panicking.
+func telegramStderr(t *testing.T, f *cmdutil.Factory) string {
+	t.Helper()
+	sb, ok := f.IOStreams.ErrOut.(*strings.Builder)
+	if !ok {
+		t.Fatalf("stderr is %T, want *strings.Builder", f.IOStreams.ErrOut)
+	}
+	return sb.String()
 }

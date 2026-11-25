@@ -174,7 +174,10 @@ func TestGrantRequest1868CreateSendsOnlyWhatIsSet(t *testing.T) {
 	if string(in["holderKind"]) != `"WORKER"` || string(in["holderRef"]) != `"wkr1"` || string(in["values"]) != `{"node":["n1"]}` {
 		t.Fatalf("input %v", in)
 	}
-	checkGrantSelection1832(t, c.Query, "createGrant")
+	// cli#1846: createGrant is read as the manager reads it (one fragment).
+	if got := selectionFields1846(t, c.Query, "createGrant"); !reflect.DeepEqual(got, sortedCopy1846(managerFields1846)) {
+		t.Fatalf("createGrant selection %v", got)
+	}
 	var got, want map[string]any
 	if e := json.Unmarshal([]byte(out), &got); e != nil {
 		t.Fatal(e, out)
@@ -317,17 +320,21 @@ func TestGrantRequest1868UnsafeURLRefusesTextOnly(t *testing.T) {
 	}
 }
 
-// P6: no CLI-derived grant state word; the request's own state is verbatim.
+// P6: no CLI-derived grant state word. cli#1846: the grant's own state is
+// printed, exactly as the server sent it (the fixture says ACTIVE), beside allows.
 func TestGrantRequest1868NoDerivedGrantState(t *testing.T) {
 	v := grantVerbs1868()[0]
 	_, out, err := runTeamTask(t, map[string]string{v.op: v.resp("")}, v.args...)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, w := range []string{"status:", "state:", "pending", "withdrawn", "revoked:  "} {
+	for _, w := range []string{"status:", "pending", "withdrawn", "revoked:  "} {
 		if strings.Contains(out, w) {
 			t.Fatalf("derived state word %q in %q", w, out)
 		}
+	}
+	if !strings.Contains(out, "state: ACTIVE\n") {
+		t.Fatalf("the server's state is printed as sent: %q", out)
 	}
 	for _, v := range signingRequestVerbs1868() {
 		_, out, err := runTeamTask(t, map[string]string{v.op: v.resp(ceremony1868)}, v.args...)

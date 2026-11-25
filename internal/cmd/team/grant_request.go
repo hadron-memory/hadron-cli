@@ -154,7 +154,9 @@ names and kinds it needs; whether your values fit is the server's to judge.
 timestamp such as 2026-12-01T09:00:00Z (the server parses it); --max-uses is a
 count; leave them out to let the server apply its defaults.
 
-Prints the pending grant in its fourteen fields (see 'hadron team grant get').
+Prints the pending grant in its fifteen fields (see 'hadron team grant get').
+It needs a server released on or after 2026-11-17: the request reads the grant
+as an App manager does, and every field it selects shipped by then.
 Next step: 'hadron team grant request-signature <id>', then give the URL to a
 person.
 
@@ -227,7 +229,7 @@ person.
 				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "pending until a person signs it; next: hadron team grant request-signature %s\n", output.SafeCell(dto.ID))
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				names := []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows"}
+				names := workerGrantNames
 				for i, v := range dto.cells() {
 					if _, e := fmt.Fprintf(w, "%s: %s\n", names[i], output.SafeCell(v)); e != nil {
 						return e

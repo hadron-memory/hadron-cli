@@ -519,18 +519,22 @@ section between the markers.
 | `team delivery-settings get` |  |  | n | #1054 | 6960f5393bbf | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team delivery-settings set` |  |  | y | #1054 | 3c1f5a386a3f | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team events` |  |  | n | #1054 | de8a2c0fa357 |  | unread |  |
-| `team grant` |  |  | n | #1054 | d70982b794a3 |  | unread |  |
+| `team grant` |  |  | n | #1054 | c07d835e5a71 |  | unread |  |
 | `team grant action` |  |  | y | #1054 | 5b1b449f56b2 |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 82f0c9a5a075 |  | unread |  |
 | `team grant add` |  |  | y | #1054 | cb7210e017cc |  | unread |  |
-| `team grant get` |  |  | y | #1054 | 4ed4cc1e8328 |  | unread |  |
-| `team grant list` | ls |  | y | #1054 | 2671ee5bad76 |  | unread |  |
-| `team grant request` |  |  | y | #1054 | 1c55a0ea19ed |  | unread |  |
+| `team grant app-list` |  |  | y | #1054 | 0958baf2c5f2 |  | unread |  |
+| `team grant create` |  |  | y | #1054 | d719af9db0b7 |  | unread |  |
+| `team grant get` |  |  | y | #1054 | be7f57a0797c |  | unread |  |
+| `team grant list` | ls |  | y | #1054 | d56154d02611 |  | unread |  |
+| `team grant request` |  |  | y | #1054 | f77bf4276c65 |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | dd785a61045e |  | unread |  |
+| `team grant revoke` |  |  | y | #1054 | f0740bd5515d |  | unread |  |
 | `team grant rm` |  |  | y | #1054 | 3252dd3edcc2 |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 13ac1b5e0093 |  | unread |  |
 | `team grant signing-request get` |  |  | y | #1054 | a930b7244c63 |  | unread |  |
 | `team grant signing-request withdraw` |  |  | y | #1054 | 5fb35ea50cf1 |  | unread |  |
+| `team grant withdraw` |  |  | y | #1054 | 5be84801ab44 |  | unread |  |
 | `team health` |  |  | n | #1054 | d1b3825cdd4d | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health install` |  |  | y | #1054 | 7daf7a368a8f | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
@@ -621,7 +625,7 @@ section between the markers.
 | `team task create` |  |  | y | #1054 | 6bdb2ee0d1cf |  | unread |  |
 | `team task dependencies` |  |  | y | #1054 | f8736a762e4d | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task dispose-finding` |  |  | y | #1054 | f713057fa30a | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
-| `team task find-untracked` |  |  | y | #1054 | 6c5cd0fd565a |  | unread |  |
+| `team task find-untracked` |  |  | y | #1054 | 5971e4ea9b9e |  | unread |  |
 | `team task finding-dispositions` |  |  | y | #1054 | 30d1e3cd8a22 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task finish` |  |  | y | #1054 | 0c4fd89648e3 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |

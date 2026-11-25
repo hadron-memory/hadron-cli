@@ -65,6 +65,12 @@ func TestMapError(t *testing.T) {
 		{"SECRET_PROTECTED_NEEDS_PASSKEY 2738", gqlErr("SECRET_PROTECTED_NEEDS_PASSKEY"), exitcode.Conflict},
 		{"SECRET_CHANGE_REQUEST_LIMIT 2738", gqlErr("SECRET_CHANGE_REQUEST_LIMIT"), exitcode.Conflict},
 
+		// cli#1846: the manager grant verbs. A person who does not manage the App
+		// (or an unknown App or grant: one answer) and a withdrawal by someone who
+		// is not the recorded requester are permission refusals: 8.
+		{"GRANT_NOT_MANAGER 1846", gqlErr("GRANT_NOT_MANAGER"), exitcode.Forbidden},
+		{"GRANT_NOT_REQUESTER 1846", gqlErr("GRANT_NOT_REQUESTER"), exitcode.Forbidden},
+
 		// #2308: a worker without a signed schedule.create grant.
 		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
 

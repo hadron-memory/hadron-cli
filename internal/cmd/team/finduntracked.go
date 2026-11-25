@@ -25,8 +25,10 @@ func newCmdTaskFindUntracked(f *cmdutil.Factory) *cobra.Command {
 		Short: "List outside items (issues) no task claims, or claim some",
 		Long: `Find outside items (for example GitHub issues) that no task of the App
 holds, and optionally claim some as tasks. An outside item is a record in your
-team's tracker; "tracked" means an active task of this App holds it as its
-external id (` + "`task create --external-id`" + `).
+team's tracker; "tracked" means a task of this App, finished or cancelled
+included, holds it as its external id (` + "`task create --external-id`" + `).
+` + "`task release`" + ` gives back only the releasing task's hold: the item stays tracked
+while any other task of this App still holds it.
 
 The source is the team's intake adapter: a small executable your team owns that
 talks to the tracker, so Hadron never does. Ask whoever runs your intake for its
@@ -79,7 +81,7 @@ RECONCILE (every adapter run, before the list). The CLI reads, from the server,
 what changed on the App's tasks that carry an outside item since its cursor, and
 tells the adapter what its tracker should hear: a reassignment calls mark-tracked
 again for the new assignee, a release (` + "`task release`" + `) calls untrack with the
-released item, a cancel calls report only if the adapter's describe lists it, and
+released item only when no other task of the App still holds it, a cancel calls report only if the adapter's describe lists it, and
 a finish, hand-back or first assignment call nothing. The cursor is the server's
 own opaque value, kept per server, App and adapter in a file beside the CLI's
 config (intake-cursors.json); one run reconciles a feed at a time (a second

@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 249: 214 command, 10 gap, 25 excluded
+[Query] 249: 215 command, 9 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -64,7 +64,7 @@ aiSpend  gap #3071
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
-appGrants  gap #1846
+appGrants  command team grant app-list
 appKeyScopeCatalogue  command app key scope catalogue
 appKeys  excluded not-a-capability: legacy unpaged spelling; appKeysPage carries the same inventory capability (server retirement #2213); Proposed class unruled under #1334 (33-row review)
 appKeysPage  command app key list
@@ -278,7 +278,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 373: 340 command, 16 gap, 17 excluded
+[Mutation] 373: 341 command, 15 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -646,14 +646,14 @@ updateTeamRole  command team role update
 updateTicker  command ticker update
 updateUserRoles  command user set-roles
 updateWorker  command team worker update
-withdrawGrant  gap #1846
+withdrawGrant  command team grant withdraw
 withdrawGrantSigningRequest  command team grant signing-request withdraw
 withdrawQuestion  command question withdraw
 withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 18: 5 gap, 13 excluded
+[Arguments] 17: 4 gap, 13 excluded
 Mutation.cloneAgentTask(input.isProject)  gap #3109
 Mutation.createAgentTask(input.isProject)  gap #3109
 Mutation.createAgentTasks(tasks.task.isProject)  gap #3109
@@ -662,7 +662,6 @@ Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
-Mutation.createGrant(input.appRef)  gap #1846: a person who manages an App creates a grant in it (server#3711); companion to appGrants
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
