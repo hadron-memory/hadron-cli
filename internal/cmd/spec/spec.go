@@ -292,7 +292,7 @@ func ParseCitation(s string) (Citation, error) {
 	}
 	parts := strings.Split(s, ":")
 	if !reModule.MatchString(parts[0]) {
-		return Citation{}, exitcode.Newf(exitcode.Usage, "%q must be 3 lowercase letters", parts[0])
+		return Citation{}, exitcode.Newf(exitcode.Usage, "the citation (not shown) must start with 3 lowercase letters")
 	}
 	var c Citation
 	rest := parts // module-rooted segments: [module, feature?, rule?, flow?]
@@ -302,22 +302,22 @@ func ParseCitation(s string) (Citation, error) {
 	}
 	if len(rest) > 4 {
 		return Citation{}, exitcode.Newf(exitcode.Usage,
-			"citation %q has too many segments — want [<product>:]<module>[:<feature>[:<rule>[:<flow>]]]", s)
+			"the citation (not shown) has too many segments — want %s", legacyCitationGrammar)
 	}
 	c.Module = rest[0] // alpha, already validated
 	if len(rest) > 1 {
 		if c.Feature = rest[1]; !reFeature.MatchString(c.Feature) {
-			return Citation{}, exitcode.Newf(exitcode.Usage, "feature %q must be 3 digits", rest[1])
+			return Citation{}, exitcode.Newf(exitcode.Usage, "the citation's feature (not shown) must be 3 digits")
 		}
 	}
 	if len(rest) > 2 {
 		if c.Rule = rest[2]; !re2digit.MatchString(c.Rule) {
-			return Citation{}, exitcode.Newf(exitcode.Usage, "rule %q must be 2 digits", rest[2])
+			return Citation{}, exitcode.Newf(exitcode.Usage, "the citation's rule (not shown) must be 2 digits")
 		}
 	}
 	if len(rest) > 3 {
 		if c.Flow = rest[3]; !re2digit.MatchString(c.Flow) {
-			return Citation{}, exitcode.Newf(exitcode.Usage, "flow %q must be 2 digits", rest[3])
+			return Citation{}, exitcode.Newf(exitcode.Usage, "the citation's flow (not shown) must be 2 digits")
 		}
 	}
 	return c, nil
@@ -572,7 +572,7 @@ func memoryURNFromFlag(m string) (string, error) {
 	}
 	canon := memoryRefV1(m)
 	if !isFullyQualifiedMemoryURN(canon) {
-		return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use hrn:mem:<root>:<slug>", m)
+		return "", exitcode.Newf(exitcode.Usage, "invalid memory ref (the ref given is not shown): use hrn:mem:<root>:<slug>")
 	}
 	return stripMemoryScheme(canon), nil
 }
@@ -603,7 +603,7 @@ func resolveSpecMemoryURN(cmd *cobra.Command, client graphql.Client, ref string)
 	}
 	if strings.Contains(norm, ":") {
 		if !isFullyQualifiedMemoryURN(canon) {
-			return "", exitcode.Newf(exitcode.Usage, "invalid memory ref %q: use hrn:mem:<root>:<slug>", ref)
+			return "", exitcode.Newf(exitcode.Usage, "invalid memory ref (the ref given is not shown): use hrn:mem:<root>:<slug>")
 		}
 		return norm, nil // already fully-qualified — no lookup needed
 	}
@@ -886,7 +886,7 @@ func lookupSpecMemory(cmd *cobra.Command, client graphql.Client, ref string) (id
 	// A bare "not found" is a dead end — the author has to guess the real urn.
 	// Point them at the closest match (same org, spec memories first) or list
 	// what's available (issue #99 item 4).
-	return "", "", exitcode.Newf(exitcode.NotFound, "memory %q not found%s", ref, memorySuggestion(norm, available))
+	return "", "", exitcode.Newf(exitcode.NotFound, "memory not found (the ref given is not shown)%s", memorySuggestion(norm, available))
 }
 
 // memorySuggestion turns a not-found memory ref into a "did you mean …?" /
@@ -965,14 +965,14 @@ func resolveSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc s
 // created maps citations written earlier in the same command to their ids,
 // which are used instead of resolveUrn (it can lag a fresh node by ~a minute).
 // Targets travel by id, never by loc, so the server resolves nothing itself.
-func resolveSpecEdges(cmd *cobra.Command, client graphql.Client, memoryURN, source string, edges []plannedEdgeDTO, created map[string]string) ([]*gen.NodeEdgeInput, error) {
+func resolveSpecEdges(cmd *cobra.Command, client graphql.Client, memoryURN string, edges []plannedEdgeDTO, created map[string]string) ([]*gen.NodeEdgeInput, error) {
 	out := make([]*gen.NodeEdgeInput, 0, len(edges))
-	for _, e := range edges {
+	for i, e := range edges {
 		id, ok := created[e.Target]
 		if !ok {
 			rid, err := resolveSpecNode(cmd, client, memoryURN, e.Target)
 			if err != nil {
-				return nil, fmt.Errorf("cannot wire %s's edge %q → %s, so nothing was created: %w", source, e.Label, e.Target, err)
+				return nil, fmt.Errorf("cannot wire edge %d of %d of the new spec (its ends are not shown; --dry-run lists them), so nothing was created: %w", i+1, len(edges), err)
 			}
 			id = rid
 		}
@@ -997,7 +997,7 @@ func fetchSpecNode(cmd *cobra.Command, client graphql.Client, memoryURN, loc str
 		return nil, api.MapError(err)
 	}
 	if resp.Node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "spec %q not found", loc)
+		return nil, exitcode.Newf(exitcode.NotFound, "spec not found (the citation given is not shown)")
 	}
 	return resp.Node, nil
 }
@@ -1130,7 +1130,7 @@ func fetchSpecTaggedNode(cmd *cobra.Command, client graphql.Client, memoryURN, l
 		return nil, err
 	}
 	if !isSpec(n.Tags, n.Role) {
-		return nil, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag or spec role)", n.Loc)
+		return nil, exitcode.Newf(exitcode.Usage, "the node (the citation given is not shown) is not a spec (no \"spec\" tag or spec role)")
 	}
 	return n, nil
 }

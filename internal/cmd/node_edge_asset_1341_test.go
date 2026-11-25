@@ -409,7 +409,7 @@ func TestNodeRmCrossMemoryEdgesRefusalNamesTheFlag(t *testing.T) {
 		t.Errorf("CROSS_MEMORY_EDGES should be a usage error, got exit %d", exitCodeFor(err))
 	}
 	msg := err.Error()
-	for _, want := range []string{"2 edge(s)", "--cascade-cross-memory-edges", "findings:flaky-ci"} {
+	for _, want := range []string{"2 edge(s)", "--cascade-cross-memory-edges", "not shown"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message should contain %q, got %q", want, msg)
 		}

@@ -104,7 +104,7 @@ syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
 				return syncPullError(err, ref, true)
 			}
 			if resp == nil || resp.SyncMemory == nil || resp.SyncMemory.SyncStatus == "" {
-				return exitcode.Newf(exitcode.Unavailable, "no usable answer; the sync may have happened; check `hadron memory get %s`", ref)
+				return exitcode.Newf(exitcode.Unavailable, "no usable answer; the sync may have happened; check `hadron memory get <memory>` (the ref given is not shown)")
 			}
 			m := resp.SyncMemory
 			// A successful GraphQL response can contain an untouched historical

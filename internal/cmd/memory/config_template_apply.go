@@ -116,7 +116,7 @@ are part of the report, not failures: the exit code is 0.`,
 			var pinned *int
 			if cmd.Flags().Changed("expected-revision") {
 				if expected < 1 {
-					return exitcode.Newf(exitcode.Usage, "--expected-revision must be a positive revision, got %d", expected)
+					return exitcode.Newf(exitcode.Usage, "--expected-revision must be a positive revision")
 				}
 				pinned = &expected
 			}

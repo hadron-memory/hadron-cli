@@ -172,7 +172,7 @@ func parseWriters(s string) (gen.NodeRoleWriters, error) {
 	case "owner":
 		return gen.NodeRoleWritersOwner, nil
 	}
-	return "", exitcode.Newf(exitcode.Usage, "--writers must be all, admin or owner, got %q", s)
+	return "", exitcode.Newf(exitcode.Usage, "--writers must be all, admin or owner")
 }
 
 func parseValidateBy(s string) (gen.ContentValidator, error) {
@@ -182,7 +182,7 @@ func parseValidateBy(s string) (gen.ContentValidator, error) {
 	case "platform":
 		return gen.ContentValidatorPlatform, nil
 	}
-	return "", exitcode.Newf(exitcode.Usage, "--validate-by must be agent or platform, got %q", s)
+	return "", exitcode.Newf(exitcode.Usage, "--validate-by must be agent or platform")
 }
 
 func newCmdConfigRuleAdd(f *cmdutil.Factory) *cobra.Command {
@@ -283,7 +283,7 @@ and cannot be renamed: remove the rule and add it again.`,
 			}
 			dto, err := updateRule(cmd, client, rule, in)
 			if err != nil {
-				return lockedRuleHint(err, args[0], rule.Role)
+				return lockedRuleHint(err)
 			}
 			return writeRuleResult(f, "Updated", args[0], dto)
 		},
@@ -306,7 +306,7 @@ func updateRule(cmd *cobra.Command, client graphql.Client, rule *gen.NodeRoleRul
 		}
 		p := resp.UpdateNodeRoleRule
 		if p == nil || p.Rule == nil {
-			return dto, exitcode.Newf(exitcode.Error, "the server returned no rule for role %q", rule.Role)
+			return dto, exitcode.Newf(exitcode.Error, "the server returned no rule for the role (the role given is not shown)")
 		}
 		dto.Rule = dtoFromRule(&p.Rule.NodeRoleRuleFields)
 		for _, w := range p.Warnings {
@@ -330,7 +330,7 @@ func updateRule(cmd *cobra.Command, client graphql.Client, rule *gen.NodeRoleRul
 	}
 	p := resp.UpdateNodeRoleRule
 	if p == nil || p.Rule == nil {
-		return dto, exitcode.Newf(exitcode.Error, "the server returned no rule for role %q", rule.Role)
+		return dto, exitcode.Newf(exitcode.Error, "the server returned no rule for the role (the role given is not shown)")
 	}
 	dto.Rule = dtoFromRule(&p.Rule.NodeRoleRuleFields)
 	for _, w := range p.Warnings {
@@ -370,10 +370,10 @@ sent with the delete, so a rule someone else changed in between is refused
 			}
 			resp, err := gen.DeleteNodeRoleRule(cmd.Context(), client, rule.Id, rule.Revision)
 			if err != nil {
-				return lockedRuleHint(api.MapError(err), args[0], rule.Role)
+				return lockedRuleHint(api.MapError(err))
 			}
 			if !resp.DeleteNodeRoleRule {
-				return exitcode.Newf(exitcode.Error, "the server did not delete the %q rule", rule.Role)
+				return exitcode.Newf(exitcode.Error, "the server did not delete the rule (the role given is not shown)")
 			}
 			dto := ruleDeleteDTO{MemoryID: memoryID, Role: rule.Role, ID: rule.Id, Revision: rule.Revision, Deleted: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -392,13 +392,12 @@ sent with the delete, so a rule someone else changed in between is refused
 // exit 5, and the way out is the deliberate `rule unlock` (or re-applying the
 // required template). The server's message names the GraphQL mutation; this
 // names the command.
-func lockedRuleHint(err error, memoryRef, role string) error {
+func lockedRuleHint(err error) error {
 	if !api.HasErrorCode(err, "RULE_LOCKED") {
 		return err
 	}
 	return exitcode.Newf(exitcode.Conflict,
-		"the %q rule is locked: a required template wrote it, and a locked rule refuses every ordinary edit and removal. Unlock it first with `hadron memory config rule unlock %s %s`, or re-apply its template. Nothing was written",
-		role, memoryRef, role)
+		"the rule (the role given is not shown) is locked: a required template wrote it, and a locked rule refuses every ordinary edit and removal. Unlock it first with `hadron memory config rule unlock <memory> <role>`, or re-apply its template. Nothing was written")
 }
 
 func newCmdConfigRuleUnlock(f *cmdutil.Factory) *cobra.Command {
@@ -450,7 +449,7 @@ there are. Unlocking a rule that isn't locked changes nothing.`,
 			}
 			p := resp.UnlockNodeRoleRule
 			if p == nil || p.Rule == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no rule for role %q", rule.Role)
+				return exitcode.Newf(exitcode.Error, "the server returned no rule for the role (the role given is not shown)")
 			}
 			dto := ruleWriteDTO{Rule: dtoFromRule(&p.Rule.NodeRoleRuleFields), Warnings: []configWarningDTO{}}
 			for _, w := range p.Warnings {

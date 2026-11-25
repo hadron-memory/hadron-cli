@@ -36,7 +36,7 @@ func sourceTombstoneError(n *gen.GetNodeNode) error {
 	if !isTombstoneSource(n) {
 		return nil
 	}
-	return exitcode.Newf(exitcode.Conflict, "%s is a RESCINDED or WITHDRAWN spec, which has no successor (cor:spc:010:01); supersede does not rewrite it; nothing was written", n.Loc)
+	return exitcode.Newf(exitcode.Conflict, "the spec (the citation given is not shown) is a RESCINDED or WITHDRAWN spec, which has no successor (cor:spc:010:01); supersede does not rewrite it; nothing was written")
 }
 
 // tombstoneRaceError: the spec became a tombstone after the replacement or
@@ -61,7 +61,7 @@ func supersedeLeadState(old *gen.GetNodeNode, target string) (bool, error) {
 	}
 	m := supersedeLead.FindStringSubmatch(a)
 	if len(m) != 2 || m[1] != target {
-		return false, exitcode.Newf(exitcode.Conflict, "%s already has a different or malformed supersession lead; retirement update not attempted", old.Loc)
+		return false, exitcode.Newf(exitcode.Conflict, "the spec (the citation given is not shown) already has a different or malformed supersession lead; retirement update not attempted")
 	}
 	return true, nil
 }
@@ -88,7 +88,7 @@ func readSupersedeTarget(cmd *cobra.Command, client graphql.Client, id string) (
 		return nil, api.MapError(err)
 	}
 	if r == nil || r.Node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "successor %q is not readable", id)
+		return nil, exitcode.Newf(exitcode.NotFound, "the successor (the id given is not shown) is not readable")
 	}
 	if r.Node.Id != id {
 		return nil, exitcode.Newf(exitcode.Conflict, "successor identity changed while reading it; nothing was written")
@@ -100,15 +100,15 @@ func eligibleSupersedeTarget(old *gen.GetNodeNode, n *gen.GetSpecSupersedeTarget
 	case n.Id == old.Id:
 		return exitcode.Newf(exitcode.Usage, "a spec cannot supersede itself")
 	case n.MemoryId != old.MemoryId:
-		return exitcode.Newf(exitcode.Usage, "successor must be in the same memory as %s", old.Loc)
+		return exitcode.Newf(exitcode.Usage, "successor must be in the same memory as the spec it replaces")
 	case n.DeletedAt != nil:
 		return exitcode.Newf(exitcode.NotFound, "successor is deleted")
 	case !isSpec(n.Tags, n.Role):
-		return exitcode.Newf(exitcode.Usage, "successor %s is not a spec", n.Loc)
+		return exitcode.Newf(exitcode.Usage, "the successor (the citation given is not shown) is not a spec")
 	case n.IsPlaceholder:
-		return exitcode.Newf(exitcode.Usage, "successor %s is a placeholder, not a written spec", n.Loc)
+		return exitcode.Newf(exitcode.Usage, "the successor (the citation given is not shown) is a placeholder, not a written spec")
 	case hasTag(n.Tags, supersededTag) || hasTag(n.Tags, "rescinded"):
-		return exitcode.Newf(exitcode.Conflict, "successor %s is itself retired", n.Loc)
+		return exitcode.Newf(exitcode.Conflict, "the successor (the citation given is not shown) is itself retired")
 	}
 	return nil
 }
@@ -154,7 +154,7 @@ func checkSupersedeCycle(cmd *cobra.Command, client graphql.Client, oldID string
 func existingTargetState(old *gen.GetNodeNode, target *gen.GetSpecSupersedeTargetNode) (bool, error) {
 	for _, s := range supersededBySuccessors(old) {
 		if s.id != target.Id || s.otherMemory {
-			return false, exitcode.Newf(exitcode.Conflict, "%s already names another or unreadable successor; nothing was written", old.Loc)
+			return false, exitcode.Newf(exitcode.Conflict, "the spec (the citation given is not shown) already names another or unreadable successor; nothing was written")
 		}
 	}
 	same, err := supersedeLeadState(old, target.Loc)
@@ -274,7 +274,7 @@ func supersedeByExisting(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 			if other != "" {
 				code = exitcode.Conflict
 			}
-			return exitcode.Newf(code, "supersession link could not be confirmed as the sole successor (write: %v; read: %v; other: %s); retirement was not attempted; inspect `hadron spec get %s -m %s` before retrying", api.MapError(writeErr), api.MapError(readErr), other, old.Loc, mem)
+			return exitcode.Newf(code, "supersession link could not be confirmed as the sole successor (write: %v; read: %v; other: %s); retirement was not attempted; inspect `hadron spec get <citation> -m <memory>` before retrying (the citation given is not shown)", api.MapError(writeErr), api.MapError(readErr), other)
 		}
 		old = fresh
 	}
@@ -283,7 +283,7 @@ func supersedeByExisting(cmd *cobra.Command, f *cmdutil.Factory, client graphql.
 	result.Retired = retired
 	if err != nil {
 		_ = output.Write(f.IOStreams, f.JSON, result, render)
-		return retireError(retired, err, old.Loc, target.Loc, mem)
+		return retireError(retired, err)
 	}
 	maybeRegisterReminder(cmd, client, mem, f.IOStreams.ErrOut, old.Loc, target.Loc)
 	return output.Write(f.IOStreams, f.JSON, result, render)

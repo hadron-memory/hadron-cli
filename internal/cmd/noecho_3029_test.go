@@ -157,7 +157,7 @@ func TestRefusalsNeverEchoThePositionalArg3029(t *testing.T) {
 }
 
 // `spec edit --expected-node-id` refuses a citation that now names another node (exit 5). The refusal
-// names both node ids (server values) but not the citation the operator typed.
+// names the node id the server answered, but neither the citation nor the id the operator typed.
 func TestSpecEditReplacedNodeRefusalNeverEchoesTheCitation3029(t *testing.T) {
 	p := tok3029()
 	cite := "custom:" + p
@@ -173,7 +173,7 @@ func TestSpecEditReplacedNodeRefusalNeverEchoesTheCitation3029(t *testing.T) {
 	root.SetArgs([]string{"spec", "edit", cite, "-m", specMem, "--server", gql.URL, "--content", "-",
 		"--expected-revision", "7", "--expected-node-id", "sp1", "--expected-proposal-hash", hash})
 	err := root.Execute()
-	if exitCodeFor(err) != exitcode.Conflict || !strings.Contains(fmt.Sprint(err), "not the previewed node sp1") {
+	if exitCodeFor(err) != exitcode.Conflict || !strings.Contains(fmt.Sprint(err), "not the node of --expected-node-id") {
 		t.Fatalf("this must reach the replaced-node refusal (exit 5): %d %v", exitCodeFor(err), err)
 	}
 	if _, wrote := captured["UpdateSpecNode"]; wrote {

@@ -309,7 +309,7 @@ func TestProtectSecretAnswerIsNotReportedAsAChange2738(t *testing.T) {
 		if code != exitcode.Unavailable {
 			t.Fatalf("%s reporting %v: exit %d, want 7\n%s%s", tc.flag, tc.reported, code, stdout, stderr)
 		}
-		if strings.Contains(stdout+stderr, "✓") || !strings.Contains(stderr, "not confirmed") || !strings.Contains(stderr, "protected: "+strconv.FormatBool(tc.reported)) || !strings.Contains(stderr, "hadron secret get sec-1") {
+		if strings.Contains(stdout+stderr, "✓") || !strings.Contains(stderr, "not confirmed") || !strings.Contains(stderr, "protected: "+strconv.FormatBool(tc.reported)) || !strings.Contains(stderr, "hadron secret get <secret>") {
 			t.Errorf("%s reporting %v: must say it is unconfirmed and how to check: %q %q", tc.flag, tc.reported, stdout, stderr)
 		}
 		if len(*calls) != 1 {
@@ -426,7 +426,7 @@ func TestChangeWithdraw2738(t *testing.T) {
 	for name, body := range map[string]string{"missing": `{"data":{}}`, "null": `{"data":{"withdrawSecretChangeRequest":null}}`} {
 		bad, _ := fake2738(t, only2738(200, body))
 		_, stderr, code := run2738(t, bad.URL, "change", "withdraw", req2738)
-		if code != exitcode.Unavailable || !strings.Contains(stderr, "did not confirm") || !strings.Contains(stderr, "hadron secret change get "+req2738) {
+		if code != exitcode.Unavailable || !strings.Contains(stderr, "did not confirm") || !strings.Contains(stderr, "hadron secret change get <id>") {
 			t.Errorf("%s result: exit %d %q", name, code, stderr)
 		}
 	}
@@ -445,7 +445,7 @@ func TestChangeWithdraw2738(t *testing.T) {
 	// the request may have been withdrawn and how to check.
 	down, dcalls := fake2738(t, only2738(503, `unavailable`))
 	_, stderr, code := run2738(t, down.URL, "change", "withdraw", req2738)
-	if code == 0 || len(*dcalls) != 1 || !strings.Contains(stderr, "withdraw outcome unknown (sent once, not retried)") || !strings.Contains(stderr, "hadron secret change get "+req2738) {
+	if code == 0 || len(*dcalls) != 1 || !strings.Contains(stderr, "withdraw outcome unknown (sent once, not retried)") || !strings.Contains(stderr, "hadron secret change get <id>") {
 		t.Errorf("a 5xx: exit %d, %d calls, %q", code, len(*dcalls), stderr)
 	}
 }

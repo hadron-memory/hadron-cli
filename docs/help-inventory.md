@@ -633,7 +633,7 @@ section between the markers.
 | `team task progress` |  |  | y | #1054 | 6253ca7ee818 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task ready` |  |  | y | #1054 | 11f5ef7f837c | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task reassign` |  |  | y | #1054 | 9d1a99e0a2bc |  | unread |  |
-| `team task release` |  |  | y | #1054 | 17a331e3bed4 |  | unread |  |
+| `team task release` |  |  | y | #1054 | 137ff20f698a |  | unread |  |
 | `team task remove-blocker` |  |  | y | #1054 | f1ed8abccc2c | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task set-priority` |  |  | y | #1054 | 251518f2aaf9 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task start` |  |  | y | #1054 | fbda4606d956 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
@@ -728,7 +728,7 @@ section between the markers.
 | `spec lint` | check, validate |  | y | #1055 | b601151d2dbe |  | unread |  |
 | `spec list` | ls |  | y | #1055 | f482dd92b9bc |  | unread |  |
 | `spec mint` |  |  | y | #1055 | 176744cc0f39 |  | unread |  |
-| `spec new` | scaffold |  | y | #1055 | 77286154345b |  | unread |  |
+| `spec new` | scaffold |  | y | #1055 | 586580ab0b49 |  | unread |  |
 | `spec register` | reg |  | y | #1055 | 2f690e3f6081 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec renumber` |  |  | y | #1055 | 26cba652322d |  | unread |  |
 | `spec replace` |  |  | y | #1055 | d439a9b4acd9 |  | unread |  |

@@ -170,7 +170,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 	// parent or inheritance target leaves no placeholder behind.
 	var edges []*gen.NodeEdgeInput
 	if !in.noEdges {
-		edges, err = resolveSpecEdges(cmd, client, memURN, "the next "+in.alloc.parent.Format()+" number", edgePlan, nil)
+		edges, err = resolveSpecEdges(cmd, client, memURN, edgePlan, nil)
 		if err != nil {
 			return err
 		}
@@ -180,7 +180,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 	// ref vouches for the answer. Without it nothing is reserved.
 	expectedMemoryID := in.expectedMemoryID
 	if expectedMemoryID == "" {
-		return exitcode.Newf(exitcode.Error, "cannot tell which memory %s is, so the allocation could not be verified; nothing was reserved", memURN)
+		return exitcode.Newf(exitcode.Error, "cannot tell which memory was given (the ref is not shown), so the allocation could not be verified; nothing was reserved")
 	}
 
 	a, aerr := api.AllocateSpecNode(cmd.Context(), client, memURN, in.alloc.parent.Format(), in.alloc.after, in.title)
@@ -188,13 +188,13 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 		if api.IsDefiniteRefusalAt(aerr, "allocateSpecNode") {
 			return api.MapError(aerr) // refused: zero writes, nothing reserved
 		}
-		return allocationUnknown(memURN, in, api.MapError(aerr))
+		return allocationUnknown(api.MapError(aerr))
 	}
 	target, verr := validateAllocation(a, expectedMemoryID, in.alloc.parent, in.newFeature, in.alloc.after)
 	if verr != nil {
 		// An unusable answer to a call that may have committed: unknown, and no
 		// fill is sent on a node this CLI cannot vouch for.
-		return allocationUnknown(memURN, in, verr)
+		return allocationUnknown(verr)
 	}
 	name := specName(target, in.title)
 	abs := userAbs
@@ -271,7 +271,7 @@ func runNewAllocated(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clie
 				cr.Edges = append(cr.Edges, plannedEdgeDTO{Label: ctitle, Target: target.Format()})
 			}
 			if _, cErr := api.CreateSpecNode(cmd.Context(), client, &cIn); cErr != nil {
-				return contractFailed(f, memURN, target, cc, ctitle, in.tags, in.noEdges, cErr)
+				return contractFailed(f, memURN, a.Loc, cc, ctitle, in.tags, in.noEdges, cErr)
 			}
 			res.Also = append(res.Also, cr)
 		}
@@ -313,6 +313,33 @@ func recoveryCommands(rc recoveryContext) []string {
 		cmds = append(cmds, contractCommand(rc.memURN, rc.contract, rc.title+" general provisions", rc.tags, rc.noEdges))
 	}
 	return cmds
+}
+
+// recoverySteps is recoveryCommands for the refusal text: the same commands with placeholders for
+// what the operator typed (#2898 policy). loc is the server's allocated citation; the --json record
+// keeps the commands in full.
+func recoverySteps(loc, abstractFile, contentFile string, seq *int, tags, edges int, contract bool) []string {
+	q := cmdutil.ShellQuote
+	edit := fmt.Sprintf("hadron spec edit %s -m <memory> --title <title>", q(loc))
+	if abstractFile != "" {
+		edit += " --abstract-file " + q(abstractFile)
+	}
+	if contentFile != "" {
+		edit += " --content-file " + q(contentFile)
+	}
+	node := fmt.Sprintf("hadron node update %s -m <memory> --role %s", q(loc), q(api.SpecNodeRole)) + strings.Repeat(" --tag <tag>", tags)
+	if seq != nil {
+		node += fmt.Sprintf(" --seq %d", *seq)
+	}
+	node += " --data " + q(string(*specDataRaw()))
+	steps := []string{fmt.Sprintf("hadron spec get %s -m <memory>", q(loc)), edit, node}
+	for i := 0; i < edges; i++ {
+		steps = append(steps, fmt.Sprintf("hadron edge add -m <memory> --from %s --to <target> --name <label>", q(loc)))
+	}
+	if contract {
+		steps = append(steps, fmt.Sprintf("hadron spec new -m <memory> %s --title <title>", q(loc+":00")))
+	}
+	return steps
 }
 
 // specEditCommand restores the fill's title and, when preserved copies exist,
@@ -382,10 +409,11 @@ func reservedUnfilled(f *cmdutil.Factory, rc recoveryContext, status string, cau
 	}
 	contractNote := ""
 	if rc.contract != "" {
-		contractNote = fmt.Sprintf(" The feature's contract %s was never attempted: create only that (the last command below) once the feature itself holds your content.", rc.contract)
+		contractNote = fmt.Sprintf(" The feature's contract %s was never attempted: create only that (the last command below) once the feature itself holds your content.", rc.loc+":00")
 	}
-	msg := fmt.Sprintf("allocated %s but %s. The number is reserved and stays reserved. Read it first (`%s`): if it already holds your content, the fill committed and only what is missing remains; if it is still a placeholder, resume authoring at that citation, restoring what the failed fill carried (title, abstract, body, tags, role, edges):%s\n  %s\nThen, do NOT rerun `spec new`, which would allocate another number. An unfilled placeholder blocks the corpus's next mint (cor:dmo:120:07)",
-		rc.loc, what, recovery[0], contractNote, strings.Join(recovery[1:], "\n  "))
+	steps := recoverySteps(rc.loc, rc.abstractFile, rc.contentFile, specSeq(rc.target), len(rc.tags), len(rc.edges), rc.contract != "")
+	msg := fmt.Sprintf("allocated %s but %s. The number is reserved and stays reserved. Read it first (`%s`): if it already holds your content, the fill committed and only what is missing remains; if it is still a placeholder, resume authoring at that citation, restoring what the failed fill carried (title, abstract, body, tags, role, edges; what you typed is not shown):%s\n  %s\nThen, do NOT rerun `spec new`, which would allocate another number. An unfilled placeholder blocks the corpus's next mint (cor:dmo:120:07)",
+		rc.loc, what, steps[0], contractNote, strings.Join(steps[1:], "\n  "))
 	if f.JSON {
 		if werr := output.Write(f.IOStreams, true, allocatedOutcomeDTO{Citation: rc.loc, MemoryID: rc.memURN, Allocated: true, FillStatus: status, Reason: cause.Error(), Recovery: recovery}, nil); werr != nil {
 			msg += fmt.Sprintf(" (the --json record could not be written: %v)", werr)
@@ -397,7 +425,7 @@ func reservedUnfilled(f *cmdutil.Factory, rc recoveryContext, status string, cau
 // contractFailed reports a feature that is allocated and filled whose explicit
 // general-provisions contract was refused or lost. Rerunning the original
 // command would allocate ANOTHER feature, so recovery names the contract loc.
-func contractFailed(f *cmdutil.Factory, memURN string, feature, contract Citation, ctitle string, tags []string, noEdges bool, cause error) error {
+func contractFailed(f *cmdutil.Factory, memURN, featureLoc string, contract Citation, ctitle string, tags []string, noEdges bool, cause error) error {
 	status, exit := "unknown", exitcode.Unavailable
 	if api.IsDefiniteRefusalAt(cause, "createSpecNode") {
 		status, exit = "refused", exitcode.Error
@@ -408,23 +436,23 @@ func contractFailed(f *cmdutil.Factory, memURN string, feature, contract Citatio
 	}
 	var werrNote string
 	if f.JSON {
-		werr := output.Write(f.IOStreams, true, contractOutcomeDTO{Citation: feature.Format(), MemoryID: memURN, Allocated: true, FillStatus: "filled",
+		werr := output.Write(f.IOStreams, true, contractOutcomeDTO{Citation: featureLoc, MemoryID: memURN, Allocated: true, FillStatus: "filled",
 			ContractCitation: contract.Format(), ContractStatus: status, Reason: api.MapError(cause).Error(), Recovery: recovery}, nil)
 		if werr != nil {
 			werrNote = fmt.Sprintf(" (the --json record could not be written: %v)", werr)
 		}
 	}
-	return exitcode.Newf(exit, "created %s, but its contract %s was %s (%v). The feature is complete and stays: do NOT rerun the original `spec new`, which would allocate another feature. Check whether %s exists (`%s`); if it does not, create just the contract (`%s`)%s",
-		feature.Format(), contract.Format(), status, api.MapError(cause), contract.Format(), recovery[0], recovery[1], werrNote)
+	return exitcode.Newf(exit, "created %s, but its contract was %s (%v). The feature is complete and stays: do NOT rerun the original `spec new`, which would allocate another feature. Check whether the contract exists (`hadron spec get %s -m <memory>`); if it does not, create just the contract (`hadron spec new -m <memory> %s --title <title>`, with the --tag and --no-edges of this run; what you typed is not shown)%s",
+		featureLoc, status, api.MapError(cause), cmdutil.ShellQuote(featureLoc+":00"), cmdutil.ShellQuote(featureLoc+":00"), werrNote)
 }
 
 // allocationUnknown reports an allocation whose outcome the CLI cannot vouch
 // for (lost or unusable answer, or an error after the write): a placeholder may
 // exist, nothing was retried and no fill was sent.
-func allocationUnknown(memURN string, in allocatedInput, cause error) error {
+func allocationUnknown(cause error) error {
 	return exitcode.Newf(exitcode.Unavailable,
-		"allocation outcome unknown (%v): a placeholder may have been reserved under %s. Nothing was retried. Check `hadron spec ls -m %s --prefix %s` for an unfilled placeholder named %q before rerunning; rerunning allocates another number",
-		cause, in.alloc.parent.Format(), memURN, in.alloc.parent.Format(), in.title)
+		"allocation outcome unknown (%v): a placeholder may have been reserved under the parent (the citation and title given are not shown). Nothing was retried. Check `hadron spec ls -m <memory> --prefix <parent>` for an unfilled placeholder with your title before rerunning; rerunning allocates another number",
+		cause)
 }
 
 // validateAllocation checks the server's answer before anything is written on
@@ -448,7 +476,7 @@ func validateAllocation(a *api.AllocatedSpec, expectedMemoryID string, parent Ci
 		return Citation{}, fmt.Errorf("the server returned a loc this CLI cannot parse: %v", perr)
 	}
 	if p, ok := target.Parent(); !ok || p != parent {
-		return Citation{}, fmt.Errorf("the server returned %s, which is not a child of %s", a.Loc, parent.Format())
+		return Citation{}, fmt.Errorf("the server returned %s, which is not a child of the parent asked for", a.Loc)
 	}
 	if newFeature && (target.Feature == "" || target.Rule != "" || target.Flow != "") {
 		return Citation{}, fmt.Errorf("the server returned %s, which is not a feature", a.Loc)
