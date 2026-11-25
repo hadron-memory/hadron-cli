@@ -202,7 +202,7 @@ section between the markers.
 | `auth` |  |  | n | #1052 | 73006dfbd70f | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth grants` |  |  | y | #1052 | d3d9984a14bc | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `auth impersonate` |  |  | y | #1052 | be7fc58e5e9d | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `auth login` |  |  | y | #1052 | 311de3fa0fcf |  | unread |  |
+| `auth login` |  |  | y | #1052 | ec7ea6cf8ef3 |  | unread |  |
 | `auth logout` |  |  | y | #1052 | 8eb2b8180c4b | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `auth passkey` |  |  | n | #1052 | 7dd0383eba76 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `auth passkey list` | ls |  | y | #1052 | d2a0d0c65666 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |

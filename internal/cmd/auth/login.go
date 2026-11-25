@@ -69,9 +69,9 @@ type); the CLI sends it to the server as it is and never prints or logs it. A
 code the server does not accept (wrong, expired or already used) gets one
 answer and exit 1, and the server limits how many tries a sign-in allows.
 Pasting needs a terminal: with standard input piped, as in an agent or CI, the
-command exits 2 and points to --with-token or HADRON_TOKEN. This needs a server
-that offers the code page; an older one redirects to the CLI's own address
-instead, so no code is shown.
+command exits 2 and points to --with-token or HADRON_TOKEN. Needs server
+2026-11-25 or later; an older one redirects to the CLI's own address instead,
+so no code is shown.
 
 The browser step must finish within 15 minutes, a limit the CLI sets for
 itself. If it does not, nothing is stored; rerun ` + "`hadron auth login`" + `.

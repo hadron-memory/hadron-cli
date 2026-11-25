@@ -24,4 +24,4 @@ The terminal read (`readHiddenLine`) polls the descriptor in 100 ms steps and re
 
 ## Not done
 
-A server that predates the code page ignores `code_delivery` and redirects to an address nothing listens on, so no code is shown; the help says the mode needs a server that offers the page. A date floor is to be added once the server PR has merged.
+A server that predates the code page ignores `code_delivery` and redirects to an address nothing listens on, so no code is shown; the help and the agent contract say "Needs server 2026-11-25 or later" (the day hadron-server#5177 merged).
