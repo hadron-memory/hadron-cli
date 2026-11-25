@@ -113,3 +113,40 @@ func TestSubdirectoryReadsTheRepositoryRoot2545(t *testing.T) {
 		t.Errorf("%+v", got)
 	}
 }
+
+// cli#3201: a .git file whose gitdir does not exist is unreadable, not a
+// submodule. Reading a missing commondir as "submodule" also covered a gitdir
+// that is gone, so the account-level off could win over a local file the check
+// never consulted. A submodule (the gitdir exists, with no commondir) is
+// unchanged.
+func TestMissingGitdirIsUnreadable3201(t *testing.T) {
+	r, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	wt, acct := filepath.Join(r, "wt"), filepath.Join(r, "acct")
+	write(t, filepath.Join(acct, "settings.json"), `{"idleCompaction":false}`)
+
+	// The gitdir the file names does not exist.
+	write(t, filepath.Join(wt, ".git"), "gitdir: "+filepath.Join(r, "gone", "worktrees", "wt"))
+	got := Effective(r, wt, acct, r)
+	if got.State != StateUnreadable || got.Source != "" {
+		t.Fatalf("a missing gitdir: %+v", got)
+	}
+
+	// A relative gitdir that does not exist is the same.
+	write(t, filepath.Join(wt, ".git"), "gitdir: ../nowhere/modules/wt")
+	if got := Effective(r, wt, acct, r); got.State != StateUnreadable || got.Source != "" {
+		t.Fatalf("a missing relative gitdir: %+v", got)
+	}
+
+	// A submodule: the gitdir exists and has no commondir. Unchanged: it reads
+	// the directory itself, so the account file decides (off).
+	if err := os.MkdirAll(filepath.Join(r, "super", ".git", "modules", "wt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(wt, ".git"), "gitdir: "+filepath.Join(r, "super", ".git", "modules", "wt"))
+	if got := Effective(r, wt, acct, r); got.State != StateOff {
+		t.Fatalf("a submodule must be unchanged: %+v", got)
+	}
+}

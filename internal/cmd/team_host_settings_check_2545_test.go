@@ -324,3 +324,41 @@ func TestTeamHostSettingsCheckNeedsConfig2545(t *testing.T) {
 		}
 	}
 }
+
+// cli#3201: a worktree whose .git file points at a gitdir that is gone reads
+// UNREADABLE (never OFF), with the account file off and no source; a
+// submodule (the gitdir exists, no commondir) is unchanged.
+func TestTeamHostSettingsCheckMissingGitdir3201(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		mkGitdir  bool
+		wantExit  int
+		wantState string
+	}{
+		{"missing gitdir", false, exitcode.Conflict, "DRIFT"},
+		{"submodule", true, 0, "OFF"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			x := newSettingsFixture(t, "2.1.330", "")
+			x.put(t, filepath.Join(x.home, ".claude", "settings.json"), `{"idleCompaction":false}`)
+			gd := filepath.Join(x.root, "super", ".git", "modules", "iris")
+			if tc.mkGitdir {
+				if err := os.MkdirAll(gd, 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			x.put(t, filepath.Join(x.trees, "repo", "iris", ".git"), "gitdir: "+gd+"\n")
+			o, raw, code := x.run(t)
+			w := o.Worktrees[0]
+			if w.Status != tc.wantState || code != tc.wantExit {
+				t.Fatalf("status %s exit %d\n%s", w.Status, code, raw)
+			}
+			if !tc.mkGitdir && (w.Effective != nil || w.Source != nil) {
+				t.Fatalf("a missing gitdir must have no effective value and no source: %s", raw)
+			}
+			if tc.mkGitdir && (w.Effective == nil || *w.Effective || w.Source == nil) {
+				t.Fatalf("a submodule must read the account file off: %s", raw)
+			}
+		})
+	}
+}
