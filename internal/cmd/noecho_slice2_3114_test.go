@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 // cli#3114 slice 2 (spec, node, memory, question, secret, coding): flag values and values reaching a
@@ -122,20 +124,52 @@ func TestSlice2MissingBodyLineRemedyWorks3114(t *testing.T) {
 	root.SetArgs(preflightCreateArgs(gql.URL))
 	cerr := root.Execute()
 	rerr := runPlainRouteRefused3114(t)
-	help := cmdHelpOut(t, "coding", "preflight", "route")
-	for name, e := range map[string]error{"create": cerr, "route": rerr} {
-		if e == nil {
+	// cli#3189 item 2: the flags each refusal names are checked against the commands' own flag sets,
+	// not against help layout, and the list must be COMPLETE: every flag the remedy command takes that
+	// the failed command also took is named, except the ones that cannot change what is written.
+	rf, _ := testFactory(t)
+	tree := NewRootCmd(rf)
+	routeCmd, _, rerrFind := tree.Find([]string{"coding", "preflight", "route"})
+	createCmd, _, cerrFind := tree.Find([]string{"coding", "preflight", "create"})
+	if rerrFind != nil || cerrFind != nil || routeCmd.Name() != "route" || createCmd.Name() != "create" {
+		t.Fatalf("cannot find the commands: %v %v", rerrFind, cerrFind)
+	}
+	// Not repeated in the remedy: -m is shown in its own form, --route is the label, --dry-run and
+	// --no-body-line change nothing a re-run needs, --help is not a setting.
+	notNamed := map[string]bool{"memory": true, "route": true, "dry-run": true, "no-body-line": true, "help": true}
+	for name, tc := range map[string]struct {
+		err      error
+		original *cobra.Command
+		// --description on create is the node's own description, which only seeds the routing line.
+		alsoNotNamed string
+	}{
+		"create": {cerr, createCmd, "description"},
+		"route":  {rerr, routeCmd, ""},
+	} {
+		if tc.err == nil {
 			t.Fatalf("%s: want the partial-write refusal", name)
 		}
-		flags := regexp.MustCompile(`--[a-z-]+`).FindAllString(e.Error(), -1)
-		if len(flags) < 6 || !strings.Contains(e.Error(), "hadron coding preflight route <loc>") {
-			t.Errorf("%s: names the command and its flags: %v", name, e)
+		msg := tc.err.Error()
+		if !strings.Contains(msg, "hadron coding preflight route <loc>") {
+			t.Errorf("%s: names the remedy command: %v", name, tc.err)
 		}
-		for _, fl := range flags {
-			if !strings.Contains(help, fl+" ") {
-				t.Errorf("%s names %s, which preflight route does not take", name, fl)
+		named := map[string]bool{}
+		for _, fl := range regexp.MustCompile(`--[a-z-]+`).FindAllString(msg, -1) {
+			named[strings.TrimPrefix(fl, "--")] = true
+		}
+		for fl := range named {
+			if routeCmd.Flags().Lookup(fl) == nil {
+				t.Errorf("%s names --%s, which preflight route does not take", name, fl)
 			}
 		}
+		routeCmd.LocalFlags().VisitAll(func(fl *pflag.Flag) {
+			if notNamed[fl.Name] || fl.Name == tc.alsoNotNamed || tc.original.Flags().Lookup(fl.Name) == nil {
+				return
+			}
+			if !named[fl.Name] {
+				t.Errorf("%s: --%s is a setting of the failed command and of the remedy, but the refusal does not name it", name, fl.Name)
+			}
+		})
 	}
 }
 

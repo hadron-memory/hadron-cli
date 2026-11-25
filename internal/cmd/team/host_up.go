@@ -561,7 +561,7 @@ func (s hostUpServerSource) hostSetup(ctx context.Context, hostID string) (strin
 			continue
 		}
 		if _, exists := assigned[a.WorkerId]; exists {
-			return "", nil, exitcode.Newf(exitcode.Error, "the server answered hostSetup with duplicate assignments for worker %s on the host (the host id given is not shown); nothing planned", a.WorkerId)
+			return "", nil, exitcode.Newf(exitcode.Error, "the server answered hostSetup with duplicate assignments for worker %s on the host (the host id given is not shown); nothing planned", output.SafeCell(a.WorkerId))
 		}
 		assigned[a.WorkerId] = a
 	}

@@ -1,6 +1,7 @@
 package team
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -92,7 +93,7 @@ func normalizeNumberedRef(kind, raw, defaultRepo string) (string, int, error) {
 		}
 		repo, ok := canonicalRepo(defaultRepo)
 		if !ok {
-			return "", 0, fmt.Errorf("session repo (not shown) is not owner/repo — pass the full ref owner/repo#N")
+			return "", 0, errors.New("session repo (not shown) is not owner/repo — pass the full ref owner/repo#N")
 		}
 		return fmt.Sprintf("%s#%d", repo, n), n, nil
 	}
@@ -107,29 +108,29 @@ func normalizeCommitRef(raw, defaultRepo string) (string, int, error) {
 		if part == "commit" && shaRE.MatchString(strings.ToLower(sha)) {
 			return repo + "@" + strings.ToLower(sha), 0, nil
 		}
-		return "", 0, fmt.Errorf("cannot parse a commit sha from the URL (the value given is not shown)")
+		return "", 0, errors.New("cannot parse a commit sha from the URL (the value given is not shown)")
 	}
 	// Short form: owner/repo@sha.
 	if rawRepo, sha, ok := strings.Cut(raw, "@"); ok {
 		sha = strings.ToLower(sha)
 		repo, repoOK := canonicalRepo(rawRepo)
 		if !repoOK || !shaRE.MatchString(sha) {
-			return "", 0, fmt.Errorf("the value given (not shown) is not a valid commit ref (want owner/repo@sha)")
+			return "", 0, errors.New("the value given (not shown) is not a valid commit ref (want owner/repo@sha)")
 		}
 		return repo + "@" + sha, 0, nil
 	}
 	// Bare sha: needs a repo to qualify.
 	if sha := strings.ToLower(raw); shaRE.MatchString(sha) {
 		if defaultRepo == "" {
-			return "", 0, fmt.Errorf("a bare commit sha (not shown) needs a repository — pass owner/repo@sha, or record --repo at `session start`")
+			return "", 0, errors.New("a bare commit sha (not shown) needs a repository — pass owner/repo@sha, or record --repo at `session start`")
 		}
 		repo, ok := canonicalRepo(defaultRepo)
 		if !ok {
-			return "", 0, fmt.Errorf("session repo (not shown) is not owner/repo — pass the full ref owner/repo@sha")
+			return "", 0, errors.New("session repo (not shown) is not owner/repo — pass the full ref owner/repo@sha")
 		}
 		return repo + "@" + sha, 0, nil
 	}
-	return "", 0, fmt.Errorf("the value given (not shown) is not a recognized commit ref (accepted: a sha, owner/repo@sha, or a GitHub URL)")
+	return "", 0, errors.New("the value given (not shown) is not a recognized commit ref (accepted: a sha, owner/repo@sha, or a GitHub URL)")
 }
 
 // validBranch rejects the values that cannot be a git branch name and would
@@ -162,27 +163,27 @@ func normalizeBranchRef(raw, defaultRepo string) (string, int, error) {
 		if part == "tree" && validBranch(branch) {
 			return repo + ":" + branch, 0, nil
 		}
-		return "", 0, fmt.Errorf("cannot parse a branch ref from the URL (the value given is not shown)")
+		return "", 0, errors.New("cannot parse a branch ref from the URL (the value given is not shown)")
 	}
 	// Short form: owner/repo:branch (split at the FIRST colon; the branch
 	// part may itself contain slashes but not a colon).
 	if rawRepo, branch, ok := strings.Cut(raw, ":"); ok {
 		repo, repoOK := canonicalRepo(rawRepo)
 		if !repoOK || !validBranch(branch) {
-			return "", 0, fmt.Errorf("the value given (not shown) is not a valid branch ref (want owner/repo:branch)")
+			return "", 0, errors.New("the value given (not shown) is not a valid branch ref (want owner/repo:branch)")
 		}
 		return repo + ":" + branch, 0, nil
 	}
 	// Bare branch name: needs a repo to qualify.
 	if !validBranch(raw) {
-		return "", 0, fmt.Errorf("the value given (not shown) is not a recognized branch ref (accepted: a branch name, owner/repo:branch, or a GitHub /tree/ URL)")
+		return "", 0, errors.New("the value given (not shown) is not a recognized branch ref (accepted: a branch name, owner/repo:branch, or a GitHub /tree/ URL)")
 	}
 	if defaultRepo == "" {
-		return "", 0, fmt.Errorf("a bare branch (not shown) needs a repository — pass owner/repo:branch, or record --repo at `session start`")
+		return "", 0, errors.New("a bare branch (not shown) needs a repository — pass owner/repo:branch, or record --repo at `session start`")
 	}
 	repo, ok := canonicalRepo(defaultRepo)
 	if !ok {
-		return "", 0, fmt.Errorf("session repo (not shown) is not owner/repo — pass the full ref owner/repo:branch")
+		return "", 0, errors.New("session repo (not shown) is not owner/repo — pass the full ref owner/repo:branch")
 	}
 	return repo + ":" + raw, 0, nil
 }

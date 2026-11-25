@@ -8,6 +8,8 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"slices"
 	"strings"
 	"testing"
@@ -395,5 +397,41 @@ func TestQuotaBlankRefMessageDoesNotSuggestLeavingTheOnlyRefOut3139(t *testing.T
 	r := runQuota3139(t, quotaReplies3139(), "", "quota", "list", "--app", "")
 	if exitCodeFor(r.err) != exitcode.Usage || strings.Contains(r.errOut, "leave --app out") || !strings.Contains(r.errOut, "--app is empty") {
 		t.Errorf("want the empty-ref refusal without a leave-it-out suggestion, got exit %d %q", exitCodeFor(r.err), r.errOut)
+	}
+}
+
+// cli#3189 item 7: `quota set --help` says an impersonated session is refused first, exit 1. The server's
+// refusal today (hadron-server impersonationReadOnlyPlugin, #3374/ruling 0205) is HTTP 403 with
+// IMPERSONATION_READ_ONLY and the message below, before any resolver runs, for every form. The reply
+// is that real shape, so the help's exit code is checked against what the CLI does with it.
+func TestQuotaSetImpersonatedRefusalExitsOneForEveryForm3189(t *testing.T) {
+	const message = "This is a read-only impersonation session; mutations are disabled."
+	forms := map[string][]string{
+		"org":        {"--org", "acme.com"},
+		"org+app":    {"--org", "acme.com", "--app", "bot"},
+		"app alone":  {"--app", "bot"},
+		"user alone": {"--user", "u1"},
+	}
+	for name, flags := range forms {
+		t.Run(name, func(t *testing.T) {
+			var requests int
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				requests++
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(`{"errors":[{"message":"` + message + `","extensions":{"code":"IMPERSONATION_READ_ONLY","blockedFields":["setQuotaLimit"]}}]}`))
+			}))
+			t.Cleanup(srv.Close)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"quota", "set"}, flags...), "--action", "run.execute", "--limit", "5", "--server", srv.URL))
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "read-only impersonation session") {
+				t.Errorf("want exit 1 carrying the server's read-only message: %v", err)
+			}
+			if requests != 1 {
+				t.Errorf("one request, then the refusal: %d", requests)
+			}
+		})
 	}
 }
