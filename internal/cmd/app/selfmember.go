@@ -79,7 +79,7 @@ appUrn, appName, user, role, createdAt, isOrgExternal).`,
 			}
 			if resp == nil || resp.JoinApp == nil || resp.JoinApp.AppMember == nil || resp.JoinApp.AppMember.User == nil {
 				return exitcode.Newf(exitcode.Unavailable,
-					"outcome unknown: the server returned no member row. Run `hadron app member list --app %s` to check", shellQuote(appRef))
+					"outcome unknown: the server returned no member row. Run "+memberListHint+" to check")
 			}
 			m := resp.JoinApp.AppMember
 			dto := appJoinDTO{
@@ -166,7 +166,7 @@ refusal is printed unchanged with a nonzero exit.`,
 			}
 			if resp == nil || resp.LeaveApp == nil {
 				return exitcode.Newf(exitcode.Unavailable,
-					"outcome unknown: the server did not confirm the leave. Run `hadron app member list --app %s` to check", shellQuote(appRef))
+					"outcome unknown: the server did not confirm the leave. Run "+memberListHint+" to check")
 			}
 			dto := appLeaveDTO{App: appRef, AppID: resp.LeaveApp.AppId, UserID: resp.LeaveApp.UserId, Status: "absent"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

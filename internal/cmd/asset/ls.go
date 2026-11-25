@@ -275,7 +275,7 @@ func listAllAssets(cmd *cobra.Command, f *cmdutil.Factory, a allAssetsArgs) erro
 	if changed("scan-status") {
 		s, ok := assetScanStatuses[strings.ToUpper(strings.TrimSpace(a.scanStatus))]
 		if !ok {
-			return exitcode.Newf(exitcode.Usage, "invalid --scan-status %q (want PENDING, CLEAN or BLOCKED). Nothing was sent", a.scanStatus)
+			return exitcode.Newf(exitcode.Usage, "invalid --scan-status (want PENDING, CLEAN or BLOCKED). Nothing was sent")
 		}
 		filter.ScanStatus = &s
 	}

@@ -118,7 +118,7 @@ func runStartImpersonation(cmd *cobra.Command, f *cmdutil.Factory, userRef, org,
 		return err
 	}
 	if !found {
-		return exitcode.Newf(exitcode.NotFound, "no user matched %q", userRef)
+		return exitcode.Newf(exitcode.NotFound, "no user matched (the ref given is not shown)")
 	}
 	if err := cmdutil.Confirm(f.IOStreams, yes,
 		fmt.Sprintf("Start a read-only impersonation session as %s in org %s?",

@@ -169,7 +169,7 @@ func TestAgentRevisionRmAnAmbiguousFailureIsSentOnceAndNamesTheCheckOnItsLastLin
 		t.Fatalf("err=%v ops=%v", err, calls.ops)
 	}
 	lines := strings.Split(err.Error(), "\n")
-	if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron agent revision list hrn:agent:acme.com:bot" {
+	if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron agent revision list <agent>" {
 		t.Fatalf("the check command is alone on the last line, got %q (full: %q)", last, err.Error())
 	}
 }
@@ -360,7 +360,7 @@ func TestAgentRevisionRmKeepsAnInternalFaultsTypedRequestID(t *testing.T) {
 		t.Fatalf("the guidance is added and the server's raw text stays out: %q", msg)
 	}
 	lines := strings.Split(msg, "\n")
-	if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron agent revision list hrn:agent:acme.com:bot" {
+	if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron agent revision list <agent>" {
 		t.Fatalf("the check command is still alone on the last line: %q", last)
 	}
 	// Text mode keeps the id in prose too.

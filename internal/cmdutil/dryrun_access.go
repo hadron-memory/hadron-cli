@@ -52,7 +52,7 @@ func RequireWriteAccessForDryRun(cmd *cobra.Command, client graphql.Client, memo
 			return api.MapError(err)
 		}
 		if memory.Memory == nil || memory.Memory.Id != resource || memory.Memory.Urn == "" {
-			return exitcode.Newf(exitcode.NotFound, "memory %q not found, or not readable by you", resource)
+			return exitcode.Newf(exitcode.NotFound, "memory not found, or not readable by you (the ref given is not shown)")
 		}
 		resource = memory.Memory.Urn
 	}

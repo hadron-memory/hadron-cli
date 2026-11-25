@@ -189,7 +189,7 @@ Prints "✓ deleted revision <loc>"; --json is {"revisionLoc", "status": "delete
 			}
 			// What an operator may paste to learn the outcome: prose first, the
 			// command alone on the last line.
-			check := "Check whether it still exists with:\n  hadron agent revision list " + cmdutil.ShellQuote(ref)
+			const check = "Check whether it still exists with:\n  hadron agent revision list <agent>"
 			resp, err := gen.DeleteAgentRevision(cmd.Context(), client, ref, loc)
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)

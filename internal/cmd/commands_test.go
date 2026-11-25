@@ -1159,12 +1159,8 @@ func TestNodeRmRequiresYesNonInteractive(t *testing.T) {
 
 // ConfirmDeletion's prompt branch, reached for the first time (#525).
 //
-// The test below asserts the confirmation's TARGET through the non-interactive
-// refusal, because that was the only surface a test could read: ConfirmDeletion
-// refuses before composing the prompt, so "refusing to delete <what>" was a
-// proxy for a sentence nobody could see. The proxy shares the `what` argument
-// but not the sentence around it — "This cannot be undone." is the part that
-// makes a caller stop, and it appeared in no test at all.
+// ConfirmDeletion refuses a non-interactive caller before composing the prompt, so the prompt's
+// sentence, "This cannot be undone." above all, is readable only through this seam.
 //
 // This is also the reach check for the seam: `worker release` is Confirm, this
 // is ConfirmDeletion, and the same seam drives both — so the other 40-odd
@@ -1191,7 +1187,7 @@ func TestNodeRmPromptSaysItCannotBeUndoneAndDeclineChangesNothing(t *testing.T) 
 	if !strings.Contains(prompt, "This cannot be undone.") {
 		t.Errorf("a deletion prompt must say it is irreversible: %q", prompt)
 	}
-	// The blast radius the sibling test can only observe via the refusal.
+	// The target and its blast radius are named here, and only here.
 	if !strings.Contains(prompt, "subtree") || !strings.Contains(prompt, "HARD") {
 		t.Errorf("the prompt must name the subtree and HARD blast radius: %q", prompt)
 	}
@@ -1200,10 +1196,10 @@ func TestNodeRmPromptSaysItCannotBeUndoneAndDeclineChangesNothing(t *testing.T) 
 	}
 }
 
-// The confirmation target names the subtree + hard blast radius, surfaced here
-// via the non-interactive "refusing to delete <what>" message (#239).
-func TestNodeRmRecursiveHardPromptWording(t *testing.T) {
-	gql, _ := captureGraphQL(t, map[string]string{
+// The non-interactive refusal names neither the target nor its blast radius (cli#3114, #2898
+// policy): nothing was asked. The prompt that names both is pinned by the test above.
+func TestNodeRmNonInteractiveRefusalDoesNotShowTheTarget3114(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
 		"GetNode":    `{"data":{"node":` + nodeDetailJSON + `}}`,
 	})
@@ -1211,12 +1207,15 @@ func TestNodeRmRecursiveHardPromptWording(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "rm", nodeURN, "--recursive", "--hard", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil {
-		t.Fatal("expected the non-interactive --yes refusal")
+	if exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("expected the non-interactive --yes refusal (exit 2), got %v", err)
+	}
+	if _, called := captured["DeleteNode"]; called {
+		t.Error("the refusal must send nothing")
 	}
 	msg := err.Error()
-	if !strings.Contains(msg, "subtree") || !strings.Contains(msg, "HARD") {
-		t.Errorf("recursive+hard prompt target should name the subtree and HARD blast radius, got %q", msg)
+	if !strings.Contains(msg, "--yes") || !strings.Contains(msg, "not shown") || strings.Contains(msg, nodeURN) {
+		t.Errorf("say --yes and that the target is not shown, got %q", msg)
 	}
 }
 

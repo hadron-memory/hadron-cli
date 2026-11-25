@@ -27,7 +27,7 @@ type recordDTO struct {
 func parseGraphQLInt(flag, value string) (*int, error) {
 	n, err := strconv.ParseInt(strings.TrimSpace(value), 10, 32)
 	if err != nil {
-		return nil, exitcode.Newf(exitcode.Usage, "--%s must be an integer from -2147483648 to 2147483647, got %q", flag, value)
+		return nil, exitcode.Newf(exitcode.Usage, "--%s must be an integer from -2147483648 to 2147483647", flag)
 	}
 	v := int(n)
 	return &v, nil

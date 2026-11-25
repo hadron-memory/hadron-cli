@@ -208,7 +208,7 @@ hadron org signing on, which fetches and shows the full preview itself.`,
 			if cmd.Flags().Changed("first") {
 				n, err := strconv.Atoi(first)
 				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "--first must be an integer, got %q", output.SafeCell(first))
+					return exitcode.Newf(exitcode.Usage, "--first must be an integer")
 				}
 				firstN = &n
 			}

@@ -71,7 +71,7 @@ func parseConnectProvider(s string) (enum, rowKey string, err error) {
 	key := strings.ReplaceAll(strings.ToLower(strings.TrimSpace(s)), "-", "_")
 	p, ok := connectProviders[key]
 	if !ok {
-		return "", "", exitcode.Newf(exitcode.Usage, "unknown provider %q (valid: %s)", s, connectProviderList)
+		return "", "", exitcode.Newf(exitcode.Usage, "unknown provider (the value given is not shown; valid: %s)", connectProviderList)
 	}
 	return p.enum, p.rowKey, nil
 }
@@ -406,7 +406,7 @@ func awaitFlow(ctx context.Context, client graphql.Client, flowID, orgID, rowKey
 	for {
 		remaining := deadline.Sub(Hooks.Now())
 		if remaining <= 0 {
-			return nil, notFoundYet(rowKey, orgID, flowID)
+			return nil, notFoundYet(orgID, flowID)
 		}
 		pctx, cancel := context.WithTimeout(ctx, remaining)
 		fl, err := readFlow(pctx, client, flowID)
@@ -414,7 +414,7 @@ func awaitFlow(ctx context.Context, client graphql.Client, flowID, orgID, rowKey
 		cancel()
 		if err != nil {
 			if expired {
-				return nil, notFoundYet(rowKey, orgID, flowID)
+				return nil, notFoundYet(orgID, flowID)
 			}
 			return nil, err
 		}
@@ -434,7 +434,7 @@ func awaitFlow(ctx context.Context, client graphql.Client, flowID, orgID, rowKey
 		}
 		remaining = deadline.Sub(Hooks.Now())
 		if remaining <= 0 {
-			return nil, notFoundYet(rowKey, orgID, flowID)
+			return nil, notFoundYet(orgID, flowID)
 		}
 		if err := Hooks.Sleep(ctx, min(connectPollEvery, remaining)); err != nil {
 			return nil, exitcode.Newf(exitcode.Error, "interrupted while waiting for the connection: %v", err)
@@ -529,7 +529,7 @@ func scrub(err error, redact func(string) string) error {
 	return api.Detached(err, redact)
 }
 
-func notFoundYet(rowKey, orgID, flowID string) error {
+func notFoundYet(orgID, flowID string) error {
 	return exitcode.Newf(exitcode.WaitTimeout,
-		"not found yet: the %s connection flow has not finished; consent may still be completing — check \"hadron connection flow %s\" or \"hadron email connections --org %s\" before starting again", rowKey, flowID, orgID)
+		"not found yet: the connection flow has not finished; consent may still be completing — check \"hadron connection flow %s\" or \"hadron email connections --org %s\" before starting again", flowID, orgID)
 }

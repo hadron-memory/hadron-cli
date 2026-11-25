@@ -44,8 +44,8 @@ func isMissingURNField(err error) bool {
 // notFoundConfig is the one answer for a null aiServiceConfig. A URN the caller
 // cannot read comes back null from the server exactly as a missing one does, so
 // the message must not distinguish them (cor:api:120:01).
-func notFoundConfig(ref string) error {
-	return exitcode.Newf(exitcode.NotFound, "AI service config %q was not found", ref)
+func notFoundConfig() error {
+	return exitcode.Newf(exitcode.NotFound, "AI service config not found (the ref given is not shown)")
 }
 
 // writeURNLine prints the URN, and nothing for a null one.

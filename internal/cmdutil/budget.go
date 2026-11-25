@@ -34,7 +34,7 @@ func (b *BudgetFlags) positive(cmd *cobra.Command, flag string, v int) (*int, er
 		return nil, nil
 	}
 	if v <= 0 {
-		return nil, exitcode.Newf(exitcode.Usage, "--%s must be a positive whole number (got %d)", flag, v)
+		return nil, exitcode.Newf(exitcode.Usage, "--%s must be a positive whole number", flag)
 	}
 	return &v, nil
 }

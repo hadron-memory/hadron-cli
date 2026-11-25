@@ -196,7 +196,7 @@ Details:
 				return api.MapError(err)
 			}
 			if r == nil || r.TelegramConnection == nil {
-				return exitcode.Newf(exitcode.NotFound, "no Telegram connection %s is visible to you", strconv.Quote(ref))
+				return exitcode.Newf(exitcode.NotFound, "no such Telegram connection is visible to you (the ref given is not shown)")
 			}
 			v := r.TelegramConnection
 			dto, err := toDTO(v.Id, v.OrganizationId, v.AppId, v.Provider, v.Status, v.DisplayName, v.BotId, v.BotUsername, v.CreatedAt, v.UpdatedAt)

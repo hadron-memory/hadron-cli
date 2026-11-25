@@ -190,7 +190,7 @@ func TestAppKey1353RotateCommitFailure(t *testing.T) {
 				t.Fatalf("want error after rotation: %v", r.err)
 			}
 			msg := r.all()
-			for _, want := range []string{"hadron app key list " + app1223, "rotate again", "revoked"} {
+			for _, want := range []string{"hadron app key list <app-ref>", "rotate again", "revoked"} {
 				if !strings.Contains(msg, want) {
 					t.Errorf("missing %q: %s", want, msg)
 				}

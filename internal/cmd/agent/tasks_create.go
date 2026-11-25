@@ -157,7 +157,7 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 				return api.MapError(err)
 			}
 			if agentResp == nil || agentResp.Agent == nil {
-				return exitcode.Newf(exitcode.NotFound, "agent %s was not found", ref)
+				return exitcode.Newf(exitcode.NotFound, "agent not found (the ref given is not shown)")
 			}
 			content := string(body)
 			nodeType, runnable, abs := "task", true, abstract
@@ -184,7 +184,7 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 				// The lost-answer wording team.nullMutationResult uses (this package cannot import it): exit 1, the
 				// outcome unknown, and the command that shows it before any retry. Exit 1 is that helper's class;
 				// `agent clone` answers its own null differently (exit 7), so this is not "every write command".
-				return exitcode.Newf(exitcode.Error, "the server answered createTaskNode with no node and no error, so the outcome is unknown: the task may have been recorded; run `hadron agent tasks list %s` before retrying", ref)
+				return exitcode.Newf(exitcode.Error, "the server answered createTaskNode with no node and no error, so the outcome is unknown: the task may have been recorded; run `hadron agent tasks list <agent>` before retrying")
 			}
 			n := resp.CreateTaskNode
 			dto := roleTaskCreatedDTO{ID: n.Id, Loc: n.Loc, URN: n.Urn, Name: n.Name, Edges: []roleTaskEdgeDTO{}}

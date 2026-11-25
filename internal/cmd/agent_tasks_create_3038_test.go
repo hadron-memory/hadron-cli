@@ -102,7 +102,7 @@ func TestAgentTasksCreateNullResultIsTheLostAnswerClass3038(t *testing.T) {
 		"the server answered createTaskNode with no node and no error",
 		"so the outcome is unknown",
 		"the task may have been recorded",
-		"`hadron agent tasks list " + roleTaskAgentRef2990 + "` before retrying",
+		"`hadron agent tasks list <agent>` before retrying",
 	} {
 		if run.err == nil || !strings.Contains(run.err.Error(), want) {
 			t.Errorf("the lost-answer message must contain %q: %v", want, run.err)

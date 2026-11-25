@@ -80,7 +80,7 @@ func ResolveUnlock(ios *output.IOStreams, u UnlockFlags) ([]api.MemoryKey, error
 		}
 		ref := CanonicalMemoryRef(m)
 		if seen[ref] {
-			return nil, exitcode.Newf(exitcode.Usage, "--unlock names %s twice. Nothing was sent", ref)
+			return nil, exitcode.Newf(exitcode.Usage, "--unlock names the same memory twice (the ref given is not shown). Nothing was sent")
 		}
 		seen[ref] = true
 		refs = append(refs, ref)
@@ -125,7 +125,7 @@ func ResolveUnlock(ios *output.IOStreams, u UnlockFlags) ([]api.MemoryKey, error
 	keys := make([]api.MemoryKey, len(refs))
 	for i, ref := range refs {
 		if passes[i] == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "the passphrase for --unlock %s is empty. Nothing was sent", ref)
+			return nil, exitcode.Newf(exitcode.Usage, "the passphrase for --unlock number %d is empty (the ref given is not shown). Nothing was sent", i+1)
 		}
 		keys[i] = api.MemoryKey{Memory: ref, Passphrase: passes[i]}
 	}

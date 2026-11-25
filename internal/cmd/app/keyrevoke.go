@@ -102,7 +102,7 @@ An App manager may revoke as themselves, or their held worker may revoke with
 				return api.WithServerCode(mapped, err)
 			}
 			if resp == nil || !resp.RevokeAppKey {
-				return exitcode.Newf(exitcode.Error, "the server did not confirm the revocation of key %s; run `hadron app key list <app-ref>` to see whether it is still active", id)
+				return exitcode.Newf(exitcode.Error, "the server did not confirm the revocation of the key (the id given is not shown); run `hadron app key list <app-ref>` to see whether it is still active")
 			}
 			dto := appKeyRevokedDTO{ID: id, Revoked: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -193,18 +193,18 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 
 			resp, err := gen.RegenerateAppKey(cmd.Context(), client, ref)
 			if err != nil {
-				return withCleanup(rotateFailure(err, ref), pending.Abort())
+				return withCleanup(rotateFailure(err), pending.Abort())
 			}
 			if resp == nil || resp.RegenerateAppKey == nil || resp.RegenerateAppKey.RawKey == "" {
-				return withCleanup(exitcode.Newf(exitcode.Error, "the server returned no key: every key of %s may already be revoked. Run `hadron app key list %s` to see what is active, and rotate again if you need a key you hold", ref, ref), pending.Abort())
+				return withCleanup(exitcode.Newf(exitcode.Error, "the server returned no key: every key of the App (the ref given is not shown) may already be revoked. Run `hadron app key list <app-ref>` to see what is active, and rotate again if you need a key you hold"), pending.Abort())
 			}
 			rotated := resp.RegenerateAppKey
 			if err := pending.Commit([]byte(rotated.RawKey + "\n")); err != nil {
 				var lb *secretfile.LeftBehindError
 				if errors.As(err, &lb) {
-					return exitcode.Newf(exitcode.Error, "could not write the key file, and %v; every old key of %s is revoked and the new key's value may be partly on disk. Run `hadron app key list %s` to see what is active; rotate again for a key you hold", err, ref, ref)
+					return exitcode.Newf(exitcode.Error, "could not write the key file, and %v; every old key of the App (the ref given is not shown) is revoked and the new key's value may be partly on disk. Run `hadron app key list <app-ref>` to see what is active; rotate again for a key you hold", err)
 				}
-				return exitcode.Newf(exitcode.Error, "%v after the keys were rotated: every old key of %s is revoked and the new key's value is lost. Run `hadron app key list %s` to see what is active; rotate again for a key you hold", err, ref, ref)
+				return exitcode.Newf(exitcode.Error, "%v after the keys were rotated: every old key of the App (the ref given is not shown) is revoked and the new key's value is lost. Run `hadron app key list <app-ref>` to see what is active; rotate again for a key you hold", err)
 			}
 
 			// The SDL makes `app` non-null, but the key is already written and the
@@ -236,12 +236,12 @@ an App key, an impersonated session and a bound worker's session (exit 8).`,
 
 // rotateFailure classifies a failed regenerateAppKey the way createFailure does
 // a mint: a lost answer means every key may be revoked and a new one may exist.
-func rotateFailure(err error, ref string) error {
+func rotateFailure(err error) error {
 	mapped := api.MapError(err)
 	code := exitcode.FromError(mapped)
 	if code == exitcode.Unavailable || code == exitcode.Error {
-		return exitcode.Newf(code, "regenerateAppKey was sent and its answer was lost, so EVERY key of %s may already be revoked and a new key may exist whose value nobody has. It was not retried and no file was kept. Run `hadron app key list %s` to see what is active; rotate again if you need a key you hold. Cause: %s",
-			ref, ref, failureClass(code))
+		return exitcode.Newf(code, "regenerateAppKey was sent and its answer was lost, so EVERY key of the App (the ref given is not shown) may already be revoked and a new key may exist whose value nobody has. It was not retried and no file was kept. Run `hadron app key list <app-ref>` to see what is active; rotate again if you need a key you hold. Cause: %s",
+			failureClass(code))
 	}
 	return api.WithServerCode(exitcode.Newf(code, "regenerateAppKey refused: %s; no key was rotated", failureClass(code)), err)
 }

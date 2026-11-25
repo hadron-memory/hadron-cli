@@ -114,7 +114,7 @@ func parseHeaders(pairs []string) (*json.RawMessage, error) {
 		name, value, ok := strings.Cut(p, ":")
 		name = strings.TrimSpace(name)
 		if !ok || name == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "malformed --header %q (want 'Name: value')", p)
+			return nil, exitcode.Newf(exitcode.Usage, "malformed --header (want 'Name: value'; the value given is not shown)")
 		}
 		headers[name] = strings.TrimSpace(value)
 	}
