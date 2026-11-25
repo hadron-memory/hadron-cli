@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 249: 215 command, 9 gap, 25 excluded
+[Query] 250: 216 command, 9 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -60,7 +60,7 @@ aiModelPrices  command billing prices
 aiProviderEndpoints  command ai-config endpoints
 aiServiceConfig  command ai-config get
 aiServiceConfigs  command ai-config list
-aiSpend  gap #3071
+aiSpend  command billing spend
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
@@ -138,6 +138,7 @@ globalSearch  command find
 grant  command team grant get
 grantActions  command team grant actions
 grantSigningRequest  command team grant signing-request get
+grantSigningSelection  gap #3197
 grants  command team grant list
 heldWorkers  command team worker held
 homeAssistantInstance  command ha get
@@ -278,7 +279,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 373: 341 command, 15 gap, 17 excluded
+[Mutation] 375: 342 command, 16 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -289,7 +290,7 @@ addAgentToApp  excluded deprecated: @deprecated: Use installAgentIntoApp (spec 0
 addMemoryMember  command memory member add
 addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
-adjustCredits  gap #3071
+adjustCredits  command billing adjust
 advanceChannelReadState  command channel mark-read
 allocateSpecNode  command spec new
 amendQuestion  command question amend
@@ -507,6 +508,7 @@ reportContextResetRelaunchFailed  excluded host-protocol: relaunch-failure repor
 reportContextResetRelaunched  excluded host-protocol: relaunch reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no relaunch is reported
 reportExternalTasks  gap #3039
 reportHostOperation  command team host run
+requestGrantSelectionSignature  gap #3197
 requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
 reserveSpecCitation  command spec reserve
@@ -648,6 +650,7 @@ updateUserRoles  command user set-roles
 updateWorker  command team worker update
 withdrawGrant  command team grant withdraw
 withdrawGrantSigningRequest  command team grant signing-request withdraw
+withdrawGrantSigningSelection  gap #3197
 withdrawQuestion  command question withdraw
 withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw

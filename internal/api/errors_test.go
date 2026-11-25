@@ -299,7 +299,8 @@ func TestMapError(t *testing.T) {
 		{"forbidden", gqlErr("FORBIDDEN"), exitcode.Forbidden},
 		{"permission denied (shared cli#1530)", gqlErr("PERMISSION_DENIED"), exitcode.Forbidden},
 		{"channel host not writable", gqlErr("CHANNEL_HOST_NOT_WRITABLE"), exitcode.Forbidden},
-		{"guarded write conflict", gqlErr("NODE_WRITE_CONFLICT"), exitcode.Conflict}, // cli#738
+		{"guarded write conflict", gqlErr("NODE_WRITE_CONFLICT"), exitcode.Conflict},  // cli#738
+		{"ledger replay conflict", gqlErr("IDEMPOTENCY_CONFLICT"), exitcode.Conflict}, // cli#3071
 		{"transfer stale preview", gqlErr("STALE_TRANSFER_PREVIEW"), exitcode.Conflict},
 		{"transfer dependents", gqlErr("MEMORY_TRANSFER_DEPENDENTS"), exitcode.Conflict},
 		{"transfer class required", gqlErr("MEMORY_TRANSFER_CLASS_REQUIRED"), exitcode.Usage},

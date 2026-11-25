@@ -1932,6 +1932,186 @@ type AddOrgMemberResponse struct {
 // GetAddOrgMember returns AddOrgMemberResponse.AddOrgMember, and is useful for accessing the field via an interface.
 func (v *AddOrgMemberResponse) GetAddOrgMember() *AddOrgMemberAddOrgMember { return v.AddOrgMember }
 
+// AdjustCreditsAdjustCreditsCreditLedgerEntry includes the requested fields of the GraphQL type CreditLedgerEntry.
+// The GraphQL type's documentation follows.
+//
+// 046-usage-metering: append-only org credit ledger row. Signed
+// micro-cents as a base-10 integer string (grants +, debits -,
+// adjustments either sign).
+type AdjustCreditsAdjustCreditsCreditLedgerEntry struct {
+	CreditLedgerEntryFields `json:"-"`
+}
+
+// GetId returns AdjustCreditsAdjustCreditsCreditLedgerEntry.Id, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetId() string {
+	return v.CreditLedgerEntryFields.Id
+}
+
+// GetOrganizationId returns AdjustCreditsAdjustCreditsCreditLedgerEntry.OrganizationId, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetOrganizationId() string {
+	return v.CreditLedgerEntryFields.OrganizationId
+}
+
+// GetKind returns AdjustCreditsAdjustCreditsCreditLedgerEntry.Kind, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetKind() string {
+	return v.CreditLedgerEntryFields.Kind
+}
+
+// GetAmountMicroCents returns AdjustCreditsAdjustCreditsCreditLedgerEntry.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetAmountMicroCents() string {
+	return v.CreditLedgerEntryFields.AmountMicroCents
+}
+
+// GetExpiresAt returns AdjustCreditsAdjustCreditsCreditLedgerEntry.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetExpiresAt() *string {
+	return v.CreditLedgerEntryFields.ExpiresAt
+}
+
+// GetSourceType returns AdjustCreditsAdjustCreditsCreditLedgerEntry.SourceType, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetSourceType() *string {
+	return v.CreditLedgerEntryFields.SourceType
+}
+
+// GetSourceId returns AdjustCreditsAdjustCreditsCreditLedgerEntry.SourceId, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetSourceId() *string {
+	return v.CreditLedgerEntryFields.SourceId
+}
+
+// GetNote returns AdjustCreditsAdjustCreditsCreditLedgerEntry.Note, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetNote() *string {
+	return v.CreditLedgerEntryFields.Note
+}
+
+// GetCreatedAt returns AdjustCreditsAdjustCreditsCreditLedgerEntry.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetCreatedAt() string {
+	return v.CreditLedgerEntryFields.CreatedAt
+}
+
+// GetCreatedBy returns AdjustCreditsAdjustCreditsCreditLedgerEntry.CreatedBy, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetCreatedBy() *string {
+	return v.CreditLedgerEntryFields.CreatedBy
+}
+
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AdjustCreditsAdjustCreditsCreditLedgerEntry
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AdjustCreditsAdjustCreditsCreditLedgerEntry = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CreditLedgerEntryFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAdjustCreditsAdjustCreditsCreditLedgerEntry struct {
+	Id string `json:"id"`
+
+	OrganizationId string `json:"organizationId"`
+
+	Kind string `json:"kind"`
+
+	AmountMicroCents string `json:"amountMicroCents"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	SourceType *string `json:"sourceType"`
+
+	SourceId *string `json:"sourceId"`
+
+	Note *string `json:"note"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+}
+
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) __premarshalJSON() (*__premarshalAdjustCreditsAdjustCreditsCreditLedgerEntry, error) {
+	var retval __premarshalAdjustCreditsAdjustCreditsCreditLedgerEntry
+
+	retval.Id = v.CreditLedgerEntryFields.Id
+	retval.OrganizationId = v.CreditLedgerEntryFields.OrganizationId
+	retval.Kind = v.CreditLedgerEntryFields.Kind
+	retval.AmountMicroCents = v.CreditLedgerEntryFields.AmountMicroCents
+	retval.ExpiresAt = v.CreditLedgerEntryFields.ExpiresAt
+	retval.SourceType = v.CreditLedgerEntryFields.SourceType
+	retval.SourceId = v.CreditLedgerEntryFields.SourceId
+	retval.Note = v.CreditLedgerEntryFields.Note
+	retval.CreatedAt = v.CreditLedgerEntryFields.CreatedAt
+	retval.CreatedBy = v.CreditLedgerEntryFields.CreatedBy
+	return &retval, nil
+}
+
+// A signed correction on an organization's credit ledger, such as a refund
+// (hrn:node:hadronmemory.com:specs:cor:dmo:170:03). It is written as a new
+// adjustment entry, never as an edit of another
+// (hrn:node:hadronmemory.com:specs:cor:dmo:170:08).
+type AdjustCreditsInput struct {
+	// Signed, non-zero micro-cents, base-10 integer string within int8 (a
+	// leading minus lowers the balance; no plus sign or fraction).
+	AmountMicroCents string `json:"amountMicroCents"`
+	// Why the correction was made; must not be blank. Kept as long as the
+	// entry: codes and ids, never personal data.
+	Note   string `json:"note"`
+	OrgRef string `json:"orgRef"`
+	// The id within sourceType; must not be blank.
+	SourceId string `json:"sourceId"`
+	// Idempotency + provenance pair, e.g. ('refund', <refund id>); neither
+	// half may be blank. The same pair, account, amount and kind returns the
+	// EXISTING entry; any other entry on that pair, a grant included, is
+	// IDEMPOTENCY_CONFLICT. Refused (trimmed, case-insensitive) are the source
+	// types the server writes itself: usage-event, grant-expiry, period-grant,
+	// cost-correction.
+	SourceType string `json:"sourceType"`
+}
+
+// GetAmountMicroCents returns AdjustCreditsInput.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsInput) GetAmountMicroCents() string { return v.AmountMicroCents }
+
+// GetNote returns AdjustCreditsInput.Note, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsInput) GetNote() string { return v.Note }
+
+// GetOrgRef returns AdjustCreditsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsInput) GetOrgRef() string { return v.OrgRef }
+
+// GetSourceId returns AdjustCreditsInput.SourceId, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsInput) GetSourceId() string { return v.SourceId }
+
+// GetSourceType returns AdjustCreditsInput.SourceType, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsInput) GetSourceType() string { return v.SourceType }
+
+// AdjustCreditsResponse is returned by AdjustCredits on success.
+type AdjustCreditsResponse struct {
+	// Write a signed adjustment entry on an org's credit ledger, e.g. a refund (hrn:node:hadronmemory.com:specs:cor:dmo:170:03; a correction is a new entry, hrn:node:hadronmemory.com:specs:cor:dmo:170:08). PLATFORM ADMIN or the BILLING platform role only (#5012). Idempotent on (sourceType, sourceId); a different account, amount or kind on that pair is IDEMPOTENCY_CONFLICT.
+	AdjustCredits *AdjustCreditsAdjustCreditsCreditLedgerEntry `json:"adjustCredits"`
+}
+
+// GetAdjustCredits returns AdjustCreditsResponse.AdjustCredits, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsResponse) GetAdjustCredits() *AdjustCreditsAdjustCreditsCreditLedgerEntry {
+	return v.AdjustCredits
+}
+
 // AdvanceChannelReadStateAdvanceChannelReadState includes the requested fields of the GraphQL type ChannelReadState.
 // The GraphQL type's documentation follows.
 //
@@ -8573,6 +8753,12 @@ type AgentTaskFinishResponse struct {
 	// malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
 	// every finish. Both are judged after the assignee and status checks and before any write or event: the task
 	// stays started. With no set, any one word is accepted. The set is read only at finish.
+	// #5036: a task bound as a PR review seat (pr seat) with no verdict recorded at its assigned head is refused with
+	// SEAT_VERDICT_REQUIRED, whose message names hadron team pr verdict; record the verdict, then finish. Exempt: a
+	// seat never bound, a seat superseded by a later seat, and a task finished with outcome failed or cancelled (any
+	// case). Judged at the assigned head of the seat, not the current frozen head of the build task, after the assignee and status
+	// checks and before any write or event: the task stays started. Rule: the team memory
+	// coordination:pr-finishing (Finishing a review seat).
 	FinishAgentTask *AgentTaskFinishFinishAgentTask `json:"finishAgentTask"`
 }
 
@@ -9036,6 +9222,12 @@ type AgentTaskFinishWithFindingsResponse struct {
 	// malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
 	// every finish. Both are judged after the assignee and status checks and before any write or event: the task
 	// stays started. With no set, any one word is accepted. The set is read only at finish.
+	// #5036: a task bound as a PR review seat (pr seat) with no verdict recorded at its assigned head is refused with
+	// SEAT_VERDICT_REQUIRED, whose message names hadron team pr verdict; record the verdict, then finish. Exempt: a
+	// seat never bound, a seat superseded by a later seat, and a task finished with outcome failed or cancelled (any
+	// case). Judged at the assigned head of the seat, not the current frozen head of the build task, after the assignee and status
+	// checks and before any write or event: the task stays started. Rule: the team memory
+	// coordination:pr-finishing (Finishing a review seat).
 	FinishAgentTask *AgentTaskFinishWithFindingsFinishAgentTask `json:"finishAgentTask"`
 }
 
@@ -21879,6 +22071,110 @@ type AiServiceConfigsMaskedWithUrnResponse struct {
 func (v *AiServiceConfigsMaskedWithUrnResponse) GetAiServiceConfigs() *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage {
 	return v.AiServiceConfigs
 }
+
+// AiSpendAiSpendAiSpendSummary includes the requested fields of the GraphQL type AiSpendSummary.
+type AiSpendAiSpendAiSpendSummary struct {
+	// The range start as read, ISO 8601 UTC, inclusive.
+	From string `json:"from"`
+	// The range end as read, ISO 8601 UTC, exclusive.
+	To string `json:"to"`
+	// True when more groups exist than rows returned.
+	Truncated bool `json:"truncated"`
+	// The exact number of groups, so a short list is never read as the whole one.
+	TotalGroups int `json:"totalGroups"`
+	// At most 500 groups, largest charge first, then cost, events and key.
+	Rows []*AiSpendAiSpendAiSpendSummaryRowsAiSpendRow `json:"rows"`
+}
+
+// GetFrom returns AiSpendAiSpendAiSpendSummary.From, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummary) GetFrom() string { return v.From }
+
+// GetTo returns AiSpendAiSpendAiSpendSummary.To, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummary) GetTo() string { return v.To }
+
+// GetTruncated returns AiSpendAiSpendAiSpendSummary.Truncated, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummary) GetTruncated() bool { return v.Truncated }
+
+// GetTotalGroups returns AiSpendAiSpendAiSpendSummary.TotalGroups, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummary) GetTotalGroups() int { return v.TotalGroups }
+
+// GetRows returns AiSpendAiSpendAiSpendSummary.Rows, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummary) GetRows() []*AiSpendAiSpendAiSpendSummaryRowsAiSpendRow {
+	return v.Rows
+}
+
+// AiSpendAiSpendAiSpendSummaryRowsAiSpendRow includes the requested fields of the GraphQL type AiSpendRow.
+// The GraphQL type's documentation follows.
+//
+// One group of aiSpend. costMicroCents and chargedMicroCents are two figures, never one (hrn:node:hadronmemory.com:specs:cor:dmo:170:04): cost is what the units cost and charge is what was debited for them, so a unit on the organization's own key has a cost and no charge. costMicroCents sums the PRICED units only and unpricedEvents counts the rest, so a group with unpriced units is never read as complete and a group of unpriced units is not a cost of zero.
+type AiSpendAiSpendAiSpendSummaryRowsAiSpendRow struct {
+	Key string `json:"key"`
+	// Units in the group, priced or not.
+	Events    int    `json:"events"`
+	TokensIn  string `json:"tokensIn"`
+	TokensOut string `json:"tokensOut"`
+	// Sum of the cost of the priced units, in micro-cents. Units with no price are not in it; see unpricedEvents.
+	CostMicroCents string `json:"costMicroCents"`
+	// Units with no recorded price: shown as unpriced, never as a zero cost.
+	UnpricedEvents int `json:"unpricedEvents"`
+	// The absolute sum of the debits of the units, in micro-cents. A separate figure from cost.
+	ChargedMicroCents string `json:"chargedMicroCents"`
+}
+
+// GetKey returns AiSpendAiSpendAiSpendSummaryRowsAiSpendRow.Key, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummaryRowsAiSpendRow) GetKey() string { return v.Key }
+
+// GetEvents returns AiSpendAiSpendAiSpendSummaryRowsAiSpendRow.Events, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummaryRowsAiSpendRow) GetEvents() int { return v.Events }
+
+// GetTokensIn returns AiSpendAiSpendAiSpendSummaryRowsAiSpendRow.TokensIn, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummaryRowsAiSpendRow) GetTokensIn() string { return v.TokensIn }
+
+// GetTokensOut returns AiSpendAiSpendAiSpendSummaryRowsAiSpendRow.TokensOut, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummaryRowsAiSpendRow) GetTokensOut() string { return v.TokensOut }
+
+// GetCostMicroCents returns AiSpendAiSpendAiSpendSummaryRowsAiSpendRow.CostMicroCents, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummaryRowsAiSpendRow) GetCostMicroCents() string {
+	return v.CostMicroCents
+}
+
+// GetUnpricedEvents returns AiSpendAiSpendAiSpendSummaryRowsAiSpendRow.UnpricedEvents, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummaryRowsAiSpendRow) GetUnpricedEvents() int { return v.UnpricedEvents }
+
+// GetChargedMicroCents returns AiSpendAiSpendAiSpendSummaryRowsAiSpendRow.ChargedMicroCents, and is useful for accessing the field via an interface.
+func (v *AiSpendAiSpendAiSpendSummaryRowsAiSpendRow) GetChargedMicroCents() string {
+	return v.ChargedMicroCents
+}
+
+// How aiSpend groups units. Each row's key is the group's value; a unit with no value for the grouping is the row with the empty key.
+type AiSpendGroup string
+
+const (
+	// The id of the App that spent it. An id only, never an App.
+	AiSpendGroupApp AiSpendGroup = "APP"
+	// The UTC date of the unit, YYYY-MM-DD.
+	AiSpendGroupDay AiSpendGroup = "DAY"
+	// Who held the key that served the call, for example HADRON_SERVER (the platform key) or ORGANIZATION (its own key).
+	AiSpendGroupKeyOwner AiSpendGroup = "KEY_OWNER"
+	// provider/model, either half empty when it is not recorded.
+	AiSpendGroupModel AiSpendGroup = "MODEL"
+)
+
+var AllAiSpendGroup = []AiSpendGroup{
+	AiSpendGroupApp,
+	AiSpendGroupDay,
+	AiSpendGroupKeyOwner,
+	AiSpendGroupModel,
+}
+
+// AiSpendResponse is returned by AiSpend on success.
+type AiSpendResponse struct {
+	// One organization's AI spend for [from, to), grouped one way (#5008, hrn:node:hadronmemory.com:specs:cor:dmo:170:04). Org-ADMIN, the gate of creditBalance, answered before the range is read. from is inclusive and to exclusive; both are ISO 8601 dates or date-times, a value with no offset is UTC and a date alone is midnight UTC. The range is at most 366 days. At most 500 rows are returned, largest charge first; truncated says more groups exist and totalGroups is the exact number of groups. Only token-bearing units of the organization count, soft-deleted ones are left out.
+	AiSpend *AiSpendAiSpendAiSpendSummary `json:"aiSpend"`
+}
+
+// GetAiSpend returns AiSpendResponse.AiSpend, and is useful for accessing the field via an interface.
+func (v *AiSpendResponse) GetAiSpend() *AiSpendAiSpendAiSpendSummary { return v.AiSpend }
 
 // AlarmAcknowledgeAcknowledgeAlarmAgentTeamEvent includes the requested fields of the GraphQL type AgentTeamEvent.
 // The GraphQL type's documentation follows.
@@ -40542,9 +40838,10 @@ type CreateAgentTaskInput struct {
 	Description          *string `json:"description"`
 	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims, for example an issue's
 	// canonical URL. Stored and compared exactly as written; 1 to 512 characters with no whitespace, control or invisible
-	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
-	// task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
-	// names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. At most one
+	// ACTIVE task (backlog, pending or started) per App holds a given value; a finished or cancelled task keeps its value
+	// but no longer blocks a new claim. A create while an active task holds the value is refused TASK_EXTERNAL_ID_TAKEN,
+	// which names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
 	// #4113 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): naming it with YOURSELF as the assignee is the claim, and a
 	// claim is created STARTED in this one call (startedAt set; task.created, task.assigned, task.started; never queued,
 	// matched or alarmed as not started). A claim naming another assignee, no assignee, or an open blocker stays PENDING
@@ -47115,7 +47412,9 @@ type CreateTeamChatMessageResponse struct {
 	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE, TEAM_CHAT_DUPLICATE,
 	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
 	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume; extensions.reason
-	// names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE or NOT_OWNER),
+	// names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE, LIVENESS_UNKNOWN
+	// (too many open sessions on the worker to check them all, and none of those checked
+	// is live) or NOT_OWNER),
 	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
 	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
@@ -47847,8 +48146,13 @@ var AllCreateUserPermission = []CreateUserPermission{
 
 // CreditBalanceCreditBalance includes the requested fields of the GraphQL type CreditBalance.
 type CreditBalanceCreditBalance struct {
-	OrganizationId    string `json:"organizationId"`
+	OrganizationId string `json:"organizationId"`
+	// The balance in micro-cents. Never includes credit whose expiry has passed.
 	BalanceMicroCents string `json:"balanceMicroCents"`
+	// What is left of each unexpired grant that expires, soonest first, worked out by the server from the ledger (a
+	// client never replays the ledger itself). Grants with nothing left are not listed. The parts can add up to more than
+	// the balance when credit that never expires is below zero (hrn:node:hadronmemory.com:specs:cor:dmo:170:11).
+	Expiring []*CreditBalanceCreditBalanceExpiringExpiringCredit `json:"expiring"`
 }
 
 // GetOrganizationId returns CreditBalanceCreditBalance.OrganizationId, and is useful for accessing the field via an interface.
@@ -47857,9 +48161,38 @@ func (v *CreditBalanceCreditBalance) GetOrganizationId() string { return v.Organ
 // GetBalanceMicroCents returns CreditBalanceCreditBalance.BalanceMicroCents, and is useful for accessing the field via an interface.
 func (v *CreditBalanceCreditBalance) GetBalanceMicroCents() string { return v.BalanceMicroCents }
 
+// GetExpiring returns CreditBalanceCreditBalance.Expiring, and is useful for accessing the field via an interface.
+func (v *CreditBalanceCreditBalance) GetExpiring() []*CreditBalanceCreditBalanceExpiringExpiringCredit {
+	return v.Expiring
+}
+
+// CreditBalanceCreditBalanceExpiringExpiringCredit includes the requested fields of the GraphQL type ExpiringCredit.
+// The GraphQL type's documentation follows.
+//
+// What is left of one unexpired grant that expires (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Spend draws on the
+// soonest-expiring credit first and on credit that never expires last
+// (hrn:node:hadronmemory.com:specs:cor:dmo:170:11).
+type CreditBalanceCreditBalanceExpiringExpiringCredit struct {
+	// What is left of the grant, in micro-cents, as a base-10 integer string. Always more than zero.
+	AmountMicroCents string `json:"amountMicroCents"`
+	// When what is left expires and stops counting in the balance.
+	ExpiresAt string `json:"expiresAt"`
+}
+
+// GetAmountMicroCents returns CreditBalanceCreditBalanceExpiringExpiringCredit.AmountMicroCents, and is useful for accessing the field via an interface.
+func (v *CreditBalanceCreditBalanceExpiringExpiringCredit) GetAmountMicroCents() string {
+	return v.AmountMicroCents
+}
+
+// GetExpiresAt returns CreditBalanceCreditBalanceExpiringExpiringCredit.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *CreditBalanceCreditBalanceExpiringExpiringCredit) GetExpiresAt() string { return v.ExpiresAt }
+
 // CreditBalanceResponse is returned by CreditBalance on success.
 type CreditBalanceResponse struct {
-	// One org's credit balance - SUM over the append-only ledger (spec 046). Org-ADMIN.
+	// One organization's credit balance (spec 046). Org-ADMIN. The sum over the append-only ledger, less what is left of
+	// any grant whose expiry has passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles
+	// the organization's grants that expired more than a minute ago: it may write those settlement entries, once per grant,
+	// and never does for an impersonated session, which gets the same figure worked out and stored nowhere.
 	CreditBalance *CreditBalanceCreditBalance `json:"creditBalance"`
 }
 
@@ -49194,7 +49527,7 @@ func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo)
 // DeliveryBatchesResponse is returned by DeliveryBatches on success.
 type DeliveryBatchesResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE, LIVENESS_UNKNOWN (too many open sessions on the worker to check them all, and none of those checked is live) or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *DeliveryBatchesDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -53321,7 +53654,11 @@ type FindNodesFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
@@ -53544,7 +53881,11 @@ type FindNodesWithCommentSummaryFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
@@ -53813,6 +54154,15 @@ type FindObjectsResponse struct {
 	// cast inferred from the memory schema; 'where' is the full #719 predicate
 	// (ANDed with match); 'sort' is a single-field shorthand desugared to a
 	// property-path sort.
+	// In a STRICT collection (the memory's schema declares the type with strict:
+	// true) a field the query names that the collection does not declare is refused
+	// with FIELD_NOT_DECLARED (extensions: field, objectType), before any row is read
+	// (hrn:node:hadronmemory.com:specs:cor:api:170:03): the first segment of each
+	// properties path in match, where and sort; where on data, and exports, are never
+	// refused. A non-strict collection, a memory with no schema and a type the schema
+	// does not declare are unchanged, and a caller who cannot read the memory gets the
+	// answer it always got. Malformed input is still BAD_USER_INPUT. The declared
+	// fields are discovered through Memory.schema.
 	FindObjects *FindObjectsFindObjectsObjectList `json:"findObjects"`
 }
 
@@ -60122,7 +60472,12 @@ func (v *GrantCreditsGrantCreditsCreditLedgerEntry) __premarshalJSON() (*__prema
 type GrantCreditsInput struct {
 	// Positive micro-cents, base-10 integer string.
 	AmountMicroCents string `json:"amountMicroCents"`
-	// Grant expiry policy field (no enforcement in Phase 0).
+	// When the grant expires, ISO 8601; omit for credit that never expires. Enforced
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:170:10): from this instant what is left of the grant no longer counts in
+	// the balance, and the server settles it with one adjustment entry of minus that amount. Must be later than now
+	// (BAD_USER_INPUT otherwise). A replay of the same source pair returns the stored grant with its stored expiry, which is
+	// the one enforced; a different expiry on a replay is not compared and does not change it (a corrected expiry needs an
+	// adjustment, not a second grant).
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	Note      *string `json:"note,omitempty"`
 	OrgRef    string  `json:"orgRef"`
@@ -93958,7 +94313,11 @@ type SearchNodesFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
@@ -95996,7 +96355,7 @@ func (v *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) Ge
 // SessionInboxResponse is returned by SessionInbox on success.
 type SessionInboxResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE, LIVENESS_UNKNOWN (too many open sessions on the worker to check them all, and none of those checked is live) or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *SessionInboxDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -134207,6 +134566,14 @@ func (v *__AddOrgMemberInput) GetUserRef() string { return v.UserRef }
 // GetRole returns __AddOrgMemberInput.Role, and is useful for accessing the field via an interface.
 func (v *__AddOrgMemberInput) GetRole() Role { return v.Role }
 
+// __AdjustCreditsInput is used internally by genqlient
+type __AdjustCreditsInput struct {
+	Input *AdjustCreditsInput `json:"input,omitempty"`
+}
+
+// GetInput returns __AdjustCreditsInput.Input, and is useful for accessing the field via an interface.
+func (v *__AdjustCreditsInput) GetInput() *AdjustCreditsInput { return v.Input }
+
 // __AdvanceChannelReadStateInput is used internally by genqlient
 type __AdvanceChannelReadStateInput struct {
 	ChannelRef  string  `json:"channelRef"`
@@ -135450,6 +135817,26 @@ func (v *__AiServiceConfigsMaskedWithUrnInput) GetLimit() *int { return v.Limit 
 
 // GetOffset returns __AiServiceConfigsMaskedWithUrnInput.Offset, and is useful for accessing the field via an interface.
 func (v *__AiServiceConfigsMaskedWithUrnInput) GetOffset() *int { return v.Offset }
+
+// __AiSpendInput is used internally by genqlient
+type __AiSpendInput struct {
+	OrgRef  string       `json:"orgRef"`
+	From    string       `json:"from"`
+	To      string       `json:"to"`
+	GroupBy AiSpendGroup `json:"groupBy"`
+}
+
+// GetOrgRef returns __AiSpendInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__AiSpendInput) GetOrgRef() string { return v.OrgRef }
+
+// GetFrom returns __AiSpendInput.From, and is useful for accessing the field via an interface.
+func (v *__AiSpendInput) GetFrom() string { return v.From }
+
+// GetTo returns __AiSpendInput.To, and is useful for accessing the field via an interface.
+func (v *__AiSpendInput) GetTo() string { return v.To }
+
+// GetGroupBy returns __AiSpendInput.GroupBy, and is useful for accessing the field via an interface.
+func (v *__AiSpendInput) GetGroupBy() AiSpendGroup { return v.GroupBy }
 
 // __AlarmAcknowledgeInput is used internally by genqlient
 type __AlarmAcknowledgeInput struct {
@@ -148930,6 +149317,54 @@ func AddOrgMember(
 	return data_, err_
 }
 
+// The mutation executed by AdjustCredits.
+const AdjustCredits_Operation = `
+mutation AdjustCredits ($input: AdjustCreditsInput!) {
+	adjustCredits(input: $input) {
+		... CreditLedgerEntryFields
+	}
+}
+fragment CreditLedgerEntryFields on CreditLedgerEntry {
+	id
+	organizationId
+	kind
+	amountMicroCents
+	expiresAt
+	sourceType
+	sourceId
+	note
+	createdAt
+	createdBy
+}
+`
+
+// Platform-ADMIN or the BILLING role. Appends a signed adjustment; idempotent on
+// (sourceType, sourceId), a mismatched replay is IDEMPOTENCY_CONFLICT.
+func AdjustCredits(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *AdjustCreditsInput,
+) (data_ *AdjustCreditsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AdjustCredits",
+		Query:  AdjustCredits_Operation,
+		Variables: &__AdjustCreditsInput{
+			Input: input,
+		},
+	}
+
+	data_ = &AdjustCreditsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AdvanceChannelReadState.
 const AdvanceChannelReadState_Operation = `
 mutation AdvanceChannelReadState ($channelRef: ID!, $attendeeRef: ID!, $seq: Int!, $appRef: ID) {
@@ -155953,6 +156388,60 @@ func AiServiceConfigsMaskedWithUrn(
 	}
 
 	data_ = &AiServiceConfigsMaskedWithUrnResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AiSpend.
+const AiSpend_Operation = `
+query AiSpend ($orgRef: String!, $from: String!, $to: String!, $groupBy: AiSpendGroup!) {
+	aiSpend(orgRef: $orgRef, from: $from, to: $to, groupBy: $groupBy) {
+		from
+		to
+		truncated
+		totalGroups
+		rows {
+			key
+			events
+			tokensIn
+			tokensOut
+			costMicroCents
+			unpricedEvents
+			chargedMicroCents
+		}
+	}
+}
+`
+
+// One org's AI spend over [from, to), one grouping (cli#3071). Org-ADMIN. Cost
+// and charged are two figures (cor:dmo:170:04).
+func AiSpend(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef string,
+	from string,
+	to string,
+	groupBy AiSpendGroup,
+) (data_ *AiSpendResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AiSpend",
+		Query:  AiSpend_Operation,
+		Variables: &__AiSpendInput{
+			OrgRef:  orgRef,
+			From:    from,
+			To:      to,
+			GroupBy: groupBy,
+		},
+	}
+
+	data_ = &AiSpendResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -165951,11 +166440,16 @@ query CreditBalance ($orgRef: String!) {
 	creditBalance(orgRef: $orgRef) {
 		organizationId
 		balanceMicroCents
+		expiring {
+			amountMicroCents
+			expiresAt
+		}
 	}
 }
 `
 
-// One org's balance: the SUM over its append-only ledger. Org-ADMIN.
+// One org's balance and what is left of each expiring grant, soonest first.
+// Org-ADMIN. The read may settle expired grants (hadron-server#5011).
 func CreditBalance(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -172462,7 +172956,7 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 }
 `
 
-// Platform-ADMIN. Appends a positive grant to an org's ledger. The response
+// Platform-ADMIN or the BILLING role. Appends a positive grant to an org's ledger. The response
 // has no created/reused flag, so a replay of (sourceType, sourceId) is
 // indistinguishable from a first grant. An omitted optional is not sent.
 func GrantCredits(
