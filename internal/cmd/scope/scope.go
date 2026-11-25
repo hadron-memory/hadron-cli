@@ -309,7 +309,7 @@ func resolveScopeID(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 		// The server returns an empty resolution for a scope that does not
 		// exist AND for one we may not read, identically and on purpose — no
 		// existence disclosure. Say only what is known.
-		return "", exitcode.Newf(exitcode.NotFound, "no scope %q is readable in this App context", ref)
+		return "", exitcode.Newf(exitcode.NotFound, "no such scope is readable in this App context (the ref given is not shown)")
 	}
 	return resp.ScopeExplain.Scope.Id, nil
 }

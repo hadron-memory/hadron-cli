@@ -19,7 +19,19 @@ func newCmdCancel(f *cmdutil.Factory) *cobra.Command {
 		Use:   "cancel <id>",
 		Short: "Cancel a live run (the kill switch)",
 		Long: `Cancel a live run — transitions it to CANCELLED. Prompts on a
-TTY; a non-interactive caller must pass --yes.`,
+TTY; a non-interactive caller must pass --yes.
+
+Cancelling is idempotent: a run that had
+already ended in any state other than CANCELLED is left as it is, the command
+says "run <id> is already <STATUS>; nothing to cancel" (--json carries the
+run's real status), and the exit code stays 0 (the run is not live, which is
+what a caller asked for). A run that was already CANCELLED cannot be told from
+a fresh cancel without a read first, so it prints "✓ cancelled run <id>
+(CANCELLED)" again, exit 0.
+
+If a live status ever came back, the command would exit 1 with "run <id> is
+still <STATUS>; the cancel did not take effect" and print no JSON under --json;
+cancelAppRun is synchronous, so a real server never returns that.`,
 		Example: `  hadron run cancel run_123 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -38,7 +50,19 @@ TTY; a non-interactive caller must pass --yes.`,
 				return exitcode.Newf(exitcode.Error, "server returned no run")
 			}
 			dto := dtoFromFields(resp.CancelAppRun.AppRunFields)
+			// cancelAppRun is synchronous, so a live run never comes back. If
+			// one does the cancel did not take effect: say so, never "already".
+			if !isTerminal(dto.Status) {
+				return exitcode.Newf(exitcode.Error, "run %s is still %s; the cancel did not take effect", output.SafeCell(dto.ID), output.SafeCell(dto.Status))
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				// The server's cancel is idempotent: a run that had already ended
+				// comes back unchanged. Claim a cancellation only when the run
+				// is CANCELLED; otherwise name the state it is really in (#3080).
+				if dto.Status != string(gen.AppRunStatusCancelled) {
+					_, err := fmt.Fprintf(w, "run %s is already %s; nothing to cancel\n", output.SafeCell(dto.ID), output.SafeCell(dto.Status))
+					return err
+				}
 				_, err := fmt.Fprintf(w, "✓ cancelled run %s (%s)\n", output.SafeCell(dto.ID), output.SafeCell(dto.Status))
 				return err
 			})

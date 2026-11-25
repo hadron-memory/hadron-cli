@@ -502,7 +502,7 @@ func TestUserSetRolesRejectsUnknownRole(t *testing.T) {
 	}
 	// The message must name the valid set — that's the whole point of
 	// validating client-side instead of letting enum coercion fail on the wire.
-	for _, want := range []string{"superadmin", "owner", "admin", "contributor", "reader"} {
+	for _, want := range []string{"--role", "owner", "admin", "contributor", "reader"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q should mention %q", err.Error(), want)
 		}

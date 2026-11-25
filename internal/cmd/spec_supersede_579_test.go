@@ -173,6 +173,8 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 				}
 			}
 			data["nodeBatch"] = map[string]any{"nodes": ns, "truncated": false, "omitted": []any{}, "unavailable": []any{}}
+		case "SpecLintBatch": // #3127: the server finds nothing to lint here
+			data["nodeBatch"] = map[string]any{"nodes": []any{}, "truncated": false, "omitted": []any{}, "unavailable": []any{}}
 		default:
 			t.Errorf("unexpected operation %s", q.OperationName)
 		}

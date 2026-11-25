@@ -36,6 +36,38 @@ func emitSender(f *cmdutil.Factory, d resendSenderDTO) error {
 	})
 }
 
+// resendDomainVerifiedFloor is the server floor: the UTC day hadron-server's ResendSender.domainVerified
+// (hadron-server#4865) merged. `get` asks for it in its only query, so an older server rejects the whole
+// read as an unknown field, which the help says (cli#2588).
+const resendDomainVerifiedFloor = "2026-11-22"
+
+// resendSenderGetDTO is what `get` prints: the sender plus Resend's domain-verified state (cli#2588, report
+// only). DomainVerified is a pointer and has no omitempty on purpose: true and false are Resend's answer, and
+// null means the state could not be read, which says nothing about the domain, so it is a present key and
+// never a false.
+type resendSenderGetDTO struct {
+	resendSenderDTO
+	DomainVerified *bool `json:"domainVerified"`
+}
+
+func domainVerifiedText(v *bool) string {
+	switch {
+	case v == nil:
+		return "unknown (could not be read; says nothing about the domain)"
+	case *v:
+		return "yes"
+	default:
+		return "no (Resend reports it not verified, or has no record of the domain)"
+	}
+}
+
+func emitSenderGet(f *cmdutil.Factory, d resendSenderGetDTO) error {
+	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+		_, err := fmt.Fprintf(w, "sender %s\n  org: %s\n  from: %s\n  enabled: %t\n  has API key: %t\n  domain verified: %s\n", output.SafeCell(d.ID), output.SafeCell(d.OrganizationID), output.SafeCell(d.From), d.Enabled, d.HasAPIKey, domainVerifiedText(d.DomainVerified))
+		return err
+	})
+}
+
 // A write-only credential must not return in a backend/transport diagnostic.
 // Keep the classified exit and server code, but never retain the raw error chain.
 func senderWriteError(err error, secret *string) error {
@@ -219,8 +251,19 @@ func newCmdSenderWrite(f *cmdutil.Factory, update bool) *cobra.Command {
 func newCmdSenderGet(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{Use: "get <sender-id>", Short: "Show a sanitized sender; missing or inaccessible exits 4", Long: `Read one sender by its sender ID (from list or create). The server checks
 organization access; missing and inaccessible senders both exit 4. Text shows
-ID, organization, sender identity, enabled and hasApiKey; --json adds creation
-and update metadata. No API key is returned.`, Example: "  hadron org resend-sender get <sender-id> --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
+ID, organization, sender identity, enabled, hasApiKey and domain verified;
+--json adds creation and update metadata. No API key is returned.
+
+Domain verified is Resend's answer for the domain of the sender address, read
+live on each get, so it is current as of that read: yes, no (Resend reports it
+not verified, or has no record of the domain), or unknown (the lookup could not
+be made, for example it failed or timed out); unknown says nothing about the
+domain. In --json it is domainVerified: true, false or null. It only reports:
+get sends no mail and changes nothing at Resend. To verify the domain, do it
+in Resend.
+
+Needs server ` + resendDomainVerifiedFloor + ` or later: the query asks for domain verified, which
+an older server rejects as an unknown field, so get fails there.`, Example: "  hadron org resend-sender get <sender-id> --json", Args: cobra.ExactArgs(1), RunE: func(cmd *cobra.Command, args []string) error {
 		client, err := f.GraphQLClient()
 		if err != nil {
 			return err
@@ -232,7 +275,7 @@ and update metadata. No API key is returned.`, Example: "  hadron org resend-sen
 		if resp == nil || resp.ResendSender == nil {
 			return exitcode.Newf(exitcode.NotFound, "Resend sender not found or inaccessible")
 		}
-		return emitSender(f, senderDTO(resp.ResendSender.ResendSenderFields))
+		return emitSenderGet(f, resendSenderGetDTO{senderDTO(resp.ResendSender.ResendSenderFields), resp.ResendSender.DomainVerified})
 	}}
 }
 

@@ -361,8 +361,9 @@ query AppKeysScopes($appRef: ID!, $limit: Int!, $offset: Int!) {
 }
 
 # cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
-# host uses (cor:agt:070:07). N is always sent here, so no omitempty.
-query AppKeysScopesHostUses($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
+# host uses (cor:agt:070:07), read through hostUsesPage (cli#3134) so total and
+# hasMore come with them. N is always sent here, so no omitempty.
+query AppKeysScopesHostUses($appRef: ID!, $usesLimit: Int!, $limit: Int!, $offset: Int!) {
   appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
     hasMore
     total
@@ -380,13 +381,17 @@ query AppKeysScopesHostUses($appRef: ID!, $first: Int!, $limit: Int!, $offset: I
         grantedAt
         grantedBy
       }
-      hostUses(first: $first) {
-        hostId
-        action
-        count
-        operationId
-        refusedCode
-        usedAt
+      hostUsesPage(limit: $usesLimit) {
+        items {
+          hostId
+          action
+          count
+          operationId
+          refusedCode
+          usedAt
+        }
+        total
+        hasMore
       }
     }
   }
@@ -450,7 +455,7 @@ query AppKeysScopesInstructed($appRef: ID!, $instruction: ActInstructionInput!, 
   }
 }
 
-query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUsesInstructed($appRef: ID!, $usesLimit: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
   appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
     hasMore
     total
@@ -468,13 +473,17 @@ query AppKeysScopesHostUsesInstructed($appRef: ID!, $first: Int!, $instruction: 
         grantedAt
         grantedBy
       }
-      hostUses(first: $first) {
-        hostId
-        action
-        count
-        operationId
-        refusedCode
-        usedAt
+      hostUsesPage(limit: $usesLimit) {
+        items {
+          hostId
+          action
+          count
+          operationId
+          refusedCode
+          usedAt
+        }
+        total
+        hasMore
       }
     }
   }

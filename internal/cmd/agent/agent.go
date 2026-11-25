@@ -149,7 +149,7 @@ func parseAgentType(s string) (*gen.AgentType, error) {
 		t := gen.AgentTypeChatbot
 		return &t, nil
 	default:
-		return nil, exitcode.Newf(exitcode.Usage, "invalid --type %q (want ASSISTANT or CHATBOT)", s)
+		return nil, exitcode.Newf(exitcode.Usage, "invalid --type (want ASSISTANT or CHATBOT)")
 	}
 }
 
@@ -170,7 +170,7 @@ func ParseVisibility(s string) (*gen.AgentVisibility, error) {
 		v := gen.AgentVisibilityPublic
 		return &v, nil
 	default:
-		return nil, exitcode.Newf(exitcode.Usage, "invalid --visibility %q (want ORGANIZATION, PERSONAL, or PUBLIC)", s)
+		return nil, exitcode.Newf(exitcode.Usage, "invalid --visibility (want ORGANIZATION, PERSONAL, or PUBLIC)")
 	}
 }
 
@@ -1201,7 +1201,7 @@ func contextCapArg(cmd *cobra.Command, tokens int, allowClear bool) (*gqltypes.C
 	}
 	if setFlag {
 		if tokens < 1 {
-			return nil, exitcode.Newf(exitcode.Usage, "--context-cap takes a whole number of tokens from 1, not %d", tokens)
+			return nil, exitcode.Newf(exitcode.Usage, "--context-cap takes a whole number of tokens from 1")
 		}
 		return &gqltypes.ContextCapInput{Tokens: tokens}, nil
 	}
@@ -1281,23 +1281,23 @@ func installCreatedAgent(ctx context.Context, client graphql.Client, appRef, age
 	resp, err := gen.InstallAgentIntoApp(ctx, client, appRef, agentID, nil)
 	if err != nil {
 		mapped := cmdutil.InstallForbiddenGuidance(err)
-		incomplete := installIncompleteError(mapped, appRef, agentID)
+		incomplete := installIncompleteError(mapped, agentID)
 		// #681 (PR #683 review, @copilot): `app agent add` fails the same way
 		// until the MCP-only key is replaced, so it is the SECOND step here, not
 		// the finishing one. MapError has already named the credential fix.
 		if api.OAuthScopeRefusal(err) != "" {
 			incomplete = exitcode.Newf(exitcode.FromError(mapped),
-				"agent was CREATED but NOT installed into %s: %v\n"+
+				"agent was CREATED but NOT installed into the --install-into App (the ref given is not shown): %v\n"+
 					"The agent exists — do not re-run `agent create`, it would make a second one.\n"+
-					"Once the key is replaced, finish with: hadron app agent add %s %s",
-				appRef, mapped, appRef, agentID)
+					"Once the key is replaced, finish with: hadron app agent add <app-ref> %s",
+				mapped, agentID)
 		}
 		return &agentInstallDTO{AppRef: appRef, Status: installStatusFor(mapped), Error: mapped.Error()}, incomplete
 	}
 	if resp.InstallAgentIntoApp == nil || resp.InstallAgentIntoApp.AppAgent == nil {
 		err := exitcode.Newf(exitcode.Error, "server returned no AppAgent row")
 		return &agentInstallDTO{AppRef: appRef, Status: "failed", Error: err.Error()},
-			installIncompleteError(err, appRef, agentID)
+			installIncompleteError(err, agentID)
 	}
 	dto := &agentInstallDTO{AppRef: appRef, Status: "installed"}
 	if app := resp.InstallAgentIntoApp.AppAgent.App; app != nil {
@@ -1318,20 +1318,20 @@ func installCreatedAgent(ctx context.Context, client graphql.Client, appRef, age
 // the caller to run `app agent add` would invite a Conflict (exit 5, "duplicate
 // install") on an install that actually succeeded. There, the honest
 // instruction is to look before acting.
-func installIncompleteError(cause error, appRef, agentID string) error {
+func installIncompleteError(cause error, agentID string) error {
 	if exitcode.FromError(cause) == exitcode.Unavailable {
 		return exitcode.Newf(exitcode.Unavailable,
-			"agent was CREATED; whether it was installed into %s is UNKNOWN: %v\n"+
+			"agent was CREATED; whether it was installed into the --install-into App (the ref given is not shown) is UNKNOWN: %v\n"+
 				"The agent exists — do not re-run `agent create`, it would make a second one.\n"+
-				"Check before retrying: hadron app agent list %s\n"+
-				"If it is not there: hadron app agent add %s %s",
-			appRef, cause, appRef, appRef, agentID)
+				"Check before retrying: hadron app agent list <app-ref>\n"+
+				"If it is not there: hadron app agent add <app-ref> %s",
+			cause, agentID)
 	}
 	return exitcode.Newf(exitcode.FromError(cause),
-		"agent was CREATED but NOT installed into %s: %v\n"+
+		"agent was CREATED but NOT installed into the --install-into App (the ref given is not shown): %v\n"+
 			"The agent exists — do not re-run `agent create`, it would make a second one.\n"+
-			"Finish with: hadron app agent add %s %s",
-		appRef, cause, appRef, agentID)
+			"Finish with: hadron app agent add <app-ref> %s",
+		cause, agentID)
 }
 
 // emitCreatedAgent renders the create+install result: the agent line first

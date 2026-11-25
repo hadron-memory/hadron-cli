@@ -34,7 +34,7 @@ func optInt(cmd *cobra.Command, name string, v int) (*int, error) {
 		return nil, nil
 	}
 	if v < math.MinInt32 || v > math.MaxInt32 {
-		return nil, exitcode.Newf(exitcode.Usage, "--%s %d does not fit a GraphQL Int (%d to %d)", name, v, math.MinInt32, math.MaxInt32)
+		return nil, exitcode.Newf(exitcode.Usage, "--%s does not fit a GraphQL Int (%d to %d)", name, math.MinInt32, math.MaxInt32)
 	}
 	return &v, nil
 }

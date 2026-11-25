@@ -147,7 +147,18 @@ the gate that refuses them. Reference pages (20 rows) are fully collected
 before lint decides; a failed page fails the command without partial findings.
 Older servers may use the full legacy reference read when the page field is
 unsupported; if both reports are unsupported, only ordinary lint rules run.
-Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
+Pages are not a cross-request snapshot.
+
+Two content checks come from the server, not the CLI: a Rule spec with no
+"Why We Need This Rule" section (or an empty one) is an error
+(rule-why-missing, rule-why-empty), and a sentence that restricts something
+(excluded, never, refused, only, must not, hidden...) with no reason in its
+paragraph (because, so that, since, why, or a link to a ruling or a Why
+section) is a WARNING (limit-without-reason) naming the sentence. Warnings never
+fail a run unless --strict. The rest of the report is computed here, so one
+report mixes both. A server without Node.specLint cannot run these two; lint
+then says so in an info finding (spec-lint-unavailable) instead of reporting a
+clean result, and everything else still runs.`, abstractSoftMax, abstractHardMax, abstractTightHeadroom),
 		Example: `  hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --prefix msg:010 -m hrn:mem:micromentor.org:platform-specs
   hadron spec lint --module msg -m hrn:mem:micromentor.org:platform-specs
@@ -335,6 +346,12 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 				}
 				findings = append(findings, extra...)
 			}
+			// The server's two content checks (#3127): relayed, never recomputed.
+			serverFs, err := serverLintFindings(cmd.Context(), client, nodes)
+			if err != nil {
+				return err
+			}
+			findings = append(findings, serverFs...)
 			findings = append(findings, ungovernedFindings...)
 			findings = append(findings, placeholders...)
 			if draft.Draft {
@@ -383,7 +400,14 @@ Pages are not a cross-request snapshot.`, abstractSoftMax, abstractHardMax, abst
 				}
 				t := output.NewTable(w, "CITATION", "SEVERITY", "RULE", "MESSAGE")
 				for _, fnd := range findings {
-					t.Row(output.SafeCell(fnd.Citation), fnd.Severity, fnd.Rule, output.SafeCell(fnd.Message))
+					msg := fnd.Message
+					if fnd.Line != nil {
+						msg = fmt.Sprintf("line %d: %s", *fnd.Line, msg)
+					}
+					if fnd.Sentence != "" && !strings.Contains(msg, fnd.Sentence) {
+						msg += ": " + fnd.Sentence
+					}
+					t.Row(output.SafeCell(fnd.Citation), fnd.Severity, fnd.Rule, output.SafeCell(msg))
 				}
 				return t.Flush()
 			}); err != nil {

@@ -133,10 +133,10 @@ func keysScopes(ctx context.Context, c graphql.Client, ref string, i *gen.ActIns
 		return &row.Id
 	})
 }
-func keysHostUses(ctx context.Context, c graphql.Client, ref string, first int, i *gen.ActInstructionInput) ([]*gen.AppKeysScopesHostUsesRows1595, error) {
+func keysHostUses(ctx context.Context, c graphql.Client, ref string, usesLimit int, i *gen.ActInstructionInput) ([]*gen.AppKeysScopesHostUsesRows1595, error) {
 	return api.CollectHasMore(func(offset int) ([]*gen.AppKeysScopesHostUsesRows1595, int, bool, error) {
 		if i == nil {
-			r, e := gen.AppKeysScopesHostUses(ctx, c, ref, first, api.InventoryPageSize, offset)
+			r, e := gen.AppKeysScopesHostUses(ctx, c, ref, usesLimit, api.InventoryPageSize, offset)
 			if e != nil {
 				return nil, 0, false, e
 			}
@@ -145,7 +145,7 @@ func keysHostUses(ctx context.Context, c graphql.Client, ref string, first int, 
 			}
 			return r.AppKeysPage.Items, r.AppKeysPage.Total, r.AppKeysPage.HasMore, nil
 		}
-		r, e := gen.AppKeysScopesHostUsesInstructed(ctx, c, ref, first, i, api.InventoryPageSize, offset)
+		r, e := gen.AppKeysScopesHostUsesInstructed(ctx, c, ref, usesLimit, i, api.InventoryPageSize, offset)
 		if e != nil {
 			return nil, 0, false, e
 		}

@@ -100,14 +100,14 @@ func rankingArgs(cmd *cobra.Command, expand int, fields []string, granularity st
 	for _, name := range fields {
 		v, ok := searchFields[strings.ToLower(strings.TrimSpace(name))]
 		if !ok {
-			return r, exitcode.Newf(exitcode.Usage, "invalid --field %q (want one of abstract, alias, content, data, description, loc, name, properties, tags). Nothing was sent", name)
+			return r, exitcode.Newf(exitcode.Usage, "invalid --field (want one of abstract, alias, content, data, description, loc, name, properties, tags). Nothing was sent")
 		}
 		r.Fields = append(r.Fields, v)
 	}
 	if changed("granularity") {
 		g := gen.SearchGranularity(strings.ToLower(strings.TrimSpace(granularity)))
 		if g != gen.SearchGranularityNode && g != gen.SearchGranularityChunk {
-			return r, exitcode.Newf(exitcode.Usage, "invalid --granularity %q (want node or chunk). Nothing was sent", granularity)
+			return r, exitcode.Newf(exitcode.Usage, "invalid --granularity (want node or chunk). Nothing was sent")
 		}
 		r.Granularity = &g
 	}
@@ -243,7 +243,7 @@ passphrase for this one invocation. Words inside its content are not found.`,
 				return exitcode.Newf(exitcode.Usage, "query must not be empty")
 			}
 			if commentsOnly && nodeType != "" && nodeType != "comment" {
-				return exitcode.Newf(exitcode.Usage, "--comments-only cannot be combined with --type %q; omit --type or use --type comment", nodeType)
+				return exitcode.Newf(exitcode.Usage, "--comments-only cannot be combined with that --type; omit --type or use --type comment")
 			}
 			modeArg, err := parseMode(mode)
 			if err != nil {
@@ -533,7 +533,7 @@ func parseMode(s string) (*gen.FindNodesMode, error) {
 		m := gen.FindNodesModeRegex
 		return &m, nil
 	default:
-		return nil, exitcode.Newf(exitcode.Usage, "invalid --mode %q (expected hybrid, keyword, vector, or regex)", s)
+		return nil, exitcode.Newf(exitcode.Usage, "invalid --mode (expected hybrid, keyword, vector, or regex)")
 	}
 }
 
@@ -692,5 +692,5 @@ func requireAppContextForScope(f *cmdutil.Factory, scope string) (string, error)
 			"--scope app means the active App's attached memories, and no App is selected — pass --app <ref> or run `hadron app set-active <ref>`")
 	}
 	return "", exitcode.Newf(exitcode.Usage,
-		"--scope %q is a scope name, which resolves in an App's context — pass --app <ref>, run `hadron app set-active <ref>`, or give the scope's id instead", scope)
+		"--scope is a scope name (the value given is not shown), which resolves in an App's context — pass --app <ref>, run `hadron app set-active <ref>`, or give the scope's id instead")
 }

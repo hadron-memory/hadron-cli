@@ -70,7 +70,7 @@ or unknown asset exits 4.`,
 
 			resp, err := gen.AssetDownloadUrl(cmd.Context(), client, ref.ID, nil)
 			if err != nil {
-				return downloadScanError(err, args[0])
+				return downloadScanError(err)
 			}
 			d := resp.AssetDownloadUrl
 			if d == nil {

@@ -90,7 +90,7 @@ func TestSearchCommentsOnlyRejectsConflictingTypeBeforeConnection(t *testing.T) 
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"search", "q", "--comments-only", "--type", "info", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "--comments-only cannot be combined with --type") {
+	if exitCodeFor(err) != 2 || !strings.Contains(err.Error(), "--comments-only cannot be combined with that --type") {
 		t.Fatalf("unexpected refusal: %v", err)
 	}
 }

@@ -93,7 +93,7 @@ func parseRegisterRole(s string) (*gen.RegisterRole, error) {
 		r := gen.RegisterRoleWatch
 		return &r, nil
 	default:
-		return nil, exitcode.Newf(exitcode.Usage, "invalid --role %q (want both, post, or watch)", s)
+		return nil, exitcode.Newf(exitcode.Usage, "invalid --role (want both, post, or watch)")
 	}
 }
 

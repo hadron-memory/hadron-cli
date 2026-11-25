@@ -174,8 +174,8 @@ func TestAgentSubscriptionRevokeUnknownOutcomeIsNeverResent2789(t *testing.T) {
 				t.Fatalf("exit=%d want=%d sends=%d err=%v", exitCodeFor(err), tc.exit, subRevokes2789(calls), err)
 			}
 			m := err.Error()
-			if !strings.Contains(strings.ToLower(m), "unknown") || !strings.Contains(m, "hadron memory list") || !strings.Contains(m, "not resent") || !strings.Contains(m, "u-7") || !strings.Contains(m, "ag-1") {
-				t.Errorf("an unknown outcome says so, names both refs, `memory ls` and that it is not resent: %v", err)
+			if !strings.Contains(strings.ToLower(m), "unknown") || !strings.Contains(m, "hadron memory list") || !strings.Contains(m, "not resent") || strings.Contains(m, "u-7") || strings.Contains(m, "ag-1") {
+				t.Errorf("an unknown outcome says so, names `memory ls`, shows neither ref (cli#3114) and that it is not resent: %v", err)
 			}
 		})
 	}

@@ -320,7 +320,7 @@ func TestAppKeyCreateLostAnswerSendsOnceAndPointsAtListAndRevoke(t *testing.T) {
 		t.Errorf("--out must be absent: %v", err)
 	}
 	msg := r.all()
-	for _, want := range []string{"orca1 poller", "hadron app key list " + app1223, "revoke"} {
+	for _, want := range []string{"the --label given (not shown)", "hadron app key list <app-ref>", "revoke"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message missing %q: %q", want, msg)
 		}
@@ -544,7 +544,7 @@ func TestAppKeyCreateLostAnswerPlusFailedCleanupKeepsBothRoutes(t *testing.T) {
 	if len(ents) != 1 {
 		t.Fatalf("expected the undeleted file, got %v", ents)
 	}
-	for _, want := range []string{"orca1 poller", "hadron app key list " + app1223, "revoke", filepath.Join(dir, ents[0].Name()), "delete it yourself"} {
+	for _, want := range []string{"the --label given (not shown)", "hadron app key list <app-ref>", "revoke", filepath.Join(dir, ents[0].Name()), "delete it yourself"} {
 		if !strings.Contains(r.all(), want) {
 			t.Errorf("message missing %q: %q", want, r.all())
 		}
@@ -558,7 +558,7 @@ func TestAppKeyCreateEmptyKeyPlusFailedCleanupKeepsBothRoutes(t *testing.T) {
 	secretfile.Remove = func(string) error { return errors.New("injected remove failure") }
 	defer func() { secretfile.Remove = old }()
 	r := runKeyCreate(t, srv, app1223, "--out", filepath.Join(t.TempDir(), "host.key"))
-	for _, want := range []string{"hadron app key list " + app1223, "revoke", "delete it yourself"} {
+	for _, want := range []string{"hadron app key list <app-ref>", "revoke", "delete it yourself"} {
 		if r.err == nil || !strings.Contains(r.all(), want) {
 			t.Errorf("message missing %q: %q", want, r.all())
 		}

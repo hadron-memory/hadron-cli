@@ -359,7 +359,7 @@ func composableMemoryRef(ctx context.Context, client graphql.Client, memory stri
 		return "", api.MapError(err)
 	}
 	if resp == nil || resp.Memory == nil || resp.Memory.Urn == "" {
-		return "", exitcode.Newf(exitcode.NotFound, "no memory %q is readable here", memory)
+		return "", exitcode.Newf(exitcode.NotFound, "no such memory is readable here (the ref given is not shown)")
 	}
 	return resp.Memory.Urn, nil
 }
@@ -418,11 +418,11 @@ func resolveReplyToSeq(ctx context.Context, client graphql.Client, c Coords, rep
 		return nil, api.MapError(err)
 	}
 	if resp == nil || resp.Node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "no message %q is readable here to reply to", replyTo)
+		return nil, exitcode.Newf(exitcode.NotFound, "no such message is readable here to reply to (the ref given is not shown)")
 	}
 	if resp.Node.Seq == nil {
 		return nil, exitcode.Newf(exitcode.Usage,
-			"message %q has no seq, so it cannot be replied to — pass the seq directly if you know it", replyTo)
+			"the message (the ref given is not shown) has no seq, so it cannot be replied to — pass the seq directly if you know it")
 	}
 	return resp.Node.Seq, nil
 }

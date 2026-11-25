@@ -88,19 +88,10 @@ func hasControlOrFormatCharacter(s string) bool {
 	}) >= 0
 }
 
-// getConnectionSuggestion is the closing sentence of a disconnect message: how to
-// check whether the connection still exists. The command sits ALONE on the last
-// line (an indented line of its own, so copying a whole line is the command) and
-// is runnable as printed: shell-quoted, with the -- terminator (a leading
-// dash is a flag to cobra), and no outer prose quotes (single quotes are literal
-// inside double quotes, so $( ) would expand again when pasted). An id with
-// control characters is never named; the runnable listing command stands in.
-func getConnectionSuggestion(id string) string {
-	if hasControlOrFormatCharacter(id) {
-		return "The listing is paged, so follow its --offset hint before concluding it is gone. Check whether it still exists by listing connections with:\n  hadron telegram status"
-	}
-	return "Check whether it still exists with:\n  hadron telegram get -- " + cmdutil.ShellQuote(id)
-}
+// getConnectionSuggestion is the closing sentence of a disconnect message: how to check the
+// outcome. The id the operator typed is never repeated (#2898 policy), so it names the listing,
+// which runs as printed; a command in a message is always its last line.
+const getConnectionSuggestion = "The listing is paged, so follow its --offset hint before concluding it is gone. Check whether it still exists by listing connections with:\n  hadron telegram status"
 
 // readToken reads one token from its file flag. "-" is stdin and is refused on
 // a terminal (the token would be typed in the clear); the file reader itself
@@ -271,12 +262,12 @@ read the connection with "hadron telegram get" before trying again.`,
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)
 				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
-					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried): %s. %s", mapped, getConnectionSuggestion(id)), err)
+					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried): %s. %s", mapped, getConnectionSuggestion), err)
 				}
 				return mapped
 			}
 			if resp == nil || !resp.DeleteTelegramConnection {
-				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect. %s", getConnectionSuggestion(id))
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect. %s", getConnectionSuggestion)
 			}
 			dto := disconnectDTO{ConnectionID: id, Disconnected: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

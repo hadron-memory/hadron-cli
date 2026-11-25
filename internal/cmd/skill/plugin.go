@@ -278,11 +278,11 @@ func runPlugin(cmd *cobra.Command, f *cmdutil.Factory, opts pluginOpts) error {
 	}
 	if !pluginNameRE.MatchString(opts.name) || len(opts.name) > 64 {
 		return exitcode.Newf(exitcode.Usage,
-			"--name %q is not a plugin name: use lowercase letters and digits in words joined by hyphens, at most 64 characters", opts.name)
+			"--name is not a plugin name: use lowercase letters and digits in words joined by hyphens, at most 64 characters")
 	}
 	if windowsReserved(opts.name) {
 		return exitcode.Newf(exitcode.Usage,
-			"--name %q is a Windows device name, which no Windows filesystem can hold as a file or directory: choose another", opts.name)
+			"--name is a Windows device name, which no Windows filesystem can hold as a file or directory: choose another")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -560,7 +560,7 @@ func resolvePluginScope(cmd *cobra.Command, f *cmdutil.Factory, ref string) (*pl
 		return nil, nil, api.MapError(err)
 	}
 	if resp == nil || resp.ScopeExplain == nil || resp.ScopeExplain.Scope == nil {
-		return nil, nil, exitcode.Newf(exitcode.NotFound, "no scope %q is readable here", ref)
+		return nil, nil, exitcode.Newf(exitcode.NotFound, "no such scope is readable here (the ref given is not shown)")
 	}
 	ex := resp.ScopeExplain
 	ids := []string{}

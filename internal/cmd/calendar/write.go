@@ -111,7 +111,7 @@ func (o *writeOptions) bounds(c *cobra.Command, required bool) (*gen.CalendarEve
 	if c.Flags().Changed("tz") {
 		// "Local" loads as this machine's zone, which the contract forbids.
 		if _, e := time.LoadLocation(o.tz); e != nil || strings.TrimSpace(o.tz) == "" || strings.EqualFold(o.tz, "local") {
-			return nil, nil, exitcode.Newf(exitcode.Usage, "--tz %q is not an IANA time zone", o.tz)
+			return nil, nil, exitcode.Newf(exitcode.Usage, "--tz is not an IANA time zone, e.g. Europe/Berlin")
 		}
 		if o.allDay {
 			return nil, nil, exitcode.Newf(exitcode.Usage, "--tz does not apply to an --all-day event")

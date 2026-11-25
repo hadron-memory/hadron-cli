@@ -488,12 +488,17 @@ func TestQuotaSet1343AppScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
+	// The exact input: both refs, and no userRef key (omitted = preserve,
+	// null = clear).
 	var vars struct {
-		Input map[string]json.RawMessage `json:"input"`
+		Input json.RawMessage `json:"input"`
 	}
 	_ = json.Unmarshal(captured["SetQuotaLimit"], &vars)
-	if string(vars.Input["appRef"]) != `"hrn:app:acme.com:bot"` || string(vars.Input["limit"]) != "7" {
-		t.Fatalf("input = %v", vars.Input)
+	const want = `{"action":"llm.tokens","appRef":"hrn:app:acme.com:bot","limit":7,"orgRef":"acme.com"}`
+	var got map[string]any
+	_ = json.Unmarshal(vars.Input, &got)
+	if b, _ := json.Marshal(got); string(b) != want {
+		t.Fatalf("input = %s, want %s", b, want)
 	}
 }
 
@@ -507,5 +512,44 @@ func TestPolicyExplain1343DeniedWithoutDenyingLayer(t *testing.T) {
 	}
 	if !strings.HasPrefix(out, "run.execute: DENIED\n") {
 		t.Fatalf("verdict line = %q", strings.SplitN(out, "\n", 2)[0])
+	}
+}
+
+// The refresh made SetQuotaLimitInput.orgRef/userRef nullable. An org-scoped set
+// must not send `userRef: null` (omitted = preserve, null = clear): pin the exact
+// input.
+func TestQuotaSetOrgScopedSendsNoUserRef3061(t *testing.T) {
+	_, captured, err := run1343(t, map[string]string{
+		"SetQuotaLimit": `{"data":{"setQuotaLimit":` + quotaRowJSON + `}}`,
+	}, "", "quota", "set", "--org", "acme.com", "--action", "run.execute", "--limit", "5")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input json.RawMessage `json:"input"`
+	}
+	_ = json.Unmarshal(captured["SetQuotaLimit"], &vars)
+	var got, want map[string]any
+	_ = json.Unmarshal(vars.Input, &got)
+	_ = json.Unmarshal([]byte(`{"action":"run.execute","limit":5,"orgRef":"acme.com"}`), &want)
+	if len(got) != len(want) || got["action"] != want["action"] || got["limit"] != want["limit"] || got["orgRef"] != want["orgRef"] {
+		t.Fatalf("input = %s, want exactly %v (no userRef/appRef key)", vars.Input, want)
+	}
+}
+
+// The refresh that brings hostUsesPage also adds userRef to SetQuotaLimitInput,
+// which quota set never sends: an omitted field, not an explicit null.
+func TestQuotaSet3134DoesNotSendUserRef(t *testing.T) {
+	srv, _, reqs := keyServerCapture(t, 200, `{"data":{"setQuotaLimit":`+quotaRowJSON+`}}`)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"quota", "set", "--org", "acme.com", "--action", "run.execute", "--limit", "5", "--server", srv.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	vars := onlyOp(t, reqs(), "SetQuotaLimit")
+	in, _ := vars["input"].(map[string]any)
+	if b, _ := json.Marshal(in); string(b) != `{"action":"run.execute","limit":5,"orgRef":"acme.com"}` {
+		t.Errorf("input = %s", b)
 	}
 }

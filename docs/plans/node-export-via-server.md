@@ -27,8 +27,18 @@ Only the single-node render in `node export` moves to the server.
    snapshot edit is surgical (only the `nodeExport` SDL) — a full `make schema`
    also pulls unrelated server drift (e.g. `OrgMember.role` going nullable per
    #384) that would break `org/member.go`; that belongs in its own change.
-2. **`node export`.** Resolve the node id, call `nodeExport(id, format, full:
-   true)`, and write the returned `data`:
+2. **`node export`.** Resolve the node id, call `nodeExport(ref, format, full:
+   true)`, and write the returned `data`. Three things about that call, kept
+   apart:
+   - *Rename history.* The argument was `id` until hadron-server#4763
+     (cli#2899); the server now takes a PK or a node URN there. The CLI still
+     resolves first and sends the resolved id.
+   - *Error semantics.* A missing, soft-deleted, unreadable or concealed node
+     refuses as `NODE_NOT_FOUND`, exit 4, one answer for every cause.
+   - *Compatibility.* A new CLI on an older server fails loud as a schema
+     mismatch, exit 2, with no fallback to the old argument name.
+
+   The write itself:
    - stdout (default): write `data` verbatim — single round-trip, nothing else.
    - `-o <file>`: write `data`, then one light `NodeExportMeta` read for the
      `--json` summary's loc/name/memory (the render carries no identifying

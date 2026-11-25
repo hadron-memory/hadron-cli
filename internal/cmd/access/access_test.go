@@ -7,21 +7,6 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
-// The suggested example must compose with the separator the caller used, so a
-// single-colon shorthand isn't handed back a "::"-shaped v1 prefix.
-func TestMemoryURNExampleMatchesSeparator(t *testing.T) {
-	cases := []struct{ in, want string }{
-		{"acme.com:kb", "hrn:mem:acme.com:kb"},      // v2 short form → canonical prefix
-		{"acme.com::kb", "hrn:memory:acme.com::kb"}, // v1 short form → legacy prefix
-		{"acme.com::kb::start-here", "hrn:memory:acme.com::kb::start-here"},
-	}
-	for _, tc := range cases {
-		if got := memoryURNExample(tc.in); got != tc.want {
-			t.Errorf("memoryURNExample(%q) = %q, want %q", tc.in, got, tc.want)
-		}
-	}
-}
-
 func TestNormalizeResourceRef(t *testing.T) {
 	// Any scheme-prefixed ref passes through verbatim — the server dispatches
 	// on its type, and it accepts v2 and legacy spellings alike.
@@ -56,8 +41,8 @@ func TestNormalizeResourceRef(t *testing.T) {
 		if got := exitcode.FromError(err); got != exitcode.Usage {
 			t.Errorf("%q should be a usage error, got %d", ref, got)
 		}
-		if !strings.Contains(err.Error(), memoryURNExample(ref)) {
-			t.Errorf("%q: the error should suggest %q, got %q", ref, memoryURNExample(ref), err.Error())
+		if !strings.Contains(err.Error(), "hrn:mem:<root>:<slug>") || strings.Contains(err.Error(), ref) {
+			t.Errorf("%q: the error should name the accepted form and not the value, got %q", ref, err.Error())
 		}
 	}
 

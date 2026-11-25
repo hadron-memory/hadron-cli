@@ -2135,10 +2135,15 @@ that would leave a session open with its only local handle gone.
 
 --json carries "source": "worktree" when the binding answered, "server" when
 the fallback did. A binding answer also carries the optional "chatSeenSeq": how
-far this worktree has rendered the team chat (absent when it never read, 0 when
-it read an empty chat). It is a per-worktree cache, never an unread position and
-never your read state: it only decides whether a chat read counts as read through,
-and every unread count comes from the server read cursor.
+far this worktree has rendered the team chat (absent when it never read or the
+binding predates the field, 0 when it read an empty chat). It is a per-worktree
+rendering cache, never an unread position and never your read state; only
+` + "`" + `chat read` + "`" + ` consults it, and ` + "`" + `chat mark-read` + "`" + ` on the team chat also writes it.
+A read can only advance it when ` + "`" + `--since` + "`" + ` is at or below the cache, or is ` + "`" + `0` + "`" + `
+when there is none. Then the cache advances and the server-side read mark is
+sent. That is necessary, not sufficient: a read with no cursor, ` + "`" + `--before` + "`" + `, a
+filter or ` + "`" + `--thread` + "`" + ` never qualifies. Every unread count comes from the
+server read cursor.
 
 --check ASKS THE SERVER about the bound session. The
 binding identity remains available locally for compaction recovery. The default
@@ -2328,10 +2333,10 @@ type logResultDTO struct {
 // WHERE "UNREAD" COMES FROM (cli#2858, cor:dmo:090:06). Unread is derived: the gap
 // between the channel's head and the attendee's SERVER-side read state. So the count
 // starts at the bound worker's server read cursor, the one `team chat read` and
-// `team chat mark-read` move, and never at the worktree's local hint (the binding's
+// `team chat mark-read` move, and never at the worktree's rendering cache (the binding's
 // ChatSeenSeq), which only some reads move and so lags or is absent: it once produced
 // "111213 new messages" and `--since 20250` against a true gap of about 136. The server
-// wins where they disagree, so the hint plays no part here.
+// wins where they disagree, so the cache plays no part here.
 //
 // WHEN IT CANNOT KNOW. If the cursor cannot be read (no worker, no channel, the read
 // failed, no row, or a legacy / previous-incarnation cursor that is not a watermark: the

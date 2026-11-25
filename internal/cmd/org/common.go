@@ -127,7 +127,7 @@ func parseRole(s string) (gen.Role, error) {
 	case "READER":
 		return gen.RoleReader, nil
 	default:
-		return "", exitcode.Newf(exitcode.Usage, "invalid --role %q (want OWNER, ADMIN, CONTRIBUTOR, or READER)", s)
+		return "", exitcode.Newf(exitcode.Usage, "invalid --role (want OWNER, ADMIN, CONTRIBUTOR, or READER)")
 	}
 }
 

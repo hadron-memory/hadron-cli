@@ -113,7 +113,7 @@ func parseAssetRef(ref string) (assetRef, error) {
 		}
 	}
 	return assetRef{}, exitcode.Newf(exitcode.Usage,
-		"%q is not an asset id or URN — expected a bare id or hrn:asset:<root>:<memory>:assets:<id>", ref)
+		"not an asset id or URN (the value given is not shown) — expected a bare id or hrn:asset:<root>:<memory>:assets:<id>")
 }
 
 // memoryScope resolves the memory an asset command should work in: the one the
@@ -128,7 +128,7 @@ func memoryScope(ref assetRef, memFlag string) (string, error) {
 		return ref.MemoryRef, nil
 	default:
 		return "", exitcode.Newf(exitcode.Usage,
-			"cannot tell which memory holds asset %q — pass -m <memory>, or give the asset's URN (which carries it)", ref.ID)
+			"cannot tell which memory holds the asset (the id given is not shown) — pass -m <memory>, or give the asset's URN (which carries it)")
 	}
 }
 
@@ -146,7 +146,7 @@ func resolveMemoryID(cmd *cobra.Command, client graphql.Client, ref string) (str
 	}
 	if resp.Memory == nil {
 		return "", exitcode.Newf(exitcode.NotFound,
-			"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug> (canonical), the <root>::<slug> / <root>:<slug> short forms, or the legacy hrn:memory: prefix", ref)
+			"no memory found (the ref given is not shown) — expected a memory id or a URN: hrn:mem:<root>:<slug> (canonical), the <root>::<slug> / <root>:<slug> short forms, or the legacy hrn:memory: prefix")
 	}
 	return resp.Memory.Id, nil
 }

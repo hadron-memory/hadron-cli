@@ -400,7 +400,7 @@ func TestAppMemberOutcomeUnknown(t *testing.T) {
 			if out.String() != "" {
 				t.Errorf("no success DTO on stdout: %q", out.String())
 			}
-			if !strings.Contains(err.Error(), "outcome unknown") || !strings.Contains(err.Error(), "app member list --app "+memberApp) {
+			if !strings.Contains(err.Error(), "outcome unknown") || !strings.Contains(err.Error(), "app member list --app <app-ref>") {
 				t.Errorf("must say outcome unknown and point at list: %v", err)
 			}
 			if calls("EnsureAppMember") != 1 {

@@ -142,6 +142,12 @@ func unstubbedDefault(op string) (string, bool) {
 	// Modern lifecycle tests supply their explicit response.
 	case "GetAgentLifecycle":
 		return missingFieldJSON("lifecycle"), true
+	// #3127: `spec lint` asks the server for its two content checks. Unstubbed,
+	// the stub returns an empty batch (a simplification: a real server returns
+	// every ref in nodes or unavailable), so the existing lint tests keep their
+	// reports; the tests of those checks stub SpecLintBatch themselves.
+	case "SpecLintBatch":
+		return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[]}}}`, true
 	// #2162: an unstubbed legacy server has no Agent.contextCap (#4258).
 	case "GetAgentContextCap":
 		return missingFieldJSON("contextCap"), true
@@ -328,6 +334,7 @@ func testFactory(t *testing.T) (*cmdutil.Factory, *strings.Builder) {
 	// The spec commands read this env var ahead of the (temp-dir) config, so a
 	// developer with it exported would silently scope the unscoped-path tests.
 	t.Setenv("HADRON_SPEC_MEMORY", "")
+	pinLauncherEnv3091(t)
 	io, _, _ := output.Test()
 	out := &strings.Builder{}
 	errOut := &strings.Builder{}

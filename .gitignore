@@ -39,3 +39,7 @@ dist/
 
 # IDE
 .idea/
+
+# Patch leftovers
+*.orig
+*.rej

@@ -48,29 +48,29 @@ var definitiveSubscriptionRevokeRefusals = []string{
 // subscriptionRevokeNotConfirmed is the unknown-outcome error: the revoke, or the
 // empty-memory deletion after it, may have happened, so it is never resent and the
 // caller is told where to look.
-func subscriptionRevokeNotConfirmed(agent, user, why string) error {
-	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, the subscription of %s to %s may have been revoked and its empty personal memory deleted. It is not resent: check with `hadron memory list` whether that user's memory for the Agent is still there (or `hadron agent subscription list --agent <agent>`, which shows whether the subscription is revoked), then decide whether to run it again", why, output.SafeCell(user), output.SafeCell(agent))
+func subscriptionRevokeNotConfirmed(why string) error {
+	return exitcode.Newf(exitcode.Unavailable, "revoke not confirmed (%s): the outcome is unknown, the subscription of the user to the Agent (the refs given are not shown) may have been revoked and its empty personal memory deleted. It is not resent: check with `hadron memory list` whether that user's memory for the Agent is still there (or `hadron agent subscription list --agent <agent>`, which shows whether the subscription is revoked), then decide whether to run it again", why)
 }
 
-func subscriptionRevokeError(err error, agent, user string) error {
+func subscriptionRevokeError(err error) error {
 	mapped := api.MapErrorKeepingCode(err)
 	if api.OnlyErrorCodesAtRoot(err, definitiveSubscriptionRevokeRefusals...) {
 		return mapped
 	}
-	return api.WithServerCode(subscriptionRevokeNotConfirmed(agent, user, mapped.Error()), err)
+	return api.WithServerCode(subscriptionRevokeNotConfirmed(mapped.Error()), err)
 }
 
 // confirmedRevoked checks the answer is a subscription that now reads as ended: not
 // active, with a revokedAt. Anything else is not a confirmation.
-func confirmedRevoked(s *gen.RevokeAgentSubscriptionRevokeAgentSubscription, agent, user string) (subscriptionRevokeDTO, error) {
+func confirmedRevoked(s *gen.RevokeAgentSubscriptionRevokeAgentSubscription) (subscriptionRevokeDTO, error) {
 	if s == nil || strings.TrimSpace(s.AgentId) == "" || strings.TrimSpace(s.UserId) == "" {
-		return subscriptionRevokeDTO{}, subscriptionRevokeNotConfirmed(agent, user, "the server returned no subscription")
+		return subscriptionRevokeDTO{}, subscriptionRevokeNotConfirmed("the server returned no subscription")
 	}
 	if s.IsActive {
-		return subscriptionRevokeDTO{}, subscriptionRevokeNotConfirmed(agent, user, "the server returned the subscription still active")
+		return subscriptionRevokeDTO{}, subscriptionRevokeNotConfirmed("the server returned the subscription still active")
 	}
 	if s.RevokedAt == nil {
-		return subscriptionRevokeDTO{}, subscriptionRevokeNotConfirmed(agent, user, "the server returned the subscription without a revokedAt")
+		return subscriptionRevokeDTO{}, subscriptionRevokeNotConfirmed("the server returned the subscription without a revokedAt")
 	}
 	return subscriptionRevokeDTO{
 		AgentID: s.AgentId, UserID: s.UserId, IsActive: s.IsActive, CreatedAt: s.CreatedAt,
@@ -158,13 +158,13 @@ activatedAt,expiresAt,revokedAt}.`,
 			}
 			resp, err := gen.RevokeAgentSubscription(cmd.Context(), client, agentRef, userRef)
 			if err != nil {
-				return subscriptionRevokeError(err, agentRef, userRef)
+				return subscriptionRevokeError(err)
 			}
 			var s *gen.RevokeAgentSubscriptionRevokeAgentSubscription
 			if resp != nil {
 				s = resp.RevokeAgentSubscription
 			}
-			d, err := confirmedRevoked(s, agentRef, userRef)
+			d, err := confirmedRevoked(s)
 			if err != nil {
 				return err
 			}

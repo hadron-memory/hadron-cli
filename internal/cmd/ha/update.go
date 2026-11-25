@@ -105,10 +105,10 @@ prints the instance as "ha get --json" does, without the token.`,
 			id := args[0]
 			resp, err := gen.UpdateHomeAssistantInstance(cmd.Context(), client, id, nameArg, urlArg, tokenArg, allowArg, enabledArg)
 			if err != nil {
-				return writeError(err, "hadron ha get "+cmdutil.ShellQuote(id), token)
+				return writeError(err, "hadron ha get <instance-id>", token)
 			}
 			if resp == nil || resp.UpdateHomeAssistantInstance == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no instance; run `hadron ha get %s` to see whether the change applied", cmdutil.ShellQuote(id))
+				return exitcode.Newf(exitcode.Error, "the server returned no instance; run `hadron ha get <instance-id>` to see whether the change applied")
 			}
 			dto := dtoFromFields(resp.UpdateHomeAssistantInstance.HomeAssistantInstanceFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

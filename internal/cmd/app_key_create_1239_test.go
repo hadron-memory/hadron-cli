@@ -119,7 +119,7 @@ func TestAppKeyCreateInternalErrorGetsLostAnswerWording(t *testing.T) {
 	if strings.Contains(r.all(), "boom") {
 		t.Errorf("the server's message must not be echoed on the credential-minting path: %q", r.all())
 	}
-	for _, want := range []string{"answer was lost", "orca1 poller", "hadron app key list " + app1223, "revoke"} {
+	for _, want := range []string{"answer was lost", "the --label given (not shown)", "hadron app key list <app-ref>", "revoke"} {
 		if !strings.Contains(r.all(), want) {
 			t.Errorf("message missing %q: %q", want, r.all())
 		}
