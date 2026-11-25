@@ -24,11 +24,20 @@ import (
 const metricsNotVisible = "not visible to you"
 
 // metricsCountDTO is the server's TeamMetricsCount: the exact total, at most 200
-// ids, and whether the ids are fewer than the total.
+// ids, whether the ids are fewer than the total, and — server#4992, cli#3099 —
+// one named entry per id (same order), so a client needs no read per id.
 type metricsCountDTO struct {
-	Total     int      `json:"total"`
-	IDs       []string `json:"ids"`
-	Truncated bool     `json:"truncated"`
+	Total     int                 `json:"total"`
+	IDs       []string            `json:"ids"`
+	Named     []metricsNamedIdDTO `json:"named"`
+	Truncated bool                `json:"truncated"`
+}
+
+// metricsNamedIdDTO is one id of ids with its name — a task title or a worker
+// name — null when no name is readable.
+type metricsNamedIdDTO struct {
+	ID   string  `json:"id"`
+	Name *string `json:"name"`
 }
 
 type metricsProjectDTO struct {
@@ -110,7 +119,8 @@ type metricsDTO struct {
 const teamMetricsHelp = `Show a team's computed task and worker flow: the server's teamMetrics
 reports, rendered as returned. The CLI adds up, regroups and filters nothing.
 
-Each count comes with the ids behind it: --ids lists them. A list holds at
+Each count comes with the ids behind it: --ids lists them, each id with its
+name (a task title or a worker name) when one is readable. A list holds at
 most 200 ids, and a longer one reads "first 200 of N".
 
 The reports:
@@ -144,8 +154,9 @@ missing App (exit 4).
 a hidden report is null.
 
 Exit codes: 0 read; 2 a bad flag, a window the server refuses, or a server
-that does not serve teamMetrics (one from before 2026-11-22); 4 no such App
-or not readable; 1 a server fault.`
+that does not serve what the query selects — teamMetrics itself (one from
+before 2026-11-22) or the counts' named field (one from before
+2026-11-24); 4 no such App or not readable; 1 a server fault.`
 
 func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 	var since, until string
@@ -197,6 +208,10 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 					return api.WithServerCode(exitcode.Newf(exitcode.Usage,
 						"this server does not serve teamMetrics (it predates 2026-11-22); nothing was read"), err)
 				}
+				if api.IsFrameworkValidationOnlyFor(err, "named") {
+					return api.WithServerCode(exitcode.Newf(exitcode.Usage,
+						"this server does not serve the counts' named field (it predates 2026-11-24, server#4992); nothing was read"), err)
+				}
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp.TeamMetrics == nil {
@@ -215,8 +230,14 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 }
 
 func countFromGen(c gen.TeamMetricsCountFields) metricsCountDTO {
-	out := metricsCountDTO{Total: c.Total, IDs: []string{}, Truncated: c.Truncated}
+	out := metricsCountDTO{Total: c.Total, IDs: []string{}, Named: []metricsNamedIdDTO{}, Truncated: c.Truncated}
 	out.IDs = append(out.IDs, c.Ids...)
+	for _, n := range c.Named {
+		if n == nil {
+			continue
+		}
+		out.Named = append(out.Named, metricsNamedIdDTO{ID: n.Id, Name: n.Name})
+	}
 	return out
 }
 
@@ -328,14 +349,25 @@ func renderMetrics(w io.Writer, dto metricsDTO, ids bool) error {
 		fmt.Fprintf(&sb, format, a...)
 		sb.WriteString("\n")
 	}
-	// idLine lists a count's ids under it (--ids): a cut-short list says it is partial.
+	// idLine lists a count's ids under it (--ids), each with its name when one
+	// is readable: a cut-short list says it is partial.
 	idLine := func(indent int, c metricsCountDTO) {
 		if !ids || len(c.IDs) == 0 {
 			return
 		}
+		names := make(map[string]string, len(c.Named))
+		for _, n := range c.Named {
+			if n.Name != nil && *n.Name != "" {
+				names[n.ID] = *n.Name
+			}
+		}
 		safe := make([]string, len(c.IDs))
 		for i, id := range c.IDs {
-			safe[i] = output.SafeCell(id)
+			cell := output.SafeCell(id)
+			if name, ok := names[id]; ok {
+				cell += " (" + output.SafeCell(name) + ")"
+			}
+			safe[i] = cell
 		}
 		label := "ids"
 		if c.Truncated {

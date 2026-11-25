@@ -1813,8 +1813,15 @@ func codeForExtension(code string) int {
 	// the caller drops the flag), or an eventId that is not an alarm — all
 	// inputs the caller fixes. NOT_AN_ALARM is spelled without the _NOT_FOUND
 	// shape because the event EXISTS; only its kind is wrong.
+	// ALARM_NOT_ACKNOWLEDGEABLE (cli#3099 over server#4531, cor:agt:050:34)
+	// is the same shape one step in: the alarm exists, but a team.dark alarm
+	// has no chain and is never acknowledged — not a permission (nobody is in
+	// a chain to be granted) and not a state that can change (it will never
+	// become acknowledgeable). Like NOT_AN_ALARM, the caller fixes it by
+	// naming a different event.
 	case code == "TASK_OWNER_INVALID" || code == "TASK_ASSIGNEE_INVALID" ||
-		code == "TASK_CHILD_OWNER_MISMATCH" || code == "NOT_AN_ALARM":
+		code == "TASK_CHILD_OWNER_MISMATCH" || code == "NOT_AN_ALARM" ||
+		code == "ALARM_NOT_ACKNOWLEDGEABLE":
 		return exitcode.Usage
 	// Task properties (hadron-cli#1118, server#2420): a value that is not an
 	// object, over the 16 KiB bound, or against the team's task-properties schema
