@@ -115,11 +115,18 @@ func (ls *loopbackServer) Wait(ctx context.Context, bound time.Duration) (string
 	case res := <-ls.results:
 		return res.code, res.err
 	case <-ctx.Done():
-		if errors.Is(ctx.Err(), context.Canceled) {
-			return "", exitcode.Newf(exitcode.Cancelled, "the browser sign-in was cancelled; nothing was stored")
-		}
-		return "", exitcode.Newf(exitcode.Cancelled, "the browser sign-in did not finish within %s; nothing was stored. If you were still adding a passkey, finish that in the browser first, then rerun `hadron auth login`", formatBound(bound))
+		return "", ctxDoneError(ctx, bound)
 	}
+}
+
+// ctxDoneError is the Cancelled answer for a sign-in wait that ended: the
+// caller cancelled it, or the limit named in bound passed. Nothing has been
+// stored either way.
+func ctxDoneError(ctx context.Context, bound time.Duration) error {
+	if errors.Is(ctx.Err(), context.Canceled) {
+		return exitcode.Newf(exitcode.Cancelled, "the browser sign-in was cancelled; nothing was stored")
+	}
+	return exitcode.Newf(exitcode.Cancelled, "the browser sign-in did not finish within %s; nothing was stored. If you were still adding a passkey, finish that in the browser first, then rerun `hadron auth login`", formatBound(bound))
 }
 
 // formatBound renders a wait limit for a person: "15 minutes" rather than
