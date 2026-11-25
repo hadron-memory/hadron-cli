@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -15,6 +17,10 @@ func TestSlice2RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 	q := "acme.com::specs"
 	staged := func(op, field string) map[string]string {
 		return map[string]string{op: `{"data":null,"errors":[{"message":"m","path":["` + field + `"],"extensions":{"code":"SECRET_PROTECTED_NEEDS_PASSKEY","requestId":"r1","ceremonyUrl":"https://x.test/c"}}]}`}
+	}
+	secretFile := filepath.Join(t.TempDir(), "v")
+	if err := os.WriteFile(secretFile, []byte("v"), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	router := map[string]string{"GetNodeRaw": codingRouterWithBody(flatRouterBody), "GetMemory": `{"data":{"memory":null}}`}
 	for _, tc := range []struct {
@@ -40,6 +46,8 @@ func TestSlice2RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 		{"secret rm", map[string]string{"DeleteSecret": `{"data":{"deleteSecret":false}}`}, []string{"secret", "rm", p, "--yes"}, "secret not found", exitcode.NotFound},
 		{"secret exec command", nil, []string{"secret", "exec", "--client", "c1", "--env", "T", "--", p}, "cannot run the command", exitcode.Usage},
 		{"secret exec path", nil, []string{"secret", "exec", "--client", "c1", "--env", "T", "--", "./" + p}, "cannot run the command", exitcode.Usage},
+		{"secret create staged", staged("CreateSecret", "createSecret"), []string{"secret", "create", "--name", low, "--scope", "app", "--owner", "hrn:app:acme.com:ops", "--kind", "generic", "--value-file", secretFile}, "staged, not applied", exitcode.Conflict},
+		{"secret create --protected staged", staged("CreateSecretProtected", "createSecret"), []string{"secret", "create", "--name", low, "--scope", "app", "--owner", "hrn:app:acme.com:ops", "--kind", "generic", "--value-file", secretFile, "--protected"}, "staged, not applied", exitcode.Conflict},
 		{"secret rm staged", staged("DeleteSecret", "deleteSecret"), []string{"secret", "rm", p, "--yes"}, "staged, not applied", exitcode.Conflict},
 		{"secret protect staged", staged("SetSecretProtected", "setSecretProtected"), []string{"secret", "protect", p, "--off"}, "staged, not applied", exitcode.Conflict},
 		{"secret change get", map[string]string{"SecretChangeRequest": `{"data":{"secretChangeRequest":null}}`}, []string{"secret", "change", "get", p}, "change request not found", exitcode.NotFound},
