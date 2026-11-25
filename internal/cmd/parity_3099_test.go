@@ -1,11 +1,11 @@
 package cmd
 
-// cli#3099 parity pins (red first, one per gate item):
+// cli#3099 parity pins:
 //
-//  1. `run ls --sort duration` — AppRunSortField.duration is part of the
+//   - `run ls --sort duration`: AppRunSortField.duration is part of the
 //     server's enum (server#5035, closes server#855). The CLI's client-side
 //     list must accept it, not refuse it before anything is sent.
-//  3. ALARM_NOT_ACKNOWLEDGEABLE — a team.dark alarm has no chain and is never
+//   - ALARM_NOT_ACKNOWLEDGEABLE: a team.dark alarm has no chain and is never
 //     acknowledged (server#4531, cor:agt:050:34). The ack refusal must carry a
 //     documented exit code, and the agentic contract must say which one.
 
@@ -18,9 +18,8 @@ import (
 )
 
 // TestRunLsSortDurationIsSent_3099 pins that --sort duration is accepted and
-// reaches the server as sortBy=duration. On main the client-side switch
-// refuses it (exit 2, nothing sent), so a script sorting runs by how long
-// they took cannot ask the question at all.
+// reaches the server as sortBy=duration, so a script can sort runs by how long
+// they took.
 func TestRunLsSortDurationIsSent_3099(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"AppRuns": `{"data":{"appRuns":{"total":1,"items":[` + appRunJSON + `]}}}`,
@@ -39,8 +38,7 @@ func TestRunLsSortDurationIsSent_3099(t *testing.T) {
 }
 
 // TestRunLsSortRefusalNamesDuration_3099 pins that the refusal for an unknown
-// --sort value still names duration among the accepted fields, so the guard
-// widening does not leave the error message stale.
+// --sort value names duration among the accepted fields.
 func TestRunLsSortRefusalNamesDuration_3099(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -52,14 +50,24 @@ func TestRunLsSortRefusalNamesDuration_3099(t *testing.T) {
 }
 
 // TestAgenticUsageDocumentsAlarmNotAcknowledgeable_3099 pins that the embedded
-// agent contract documents ALARM_NOT_ACKNOWLEDGEABLE and its exit code: an
-// agent that tries to ack a team.dark alarm must be able to learn from the
-// contract why it cannot.
+// agent contract documents ALARM_NOT_ACKNOWLEDGEABLE with its exit code, on the
+// `team alarm ack` entry: an agent that tries to ack a team.dark alarm must be
+// able to learn from the contract why it cannot. (The MapError test covers the
+// actual mapping.)
 func TestAgenticUsageDocumentsAlarmNotAcknowledgeable_3099(t *testing.T) {
-	doc := agentic.Doc()
-	for _, want := range []string{"ALARM_NOT_ACKNOWLEDGEABLE", "team.dark"} {
-		if !strings.Contains(doc, want) {
-			t.Errorf("agentic-usage must document %s (a team.dark alarm is never acknowledgeable)", want)
+	var entry string
+	for _, line := range strings.Split(agentic.Doc(), "\n") {
+		if strings.HasPrefix(line, "hadron team alarm ack ") {
+			entry = line
+			break
+		}
+	}
+	if entry == "" {
+		t.Fatal("agentic-usage has no `hadron team alarm ack` entry")
+	}
+	for _, want := range []string{"ALARM_NOT_ACKNOWLEDGEABLE, exit 2", "team.dark"} {
+		if !strings.Contains(entry, want) {
+			t.Errorf("the `team alarm ack` entry must say %q (a team.dark alarm is never acknowledgeable)", want)
 		}
 	}
 }

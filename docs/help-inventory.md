@@ -432,7 +432,7 @@ section between the markers.
 | `run cancel` |  |  | y | #1053 | 9e1ebf19ca9b |  | unread |  |
 | `run get` |  |  | y | #1053 | d268f2d5c422 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run latest` |  |  | y | #1053 | f3fae5389764 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `run list` | ls |  | y | #1053 | 2058c67ec643 |  | unread |  |
+| `run list` | ls |  | y | #1053 | 5bf5ae1997b6 |  | unread |  |
 | `run served-prompt` |  |  | y | #1053 | 64d3b7b56365 |  | unread |  |
 | `run trigger` |  |  | y | #1053 | 75e6d9928870 |  | unread |  |
 | `schedule` |  |  | n | #1053 | e659cb6453d5 |  | unread |  |
@@ -494,7 +494,7 @@ section between the markers.
 | `chat served-prompts` |  |  | y | #1054 | b76c874719e7 |  | unread |  |
 | `chat tool-choice` |  |  | y | #1054 | 7579a9d1656b |  | unread |  |
 | `team` |  |  | n | #1054 | 7793845b93a3 |  | unread |  |
-| `team alarm` |  |  | y | #1054 | d05b0126d4f8 |  | unread |  |
+| `team alarm` |  |  | y | #1054 | 2baf6938f908 |  | unread |  |
 | `team alarm ack` |  |  | y | #1054 | 95a04dc98dac |  | unread |  |
 | `team alarms` |  |  | y | #1054 | 03a80d11ee74 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |

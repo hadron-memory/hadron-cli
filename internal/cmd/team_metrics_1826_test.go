@@ -153,18 +153,46 @@ func TestTeamMetricsEmptyListsRenderAsEmptyArrays1826(t *testing.T) {
 // A cut-short count keeps its truncated flag, its larger total and its 200 ids.
 func TestTeamMetricsTruncatedCountIsKept1826(t *testing.T) {
 	ids := make([]string, 200)
+	named := make([]map[string]string, 200)
 	for i := range ids {
 		ids[i] = "t" + strings.Repeat("x", 1) + string(rune('a'+i%26)) + string(rune('a'+i/26))
+		named[i] = map[string]string{"id": ids[i], "name": "title of " + ids[i]}
 	}
 	idsJSON, _ := json.Marshal(ids)
+	namedJSON, _ := json.Marshal(named)
 	body := strings.Replace(metricsEmpty,
 		`"startedOwned":{"all":{"total":0,"ids":[],"named":[],"truncated":false}`,
-		`"startedOwned":{"all":{"total":350,"ids":`+string(idsJSON)+`,"named":[],"truncated":true}`, 1)
+		`"startedOwned":{"all":{"total":350,"ids":`+string(idsJSON)+`,"named":`+string(namedJSON)+`,"truncated":true}`, 1)
 	_, out, err := runTeamTask(t, metricsResponses1826(body), "team", "metrics", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	sameJSON1826(t, out, body)
+	// named stays aligned with ids on a truncated list: one entry per listed id,
+	// same order, and the total is not the count of either.
+	var doc struct {
+		StartedOwned struct {
+			All struct {
+				IDs   []string `json:"ids"`
+				Named []struct {
+					ID   string `json:"id"`
+					Name string `json:"name"`
+				} `json:"named"`
+			} `json:"all"`
+		} `json:"startedOwned"`
+	}
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("decode --json: %v", err)
+	}
+	all := doc.StartedOwned.All
+	if len(all.Named) != len(ids) || len(all.IDs) != len(ids) {
+		t.Fatalf("named must hold one entry per listed id: ids=%d named=%d want %d", len(all.IDs), len(all.Named), len(ids))
+	}
+	for i, n := range all.Named {
+		if n.ID != ids[i] || all.IDs[i] != ids[i] || n.Name != "title of "+ids[i] {
+			t.Fatalf("named[%d] must align with ids[%d]=%s, got %+v", i, i, ids[i], n)
+		}
+	}
 
 	_, text, err := runTeamTask(t, metricsResponses1826(body), "team", "metrics")
 	if err != nil {
@@ -179,6 +207,9 @@ func TestTeamMetricsTruncatedCountIsKept1826(t *testing.T) {
 	}
 	if !strings.Contains(withIDs, "first 200 of 350") {
 		t.Errorf("--ids must say a truncated list is partial (first 200 of 350):\n%s", withIDs)
+	}
+	if !strings.Contains(withIDs, ids[199]+" (title of "+ids[199]+")") {
+		t.Errorf("--ids must show a name beside an id of a truncated list:\n%s", withIDs)
 	}
 }
 

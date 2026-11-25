@@ -166,3 +166,71 @@ func TestTeamMetricsNamedFloorSaidNotRaw_3099(t *testing.T) {
 		t.Fatalf("the raw GraphQL error must not leak:\n%s", msg)
 	}
 }
+
+// metricsNamedBody3099 is metricsNamedFixture3099 with the active count's
+// named list replaced, so a test can feed hostile, empty or malformed names.
+func metricsNamedBody3099(named string) string {
+	return strings.Replace(metricsNamedFixture3099,
+		`"named":[{"id":"01a1w1","name":"Jimmy"},{"id":"01a1w2","name":null}]`,
+		`"named":`+named, 1)
+}
+
+// A name is untrusted text: a newline or an ANSI escape in it must not reach
+// the terminal, so the --ids cell goes through output.SafeCell. Without that
+// call the fixture's harmless names would keep every other test green.
+func TestTeamMetricsNameIsSafeCell_3099(t *testing.T) {
+	body := metricsNamedBody3099(`[{"id":"01a1w1","name":"evil\nINJECTED \u001b[31mred"},{"id":"01a1w2","name":null}]`)
+	out, err := runMetrics3099With(t, body, "--ids")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.ContainsRune(out, 0x1b) {
+		t.Errorf("an ANSI escape in a name must not reach the terminal:\n%q", out)
+	}
+	if strings.Contains(out, "evil\nINJECTED") {
+		t.Errorf("a newline in a name must not split the cell:\n%q", out)
+	}
+	if !strings.Contains(out, "01a1w1 (evil") {
+		t.Errorf("the name must still show beside its id, neutralised:\n%q", out)
+	}
+}
+
+// An empty name is no name: text shows the bare id, --json keeps "" as sent.
+func TestTeamMetricsEmptyNameStaysBare_3099(t *testing.T) {
+	body := metricsNamedBody3099(`[{"id":"01a1w1","name":""},{"id":"01a1w2","name":null}]`)
+	text, err := runMetrics3099With(t, body, "--ids")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if strings.Contains(text, "01a1w1 (") {
+		t.Errorf("an empty name must show the bare id:\n%s", text)
+	}
+	js, err := runMetrics3099With(t, body, "--json")
+	if err != nil {
+		t.Fatalf("execute --json: %v", err)
+	}
+	if !strings.Contains(js, `"name": ""`) {
+		t.Errorf("--json must keep the empty name as sent:\n%s", js)
+	}
+}
+
+// named runs beside ids, one entry per id in the same order (cor:agt:150). A
+// null entry has no id, so it can only be a malformed answer: the command
+// fails with exit 1 and prints nothing, never a shortened or padded list.
+func TestTeamMetricsNullNamedEntryFailsLoudly_3099(t *testing.T) {
+	body := metricsNamedBody3099(`[{"id":"01a1w1","name":"Jimmy"},null]`)
+	out, err := runMetrics3099With(t, body, "--json")
+	if err == nil {
+		t.Fatalf("a null named entry must fail the command, got output:\n%s", out)
+	}
+	var coded *exitcode.CodedError
+	if !errors.As(err, &coded) || coded.Code != exitcode.Error {
+		t.Fatalf("a malformed answer must be exit 1, got %v", err)
+	}
+	if !strings.Contains(coded.Error(), "malformed") {
+		t.Errorf("the error must say the answer was malformed: %v", coded)
+	}
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("nothing may be printed on a malformed answer:\n%s", out)
+	}
+}
