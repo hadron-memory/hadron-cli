@@ -80735,6 +80735,17 @@ func (v *PurgeUnansweredQuestionResponse) GetPurgeUnansweredQuestion() *bool {
 	return v.PurgeUnansweredQuestion
 }
 
+// PushMemoryToGitResponse is returned by PushMemoryToGit on success.
+type PushMemoryToGitResponse struct {
+	// Push all nodes in a memory to its configured git repo.
+	//
+	// Accepts the entity's ID or URN.
+	PushMemoryToGit bool `json:"pushMemoryToGit"`
+}
+
+// GetPushMemoryToGit returns PushMemoryToGitResponse.PushMemoryToGit, and is useful for accessing the field via an interface.
+func (v *PushMemoryToGitResponse) GetPushMemoryToGit() bool { return v.PushMemoryToGit }
+
 // QuestionActorFields includes the GraphQL fields of QuestionActor requested by the fragment QuestionActorFields.
 // The GraphQL type's documentation follows.
 //
@@ -142075,6 +142086,14 @@ func (v *__PurgeUnansweredQuestionInput) GetRef() string { return v.Ref }
 // GetReason returns __PurgeUnansweredQuestionInput.Reason, and is useful for accessing the field via an interface.
 func (v *__PurgeUnansweredQuestionInput) GetReason() string { return v.Reason }
 
+// __PushMemoryToGitInput is used internally by genqlient
+type __PushMemoryToGitInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __PushMemoryToGitInput.Ref, and is useful for accessing the field via an interface.
+func (v *__PushMemoryToGitInput) GetRef() string { return v.Ref }
+
 // __QuestionInput is used internally by genqlient
 type __QuestionInput struct {
 	Ref    *string `json:"ref,omitempty"`
@@ -179813,6 +179832,40 @@ func PurgeUnansweredQuestion(
 	return data_, err_
 }
 
+// The mutation executed by PushMemoryToGit.
+const PushMemoryToGit_Operation = `
+mutation PushMemoryToGit ($ref: ID!) {
+	pushMemoryToGit(ref: $ref)
+}
+`
+
+// cli#2513: push the memory's live nodes to its configured repository. The
+// server answers only a Boolean: no count, commit or branch.
+func PushMemoryToGit(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *PushMemoryToGitResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PushMemoryToGit",
+		Query:  PushMemoryToGit_Operation,
+		Variables: &__PushMemoryToGitInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &PushMemoryToGitResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by Question.
 const Question_Operation = `
 query Question ($ref: ID, $code: String, $logRef: ID) {
@@ -188436,7 +188489,7 @@ mutation SyncMemory ($ref: ID!) {
 }
 `
 
-// cli#60 slice A v2: pull only; push remains gap #60 (ruling 0168).
+// cli#60 slice A v2: pull. Push is the separate PushMemoryToGit below (cli#2513).
 func SyncMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,

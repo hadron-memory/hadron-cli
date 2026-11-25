@@ -278,7 +278,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 373: 341 command, 15 gap, 17 excluded
+[Mutation] 373: 342 command, 14 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -471,7 +471,7 @@ processChatResponse  gap #64
 publishAgentImport  command agent import publish
 publishRevision  command agent revision publish
 purgeUnansweredQuestion  command question purge
-pushMemoryToGit  gap #2513
+pushMemoryToGit  command memory sync push
 reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
