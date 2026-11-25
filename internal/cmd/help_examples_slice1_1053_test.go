@@ -221,7 +221,7 @@ func TestUnsafeExamplePathGuard1053(t *testing.T) {
 		"-o/etc/x", "-o../x", "-o~/x", "--set=key=/etc/x", "--meta=k=../x", "a.json,/etc/x", "--files=a.json,../b.json",
 		// cli#2849 F18: short flags clustered before a glued value (-v -o/etc/x as -vo/etc/x),
 		// and a value nested in more than one key=value (a=b=/etc/x).
-		"-vo/etc/x", "-vo../x", "-vo~/x", "-vvo/etc/x", "-vo=/etc/x", "a=b=/etc/x", "--set=a=b=/etc/x", "--set=a=b=../x", "x,a=b=/etc/x",
+		"/tmp/x.json", "--input-file=/tmp/x.json", "-vo/etc/x", "-vo../x", "-vo~/x", "-vvo/etc/x", "-vo=/etc/x", "a=b=/etc/x", "--set=a=b=/etc/x", "--set=a=b=../x", "x,a=b=/etc/x",
 	}
 	for _, a := range unsafe {
 		if got := unsafeExamplePath1053([]string{"hadron", "app", "x", a}, dir); got == "" {

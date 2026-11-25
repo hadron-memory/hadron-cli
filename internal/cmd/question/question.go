@@ -358,7 +358,9 @@ AskQuestionInput, passed through unchanged:
                     (only key and label are required) — or "yesno": true
                     for yes and no; neither makes a free-text question
   recommendation    {"key": "pg", "reason": "we run it already"}, or
-  noRecommendation  {"reason": "..."} when none is given
+  noRecommendation  {"reason": "..."} when none is given. With options give
+                    one of these two, not both (QUESTION_INVALID, exit 2),
+                    and not neither one (QUESTION_RECOMMENDATION_MISSING)
   deciders          decider user IDs (hadron user search lists them); narrows
                     the log's default deciders, never widens past its
                     eligible set
@@ -368,9 +370,12 @@ AskQuestionInput, passed through unchanged:
                     it), APPROVED (it counts once a decider has approved the
                     answered question) or SIGNED (a decider's passkey signature;
                     forced when authorizes is true, and a lower tier is then
-                    refused: QUESTION_TIER_TOO_LOW). Passkey signing is not
-                    available yet, so a SIGNED question stays
+                    refused: QUESTION_TIER_TOO_LOW). A SIGNED question stays
                     ANSWERED_UNCONFIRMED
+                    until a decider's passkey signature exists. Passkey signing
+                    of questions is not built, so an authorizes: true question
+                    cannot complete today (hadron node sign signs a node's
+                    content, not an answer)
   authorizes        true when this question grants an authorization
   grant             the authorization a grant question carries, as JSON
                     (authorizes: true only)
@@ -380,9 +385,10 @@ AskQuestionInput, passed through unchanged:
 
 --title, --background, --tier, --priority and --assignee override the file's
 value. Keys are exact and case-sensitive, and a key given twice is refused.
-Every field's exact shape is AskQuestionInput in the server's schema. The server
-validates the object (QUESTION_INVALID names each bad field by JSON pointer) and
-decides who may ask: any writer of the log's Memory.
+Every field's exact shape is AskQuestionInput in the server's schema, published
+at https://github.com/hadron-memory/hadron-cli/blob/main/schema/schema.graphql.
+The server validates the object (QUESTION_INVALID names each bad field by JSON
+pointer) and decides who may ask: any writer of the log's Memory.
 
 On success the question prints as question get shows it, prefixed "✓ asked";
 --json prints the same question as one object.

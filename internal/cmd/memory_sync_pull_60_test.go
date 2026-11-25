@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -251,4 +252,22 @@ func captureSyncPull60(t *testing.T, responses map[string]string) (*httptest.Ser
 		all[k] = v
 	}
 	return captureGraphQL(t, all)
+}
+
+// cli#2602: without --yes a non-interactive pull is a usage error and sends no
+// mutation (a control: green on main).
+func TestMemorySyncPullWithoutYesSendsNothing2602(t *testing.T) {
+	gql, calls := attnServer(t, map[string]string{"MemorySyncPrerequisites": `{"data":{"memory":{"source":"https://github.com/acme/kb","isEncrypted":false}}}`})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--server", gql.URL})
+	err := root.Execute()
+	if exitCodeFor(err) != exitcode.Usage || !isConfirmRefusal(err) {
+		t.Fatalf("want the --yes refusal, got %v", err)
+	}
+	for _, c := range *calls {
+		if c.Op == "SyncMemory" {
+			t.Error("the pull was sent without --yes")
+		}
+	}
 }

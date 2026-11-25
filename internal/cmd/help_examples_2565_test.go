@@ -10,6 +10,8 @@ import (
 	"testing"
 
 	"github.com/spf13/cobra"
+	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/vektah/gqlparser/v2/parser"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	questioncmd "github.com/hadron-memory/hadron-cli/internal/cmd/question"
@@ -62,11 +64,15 @@ var pages2565 = []string{
 	"node signing-request withdraw",
 }
 
-// min2565Examples is a floor, not a target: it guards against a page list or a
-// parser that silently finds almost nothing. Only examples the harness
-// actually executes count toward it — "not run" entries (shell constructs,
-// prose placeholders) do not.
-const min2565Examples = 20
+// pagesWithoutExamples2565 are the listed pages that run no example, each with
+// why. Every other listed page must execute at least one: "not run" entries
+// (shell constructs, prose placeholders) do not count.
+var pagesWithoutExamples2565 = map[string]string{
+	"question":                      "a group page with no Example",
+	"question log":                  "a group page with no Example",
+	"memory sync":                   "a group page with no Example",
+	"node signing-request withdraw": "the page has no Example",
+}
 
 // localOnly2565 are commands that legitimately make no request.
 var localOnly2565 = []string{}
@@ -114,28 +120,28 @@ func exampleFileBody2565(flag string) string {
 	}
 }
 
-func collect2565Pages(t *testing.T, root *cobra.Command) []*cobra.Command {
-	t.Helper()
-	var pages []*cobra.Command
-	for _, path := range pages2565 {
+func collect2565Pages(root *cobra.Command, paths []string) (pages []*cobra.Command, missing []string) {
+	for _, path := range paths {
 		c, _, err := root.Find(strings.Split(path, " "))
 		if err != nil || c == nil || c.CommandPath() != "hadron "+path {
-			t.Fatalf("page not found in the command tree: %s", path)
+			missing = append(missing, path)
+			continue
 		}
 		pages = append(pages, c)
 	}
-	return pages
+	return pages, missing
 }
 
 // heredocFiles2565 extracts the input files an Example block writes with a
-// heredoc: a line `cat > NAME <<'TAG'` opens one, and the TAG line alone
-// closes it. The copyable input files the pages show (ask.json, amend.json)
-// are exactly these, so the harness feeds each command the body its page
-// actually documents — a canned body would prove nothing about that body
-// (Bob's BLIND P2-2 on #2584), and this way the example's own file reaches
-// the command. Structural validation of these bodies lives in
-// Test2565HeredocInputsAreValidDecisionInput.
-func heredocFiles2565(block string) map[string]string {
+// heredoc. The one recognized form is a line of exactly four words,
+// `cat > NAME <<TAG` (TAG may be quoted), closed by a line holding TAG alone; a
+// heredoc that is opened and never closed is an error. The copyable input files
+// the pages show (ask.json, amend.json) are exactly these, so the harness feeds
+// each command the body its page actually documents — a canned body would prove
+// nothing about that body (Bob's BLIND P2-2 on #2584), and this way the
+// example's own file reaches the command. Structural validation of these bodies
+// lives in Test2565HeredocInputsAreValidQuestionInput.
+func heredocFiles2565(block string) (map[string]string, error) {
 	files := map[string]string{}
 	lines := strings.Split(block, "\n")
 	for i := 0; i < len(lines); i++ {
@@ -145,15 +151,121 @@ func heredocFiles2565(block string) map[string]string {
 		}
 		name, tag := fields[2], strings.Trim(fields[3], "<\"'")
 		var body []string
+		closed := false
 		for i++; i < len(lines); i++ {
 			if strings.TrimSpace(lines[i]) == tag {
-				files[name] = strings.Join(body, "\n")
+				closed = true
 				break
 			}
 			body = append(body, lines[i])
 		}
+		if !closed {
+			return files, fmt.Errorf("the heredoc writing %s is never closed by %s", name, tag)
+		}
+		files[redirected2565(name)] = strings.Join(body, "\n")
 	}
-	return files
+	return files, nil
+}
+
+// walkRedirect2565 is the walk's one redirect rule: an argument under /etc,
+// /home or /var runs as its base name, inside the example's test directory.
+func walkRedirect2565(word string) (string, bool) {
+	for _, prefix := range []string{"/etc/", "/home/", "/var/"} {
+		if strings.HasPrefix(word, prefix) {
+			return filepath.Base(word), true
+		}
+	}
+	return word, false
+}
+
+func isWalkRedirected2565(word string) bool {
+	_, ok := walkRedirect2565(word)
+	return ok
+}
+
+// redirected2565 is the name a file argument runs under.
+func redirected2565(path string) string {
+	if base, ok := walkRedirect2565(path); ok {
+		return base
+	}
+	return filepath.Clean(path)
+}
+
+// heredocBody2565 is the heredoc body an example's file argument names.
+func heredocBody2565(files map[string]string, file string) (string, bool) {
+	body, ok := files[redirected2565(file)]
+	return body, ok
+}
+
+// unconsumedHeredocs2565 lists the heredoc files no example's file argument read.
+// Such a body never reached its command, which ran on a canned one or not at all.
+func unconsumedHeredocs2565(files map[string]string, used map[string]bool) []string {
+	var out []string
+	for name := range files {
+		if !used[name] {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// stripRedirect2565 drops a trailing shell "> file" redirect from a command: the
+// last " > " that is outside quotes.
+func stripRedirect2565(seg string) string {
+	var quote byte
+	cut := -1
+	for i := 0; i < len(seg); i++ {
+		switch c := seg[i]; {
+		case c == '\\' && quote != '\'':
+			i++
+		case quote != 0:
+			if c == quote {
+				quote = 0
+			}
+		case c == '"' || c == '\'':
+			quote = c
+		case c == ' ' && strings.HasPrefix(seg[i:], " > "):
+			cut = i
+		}
+	}
+	if cut > 0 {
+		return strings.TrimSpace(seg[:cut])
+	}
+	return seg
+}
+
+// uncovered2565 lists the pages with no executed example that allow does not name,
+// and the allow entries that are stale.
+func uncovered2565(pages []string, results []exampleResult, allow map[string]string) []string {
+	executed, listed := map[string]bool{}, map[string]bool{}
+	for _, r := range results {
+		if strings.HasPrefix(r.Mode, "fixture") {
+			executed[r.Page] = true
+		}
+	}
+	var out []string
+	for _, p := range pages {
+		listed[p] = true
+		reason, allowed := allow[p]
+		switch {
+		case allowed && strings.TrimSpace(reason) == "":
+			out = append(out, p+": allowlisted without a reason")
+		case !allowed && !executed[p]:
+			out = append(out, p+": no executed example")
+		}
+	}
+	var stale []string
+	for p := range allow {
+		switch {
+		case !listed[p]:
+			stale = append(stale, p+": allowlisted but not a listed page")
+		case executed[p]:
+			stale = append(stale, p+": allowlisted as having none, but it has one")
+		}
+	}
+	sort.Strings(stale)
+	return append(out, stale...)
 }
 
 // pipeIntoHadronLines2565 returns example lines that do not themselves start
@@ -176,7 +288,10 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 	fx := newWalkFixture(t)
 
 	f0, _ := testFactory(t)
-	pages := collect2565Pages(t, NewRootCmd(f0))
+	pages, missing := collect2565Pages(NewRootCmd(f0), pages2565)
+	for _, path := range missing {
+		t.Errorf("page not found in the command tree: %s", path)
+	}
 	if len(pages) != len(pages2565) {
 		t.Fatalf("found %d of %d pages; the walk is wrong", len(pages), len(pages2565))
 	}
@@ -184,8 +299,12 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 	var results []exampleResult
 	for _, page := range pages {
 		path := strings.TrimPrefix(page.CommandPath(), "hadron ")
-		heredocs := heredocFiles2565(page.Example)
+		heredocs, err := heredocFiles2565(page.Example)
+		if err != nil {
+			t.Errorf("%s: %v", path, err)
+		}
 		lines := append(exampleLines(page.Example), pipeIntoHadronLines2565(page.Example)...)
+		usedHeredocs := map[string]bool{}
 		for _, line := range lines {
 			// A pipeline is run one hadron command at a time (the other tools, such as
 			// jq or echo, are not ours); a trailing "> file" redirect is the shell's,
@@ -194,9 +313,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 			hadPipe := len(strings.Split(line, " | ")) > 1
 			for _, seg := range strings.Split(line, " | ") {
 				seg = strings.TrimSpace(seg)
-				if i := strings.LastIndex(seg, " > "); i > 0 {
-					seg = strings.TrimSpace(seg[:i])
-				}
+				seg = stripRedirect2565(seg)
 				if strings.HasPrefix(seg, "hadron ") {
 					segments = append(segments, seg)
 				}
@@ -246,8 +363,11 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 				args := make([]string, 0, len(words)+2)
 				for _, w := range words[1:] {
 					switch {
-					case strings.HasPrefix(w, "/etc/") || strings.HasPrefix(w, "/home/") || strings.HasPrefix(w, "/var/"):
-						w = filepath.Base(w) // redirected into the test directory: the command runs with cwd there, so the bare name lands inside it (and the file-providing loop below writes dir/NAME without doubling the prefix)
+					case isWalkRedirected2565(w):
+						// Redirected into the test directory: the command runs with cwd there, so
+						// the bare name lands inside it (and the file-providing loop below writes
+						// dir/NAME without doubling the prefix).
+						w, _ = walkRedirect2565(w)
 					case strings.HasPrefix(w, "<") && strings.HasSuffix(w, ">"):
 						w = "fixture-" + strings.Trim(w, "<>") // a placeholder the reader fills in
 					case strings.HasPrefix(w, "$") && len(w) > 1 && strings.Trim(w[1:], "ABCDEFGHIJKLMNOPQRSTUVWXYZ_") == "":
@@ -292,8 +412,10 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 						// wrote one, is the body a reader following the page would
 						// send; the canned body stands in only for a file the page
 						// never shows.
-						body, ok := heredocs[filepath.Base(file)]
-						if !ok {
+						body, ok := heredocBody2565(heredocs, file)
+						if ok {
+							usedHeredocs[redirected2565(file)] = true
+						} else {
 							body = exampleFileBody2565(flag)
 						}
 						if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, file)), 0o755); err != nil {
@@ -385,6 +507,9 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 				})
 			}
 		}
+		for _, name := range unconsumedHeredocs2565(heredocs, usedHeredocs) {
+			t.Errorf("%s: no example's file argument read the heredoc writing %s", path, name)
+		}
 	}
 
 	if path := os.Getenv("HELP_EXAMPLES_REPORT_2565"); path != "" {
@@ -398,76 +523,169 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	executed := 0
-	for _, r := range results {
-		if strings.HasPrefix(r.Mode, "fixture") {
-			executed++
+	for _, gap := range uncovered2565(pages2565, results, pagesWithoutExamples2565) {
+		t.Errorf("%s (of %d listed pages)", gap, len(pages2565))
+	}
+}
+
+// checkQuestionHeredoc2565 returns what is wrong with a heredoc input file of
+// `question ask` (ask true) or `question amend`.
+func checkQuestionHeredoc2565(body string, ask bool) []string {
+	var bad []string
+	add := func(format string, a ...any) { bad = append(bad, fmt.Sprintf(format, a...)) }
+	// The production parser: strict, case-exact and duplicate-key-refusing, one
+	// JSON object and nothing after it (the same decoder `question ask` uses).
+	if err := questioncmd.CheckInputFile(body, ask); err != nil {
+		return []string{fmt.Sprintf("refused by the command's own input check: %v", err)}
+	}
+	dec := json.NewDecoder(strings.NewReader(body))
+	dec.DisallowUnknownFields()
+	if !ask {
+		var in gen.AmendQuestionInput
+		if err := dec.Decode(&in); err != nil {
+			return []string{fmt.Sprintf("not a valid AmendQuestionInput: %v", err)}
 		}
+		// An amend is partial, so only what the file itself gives can be judged.
+		if in.Yesno != nil && *in.Yesno && in.Options != nil {
+			add("gives options or yesno, not both")
+		}
+		if in.Recommendation != nil && in.NoRecommendation != nil {
+			add("gives a recommendation or a noRecommendation, not both")
+		}
+		return bad
 	}
-	if executed < min2565Examples {
-		t.Fatalf("only %d of %d examples executed across the 25 pages; the walk is wrong", executed, len(results))
+	var in gen.AskQuestionInput
+	if err := dec.Decode(&in); err != nil {
+		return []string{fmt.Sprintf("not a valid AskQuestionInput: %v", err)}
 	}
+	if in.Title == "" {
+		add("lacks the required title")
+	}
+	if dec.More() {
+		add("has data after the JSON object")
+	}
+	// The server's rules for the example: options or yesno, never both; every
+	// option has a key of its own and a label; a question with options carries exactly one
+	// of a recommendation (naming an option) and a noRecommendation, and one
+	// without options carries neither.
+	yesno := in.Yesno != nil && *in.Yesno
+	if yesno && in.Options != nil {
+		add("gives options or yesno, not both")
+	}
+	keys := map[string]bool{}
+	if yesno {
+		keys["yes"], keys["no"] = true, true
+	}
+	for _, o := range in.Options {
+		if o == nil || o.Key == "" || o.Label == "" {
+			add("has an option without a key and a label")
+			continue
+		}
+		if keys[o.Key] && !yesno {
+			add("gives the option key %q twice", o.Key)
+		}
+		keys[o.Key] = true
+	}
+	hasOptions := yesno || len(in.Options) > 0
+	switch {
+	case in.Recommendation != nil && in.NoRecommendation != nil:
+		add("gives a recommendation or a noRecommendation, not both")
+	case hasOptions && in.Recommendation == nil && in.NoRecommendation == nil:
+		add("has options but neither a recommendation nor a noRecommendation")
+	case !hasOptions && (in.Recommendation != nil || in.NoRecommendation != nil):
+		add("has no options but carries a recommendation or a noRecommendation")
+	}
+	if hasOptions && in.Recommendation != nil && !keys[in.Recommendation.Key] {
+		add("recommends %q, which is not one of its options", in.Recommendation.Key)
+	}
+	return bad
 }
 
 // Test2565HeredocInputsAreValidQuestionInput pins the copyable input files the
 // question pages show (cli#2565 F5/F11, cli#2465). The fixture harness proves the
 // commands are wired, but the fixture answers every mutation with empty data, so
-// server-side validation never runs there: this test decodes the bodies strictly
-// into the generated input structs (an unknown key, such as an old `parts`, fails).
+// server-side validation never runs there: this test checks the bodies against the
+// production parser, the schema's input fields and the server's cross-field rules.
 func Test2565HeredocInputsAreValidQuestionInput(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	for _, path := range []string{"question ask", "question amend"} {
 		c, _, err := root.Find(strings.Split(path, " "))
 		if err != nil || c == nil || c.CommandPath() != "hadron "+path {
-			t.Fatalf("page not found in the command tree: %s", path)
+			t.Errorf("page not found in the command tree: %s", path)
+			continue
 		}
-		files := heredocFiles2565(c.Example)
+		files, err := heredocFiles2565(c.Example)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
 		if len(files) == 0 {
 			t.Fatalf("%s shows no heredoc input file; F5/F11 require a copyable one", path)
 		}
+		inputType := "AmendQuestionInput"
+		if path == "question ask" {
+			inputType = "AskQuestionInput"
+		}
 		for name, body := range files {
-			// The production parser: strict, case-exact and duplicate-key-refusing, one
-			// JSON object and nothing after it (the same decoder `question ask` uses).
-			if err := questioncmd.CheckInputFile(body, path == "question ask"); err != nil {
-				t.Errorf("%s: heredoc %s is refused by the command's own input check: %v (body %q)", path, name, err, body)
-				continue
+			for _, k := range schemaUnknownKeys2565(t, inputType, body) {
+				t.Errorf("%s: heredoc %s has a key %s that %s does not declare", path, name, k, inputType)
 			}
-			dec := json.NewDecoder(strings.NewReader(body))
-			dec.DisallowUnknownFields()
-			if path == "question ask" {
-				var in gen.AskQuestionInput
-				if err := dec.Decode(&in); err != nil {
-					t.Errorf("%s: heredoc %s is not a valid AskQuestionInput: %v (body %q)", path, name, err, body)
-				} else if in.Title == "" {
-					t.Errorf("%s: heredoc %s lacks the required title", path, name)
-				}
-				if dec.More() {
-					t.Errorf("%s: heredoc %s has data after the JSON object", path, name)
-				}
-				// The server's rules for the example: every option has a key and a label, and
-				// a recommendation names one of them.
-				keys := map[string]bool{}
-				for _, o := range in.Options {
-					if o == nil || o.Key == "" || o.Label == "" {
-						t.Errorf("%s: heredoc %s has an option without a key and a label", path, name)
-						continue
-					}
-					keys[o.Key] = true
-				}
-				// The SDL: a question with options carries a recommendation or the reason it has none.
-				if len(in.Options) > 0 && in.Recommendation == nil && in.NoRecommendation == nil {
-					t.Errorf("%s: heredoc %s has options but neither a recommendation nor a noRecommendation", path, name)
-				}
-				if in.Recommendation != nil && !keys[in.Recommendation.Key] {
-					t.Errorf("%s: heredoc %s recommends %q, which is not one of its options", path, name, in.Recommendation.Key)
-				}
-				continue
-			}
-			var in gen.AmendQuestionInput
-			if err := dec.Decode(&in); err != nil {
-				t.Errorf("%s: heredoc %s is not a valid AmendQuestionInput: %v (body %q)", path, name, err, body)
+			for _, b := range checkQuestionHeredoc2565(body, path == "question ask") {
+				t.Errorf("%s: heredoc %s %s (body %q)", path, name, b, body)
 			}
 		}
 	}
+}
+
+// schemaUnknownKeys2565 lists the keys of body that the vendored schema's input
+// type does not declare, at any depth. A scalar field (JSON included) is not
+// walked.
+func schemaUnknownKeys2565(t *testing.T, inputType, body string) []string {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "schema", "schema.graphql"))
+	if err != nil {
+		// The walk changes directory for each example; this helper must not run there.
+		t.Fatal(err)
+	}
+	doc, perr := parser.ParseSchema(&ast.Source{Name: "schema.graphql", Input: string(raw)})
+	if perr != nil {
+		t.Fatal(perr)
+	}
+	var value any
+	if err := json.Unmarshal([]byte(body), &value); err != nil {
+		return nil // checkQuestionHeredoc2565 reports a body that is not JSON
+	}
+	if doc.Definitions.ForName(inputType) == nil {
+		t.Fatalf("the schema declares no input %s", inputType)
+	}
+	var unknown []string
+	var walk func(path, typ string, v any)
+	walk = func(path, typ string, v any) {
+		def := doc.Definitions.ForName(typ)
+		if def == nil || def.Kind != ast.InputObject {
+			return
+		}
+		switch v := v.(type) {
+		case []any:
+			for i, item := range v {
+				walk(fmt.Sprintf("%s[%d]", path, i), typ, item)
+			}
+		case map[string]any:
+			for key, child := range v {
+				at := key
+				if path != "" {
+					at = path + "." + key
+				}
+				field := def.Fields.ForName(key)
+				if field == nil {
+					unknown = append(unknown, at)
+					continue
+				}
+				walk(at, field.Type.Name(), child)
+			}
+		}
+	}
+	walk("", inputType, value)
+	sort.Strings(unknown)
+	return unknown
 }
