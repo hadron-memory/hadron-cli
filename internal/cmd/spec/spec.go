@@ -225,6 +225,8 @@ type ledgerReplacedRuleDTO struct {
 	Rule       string  `json:"rule"`
 	Replaced   bool    `json:"replaced"`
 	ReplacedBy *string `json:"replacedBy"`
+	// Retirement: replaced, withdrawn, rescinded or retired (cli#1906).
+	Retirement string `json:"retirement"`
 }
 
 // specRole returns the governed `Node.role` every spec node carries (#1201).

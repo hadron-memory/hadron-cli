@@ -21,6 +21,44 @@ type replacement struct {
 	// readable, it lies in another memory, or the edges disagree. An identity is
 	// never guessed (cli#1145).
 	By *string
+	// Kind is the spec's own statement of how it was retired when it carries a
+	// rescind prefix on its abstract: retirementWithdrawn or retirementRescinded,
+	// "" otherwise (cli#1906). The abstract prefix is the spec-fixed signal
+	// (cor:spc:010:01); the absence of a readable edge is not, because the
+	// caller may simply not be able to read a successor.
+	Kind string
+}
+
+const (
+	retirementWithdrawn = "withdrawn"
+	retirementRescinded = "rescinded"
+)
+
+// rescindKind reads the rescind prefix (`spec rescind` writes "WITHDRAWN (<date>);"
+// or "RESCINDED (<date>);") off an abstract.
+func rescindKind(abstract string) string {
+	a := strings.TrimSpace(abstract)
+	switch {
+	case strings.HasPrefix(a, withdrawnWord+" ("):
+		return retirementWithdrawn
+	case strings.HasPrefix(a, rescindedWord+" ("):
+		return retirementRescinded
+	}
+	return ""
+}
+
+// word is the one-word state for the additive --json `retirement` key: a
+// readable successor is "replaced", the spec's own rescind prefix is
+// "withdrawn" or "rescinded", and where neither settles it the neutral
+// "retired" says no more than is known.
+func (r replacement) word() string {
+	switch {
+	case r.By != nil:
+		return "replaced"
+	case r.Kind != "":
+		return r.Kind
+	}
+	return "retired"
 }
 
 // replacedCandidate is what a listing knows about a node before any edge read.
@@ -65,9 +103,14 @@ func loadReplacements(ctx context.Context, client graphql.Client, cands []replac
 		if n == nil {
 			continue
 		}
-		if by, ok := replacedByLoc(n.MemoryId, n.OutgoingEdges); ok {
-			out[n.Id] = replacement{Replaced: true, By: &by}
+		r := out[n.Id]
+		if n.Abstract != nil {
+			r.Kind = rescindKind(*n.Abstract)
 		}
+		if by, ok := replacedByLoc(n.MemoryId, n.OutgoingEdges); ok {
+			r.By = &by
+		}
+		out[n.Id] = r
 	}
 	return out, nil
 }
@@ -94,13 +137,19 @@ func replacedByLoc(memoryID string, edges []*gen.NodeBatchNodeBatchNodeBatchResu
 	return found, found != ""
 }
 
-// replacedMarker is the human suffix: "(replaced by <loc>)" or "(replaced)".
+// replacedMarker is the human suffix: "(replaced by <loc>)" for a readable
+// successor, "(withdrawn)" / "(rescinded)" from the spec's own rescind prefix,
+// and the neutral "(retired)" where neither settles it (cli#1906). It never
+// says "replaced" without a successor to name, and never guesses one.
 func replacedMarker(r replacement, shortenTo string) string {
 	if !r.Replaced {
 		return ""
 	}
 	if r.By == nil {
-		return " (replaced)"
+		if r.Kind != "" {
+			return " (" + r.Kind + ")"
+		}
+		return " (retired)"
 	}
 	by := *r.By
 	if shortenTo != "" && strings.HasPrefix(by, shortenTo+":") {

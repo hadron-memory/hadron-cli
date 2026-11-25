@@ -2337,14 +2337,25 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   and top-level `productGeneral[]`; every existing key unchanged);
   `spec register` is advisory/read-only (`--check` reports
   ledger drift, exit 5; the ledger is the legacy numbering, and specs at any
-  other loc are NAMED in `outsideNumbering`, never dropped); a spec `spec
-  supersede` retired reads `(replaced by <loc>)` (or bare `(replaced)` when its
-  `superseded-by` edge is missing, unreadable, in another memory or ambiguous;
-  an identity is never guessed) in `spec list` and in the `rules:` line of
-  `spec register`, where `--json` adds `replaced`/`replacedBy` per spec in
-  `spec list` and `replacedRules[]` per feature in `spec register` (`[]` when
-  none; every existing key unchanged). It is not the approval state SUPERSEDED,
-  and no "withdrawn" state exists; `spec lint` is
+  other loc are NAMED in `outsideNumbering`, never dropped); a retired spec
+  reads `(replaced by <loc>)` when a readable `superseded-by` edge names one
+  successor, `(withdrawn)` or `(rescinded)` when its own abstract carries the
+  `spec rescind` prefix (WITHDRAWN/RESCINDED), and the neutral `(retired)` when
+  neither settles it (a missing, unreadable, other-memory or ambiguous edge is
+  not proof of a rescind; an identity is never guessed; cli#1906), in `spec
+  list` and in the `rules:` line of `spec register`. `--json` adds
+  `replaced`/`replacedBy` and `retirement` (replaced|withdrawn|rescinded|retired,
+  null when live) per spec in `spec list`, and `replacedRules[]` (with the same
+  `retirement`) per feature in `spec register` (`[]` when none; every existing
+  key unchanged, `replaced` stays true for any retired spec). The marker is not
+  the approval state SUPERSEDED, whose value is never relabelled: it is the
+  approval state of the current text (text changed since the last approval), so
+  it also reads on a rescinded spec and on a revision awaiting approval, and
+  `spec get` says so beside it. A real `spec mint` does not print the dry-run
+  hint ("run without --dry-run to mint"); the dry run keeps it. `spec renumber`
+  refusing a minted spec (NODE_MINTED, exit 5) adds the CLI's own recovery:
+  `hadron node move` keeps the old address resolving, `hadron spec supersede`
+  replaces what a rule means. `spec lint` is
   STRUCTURAL: since #708 its generic checks enforce no old content rubric (no missing
   abstract, "what invalidates", `data.version`, scaffold-body or
   placeholder-contract finding), because the sections a spec needs depend on
