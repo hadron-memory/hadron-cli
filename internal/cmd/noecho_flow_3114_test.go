@@ -28,8 +28,6 @@ import (
 // each slice deletes its group, and the last one deletes this list.
 var noEchoPendingDirs = []string{
 	"internal/cmd/team/",
-	"internal/cmd/spec/", "internal/cmd/node/", "internal/cmd/memory/",
-	"internal/cmd/question/", "internal/cmd/secret/", "internal/cmd/coding/",
 }
 
 type echoFlow struct {
