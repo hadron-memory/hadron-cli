@@ -348,6 +348,11 @@ task-less alarm names its worker or coordinator instead of the task; --json: the
 event). The first acknowledgement stands: a second is refused with
 ALARM_ALREADY_ACKNOWLEDGED.
 
+A team.dark alarm (a whole App's team gone dark) is the one kind no
+acknowledgement fits: it has no chain and is never acknowledged — it clears
+when the team recovers, not by an ack. Acknowledging one is refused with
+ALARM_NOT_ACKNOWLEDGEABLE (exit 2).
+
 An acknowledgement stops the climb; it does not end the alarm episode. The
 episode ends by itself: a finish-by alarm when the task finishes or is
 cancelled, or its finish-by value changes or is cleared (starting or assigning

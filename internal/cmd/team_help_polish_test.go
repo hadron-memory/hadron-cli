@@ -157,6 +157,24 @@ func TestEventsHandleSentenceIsTight(t *testing.T) {
 	}
 }
 
+// The events floor sentence is in the TASK-cell paragraph, which is not a
+// TestHelpParagraphsAreWrapped case, and eventsHandleSentence flattens
+// whitespace, so neither would see a re-wrap that splits "on or after". Read the
+// raw help: no line break may fall inside the phrase, on either page (cli#3170).
+func TestFloorOnOrAfterIsNotSplitAcrossLines(t *testing.T) {
+	for _, page := range [][]string{{"team", "events"}, {"team", "register"}} {
+		raw := cmdHelpOut(t, page...)
+		if !strings.Contains(raw, "on or after") {
+			t.Fatalf("%v: no \"on or after\" floor wording on the raw help:\n%s", page, raw)
+		}
+		for _, split := range []string{"on\nor after", "on or\nafter"} {
+			if strings.Contains(raw, split) {
+				t.Errorf("%v: the floor splits \"on or after\" across two lines (%q)", page, split)
+			}
+		}
+	}
+}
+
 // The two floors are one date each, "on or after", on both pages.
 func TestServerFloorWordingIsPinned(t *testing.T) {
 	for _, tc := range []struct {
