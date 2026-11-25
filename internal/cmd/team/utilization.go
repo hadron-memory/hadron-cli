@@ -29,14 +29,15 @@ type utilizationDTO struct {
 	Combinations []utilizationComboDTO `json:"combinations"`
 }
 
-// utilizationServerFloor is the server floor: the UTC day hadron-server's failed-match saturation
+// UtilizationServerFloor is the server floor: the UTC day hadron-server's failed-match saturation
 // (its lastMatchFailure field) merged to main, the house convention for a floor; merged is not
-// necessarily served.
-const utilizationServerFloor = "2026-11-21"
+// necessarily served. Exported so the tests pin the help, the agent contract and the release note
+// to this one date.
+const UtilizationServerFloor = "2026-11-21"
 
 type utilizationComboDTO struct {
-	// Family is null (an open family) when the failed task left it open: no family named, or
-	// some excluded (cli#2896); never "".
+	// Family is passed through as served. The server sends null for an open family: the failed task
+	// left it open, no family named or some excluded (cli#2896).
 	Family          *string `json:"family"`
 	Tier            *string `json:"tier"`
 	Role            *string `json:"role"`
@@ -99,8 +100,8 @@ exits 0.
 saturated, applied after the output is written; otherwise a successful read
 exits 0 whatever the numbers. It is a script exit code, not an alarm.
 
-Needs server ` + utilizationServerFloor + ` or later: the query asks for the last match failure,
-which an older server rejects as an unknown field.`,
+Needs server ` + UtilizationServerFloor + ` or later (the day it merged): the query asks for
+the last match failure, which an older server rejects as an unknown field.`,
 		Example: `  hadron team utilization --all
   hadron team utilization --family claude --tier high --role qa --json
   hadron team utilization --all --window 168h --fail-on-saturated`,

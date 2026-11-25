@@ -28,21 +28,6 @@ write, manage, delete) and lists the grants that confer it.`,
 	return cmd
 }
 
-// memoryURNExample prefixes an under-qualified shorthand with the memory-kind
-// scheme that matches the separator the caller used: the canonical hrn:mem:
-// for the single-colon short form, the legacy hrn:memory: for the "::" one.
-//
-// The server's decomposer is liberal enough to resolve either spelling against
-// either separator — hrn:memory:acme.com:kb, hrn:mem:acme.com:kb and
-// hrn:memory:acme.com::kb all resolve to the same memory — so this is about
-// handing back a canonically-SHAPED example rather than about validity.
-func memoryURNExample(ref string) string {
-	if strings.Contains(ref, "::") {
-		return "hrn:memory:" + ref
-	}
-	return "hrn:mem:" + ref
-}
-
 // normalizeResourceRef shapes a resource reference into what
 // effectiveAccess(resource:) expects: a fully-qualified hrn:<type>: URN for a
 // memory/node/app/agent, or a bare id for an AiServiceConfig (the one URN-less
@@ -60,10 +45,10 @@ func normalizeResourceRef(ref string) (string, error) {
 	}
 	if strings.Contains(r, ":") {
 		return "", exitcode.Newf(exitcode.Usage,
-			"%q is not a fully-qualified resource URN — prefix it with its kind "+
+			"the resource reference is not a fully-qualified URN (the value given is not shown) — prefix it with its kind "+
 				"(hrn:mem:, hrn:node:, hrn:app:, or hrn:agent:; the legacy hrn:memory: "+
-				"is also accepted), e.g. %s; "+
-				"a bare, colon-free id is read as an AiServiceConfig id", r, memoryURNExample(r))
+				"is also accepted), e.g. hrn:mem:<root>:<slug>; "+
+				"a bare, colon-free id is read as an AiServiceConfig id")
 	}
 	return r, nil
 }

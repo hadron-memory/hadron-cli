@@ -190,7 +190,7 @@ func listUniformEdges(cmd *cobra.Command, f *cmdutil.Factory, memory string, u u
 	for _, name := range []string{"source", "target"} {
 		v := strings.TrimSpace(map[string]string{"source": u.source, "target": u.target}[name])
 		if changed(name) && !cmdutil.IsEntityID(v) && !cmdutil.IsQualifiedNodeRef(v) {
-			return exitcode.Newf(exitcode.Usage, "--%s takes a node id or a node URN (hrn:node:<root>:<memory>:<loc>), not %q. Nothing was sent", name, v)
+			return exitcode.Newf(exitcode.Usage, "--%s takes a node id or a node URN (hrn:node:<root>:<memory>:<loc>); the value given is not shown. Nothing was sent", name)
 		}
 	}
 	if changed("source") {

@@ -70,7 +70,7 @@ func TestForeignBindingRefusesCrossWorkerMutations3091(t *testing.T) {
 	for name, argv := range cmds3091 {
 		t.Run(name, func(t *testing.T) {
 			calls, err := run3091(t, "id1::"+ownRoot3091, "", argv...)
-			if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "nothing was sent") {
+			if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "so that write was not sent") || strings.Contains(err.Error(), "nothing was sent") {
 				t.Fatalf("want a usage refusal, got %v", err)
 			}
 			if n, _ := sessionsSent3091(calls); n != 0 {

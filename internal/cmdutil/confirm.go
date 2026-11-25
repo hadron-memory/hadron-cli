@@ -32,7 +32,7 @@ func ConfirmDeletion(io *output.IOStreams, yes bool, what string) error {
 	// stdin is what must be interactive — a redirected stdout doesn't
 	// preclude asking.
 	if !io.IsInputTerminal() {
-		return exitcode.Newf(exitcode.Usage, "refusing to delete %s without --yes in non-interactive mode", what)
+		return exitcode.Newf(exitcode.Usage, "refusing to delete without --yes in non-interactive mode (the target given is not shown)")
 	}
 	if err := showPrompt(io, "Delete %s? This cannot be undone. (y/N) ", what); err != nil {
 		return err

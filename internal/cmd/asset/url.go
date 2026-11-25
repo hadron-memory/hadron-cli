@@ -169,5 +169,5 @@ func findAsset(cmd *cobra.Command, client graphql.Client, memID, assetID string)
 		skip += len(p.Assets)
 	}
 	return nil, exitcode.Newf(exitcode.NotFound,
-		"no asset %q in that memory — check the id, or that you are pointing at the memory that holds it", assetID)
+		"no such asset in that memory (the id given is not shown) — check the id, or that you are pointing at the memory that holds it")
 }

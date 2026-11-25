@@ -33,11 +33,11 @@ func exportNodeRefs(refs []string) ([]string, error) {
 		}
 		canon, err := canonicalNodeArg(ref)
 		if err != nil {
-			return nil, exitcode.Newf(exitcode.Usage, "--node %q is not a node id or fully qualified node URN", ref)
+			return nil, exitcode.Newf(exitcode.Usage, "--node is not a node id or fully qualified node URN (the value given is not shown)")
 		}
 		if urnlib.HasSchemePrefix(canon) {
 			if _, err := nodeIdentityKey(canon); err != nil {
-				return nil, exitcode.Newf(exitcode.Usage, "--node %q must name a task node, without a fragment", ref)
+				return nil, exitcode.Newf(exitcode.Usage, "--node must name a task node, without a fragment (the value given is not shown)")
 			}
 		}
 		if !seen[canon] {

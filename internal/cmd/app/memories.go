@@ -154,12 +154,12 @@ source adds agentName and each row adds writeTarget.`, memoriesMaxLimit, memorie
 			// and every row has at least one source. A missing piece is a broken
 			// answer, not an empty scope: refuse it rather than print a success.
 			if resp == nil || resp.AppMemoryScope == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no appMemoryScope page for %s; nothing is shown", appRef)
+				return exitcode.Newf(exitcode.Error, "the server returned no appMemoryScope page for the App (the ref given is not shown); nothing is shown")
 			}
 			// A genuine empty page decodes to a non-nil empty slice; nil means
 			// items was null or omitted.
 			if resp.AppMemoryScope.Items == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no items in the appMemoryScope page for %s; nothing is shown", appRef)
+				return exitcode.Newf(exitcode.Error, "the server returned no items in the appMemoryScope page for the App (the ref given is not shown); nothing is shown")
 			}
 			page := appMemoryScopePageDTO{Items: []appScopedMemoryDTO{}, Total: resp.AppMemoryScope.Total}
 			for i, it := range resp.AppMemoryScope.Items {

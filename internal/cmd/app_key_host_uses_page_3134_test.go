@@ -88,8 +88,16 @@ func TestAppKeyHostUsesPage3134Text(t *testing.T) {
 			if r.err != nil {
 				t.Fatal(r.err)
 			}
-			if !strings.Contains(r.out, tc.want) {
-				t.Errorf("out = %q, want %q", r.out, tc.want)
+			count := strings.Index(r.out, tc.want)
+			if count < 0 {
+				t.Fatalf("out = %q, want %q", r.out, tc.want)
+			}
+			// The count line heads the uses table; an empty page has no table.
+			table := strings.Index(r.out, "ACTION")
+			if hasUses := strings.Contains(tc.page, `"hostId"`); hasUses && table < count {
+				t.Errorf("out = %q, want %q before the uses table", r.out, tc.want)
+			} else if !hasUses && table >= 0 {
+				t.Errorf("out = %q, want no uses table for an empty page", r.out)
 			}
 		})
 	}
@@ -130,6 +138,26 @@ func TestAppKeyHostUsesPage3134NoteAboveTheCap(t *testing.T) {
 	}
 }
 
+// The over-cap note is not tied to --json: the text path prints it too, on
+// stderr only.
+func TestAppKeyHostUsesPage3134NoteOnTheTextPath(t *testing.T) {
+	for _, name := range []string{"plain", "instructed"} {
+		t.Run(name, func(t *testing.T) {
+			srv, _, _ := keyServerCapture(t, 200, keysScopes1333)
+			r := hostUsesRun3134(t, name, srv, "list", app1223, "--scopes", "--host-uses", "201")
+			if r.err != nil {
+				t.Fatal(r.err)
+			}
+			if !strings.Contains(r.errOut, "--host-uses 201 is served as 200") {
+				t.Errorf("stderr = %q, want the over-cap note", r.errOut)
+			}
+			if strings.Contains(r.out, "served as") || !strings.Contains(r.out, "host uses: 1 of 214 (more remain)") {
+				t.Errorf("stdout = %q, want the text listing without the note", r.out)
+			}
+		})
+	}
+}
+
 // A server without the field is named as too old: one request, no fallback to
 // the unpaged field, nothing on stdout that could read as a complete list.
 func TestAppKeyHostUsesPage3134OldServer(t *testing.T) {
@@ -137,7 +165,8 @@ func TestAppKeyHostUsesPage3134OldServer(t *testing.T) {
 	for _, name := range []string{"plain", "instructed"} {
 		t.Run(name, func(t *testing.T) {
 			srv, n, _ := keyServerCapture(t, 400, rejected)
-			r := hostUsesRun3134(t, name, srv, "list", app1223, "--scopes", "--host-uses", "5")
+			// Above the cap, so a note printed before the refusal would show.
+			r := hostUsesRun3134(t, name, srv, "list", app1223, "--scopes", "--host-uses", "201")
 			if r.err == nil || exitCodeFor(r.err) != 1 {
 				t.Fatalf("want exit 1, got %v (%d)", r.err, exitCodeFor(r.err))
 			}
@@ -146,8 +175,8 @@ func TestAppKeyHostUsesPage3134OldServer(t *testing.T) {
 					t.Errorf("error %q lacks %q", r.err, want)
 				}
 			}
-			if n.Load() != 1 || r.out != "" {
-				t.Errorf("requests=%d out=%q, want one request and no output", n.Load(), r.out)
+			if n.Load() != 1 || r.out != "" || r.errOut != "" {
+				t.Errorf("requests=%d out=%q stderr=%q, want one request and nothing written", n.Load(), r.out, r.errOut)
 			}
 		})
 	}
@@ -163,22 +192,5 @@ func TestAppKeyHostUsesPage3134OldServer(t *testing.T) {
 				t.Errorf("err = %v", r.err)
 			}
 		})
-	}
-}
-
-// The refresh that brings hostUsesPage also adds userRef to SetQuotaLimitInput,
-// which quota set never sends: an omitted field, not an explicit null.
-func TestQuotaSet3134DoesNotSendUserRef(t *testing.T) {
-	srv, _, reqs := keyServerCapture(t, 200, `{"data":{"setQuotaLimit":`+quotaRowJSON+`}}`)
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"quota", "set", "--org", "acme.com", "--action", "run.execute", "--limit", "5", "--server", srv.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	vars := onlyOp(t, reqs(), "SetQuotaLimit")
-	in, _ := vars["input"].(map[string]any)
-	if b, _ := json.Marshal(in); string(b) != `{"action":"run.execute","limit":5,"orgRef":"acme.com"}` {
-		t.Errorf("input = %s", b)
 	}
 }

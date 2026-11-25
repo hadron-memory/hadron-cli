@@ -37,7 +37,7 @@ id ref the server's answer, including Forbidden, is shown as it is.`,
 			switch {
 			case err == nil:
 				if resp.AiServiceConfig == nil {
-					return notFoundConfig(args[0])
+					return notFoundConfig()
 				}
 				dto = urnConfigDTO{endpointConfigDTO: dtoFromEndpointFields(resp.AiServiceConfig.AiServiceConfigEndpointFields), URN: resp.AiServiceConfig.Urn}
 			case isMissingURNField(err):
@@ -48,7 +48,7 @@ id ref the server's answer, including Forbidden, is shown as it is.`,
 					return mapEndpointError(oldErr)
 				}
 				if old.AiServiceConfig == nil {
-					return notFoundConfig(args[0])
+					return notFoundConfig()
 				}
 				dto = urnConfigDTO{endpointConfigDTO: dtoFromEndpointFields(old.AiServiceConfig.AiServiceConfigEndpointFields)}
 			default:

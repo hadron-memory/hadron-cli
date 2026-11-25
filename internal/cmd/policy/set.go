@@ -66,7 +66,7 @@ handle and policy (null after --clear).`,
 				if strings.HasPrefix(raw, "@") {
 					data, err := os.ReadFile(strings.TrimPrefix(raw, "@"))
 					if err != nil {
-						return exitcode.Newf(exitcode.Usage, "reading %s: %v", raw, err)
+						return exitcode.Newf(exitcode.Usage, "reading the policy file: %v", err)
 					}
 					raw = string(data)
 				}

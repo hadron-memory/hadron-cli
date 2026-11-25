@@ -134,7 +134,7 @@ func (fl edgeFilter) validate(provided map[string]bool) error {
 	switch fl.Direction {
 	case "", "incoming", "outgoing":
 	default:
-		return exitcode.Newf(exitcode.Usage, "--direction %q must be \"incoming\" or \"outgoing\"", fl.Direction)
+		return exitcode.Newf(exitcode.Usage, "--direction must be \"incoming\" or \"outgoing\"")
 	}
 	if fl.To != "" && fl.From != "" {
 		return exitcode.Newf(exitcode.Usage, "--to and --from are mutually exclusive — an edge has one far endpoint, and the two name opposite directions")

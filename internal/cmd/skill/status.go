@@ -410,8 +410,8 @@ func resolveSkillsRoot(cmd *cobra.Command, to, host string) (string, error) {
 		switch to {
 		case "", "user", "project", "plugin":
 			return "", exitcode.Newf(exitcode.Usage,
-				"--host %s has no skills root of its own (only %s does), so --to %s cannot be resolved for it — name a directory instead: --to <dir>",
-				host, skilldoc.HostClaudeSkill, cmp(to, "user"))
+				"--host has no skills root of its own (only %s does; the value given is not shown), so --to cannot be resolved for it — name a directory instead: --to <dir>",
+				skilldoc.HostClaudeSkill)
 		}
 	}
 	switch to {

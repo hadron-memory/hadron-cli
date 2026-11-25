@@ -1,17 +1,17 @@
 package team
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/vektah/gqlparser/v2/ast"
-	"github.com/vektah/gqlparser/v2/parser"
 )
 
 // Every worker on a host shares one OS user, so the cwd's binding says whose
@@ -20,9 +20,9 @@ import (
 // worktree the launcher opened the invoking terminal in: Orca exports
 // ORCA_WORKSPACE_ID as "<id>::<worktree path>" per terminal, and a worker's
 // shell keeps it when it cd's elsewhere. A mutation that would carry the cwd
-// binding's session while the cwd is another worktree is refused, nothing
-// sent. Without the signal (no launcher, no worktree)
-// nothing changes.
+// binding's session while the cwd is another worktree is refused: that write is
+// not sent, though reads the command made first may have been. Without the
+// signal (no launcher, no worktree) nothing changes.
 
 // ForeignBindingOptInEnv names the explicit opt-in: set to 1 to act through
 // another worktree's binding on purpose.
@@ -68,6 +68,15 @@ func samePath(a, b string) bool {
 	return norm(a) == norm(b)
 }
 
+// guardedInvoker is the invoking terminal's worktree, or "" when the guard is
+// off: opted out, or no launcher signal. It costs two environment reads.
+func guardedInvoker() string {
+	if os.Getenv(ForeignBindingOptInEnv) == "1" {
+		return ""
+	}
+	return invokerWorktree()
+}
+
 // foreignBindingRefusal is nil unless the cwd's worktree holds a worker
 // binding and the invoking terminal belongs to a different worktree.
 func foreignBindingRefusal(ctx context.Context) error {
@@ -77,10 +86,7 @@ func foreignBindingRefusal(ctx context.Context) error {
 // foreignBindingRefusalIf refuses only when uses (if given) says the request
 // involves the foreign binding's session.
 func foreignBindingRefusalIf(ctx context.Context, uses func(b *binding) bool) error {
-	if os.Getenv(ForeignBindingOptInEnv) == "1" {
-		return nil
-	}
-	invoker := invokerWorktree()
+	invoker := guardedInvoker()
 	if invoker == "" {
 		return nil
 	}
@@ -100,32 +106,49 @@ func foreignBindingRefusalIf(ctx context.Context, uses func(b *binding) bool) er
 		who = "another worker"
 	}
 	return exitcode.Newf(exitcode.Usage,
-		"this worktree (%s) is bound to %s, but your terminal belongs to %s; the write would act as %s, so nothing was sent. Run it from your own worktree, or set %s=1 to act through this binding on purpose",
+		"this worktree (%s) is bound to %s, but your terminal belongs to %s; the write would act as %s, so that write was not sent. Run it from your own worktree, or set %s=1 to act through this binding on purpose",
 		top, who, invoker, who, ForeignBindingOptInEnv)
-}
-
-// mutationRequest reports whether the request is a GraphQL mutation.
-func mutationRequest(req *graphql.Request) bool {
-	doc, err := parser.ParseQuery(&ast.Source{Input: req.Query})
-	if err != nil {
-		return false
-	}
-	op := doc.Operations.ForName(req.OpName)
-	if op == nil && req.OpName == "" && len(doc.Operations) == 1 {
-		op = doc.Operations[0]
-	}
-	return op != nil && op.Operation == ast.Mutation
 }
 
 // carriesSession reports whether a mutation names the binding's session in
 // its variables (chat post's sessionRef, session end's id, work records...):
 // those act as the bound worker without riding the X-Hadron-Session header.
+//
+// The exact quoted id anywhere in the encoded variables matches, as it did
+// before cli#3135, so nothing refused then is allowed now. Beyond that, a
+// string value or object key matches by namesSession.
 func carriesSession(req *graphql.Request, b *binding) bool {
 	if b.SessionID == "" || req.Variables == nil {
 		return false
 	}
 	raw, err := json.Marshal(req.Variables)
-	return err == nil && strings.Contains(string(raw), `"`+b.SessionID+`"`)
+	if err != nil {
+		return false // it cannot be encoded for sending either
+	}
+	if bytes.Contains(raw, []byte(`"`+b.SessionID+`"`)) {
+		return true
+	}
+	// The token stream yields keys and values at every depth as strings.
+	dec := json.NewDecoder(bytes.NewReader(raw))
+	dec.UseNumber() // a number out of float64 range must not end the walk
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			return false // io.EOF: Marshal wrote valid JSON
+		}
+		if v, ok := tok.(string); ok && namesSession(v, b.SessionID) {
+			return true
+		}
+	}
+}
+
+// namesSession reports whether v is the session id or a reference ending in
+// ":<id>", ignoring case and surrounding space. A reference is one word: prose
+// that mentions or ends in one, or embedded JSON, is not. Ignoring case cannot
+// confuse two sessions: newSessionID mints lower-case UUIDs.
+func namesSession(v, sessionID string) bool {
+	v, sessionID = strings.ToLower(strings.TrimSpace(v)), strings.ToLower(sessionID)
+	return v == sessionID || strings.HasSuffix(v, ":"+sessionID) && !strings.ContainsFunc(v, unicode.IsSpace)
 }
 
 // Ordering invariant: this guard runs BEFORE AuthoredWriteContext decorates the
@@ -143,11 +166,16 @@ func ForeignBindingGuard() func(context.Context, *graphql.Request) error {
 		if asPerson(ctx) {
 			return nil
 		}
-		if authoredWriteRequest(req) {
-			return foreignBindingRefusal(ctx)
-		}
-		if !mutationRequest(req) {
+		// Before any parse: a run the guard does not apply to pays nothing.
+		if guardedInvoker() == "" {
 			return nil
+		}
+		doc, mutation := parseMutation(req)
+		if mutation == nil {
+			return nil
+		}
+		if authoredMutation(doc, mutation) {
+			return foreignBindingRefusal(ctx)
 		}
 		return foreignBindingRefusalIf(ctx, func(b *binding) bool { return carriesSession(req, b) })
 	}

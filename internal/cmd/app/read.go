@@ -80,7 +80,7 @@ whether the value is unset or withheld. The server decides access.`,
 			if a == nil {
 				return exitcode.Newf(exitcode.NotFound, "no App found (the App ref given is not shown)")
 			}
-			pinID, err := readChatbotPin(cmd.Context(), client, ref, args[0], true)
+			pinID, err := readChatbotPin(cmd.Context(), client, ref, true)
 			if err != nil {
 				return err
 			}
@@ -116,7 +116,9 @@ type appKeyDetailDTO struct {
 }
 
 // maxHostUses is the server's page cap for AppKey.hostUsesPage: a larger limit
-// is served as this many, never refused.
+// is served as this many, never refused. The cap is stated in that field's
+// description in schema/schema.graphql; TestMaxHostUsesMatchesTheSchema fails
+// when a schema refresh changes it.
 const maxHostUses = 200
 
 func newCmdKeyList(f *cmdutil.Factory) *cobra.Command {
@@ -223,15 +225,14 @@ detection. List again once changes settle. Without --host-uses, needs server
 // selection carries scopes, and host uses only when asked for.
 func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, ref string, instr *gen.ActInstructionInput, withUses bool, usesLimit int) error {
 	dto := []appKeyDetailDTO{}
-	add := func(m appKeyMetadataDTO, sc []*scopeRow) *appKeyDetailDTO {
+	newRow := func(m appKeyMetadataDTO, sc []*scopeRow) appKeyDetailDTO {
 		row := appKeyDetailDTO{appKeyMetadataDTO: m, Scopes: []appKeyScopeDTO{}}
 		for _, s := range sc {
 			if s != nil {
 				row.Scopes = append(row.Scopes, appKeyScopeDTO{Scope: s.Scope, HostID: s.HostId, GrantedAt: s.GrantedAt, GrantedBy: s.GrantedBy})
 			}
 		}
-		dto = append(dto, row)
-		return &dto[len(dto)-1]
+		return row
 	}
 	if withUses {
 		rows, err := keysHostUses(cmd.Context(), client, ref, usesLimit, instr)
@@ -259,8 +260,9 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 					sc = append(sc, &scopeRow{Scope: s.Scope, HostId: s.HostId, GrantedAt: s.GrantedAt, GrantedBy: s.GrantedBy})
 				}
 			}
-			row := add(appKeyMetadataDTO{ID: k.Id, KeyPreview: k.KeyPreview, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, RevokedAt: k.RevokedAt}, sc)
+			row := newRow(appKeyMetadataDTO{ID: k.Id, KeyPreview: k.KeyPreview, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, RevokedAt: k.RevokedAt}, sc)
 			row.HostUses, row.HostUsesTotal, row.HostUsesHasMore = &uses, &k.HostUsesPage.Total, &k.HostUsesPage.HasMore
+			dto = append(dto, row)
 		}
 	} else {
 		rows, err := keysScopes(cmd.Context(), client, ref, instr)
@@ -277,7 +279,7 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 					sc = append(sc, &scopeRow{Scope: s.Scope, HostId: s.HostId, GrantedAt: s.GrantedAt, GrantedBy: s.GrantedBy})
 				}
 			}
-			add(appKeyMetadataDTO{ID: k.Id, KeyPreview: k.KeyPreview, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, RevokedAt: k.RevokedAt}, sc)
+			dto = append(dto, newRow(appKeyMetadataDTO{ID: k.Id, KeyPreview: k.KeyPreview, Label: k.Label, CreatedAt: k.CreatedAt, LastUsedAt: k.LastUsedAt, RevokedAt: k.RevokedAt}, sc))
 		}
 	}
 	if withUses && usesLimit > maxHostUses {
@@ -326,7 +328,10 @@ func listKeysDetail(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Clien
 }
 
 // renderHostUsesCount says how many of a key's host uses are shown, and whether
-// more remain. "none" needs the server's own word that there are none.
+// more remain. "none" needs the server's own word that there are none. Counts
+// that contradict each other (such as "0 of 0 (more remain)", or fewer shown
+// than the total with nothing remaining) are printed as the server sent them,
+// on purpose: do not correct them here.
 func renderHostUsesCount(w io.Writer, shown, total int, more bool) error {
 	if shown == 0 && total == 0 && !more {
 		_, err := fmt.Fprintln(w, "host uses: none")

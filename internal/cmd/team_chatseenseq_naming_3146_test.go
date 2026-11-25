@@ -18,6 +18,7 @@ var staleChatSeenSeqNames3146 = []string{
 	"local read watermark",
 	"local read hint",
 	"`team session log` counts from",
+	"`team session log` compares against",
 	"`hadron team session log` compares against",
 	"the watermark `session log` compares against",
 	"holds two hints",

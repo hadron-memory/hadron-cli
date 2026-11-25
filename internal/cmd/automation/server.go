@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/Khan/genqlient/graphql"
 
@@ -85,8 +84,6 @@ func readError(err error) error {
 	}
 	return api.MapError(err)
 }
-
-func kindWord(k gen.AutomationTriggerKind) string { return strings.ToLower(string(k)) }
 
 func validListKind(k gen.AutomationTriggerKind) bool {
 	return k == gen.AutomationTriggerKindSchedule || k == gen.AutomationTriggerKindWebhook

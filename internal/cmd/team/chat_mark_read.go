@@ -139,10 +139,11 @@ accepts it from that worker's own live session.`,
 			// dereference nil). Exit 1, the CLI's "the server returned no X".
 			if r == nil {
 				return exitcode.Newf(exitcode.Error,
-					"the server returned no read receipt, so the mark is unconfirmed — the local read hint was not moved; check `hadron team chat read` or re-run mark-read")
+					"the server returned no read receipt, so the mark is unconfirmed — the rendering cache was not moved; check `hadron team chat read` or re-run mark-read")
 			}
-			// cli#1854: after the server accepted the mark, bring the local
-			// hint up to it, so `session log` cannot lag an explicit mark-read.
+			// cli#1854: after the server accepted the mark, bring the rendering
+			// cache up to it, so a later `chat read --since <through>` still
+			// starts at or below the cache and counts as read through.
 			// recordChatWatermark only moves forward (a through below the
 			// watermark changes nothing) and only for the session that is still
 			// bound. Best-effort: the mark has happened, so a failed

@@ -71,7 +71,7 @@ To end it early, 'hadron connection grant revoke <grant-id>'.`,
 			for _, s := range scopeSet {
 				if !validScopes[s] {
 					return exitcode.Newf(exitcode.Usage,
-						"unknown scope %q (valid: %s)", s, strings.Join(validScopeList, ", "))
+						"unknown scope (valid: %s)", strings.Join(validScopeList, ", "))
 				}
 			}
 
