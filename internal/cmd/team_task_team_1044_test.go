@@ -275,7 +275,7 @@ func TestTeamTaskListBareTeamIsTheBoundWorker(t *testing.T) {
 func TestTeamTaskListTeamUnknownWorkerIsNotFound(t *testing.T) {
 	_, _, _, err := run1044(t, roster1044(), [][]task1044{tasks1044()},
 		"team", "task", "list", "--team=worker:Nobody")
-	if exitOf(err) != exitcode.NotFound || !strings.Contains(fmt.Sprint(err), "Nobody") {
+	if exitOf(err) != exitcode.NotFound || !strings.Contains(fmt.Sprint(err), "is not on the roster of the App") || strings.Contains(fmt.Sprint(err), "Nobody") {
 		t.Fatalf("unknown coordinator: exit %d %v", exitOf(err), err)
 	}
 }

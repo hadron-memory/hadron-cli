@@ -468,7 +468,7 @@ scheduler call fails, naming the files written.`,
 			}
 			d, err := time.ParseDuration(strings.TrimSpace(interval))
 			if err != nil {
-				return exitcode.Newf(exitcode.Usage, "--interval %q is not a duration like 15m or 1h", interval)
+				return exitcode.Newf(exitcode.Usage, "--interval is not a duration like 15m or 1h")
 			}
 			if config == "" {
 				return exitcode.Newf(exitcode.Usage, "--config is required")
@@ -481,7 +481,7 @@ scheduler call fails, naming the files written.`,
 				return mapUsageInput(err)
 			}
 			if bin != "" && !filepath.IsAbs(bin) {
-				return exitcode.Newf(exitcode.Usage, "--bin must be an absolute path, got %q", bin)
+				return exitcode.Newf(exitcode.Usage, "--bin must be an absolute path")
 			}
 			if bin == "" {
 				if p, lerr := exec.LookPath("hadron"); lerr == nil {

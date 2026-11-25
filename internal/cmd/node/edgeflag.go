@@ -40,16 +40,16 @@ func parseEdgeFlags(values []string) ([]*gen.NodeEdgeInput, error) {
 			dec := json.NewDecoder(bytes.NewReader([]byte(v)))
 			dec.DisallowUnknownFields()
 			if err := dec.Decode(&spec); err != nil {
-				return nil, exitcode.Newf(exitcode.Usage, "--edge %s is not a valid edge object (keys: target, name, loc, description, runnable): %v. Nothing was sent", v, err)
+				return nil, exitcode.Newf(exitcode.Usage, "--edge (the value given is not shown) is not a valid edge object (keys: target, name, loc, description, runnable; name, loc, target and description are strings, runnable is true or false). Nothing was sent")
 			}
 			// A second Decode must hit EOF: More() reads a stray `]` or `}`
 			// as the end of a container and would let `{…}]` through.
 			var rest json.RawMessage
 			if err := dec.Decode(&rest); !errors.Is(err, io.EOF) {
-				return nil, exitcode.Newf(exitcode.Usage, "--edge %s has trailing text after the JSON object. Nothing was sent", v)
+				return nil, exitcode.Newf(exitcode.Usage, "--edge (the value given is not shown) has trailing text after the JSON object. Nothing was sent")
 			}
 			if strings.TrimSpace(spec.Target) == "" {
-				return nil, exitcode.Newf(exitcode.Usage, "--edge %s has no target. Nothing was sent", v)
+				return nil, exitcode.Newf(exitcode.Usage, "--edge (the value given is not shown) has no target. Nothing was sent")
 			}
 			out = append(out, &gen.NodeEdgeInput{
 				TargetId: strings.TrimSpace(spec.Target), Name: spec.Name, Loc: spec.Loc,
@@ -60,7 +60,7 @@ func parseEdgeFlags(values []string) ([]*gen.NodeEdgeInput, error) {
 		name, target, ok := strings.Cut(v, "=")
 		name, target = strings.TrimSpace(name), strings.TrimSpace(target)
 		if !ok || name == "" || target == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "--edge %q must be <name>=<target> (or a JSON object). Nothing was sent", raw)
+			return nil, exitcode.Newf(exitcode.Usage, "--edge must be <name>=<target> (or a JSON object); the value given is not shown. Nothing was sent")
 		}
 		out = append(out, &gen.NodeEdgeInput{TargetId: target, Name: &name})
 	}

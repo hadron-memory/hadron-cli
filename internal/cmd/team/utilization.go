@@ -125,14 +125,14 @@ the last match failure, which an older server rejects as an unknown field.`,
 			if tier != "" {
 				t := strings.ToLower(tier)
 				if !utilizationTiers[t] {
-					return exitcode.Newf(exitcode.Usage, "--tier takes high, mid or low, got %q", tier)
+					return exitcode.Newf(exitcode.Usage, "--tier takes high, mid or low")
 				}
 				tierFilter = &t
 			}
 			if window != "" {
 				d, err := time.ParseDuration(window)
 				if err != nil || d < time.Hour || d > 168*time.Hour || d%time.Hour != 0 {
-					return exitcode.Newf(exitcode.Usage, "--window takes a whole number of hours from 1h to 168h, e.g. 24h or 168h, got %q", window)
+					return exitcode.Newf(exitcode.Usage, "--window takes a whole number of hours from 1h to 168h, e.g. 24h or 168h")
 				}
 				h := int(d / time.Hour)
 				hours = &h

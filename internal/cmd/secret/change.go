@@ -134,7 +134,7 @@ func readChange(ctx context.Context, client graphql.Client, id string) (*changeD
 		return nil, mapChangeRequestError(err)
 	}
 	if resp == nil || resp.SecretChangeRequest == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "change request %s not found (or not yours)", output.SafeCell(id))
+		return nil, exitcode.Newf(exitcode.NotFound, "change request not found (or not yours); the id given is not shown")
 	}
 	r := resp.SecretChangeRequest
 	return &changeDTO{ID: r.Id, State: r.State, Operation: r.Operation, CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt}, nil
@@ -155,16 +155,15 @@ func pollChange(parent context.Context, client graphql.Client, id string, timeou
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
 	var last *changeDTO
-	quoted := cmdutil.ShellQuote(output.SafeCell(id))
 	timedOut := func() error {
 		if parent.Err() != nil {
 			return exitcode.Newf(exitcode.Cancelled,
-				"cancelled while waiting for a signature (%v); the change request %s is left as it is (nothing is withdrawn): read it with `hadron secret change get %s`",
-				parent.Err(), output.SafeCell(id), quoted)
+				"cancelled while waiting for a signature (%v); the change request (the id given is not shown) is left as it is (nothing is withdrawn): read it with `hadron secret change get <id>`",
+				parent.Err())
 		}
 		return exitcode.Newf(exitcode.WaitTimeout,
-			"not signed within %s; the change request %s is left as it is (nothing is withdrawn): read it with `hadron secret change get %s`",
-			timeout, output.SafeCell(id), quoted)
+			"not signed within %s; the change request (the id given is not shown) is left as it is (nothing is withdrawn): read it with `hadron secret change get <id>`",
+			timeout)
 	}
 	ticker := time.NewTicker(changePollInterval)
 	defer ticker.Stop()
@@ -185,9 +184,9 @@ func pollChange(parent context.Context, client graphql.Client, id string, timeou
 		case "completed":
 			return last, nil
 		case "declined", "expired", "withdrawn", "stale":
-			return last, exitcode.Newf(exitcode.Conflict, "the change request %s ended %s without being applied; nothing changed", output.SafeCell(id), output.SafeCell(d.State))
+			return last, exitcode.Newf(exitcode.Conflict, "the change request (the id given is not shown) ended %s without being applied; nothing changed", output.SafeCell(d.State))
 		default:
-			return last, exitcode.Newf(exitcode.Error, "the change request %s is in a state this CLI does not know (%s); it is not waited on", output.SafeCell(id), output.SafeCell(d.State))
+			return last, exitcode.Newf(exitcode.Error, "the change request (the id given is not shown) is in a state this CLI does not know (%s); it is not waited on", output.SafeCell(d.State))
 		}
 		select {
 		case <-ctx.Done():
@@ -220,8 +219,7 @@ server that does not offer protected-secret changes.`,
 				return err
 			}
 			id := args[0]
-			quoted := cmdutil.ShellQuote(output.SafeCell(id))
-			check := "Check it with: hadron secret change get " + quoted
+			const check = "Check it with: hadron secret change get <id> (the id given is not shown)"
 			resp, err := gen.WithdrawSecretChangeRequest(cmd.Context(), client, id)
 			if err != nil {
 				mapped := mapChangeRequestError(err)
@@ -235,10 +233,10 @@ server that does not offer protected-secret changes.`,
 			// The result is a non-null Boolean: a missing or null one is a
 			// malformed answer, not an explicit "not open".
 			if resp == nil || resp.WithdrawSecretChangeRequest == nil {
-				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the withdrawal of change request %s (no result returned); it may or may not have been withdrawn. %s", output.SafeCell(id), check)
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the withdrawal of the change request (no result returned); it may or may not have been withdrawn. %s", check)
 			}
 			if !*resp.WithdrawSecretChangeRequest {
-				return exitcode.Newf(exitcode.Conflict, "change request %s is not open, so nothing was withdrawn; %s", output.SafeCell(id), check)
+				return exitcode.Newf(exitcode.Conflict, "the change request is not open, so nothing was withdrawn; %s", check)
 			}
 			dto := map[string]string{"id": id, "status": "withdrawn"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

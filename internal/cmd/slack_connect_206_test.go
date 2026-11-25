@@ -571,7 +571,7 @@ func TestSlackConnectValidatesTheSuccessAnswer(t *testing.T) {
 // or server-supplied value in it is shell-quoted (cmdutil.ShellQuote), never
 // Go-quoted, and the unknown-status recovery ends in the one command that cannot
 // loop (get and status refuse the same unknown status; disconnect needs no status).
-func TestSlackConnectSuggestedCommandsAreShellSafe(t *testing.T) {
+func TestSlackConnectSuggestedCommandsNeverRepeatTheOrg(t *testing.T) {
 	awkward := "acme.com; touch /tmp/x $(id) `id` it's"
 	bot := tokenFile(t, "bot", botTok)
 	app := tokenFile(t, "app", appTok)

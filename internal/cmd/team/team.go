@@ -454,7 +454,7 @@ func lookupWorker(ctx context.Context, client graphql.Client, appRef, arg string
 			return "", nil, api.MapError(err)
 		}
 		if resp.Worker == nil {
-			return "", nil, exitcode.Newf(exitcode.NotFound, "no worker %q", arg)
+			return "", nil, exitcode.Newf(exitcode.NotFound, "no worker has that ref (the ref given is not shown)")
 		}
 		return resp.Worker.Id, &resp.Worker.WorkerFields, nil
 	}
@@ -486,7 +486,7 @@ func lookupWorker(ctx context.Context, client graphql.Client, appRef, arg string
 		}
 		if id == "" {
 			return "", nil, exitcode.Newf(exitcode.NotFound,
-				"no worker %q in this App — `hadron team worker list` shows the staff", arg)
+				"no worker in this App has that name or ref (the one given is not shown) — `hadron team worker list` shows the staff")
 		}
 		return id, row, nil
 	}
@@ -532,7 +532,7 @@ func lookupWorker(ctx context.Context, client graphql.Client, appRef, arg string
 	// names are free-form, so no name-vs-id test is safe, and guessing is
 	// the smell review:no-hand-parsed-ref-labels exists to catch.
 	return "", nil, exitcode.Newf(exitcode.NotFound,
-		"no worker %q — if that is a NAME it resolves only within an App, so pass --app <ref> (or set an App context); an id or URN (hrn:worker:…) needs no App scope, so if you passed one, nothing by that ref exists", arg)
+		"no worker found (the ref given is not shown) — if that is a NAME it resolves only within an App, so pass --app <ref> (or set an App context); an id or URN (hrn:worker:…) needs no App scope, so if you passed one, nothing by that ref exists")
 }
 
 // describeApp renders a team App the way a reader can act on it: its URN,

@@ -2383,6 +2383,11 @@ type AgentRevisionsResponse struct {
 	// An Agent's revisions, newest first, with the slot limit, the highest slot used and the saves left (#4488).
 	// Read by whoever may restore a revision: the Agent's manager.
 	//
+	// Error codes (extensions.code): AGENT_NOT_FOUND (no such Agent, or one the
+	// caller cannot read), FORBIDDEN (a reader who does not manage the Agent),
+	// AGENT_HAS_NO_SYSTEM_MEMORY (the Agent has no system memory, so it has no
+	// revisions to list).
+	//
 	// Accepts the entity's ID or URN.
 	AgentRevisions *AgentRevisionsAgentRevisionsAgentRevisionList `json:"agentRevisions"`
 }
@@ -84600,6 +84605,128 @@ func (v *QuotaCountersResponse) GetQuotaCounters() []*QuotaCountersQuotaCounters
 	return v.QuotaCounters
 }
 
+// QuotaCountersScopedQuotaCountersQuotaCounter includes the requested fields of the GraphQL type QuotaCounter.
+// The GraphQL type's documentation follows.
+//
+// Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
+type QuotaCountersScopedQuotaCountersQuotaCounter struct {
+	QuotaCounterFields `json:"-"`
+}
+
+// GetId returns QuotaCountersScopedQuotaCountersQuotaCounter.Id, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetId() string { return v.QuotaCounterFields.Id }
+
+// GetScopeKind returns QuotaCountersScopedQuotaCountersQuotaCounter.ScopeKind, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetScopeKind() string {
+	return v.QuotaCounterFields.ScopeKind
+}
+
+// GetScopeId returns QuotaCountersScopedQuotaCountersQuotaCounter.ScopeId, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetScopeId() string {
+	return v.QuotaCounterFields.ScopeId
+}
+
+// GetAction returns QuotaCountersScopedQuotaCountersQuotaCounter.Action, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetAction() string {
+	return v.QuotaCounterFields.Action
+}
+
+// GetWindow returns QuotaCountersScopedQuotaCountersQuotaCounter.Window, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetWindow() string {
+	return v.QuotaCounterFields.Window
+}
+
+// GetUsed returns QuotaCountersScopedQuotaCountersQuotaCounter.Used, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetUsed() int {
+	return v.QuotaCounterFields.Used
+}
+
+// GetLimit returns QuotaCountersScopedQuotaCountersQuotaCounter.Limit, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetLimit() int {
+	return v.QuotaCounterFields.Limit
+}
+
+// GetResetAt returns QuotaCountersScopedQuotaCountersQuotaCounter.ResetAt, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetResetAt() string {
+	return v.QuotaCounterFields.ResetAt
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*QuotaCountersScopedQuotaCountersQuotaCounter
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.QuotaCountersScopedQuotaCountersQuotaCounter = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.QuotaCounterFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalQuotaCountersScopedQuotaCountersQuotaCounter struct {
+	Id string `json:"id"`
+
+	ScopeKind string `json:"scopeKind"`
+
+	ScopeId string `json:"scopeId"`
+
+	Action string `json:"action"`
+
+	Window string `json:"window"`
+
+	Used int `json:"used"`
+
+	Limit int `json:"limit"`
+
+	ResetAt string `json:"resetAt"`
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) __premarshalJSON() (*__premarshalQuotaCountersScopedQuotaCountersQuotaCounter, error) {
+	var retval __premarshalQuotaCountersScopedQuotaCountersQuotaCounter
+
+	retval.Id = v.QuotaCounterFields.Id
+	retval.ScopeKind = v.QuotaCounterFields.ScopeKind
+	retval.ScopeId = v.QuotaCounterFields.ScopeId
+	retval.Action = v.QuotaCounterFields.Action
+	retval.Window = v.QuotaCounterFields.Window
+	retval.Used = v.QuotaCounterFields.Used
+	retval.Limit = v.QuotaCounterFields.Limit
+	retval.ResetAt = v.QuotaCounterFields.ResetAt
+	return &retval, nil
+}
+
+// QuotaCountersScopedResponse is returned by QuotaCountersScoped on success.
+type QuotaCountersScopedResponse struct {
+	// Usage-vs-limit counters (#510, #5074, hrn:node:hadronmemory.com:specs:cor:acl:050:04). orgRef: the org's (+ one app with appRef), org-ADMIN. appRef alone: the App's and its organization's, or for a person's App the App's and, for its owner or a platform admin, the owner's user counters; every denial is NOT_FOUND. userRef alone: that person's, the person or a platform admin (FORBIDDEN otherwise). No ref, or userRef with another ref: BAD_USER_INPUT. Rows materialize on first view, seeded with platform defaults.
+	QuotaCounters []*QuotaCountersScopedQuotaCountersQuotaCounter `json:"quotaCounters"`
+}
+
+// GetQuotaCounters returns QuotaCountersScopedResponse.QuotaCounters, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedResponse) GetQuotaCounters() []*QuotaCountersScopedQuotaCountersQuotaCounter {
+	return v.QuotaCounters
+}
+
 // ReAdoptAutomationResponse is returned by ReAdoptAutomation on success.
 type ReAdoptAutomationResponse struct {
 	// #1719: rebind a trigger to its reviewed graph. expectedHash must match previewAutomation; edits since preview refuse adoption.
@@ -110554,9 +110681,11 @@ func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memo
 // per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
 // id with no readable name has a null name.
 type TeamMetricsCountFields struct {
-	Total     int      `json:"total"`
-	Ids       []string `json:"ids"`
-	Truncated bool     `json:"truncated"`
+	Total int      `json:"total"`
+	Ids   []string `json:"ids"`
+	// One entry per id of ids, same order: the id and its name, null when no name is readable.
+	Named     []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+	Truncated bool                                             `json:"truncated"`
 }
 
 // GetTotal returns TeamMetricsCountFields.Total, and is useful for accessing the field via an interface.
@@ -110565,8 +110694,28 @@ func (v *TeamMetricsCountFields) GetTotal() int { return v.Total }
 // GetIds returns TeamMetricsCountFields.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsCountFields) GetIds() []string { return v.Ids }
 
+// GetNamed returns TeamMetricsCountFields.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.Named
+}
+
 // GetTruncated returns TeamMetricsCountFields.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsCountFields) GetTruncated() bool { return v.Truncated }
+
+// TeamMetricsCountFieldsNamedTeamMetricsNamedId includes the requested fields of the GraphQL type TeamMetricsNamedId.
+// The GraphQL type's documentation follows.
+//
+// #4992: an id of a metrics count with its name (a task's title or a worker's name); the name follows the same gate as the id.
+type TeamMetricsCountFieldsNamedTeamMetricsNamedId struct {
+	Id   string  `json:"id"`
+	Name *string `json:"name"`
+}
+
+// GetId returns TeamMetricsCountFieldsNamedTeamMetricsNamedId.Id, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFieldsNamedTeamMetricsNamedId) GetId() string { return v.Id }
+
+// GetName returns TeamMetricsCountFieldsNamedTeamMetricsNamedId.Name, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFieldsNamedTeamMetricsNamedId) GetName() *string { return v.Name }
 
 // TeamMetricsProjectFields includes the GraphQL fields of TeamMetricsProject requested by the fragment TeamMetricsProjectFields.
 // The GraphQL type's documentation follows.
@@ -110682,6 +110831,11 @@ func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetIds() []string 
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -110717,6 +110871,8 @@ type __premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -110733,6 +110889,7 @@ func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) __premarshalJSON()
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -110758,6 +110915,11 @@ func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -110795,6 +110957,8 @@ type __premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -110811,6 +110975,7 @@ func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -110893,6 +111058,11 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMet
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -110928,6 +111098,8 @@ type __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildre
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -110944,6 +111116,7 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMet
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111077,6 +111250,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetIds() []strin
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111112,6 +111290,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111128,6 +111308,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) __premarshalJSON
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111288,6 +111469,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProject
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111323,6 +111509,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupB
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111339,6 +111527,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProject
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111401,6 +111590,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeam
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111436,6 +111630,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupT
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111452,6 +111648,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeam
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111529,6 +111726,11 @@ func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetIds() []string 
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111564,6 +111766,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111580,6 +111784,7 @@ func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) __premarshalJSON()
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111605,6 +111810,11 @@ func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111642,6 +111852,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111658,6 +111870,7 @@ func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111683,6 +111896,11 @@ func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111720,6 +111938,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111736,6 +111956,7 @@ func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111761,6 +111982,11 @@ func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111798,6 +112024,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111814,6 +112042,7 @@ func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) __premarshalJSON(
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -140827,6 +141056,18 @@ func (v *__QuotaCountersInput) GetOrgRef() string { return v.OrgRef }
 
 // GetAppRef returns __QuotaCountersInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__QuotaCountersInput) GetAppRef() *string { return v.AppRef }
+
+// __QuotaCountersScopedInput is used internally by genqlient
+type __QuotaCountersScopedInput struct {
+	AppRef  *string `json:"appRef,omitempty"`
+	UserRef *string `json:"userRef,omitempty"`
+}
+
+// GetAppRef returns __QuotaCountersScopedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__QuotaCountersScopedInput) GetAppRef() *string { return v.AppRef }
+
+// GetUserRef returns __QuotaCountersScopedInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__QuotaCountersScopedInput) GetUserRef() *string { return v.UserRef }
 
 // __ReAdoptAutomationInput is used internally by genqlient
 type __ReAdoptAutomationInput struct {
@@ -172797,8 +173038,8 @@ mutation IssueSecretReadClient ($input: IssueSecretReadClientInput!) {
 // cli#2631 slice 1: issue a read client for an App secret, and list the read
 // clients the caller issued or holds. Optional input fields are omitted when unset:
 // omitted keeps the server default, an explicit null would be read as a value.
-// The USE-mode arguments the server added (the CLI issues REVEAL clients only, gap #3014): omitted, never
-// sent as null, so the request without them is byte-identical to before the schema refresh (cli#3006).
+// The USE-mode arguments (cli#3014, `secret client issue --mode USE`): omitted, never sent as null, so a
+// REVEAL issue is byte-identical to before they existed.
 func IssueSecretReadClient(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -178974,7 +179215,10 @@ fragment QuotaCounterFields on QuotaCounter {
 `
 
 // Quota counters (server #510): usage vs limit for an org, plus one App's rows
-// when appRef is given. Org ADMIN. Rows materialize on first view.
+// when appRef is given. Org ADMIN. Rows materialize on first view. This document
+// names no userRef: `quota list --org` must keep working against a server that
+// predates #5074, which rejects an unknown argument even when its variable is
+// omitted (review:old-server-graphql-document-compatibility, cli#3139).
 func QuotaCounters(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -178991,6 +179235,55 @@ func QuotaCounters(
 	}
 
 	data_ = &QuotaCountersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by QuotaCountersScoped.
+const QuotaCountersScoped_Operation = `
+query QuotaCountersScoped ($appRef: String, $userRef: ID) {
+	quotaCounters(appRef: $appRef, userRef: $userRef) {
+		... QuotaCounterFields
+	}
+}
+fragment QuotaCounterFields on QuotaCounter {
+	id
+	scopeKind
+	scopeId
+	action
+	window
+	used
+	limit
+	resetAt
+}
+`
+
+// cli#3139 (server #5074): the two forms the org-only document cannot express, an App on its own
+// (appRef alone) and a person (userRef alone). Every ref is optional and omitted when unset (never
+// null); the CLI sends exactly one of the two, and the server judges access. Needs a server with #5074.
+func QuotaCountersScoped(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef *string,
+	userRef *string,
+) (data_ *QuotaCountersScopedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "QuotaCountersScoped",
+		Query:  QuotaCountersScoped_Operation,
+		Variables: &__QuotaCountersScopedInput{
+			AppRef:  appRef,
+			UserRef: userRef,
+		},
+	}
+
+	data_ = &QuotaCountersScopedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -189909,6 +190202,10 @@ query TeamMetrics ($appRef: ID!, $since: DateTime, $until: DateTime) {
 fragment TeamMetricsCountFields on TeamMetricsCount {
 	total
 	ids
+	named {
+		id
+		name
+	}
 	truncated
 }
 fragment TeamMetricsProjectFields on TeamMetricsProject {

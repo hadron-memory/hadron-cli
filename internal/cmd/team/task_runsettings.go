@@ -47,7 +47,7 @@ func validateTaskRunSettings(where string, family, model, tier, effort *string) 
 	// shown with its reason and the normal exit.
 	for name, v := range map[string]*string{"family": family, "model": model} {
 		if v != nil && (*v == "" || strings.ContainsAny(*v, " \t\r\n")) {
-			return exitcode.Newf(exitcode.Usage, "%s%s %q must be one word with no whitespace", where, name, *v)
+			return exitcode.Newf(exitcode.Usage, "%s%s must be one word with no whitespace (the value given is not shown)", where, name)
 		}
 	}
 	if model != nil && tier != nil {
@@ -57,7 +57,7 @@ func validateTaskRunSettings(where string, family, model, tier, effort *string) 
 		switch *tier {
 		case "high", "mid", "low":
 		default:
-			return exitcode.Newf(exitcode.Usage, "%stier %q must be high, mid or low", where, *tier)
+			return exitcode.Newf(exitcode.Usage, "%stier must be high, mid or low", where)
 		}
 	}
 	if effort != nil {
@@ -66,7 +66,7 @@ func validateTaskRunSettings(where string, family, model, tier, effort *string) 
 		case e == gen.EffortLevelNotApplicable:
 			return exitcode.Newf(exitcode.Usage, "%seffort NOT_APPLICABLE is a report, not a request; use UNSET for the family's default", where)
 		case !taskEfforts[e]:
-			return exitcode.Newf(exitcode.Usage, "%seffort %q must be one of LOW, MEDIUM, HIGH, XHIGH, MAX or UNSET", where, *effort)
+			return exitcode.Newf(exitcode.Usage, "%seffort must be one of LOW, MEDIUM, HIGH, XHIGH, MAX or UNSET", where)
 		}
 	}
 	return nil

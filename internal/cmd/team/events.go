@@ -108,7 +108,7 @@ one refuses the read and nothing is printed.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if limit < 1 || limit > teamEventPageCap {
-				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
+				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — another value would be clamped silently", teamEventPageCap)
 			}
 			if newest && after != "" {
 				return exitcode.Newf(exitcode.Usage, "--after continues an oldest-first read; with --newest page toward older events with --before <id>")
@@ -118,7 +118,7 @@ one refuses the read and nothing is printed.
 			}
 			if since != "" {
 				if _, err := time.Parse(time.RFC3339, since); err != nil {
-					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 timestamp, e.g. 2026-10-12T00:00:00Z, got %q", since)
+					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 timestamp, e.g. 2026-10-12T00:00:00Z")
 				}
 			}
 			b, err := readBindingOrNilWithApp(ctx, f)
@@ -323,7 +323,9 @@ has not reacted (stall.owner-unreactive), that cannot be assigned
 or a dark-worker alarm (a worker that has gone dark), or a cadence alarm
 (alarm.lead-cadence: a coordinator that has missed its cadence; events raised
 before the rename say alarm.coordinator-cadence, and both are handled alike).
-An alarm wakes its nearest owner first, and the owners above only while it stays unacknowledged.
+An alarm wakes its nearest owner first, and the owners above only while it stays
+unacknowledged. The one exception is a team.dark alarm, which has no chain of
+owners (see "hadron team alarm ack").
 
 To see alarms, use "hadron team alarms" (the alarms in effect now, one row per
 alarm) or "hadron team events --alarms" (the raw event stream). Both show each
@@ -347,6 +349,11 @@ prints "✓ acknowledged alarm <id> (<type> on task <task>), at <time>" (a
 task-less alarm names its worker or coordinator instead of the task; --json: the
 event). The first acknowledgement stands: a second is refused with
 ALARM_ALREADY_ACKNOWLEDGED.
+
+A team.dark alarm (a whole App's team gone dark) is the one kind no
+acknowledgement fits: it has no chain and is never acknowledged — it clears
+when the team recovers, not by an ack. Acknowledging one is refused with
+ALARM_NOT_ACKNOWLEDGEABLE (exit 2).
 
 An acknowledgement stops the climb; it does not end the alarm episode. The
 episode ends by itself: a finish-by alarm when the task finishes or is

@@ -272,7 +272,7 @@ func signingRequestVerb(f *cmdutil.Factory, use, short, what, example string, ca
 				return cmdutil.MapGrantSigningError(err)
 			}
 			if r == nil {
-				return exitcode.Newf(exitcode.NotFound, "signing request %q not found (or not visible to this caller)", id)
+				return exitcode.Newf(exitcode.NotFound, "signing request not found (or not visible to this caller); the id given is not shown")
 			}
 			return renderGrantSigningRequest(f, cmdutil.GrantSigningRequestFrom(r))
 		},

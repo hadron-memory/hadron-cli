@@ -225,15 +225,15 @@ clean result, and everything else still runs.`, abstractSoftMax, abstractHardMax
 					return err
 				}
 				if len(nodes) == 0 {
-					return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefixFlag)
+					return exitcode.Newf(exitcode.NotFound, "no specs found under the prefix (the value given is not shown)")
 				}
 				corpus = true
 			case product != "" || module != "":
 				if product != "" && !reModule.MatchString(product) {
-					return exitcode.Newf(exitcode.Usage, "--product %q must be 3 lowercase letters", product)
+					return exitcode.Newf(exitcode.Usage, "--product must be 3 lowercase letters")
 				}
 				if module != "" && !reModule.MatchString(module) {
-					return exitcode.Newf(exitcode.Usage, "--module %q must be 3 lowercase letters", module)
+					return exitcode.Newf(exitcode.Usage, "--module must be 3 lowercase letters")
 				}
 				prefix := module
 				if product != "" {
@@ -265,17 +265,17 @@ clean result, and everything else still runs.`, abstractSoftMax, abstractHardMax
 						// A flat (or empty) corpus has no product to infer — the
 						// module simply isn't here. Fail loudly without the
 						// misleading "scope with --product" hint.
-						return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefix)
+						return exitcode.Newf(exitcode.NotFound, "no specs found under the product or module (the value given is not shown)")
 					default:
 						return exitcode.Newf(exitcode.Usage,
-							"module %q is ambiguous — the memory declares multiple products (%s); scope with --product <ppp>",
-							module, strings.Join(products, ", "))
+							"the module (the value given is not shown) is ambiguous — the memory declares multiple products (%s); scope with --product <ppp>",
+							strings.Join(products, ", "))
 					}
 				}
 				// Reachable only with product set (given, or inferred above), so
 				// no "scope with --product" hint is warranted here.
 				if len(nodes) == 0 {
-					return exitcode.Newf(exitcode.NotFound, "no specs found under %q", prefix)
+					return exitcode.Newf(exitcode.NotFound, "no specs found under the product or module (the value given is not shown)")
 				}
 				corpus = true
 			case all:

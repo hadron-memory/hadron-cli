@@ -142,11 +142,11 @@ host to check it is running, then repeat the command.
 			}
 			lv, ok := stopLevels[strings.ToLower(level)]
 			if !ok {
-				return exitcode.Newf(exitcode.Usage, "--level takes pause-dispatch, pause or halt, got %q", level)
+				return exitcode.Newf(exitcode.Usage, "--level takes pause-dispatch, pause or halt")
 			}
 			sc, ok := stopScopes[strings.ToLower(scope)]
 			if !ok {
-				return exitcode.Newf(exitcode.Usage, "--scope takes worker, team or host, got %q", scope)
+				return exitcode.Newf(exitcode.Usage, "--scope takes worker, team or host")
 			}
 			input := gen.SetTeamStopSignalInput{Level: lv, Scope: sc}
 			if sc == gen.StopSignalScopeHost {
@@ -161,17 +161,17 @@ host to check it is running, then repeat the command.
 				}
 			} else {
 				if cmd.Flags().Changed("host") {
-					return exitcode.Newf(exitcode.Usage, "--host belongs to --scope host; --scope %s names a worker with --worker", strings.ToLower(scope))
+					return exitcode.Newf(exitcode.Usage, "--host belongs to --scope host; --scope worker or team names a worker with --worker")
 				}
 				if strings.TrimSpace(worker) == "" {
-					return exitcode.Newf(exitcode.Usage, "--scope %s needs a non-empty --worker <id, URN or name> (a team is named by its head; an unset variable?)", strings.ToLower(scope))
+					return exitcode.Newf(exitcode.Usage, "--scope worker or team needs a non-empty --worker <id, URN or name> (a team is named by its head; an unset variable?)")
 				}
 				input.Worker = &worker
 			}
 			if cmd.Flags().Changed("until") {
 				t, err := time.Parse(time.RFC3339Nano, until)
 				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 time with an offset, e.g. 2026-12-01T10:00:00Z, got %q", until)
+					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 time with an offset, e.g. 2026-12-01T10:00:00Z")
 				}
 				u := t.UTC().Format(time.RFC3339Nano)
 				input.Until = &u

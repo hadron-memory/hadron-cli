@@ -169,7 +169,7 @@ edit through the review door for you.`,
 			}
 			if parent.Node == nil {
 				return exitcode.Newf(exitcode.NotFound,
-					"no %q node in %s — create the parent first, or pass --root", root, mem.raw)
+					"no such parent node in the memory (the loc and memory given are not shown) — create the parent first, or pass --root")
 			}
 
 			edges := []*gen.NodeEdgeInput{{TargetId: parent.Node.Id, Name: &label}}
@@ -257,8 +257,7 @@ edit through the review door for you.`,
 				// under-linked, and a caller branching on the exit code must
 				// not read that as complete.
 				return exitcode.Newf(exitcode.Error,
-					"created %s but its edge to %q is missing — the check is invisible to tasks:review-changes; wire it with `hadron edge create -m %s --from %s --to %s --name %s`",
-					dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
+					"created the check reported above but its edge to the parent is missing (the locs given are not shown) — the check is invisible to tasks:review-changes; wire it with `hadron edge create -m <memory> --from <loc> --to <parent-loc> --name <label>`")
 			}
 			return nil
 		},
@@ -314,7 +313,7 @@ func checkLoc(root, name string) (string, error) {
 	}
 	if strings.ContainsAny(n, ": /") {
 		return "", exitcode.Newf(exitcode.Usage,
-			"check name %q must be a single kebab-case segment — the %q prefix is added for you", name, childPrefix(root))
+			"the check name (the value given is not shown) must be a single kebab-case segment — the parent's prefix is added for you")
 	}
 	loc := childPrefix(root) + n
 	if err := cmdutil.ValidateURNPath("<check-name>", loc); err != nil {
@@ -345,7 +344,7 @@ func normalizeTrigger(trigger string) (string, error) {
 	}
 	if strings.TrimSpace(t[len(triggerStem):]) == "" {
 		return "", exitcode.Newf(exitcode.Usage,
-			"--trigger %q is the bare stem — say what the check applies TO (e.g. \"a resolver changes\")", trigger)
+			"--trigger (the value given is not shown) is the bare stem — say what the check applies TO (e.g. \"a resolver changes\")")
 	}
 	// Keep the caller's spelling of the stem; the rule is case-insensitive.
 	return t, nil
@@ -359,7 +358,7 @@ func parseLinks(raw []string) ([]newLink, error) {
 		ref, label, found := strings.Cut(r, "=")
 		ref, label = strings.TrimSpace(ref), strings.TrimSpace(label)
 		if ref == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "--link %q has no target ref", r)
+			return nil, exitcode.Newf(exitcode.Usage, "--link (the value given is not shown) has no target ref")
 		}
 		if !found || label == "" {
 			label = defaultLinkLabel

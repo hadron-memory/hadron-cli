@@ -5,6 +5,8 @@ import (
 	"os/exec"
 	"strings"
 	"testing"
+
+	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 )
 
 // ---- a printed `edge create` remedy runs as printed (#687 slice 2) ----
@@ -74,12 +76,19 @@ const shellyLabel = `fix $HOME and ` + "`id`" + ` "quoted" isn't \ $(x)`
 
 // runRemedy executes the printed remedy against a server that resolves every
 // ref and accepts the edge, and returns the createEdge variables it sent.
-func runRemedy(t *testing.T, errText string) (args []string, sent struct {
+// The text shows the forms, never what was typed (cli#3114): fill replaces them, shell-quoted.
+func runRemedy(t *testing.T, errText string, fill map[string]string) (args []string, sent struct {
 	SourceRef string `json:"sourceRef"`
 	TargetRef string `json:"targetRef"`
 	Name      string `json:"name"`
 }) {
 	t.Helper()
+	for form, v := range fill {
+		if strings.Contains(v, ":") && strings.Contains(errText, v) { // "preflight" and "review" are ordinary words here
+			t.Errorf("the refusal shows the typed value for %s: %q", form, errText)
+		}
+		errText = strings.ReplaceAll(errText, form, cmdutil.ShellQuote(v))
+	}
 	args = remedyArgs(t, errText)
 	gql, captured := queueGraphQL(t, map[string][]string{
 		"ResolveUrn": {
@@ -135,7 +144,7 @@ func TestCodingPreflightRouteBackEdgeRemedyRuns(t *testing.T) {
 	if err == nil {
 		t.Fatal("a missing back-edge is a partial write")
 	}
-	args, sent := runRemedy(t, err.Error())
+	args, sent := runRemedy(t, err.Error(), map[string]string{"<memory>": codingMem, "<loc>": "findings:flaky-otp-timer", "<router-loc>": "preflight", "<label>": sentEdgeName(t, captured["CreateEdge"][1])})
 	if flagValue(args, "--from") != "findings:flaky-otp-timer" || flagValue(args, "--to") != "preflight" {
 		t.Errorf("the back-edge runs from the routed node to the index, got %v", args)
 	}
@@ -176,7 +185,7 @@ func TestCodingPreflightCreateUnroutedRemedyRuns(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unrouted node is a partial write")
 	}
-	args, sent := runRemedy(t, err.Error())
+	args, sent := runRemedy(t, err.Error(), map[string]string{"<memory>": codingMem, "<loc>": "findings:flaky-otp-timer", "<router-loc>": "preflight", "<label>": sentEdgeName(t, captured["CreateEdge"][0])})
 	if flagValue(args, "--to") == "" || flagValue(args, "-m") != codingMem {
 		t.Errorf("the remedy must name the new node and the memory, got %v", args)
 	}
@@ -203,7 +212,7 @@ func TestCodingReviewCreateUnwiredRemedyRuns(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unwired check is a partial write")
 	}
-	args, _ := runRemedy(t, err.Error())
+	args, _ := runRemedy(t, err.Error(), map[string]string{"<memory>": codingMem, "<loc>": "review:orphan", "<parent-loc>": "review", "<label>": "applies when a thing changes"})
 	if flagValue(args, "--from") != "review:orphan" || flagValue(args, "--to") != "review" {
 		t.Errorf("the remedy wires the new check to its review parent, got %v", args)
 	}

@@ -243,7 +243,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.
 				input.StartBy = jsonNull
 			case fl.Changed("start-by"):
 				if _, ok := cmdutil.ParseStrictDateTime(startBy); !ok {
-					return usage("--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
+					return usage("--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z")
 				}
 				input.StartBy = mustJSON(startBy)
 			}
@@ -252,7 +252,7 @@ a stall alarm. Success prints the task as task get does; --json returns it.
 				input.FinishBy = jsonNull
 			case fl.Changed("finish-by"):
 				if _, ok := cmdutil.ParseStrictDateTime(finishBy); !ok {
-					return usage("--finish-by takes an RFC 3339 timestamp, e.g. 2099-11-02T09:00:00Z, got %q", finishBy)
+					return usage("--finish-by takes an RFC 3339 timestamp, e.g. 2099-11-02T09:00:00Z")
 				}
 				input.FinishBy = mustJSON(finishBy)
 			}

@@ -95,7 +95,7 @@ exit 2. --json keeps the server's code in the error's serverCode.`,
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.RecordSessionOutcome == nil {
-				return exitcode.Newf(exitcode.Error, "the server did not return session %s; run `hadron team session list` to see whether the outcome was recorded", id)
+				return exitcode.Newf(exitcode.Error, "the server did not return the session (the id given is not shown); run `hadron team session list` to see whether the outcome was recorded")
 			}
 			s := resp.RecordSessionOutcome
 			dto := sessionOutcomeDTO{SessionID: s.Id, Outcome: s.Outcome, OutcomeRef: s.OutcomeRef}
@@ -110,13 +110,15 @@ exit 2. --json keeps the server's code in the error's serverCode.`,
 	}
 	// A negative number reads as a shorthand flag; say how to pass one rather
 	// than leave a bare "unknown shorthand flag".
-	cmd.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
+	cmd.SetFlagErrorFunc(func(c *cobra.Command, err error) error {
 		if _, tok, ok := strings.Cut(err.Error(), " in "); ok {
 			if _, perr := strconv.ParseFloat(tok, 64); perr == nil {
-				return exitcode.Newf(exitcode.Usage, "%s reads as a flag: pass a negative outcome after `--` (hadron team session outcome <session-id> -- %s)", tok, tok)
+				return exitcode.Newf(exitcode.Usage, "a negative number (not shown) reads as a flag: pass a negative outcome after `--` (hadron team session outcome <session-id> -- <outcome>)")
 			}
 		}
-		return exitcode.New(exitcode.Usage, err)
+		// Every other flag error goes to the parent's handler (the root's), which never shows the
+		// argument: pflag's own text quotes it.
+		return c.Parent().FlagErrorFunc()(c, err)
 	})
 	cmd.Flags().StringVar(&ref, "ref", "", "your reference for the outcome (a ticket, a survey id); kept as given")
 	cmd.Flags().StringVar(&meta, "meta", "", "JSON metadata to keep with the outcome")

@@ -121,7 +121,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			if prot == nil {
 				resp, err := gen.CreateSecret(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value)
 				if err != nil {
-					return mapChange(err, "the creation of secret "+output.SafeCell(name))
+					return mapChange(err, "the creation of the secret (the name given is not shown)")
 				}
 				if resp == nil || resp.CreateSecret == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no secret")
@@ -130,7 +130,7 @@ id, ownerType, ownerId, name, kind, metadata and the created/updated fields.`,
 			} else {
 				resp, err := gen.CreateSecretProtected(cmd.Context(), client, ownerType, ownerRef, name, kind, metadata, value, prot)
 				if err != nil {
-					return mapChange(err, "the creation of secret "+output.SafeCell(name))
+					return mapChange(err, "the creation of the secret (the name given is not shown)")
 				}
 				if resp == nil || resp.CreateSecret == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no secret")

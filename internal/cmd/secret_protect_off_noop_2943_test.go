@@ -76,7 +76,7 @@ func TestProtectOffStillProtectedStaysUnconfirmed2943(t *testing.T) {
 	if code != exitcode.Unavailable {
 		t.Fatalf("exit = %d, want 7\n%s%s", code, stdout, stderr)
 	}
-	if !strings.Contains(stderr, "not confirmed") || !strings.Contains(stderr, "protected: true") || !strings.Contains(stderr, "hadron secret get sec_1") {
+	if !strings.Contains(stderr, "not confirmed") || !strings.Contains(stderr, "protected: true") || !strings.Contains(stderr, "hadron secret get <secret>") {
 		t.Errorf("must say it is unconfirmed, what the server reported and how to check: %q", stderr)
 	}
 	if strings.Contains(stdout+stderr, "already off") {

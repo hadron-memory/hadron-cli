@@ -130,8 +130,8 @@ and revision.`,
 			}
 			if succ := supersededByTargets(shape); len(succ) > 0 {
 				return exitcode.Newf(exitcode.Usage,
-					"%s already has a %q edge to %s, so it is superseded, not rescinded; use `hadron spec supersede` for a spec with a successor (nothing was written)",
-					shape.Loc, supersededByLabel, strings.Join(succ, ", "))
+					"the spec (the citation given is not shown) already has a %q edge to %s, so it is superseded, not rescinded; use `hadron spec supersede` for a spec with a successor (nothing was written)",
+					supersededByLabel, strings.Join(succ, ", "))
 			}
 			// Read 2: the stored body, abstract and revision, the snapshot the write is bound to.
 			node, err := fetchSpecForEdit(cmd, client, memURN, loc)
@@ -140,7 +140,7 @@ and revision.`,
 			}
 			if node.Id != shape.Id {
 				return exitcode.Newf(exitcode.Conflict,
-					"%s resolved to a different node between the two reads (%s, then %s), so nothing was written; rerun this command", loc, shape.Id, node.Id)
+					"the citation given (not shown) resolved to a different node between the two reads (%s, then %s), so nothing was written; rerun this command", shape.Id, node.Id)
 			}
 			result := rescindResultDTO{
 				Loc: node.Loc, MemoryID: node.MemoryId, NodeID: node.Id, Revision: node.Revision,
@@ -159,8 +159,8 @@ and revision.`,
 					return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error { return renderRescind(w, result, plan) })
 				}
 				return exitcode.Newf(exitcode.Conflict,
-					"%s is tagged %q but is not recorded as rescinded or withdrawn (its abstract has no %s/%s prefix) and has no successor edge; review it before retiring it, nothing was written",
-					node.Loc, supersededTag, rescindedWord, withdrawnWord)
+					"the spec (the citation given is not shown) is tagged %q but is not recorded as rescinded or withdrawn (its abstract has no %s/%s prefix) and has no successor edge; review it before retiring it, nothing was written",
+					supersededTag, rescindedWord, withdrawnWord)
 			}
 			newBody := withBanner(derefStr(node.Content), plan.banner)
 			render := func(w io.Writer) error { return renderRescind(w, result, plan) }
@@ -184,12 +184,11 @@ and revision.`,
 				switch {
 				case api.HasErrorCode(werr, "NODE_WRITE_CONFLICT"):
 					return exitcode.Newf(exitcode.Conflict,
-						"%s changed since revision %d, which this rescind was based on — nothing was written by this command, though the server may have recorded out-of-band drift as a revision; rerun to start from a fresh read",
-						node.Loc, rev)
+						"the spec (the citation given is not shown) changed since revision %d, which this rescind was based on — nothing was written by this command, though the server may have recorded out-of-band drift as a revision; rerun to start from a fresh read",
+						rev)
 				case unsupportedGuard(werr):
 					return exitcode.Newf(exitcode.Usage,
-						"this server does not support guarded saves (UpdateNodeInput.expectedRevision, hadron-server#1352), so %s cannot be rescinded without risking a silent overwrite of a concurrent change — nothing was written",
-						node.Loc)
+						"this server does not support guarded saves (UpdateNodeInput.expectedRevision, hadron-server#1352), so the spec (the citation given is not shown) cannot be rescinded without risking a silent overwrite of a concurrent change — nothing was written")
 				case exitcode.FromError(api.MapError(werr)) == exitcode.Unavailable:
 					// No answer: it may still have committed. Re-read; the tag AND the prefix prove it.
 					result.Retired = rescindLanded(cmd, client, node.Id)
@@ -198,21 +197,20 @@ and revision.`,
 					}
 					_ = output.Write(f.IOStreams, f.JSON, result, render)
 					return exitcode.Newf(exitcode.Error,
-						"the rescind of %s got no answer (%v) and re-reading it did not confirm it, so whether it was rescinded is unknown; check `hadron spec get %s -m %s` for the %q tag and a %s/%s abstract prefix, then rerun",
-						node.Loc, api.MapError(werr), node.Loc, cmdutil.CanonicalMemoryRef(memURN), supersededTag, rescindedWord, withdrawnWord)
+						"the rescind (the citation given is not shown) got no answer (%v) and re-reading it did not confirm it, so whether it was rescinded is unknown; check `hadron spec get <citation> -m <memory>` for the %q tag and a %s/%s abstract prefix, then rerun",
+						api.MapError(werr), supersededTag, rescindedWord, withdrawnWord)
 				default:
 					return api.MapError(werr)
 				}
 			}
 			if resp == nil || resp.UpdateSpecNode == nil {
-				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node for %s — the write can't be confirmed; check with `hadron spec get %s -m %s`",
-					node.Loc, node.Loc, cmdutil.CanonicalMemoryRef(memURN))
+				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node (the citation given is not shown) — the write can't be confirmed; check with `hadron spec get <citation> -m <memory>`")
 			}
 			result.Retired = boolRef(true)
 			if werr := output.Write(f.IOStreams, f.JSON, result, render); werr != nil {
 				// The write LANDED: do not let a failed stdout read as a failed rescind (or a clean one).
-				return exitcode.Newf(exitcode.Error, "%s was rescinded (one guarded update, revision %d), but its result could not be written to the output: %v; check `hadron spec get %s -m %s`",
-					node.Loc, node.Revision, werr, node.Loc, cmdutil.CanonicalMemoryRef(memURN))
+				return exitcode.Newf(exitcode.Error, "the spec (the citation given is not shown) was rescinded (one guarded update, revision %d), but its result could not be written to the output: %v; check `hadron spec get <citation> -m <memory>`",
+					node.Revision, werr)
 			}
 			return nil
 		},

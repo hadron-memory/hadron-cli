@@ -188,22 +188,22 @@ assignment prints as one line (or as an object with --json).
 				return exitcode.Newf(exitcode.Usage, "--host, --workdir and --family are required")
 			}
 			if !hostSetupHostIDRe.MatchString(hostID) {
-				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; got %q", hostID)
+				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; the value given is not shown")
 			}
 			if !hostSetupToken(workdir) {
-				return exitcode.Newf(exitcode.Usage, "--workdir is %s, the name the host knows the directory by, never a path; got %q", hostSetupTokenRule, workdir)
+				return exitcode.Newf(exitcode.Usage, "--workdir is %s, the name the host knows the directory by, never a path; the value given is not shown", hostSetupTokenRule)
 			}
 			// The server's family is a lowercase token (it normalizes case); send
 			// exactly the value that was validated.
 			family = strings.ToLower(family)
 			if !hostSetupFamilyRe.MatchString(family) {
-				return exitcode.Newf(exitcode.Usage, "--family is a model family token such as claude or codex; got %q", family)
+				return exitcode.Newf(exitcode.Usage, "--family is a model family token such as claude or codex")
 			}
 			input := gen.AssignHostWorkerInput{HostId: hostID, Workdir: workdir, Family: family, Worker: worker}
 			if cmd.Flags().Changed("model") {
 				model = strings.TrimSpace(model)
 				if !hostSetupProfileTokenRe.MatchString(model) {
-					return exitcode.Newf(exitcode.Usage, "--model is %s; got %q", hostSetupProfileTokenRule, model)
+					return exitcode.Newf(exitcode.Usage, "--model is %s; the value given is not shown", hostSetupProfileTokenRule)
 				}
 				input.Model = &model
 			}
@@ -219,7 +219,7 @@ assignment prints as one line (or as an object with --json).
 				}
 				v := strings.TrimSpace(*p.val)
 				if !hostSetupProfileTokenRe.MatchString(v) {
-					return exitcode.Newf(exitcode.Usage, "--%s is %s; got %q", p.flag, hostSetupProfileTokenRule, v)
+					return exitcode.Newf(exitcode.Usage, "--%s is %s; the value given is not shown", p.flag, hostSetupProfileTokenRule)
 				}
 				*p.dst = &v
 			}
@@ -336,7 +336,7 @@ assignment is removable. --json prints {appRef, hostId, worker, removed}.
 				return exitcode.Newf(exitcode.Usage, "--host is required")
 			}
 			if !hostSetupHostIDRe.MatchString(hostID) {
-				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; got %q", hostID)
+				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; the value given is not shown")
 			}
 			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
 			if err != nil {
@@ -436,7 +436,7 @@ empty assignment list leaves every worker unstarted. --json prints
 			hostID = strings.TrimSpace(hostID)
 			writing := cmd.Flags().Changed("source")
 			if cmd.Flags().Changed("host") && !hostSetupHostIDRe.MatchString(hostID) {
-				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; got %q", hostID)
+				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; the value given is not shown")
 			}
 			if !writing {
 				if cmd.Flags().Changed("instruction") {
@@ -449,7 +449,7 @@ empty assignment list leaves every worker unstarted. --json prints
 			}
 			src := gen.HostSetupSource(strings.ToUpper(strings.TrimSpace(source)))
 			if src != gen.HostSetupSourceHost && src != gen.HostSetupSourceServer {
-				return exitcode.Newf(exitcode.Usage, "--source is HOST or SERVER; got %q", source)
+				return exitcode.Newf(exitcode.Usage, "--source is HOST or SERVER")
 			}
 			claim, instructed, err := staffingInstruction(cmd, f, instructionRaw)
 			if err != nil {

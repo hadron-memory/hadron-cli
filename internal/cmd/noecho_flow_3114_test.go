@@ -23,14 +23,6 @@ import (
 // FlagSet.Args/Arg). Flag values are pinned by behavior (noecho_3114_test.go), not by this guard. It is
 // flow-insensitive, does not look inside error values, and does not follow a value through an interface
 // method or a server answer.
-//
-// noEchoPendingDirs are the directory groups whose slice of #3114 has not landed. They are not exempt:
-// each slice deletes its group, and the last one deletes this list.
-var noEchoPendingDirs = []string{
-	"internal/cmd/team/",
-	"internal/cmd/spec/", "internal/cmd/node/", "internal/cmd/memory/",
-	"internal/cmd/question/", "internal/cmd/secret/", "internal/cmd/coding/",
-}
 
 type echoFlow struct {
 	objs    map[types.Object]bool // tainted variables, parameters, fields
@@ -397,13 +389,7 @@ func TestNoRefusalEchoesATypedValueThroughACopyOrHelper3114(t *testing.T) {
 			t.Fatal(err)
 		}
 		rel = filepath.ToSlash(rel)
-		pending := false
-		for _, d := range noEchoPendingDirs {
-			pending = pending || strings.HasPrefix(rel, d)
-		}
-		if !pending {
-			found = append(found, rel)
-		}
+		found = append(found, rel)
 	}
 	if len(found) > 0 {
 		t.Errorf("%d refusal(s) echo a positional argument through a copy or a helper; name its kind and say the value is not shown (#2898 policy, cli#3114):\n  %s",

@@ -655,7 +655,7 @@ func (l *nodeListFilters) validate(cmd *cobra.Command) error {
 	for name, v := range map[string]string{"updated-after": l.updatedAfter, "updated-before": l.updatedBefore} {
 		if l.set[name] {
 			if _, err := time.Parse(time.RFC3339, strings.TrimSpace(v)); err != nil {
-				return exitcode.Newf(exitcode.Usage, "--%s %q is not an RFC 3339 time (e.g. 2026-10-01T00:00:00Z). Nothing was sent", name, v)
+				return exitcode.Newf(exitcode.Usage, "--%s is not an RFC 3339 time (e.g. 2026-10-01T00:00:00Z). Nothing was sent", name)
 			}
 		}
 	}
@@ -663,7 +663,7 @@ func (l *nodeListFilters) validate(cmd *cobra.Command) error {
 	for _, c := range l.memoryClasses {
 		mc := gen.MemoryClass(strings.ToLower(strings.TrimSpace(c)))
 		if !slices.Contains(gen.AllMemoryClass, mc) {
-			return exitcode.Newf(exitcode.Usage, "invalid --memory-class %q (want app, group, knowledge, personal, private or system). Nothing was sent", c)
+			return exitcode.Newf(exitcode.Usage, "invalid --memory-class (want app, group, knowledge, personal, private or system). Nothing was sent")
 		}
 		l.classes = append(l.classes, mc)
 	}

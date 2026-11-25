@@ -48,20 +48,18 @@ func qualifyTaskRef(f *cmdutil.Factory, ref string) (string, error) {
 	if bareTaskHandleRe.MatchString(trimmed) {
 		if !isURN {
 			return "", exitcode.Newf(exitcode.Usage,
-				"--app %s is an App id, and qualifying the bare handle %s needs the App's URN: pass --app hrn:app:<root>:<slug>, or name the task as hrn:agenttask:<root>:<slug>:%s",
-				app, trimmed, trimmed)
+				"--app is an App id, and qualifying the bare task handle needs the App's URN (neither value is shown): pass --app hrn:app:<root>:<slug>, or name the task as hrn:agenttask:<root>:<slug>:<handle>")
 		}
 		qualified, err := urn.ComposeUrnV2("agenttask", root, slug, trimmed)
 		if err != nil {
-			return "", exitcode.Newf(exitcode.Usage, "cannot qualify %s in --app %s: %v", trimmed, app, err)
+			return "", exitcode.Newf(exitcode.Usage, "cannot qualify the task handle in --app (neither value is shown)")
 		}
 		return qualified, nil
 	}
 	if isURN {
 		if r, s, ok := taskRefApp(trimmed); ok && (r != root || s != slug) {
 			return "", exitcode.Newf(exitcode.Usage,
-				"%s names a task in App hrn:app:%s:%s, and --app is %s: omit --app, or name the task in that App",
-				trimmed, r, s, app)
+				"the task ref names a task in another App than --app (neither value is shown): omit --app, or name the task in that App")
 		}
 	}
 	return ref, nil
