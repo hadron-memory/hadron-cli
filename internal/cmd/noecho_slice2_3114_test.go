@@ -30,6 +30,7 @@ func TestSlice2RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 		{"node --edge no target", nil, []string{"node", "create", "-m", "acme.com:dev", "--loc", "a", "--name", "x", "--edge", `{"name":"` + p + `"}`}, "has no target", exitcode.Usage},
 		{"node import glob", nil, []string{"node", "import", "-r", t.TempDir(), "-m", "acme.com::dev", "--include", "[" + p}, "glob pattern", exitcode.Usage},
 		{"spec memory flag", nil, []string{"spec", "list", "-m", "acme.com:" + p + ":x:y"}, "memory ref", exitcode.Usage},
+		{"spec import memory flag", nil, []string{"spec", "import", "code", "x", "-m", "acme.com:" + p + ":x:y"}, "memory ref", exitcode.Usage},
 		{"spec citation segment", nil, []string{"spec", "new", "abc:" + p, "--new-path", "--title", "x", "-m", q}, "not one", exitcode.Usage},
 		{"spec --title prefix", nil, []string{"spec", "new", "abc:010", "--new-path", "--title", "abc:010 — " + low, "-m", q}, "--title", exitcode.Usage},
 		{"spec grep --regex", nil, []string{"spec", "grep", "(" + p, "--regex", "-m", q}, "--regex pattern", exitcode.Usage},
