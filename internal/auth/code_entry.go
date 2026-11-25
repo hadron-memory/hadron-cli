@@ -35,7 +35,9 @@ const (
 const noCodeInputHint = "sign in with a token instead: echo $TOKEN | hadron auth login --with-token, or set HADRON_TOKEN"
 
 // CodeReader reads the code a person pastes, returning when it arrives or
-// ctx ends. It must not echo what it reads.
+// ctx ends. It must not echo what it reads, and it MUST return promptly when
+// ctx ends: Login waits for it before returning, so a reader that ignores ctx
+// blocks the login.
 type CodeReader func(ctx context.Context) (string, error)
 
 // errNoCodeInput is the refusal for a host that has nowhere to paste a code:

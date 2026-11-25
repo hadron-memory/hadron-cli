@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -29,7 +30,7 @@ type fakeAS struct {
 	seenResource       string
 	seenRedirect       string
 	seenCode           string
-	discoveryCalls     int
+	discoveryCalls     atomic.Int32
 	// scopesSupported is advertised in discovery; nil omits the key.
 	scopesSupported []string
 	// tokenScope is the raw JSON `scope` of the token response; nil omits it.
@@ -50,7 +51,7 @@ func newFakeAS(t *testing.T) *fakeAS {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
-		as.discoveryCalls++
+		as.discoveryCalls.Add(1)
 		meta := map[string]any{
 			"authorization_endpoint": as.server.URL + "/oauth/authorize",
 			"token_endpoint":         as.server.URL + "/oauth/token",

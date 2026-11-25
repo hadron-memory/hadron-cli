@@ -220,8 +220,8 @@ func TestCodeEntryWithoutTerminalRefuses_3180(t *testing.T) {
 			if as.tokenCalls != 0 {
 				t.Errorf("nothing may be exchanged")
 			}
-			if name == "flag" && as.discoveryCalls != 0 {
-				t.Errorf("--no-browser without a terminal must refuse before any request, saw %d discovery calls", as.discoveryCalls)
+			if name == "flag" && as.discoveryCalls.Load() != 0 {
+				t.Errorf("--no-browser without a terminal must refuse before any request, saw %d discovery calls", as.discoveryCalls.Load())
 			}
 		})
 	}
