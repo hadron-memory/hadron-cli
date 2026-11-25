@@ -10,6 +10,7 @@ documented contract.
 ```
 hadron auth status            # server answer: AUTHENTICATED exit 0; REFUSED/ANONYMOUS exit 3; --json = {status} only, no cause
 hadron auth login             # interactive browser OAuth (human only)
+hadron auth login --no-browser   # no browser on this host: prints the sign-in address, then you paste the code its page shows (human at a terminal; stdin not a terminal exits 2 -> use --with-token / HADRON_TOKEN; a refused code exits 1 with one fixed line; the code is never echoed or logged)
 echo $TOKEN | hadron auth login --with-token   # store a PAT
 HADRON_TOKEN=hdr_user_...     # env var, overrides stored tokens (CI)
 hadron auth token create      # mint a PAT (after login); list | revoke <id> to manage

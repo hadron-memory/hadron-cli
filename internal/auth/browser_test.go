@@ -27,6 +27,8 @@ type fakeAS struct {
 	registeredRedirect string
 	seenVerifier       string
 	seenResource       string
+	seenRedirect       string
+	seenCode           string
 	// scopesSupported is advertised in discovery; nil omits the key.
 	scopesSupported []string
 	// tokenScope is the raw JSON `scope` of the token response; nil omits it.
@@ -83,6 +85,8 @@ func newFakeAS(t *testing.T) *fakeAS {
 		_ = r.ParseForm()
 		as.seenVerifier = r.Form.Get("code_verifier")
 		as.seenResource = r.Form.Get("resource")
+		as.seenRedirect = r.Form.Get("redirect_uri")
+		as.seenCode = r.Form.Get("code")
 		// The real server requires a resource indicator (RFC 8707)
 		// bound from /authorize through /token.
 		if as.seenResource != as.server.URL+"/mcp" {

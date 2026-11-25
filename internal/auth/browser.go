@@ -65,6 +65,18 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		openBrowser = OpenInBrowser
 	}
 
+	readCode := opts.ReadCode
+	if readCode == nil {
+		readCode = pasteReader(opts.IO)
+	}
+	// A code can be pasted only where something reads it: an injected reader,
+	// or a terminal on standard input. Without one, code entry refuses at once
+	// instead of hanging until the login timeout.
+	canReadCode := opts.ReadCode != nil || (opts.IO != nil && opts.IO.IsInputTerminal())
+	if opts.CodeEntry && !canReadCode {
+		return nil, errNoCodeInput()
+	}
+
 	// The limit named on timeout is the one that will actually fire: ours, or
 	// a caller's earlier deadline.
 	bound := loginTimeout
@@ -93,51 +105,122 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		return nil, err
 	}
 
-	loopback, err := startLoopback(pk.State)
+	// Code-entry mode (the flag) starts no loopback listener at all: nothing
+	// will be redirected, so there is nothing to wait on. The default keeps the
+	// loopback redirect exactly as before.
+	var loopback *loopbackServer
+	var redirectURI string
+	if opts.CodeEntry {
+		redirectURI, err = reserveRedirectURI()
+	} else {
+		loopback, err = startLoopback(pk.State)
+		if err == nil {
+			defer func() { _ = loopback.Close() }()
+			redirectURI = loopback.RedirectURI()
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = loopback.Close() }()
 
-	clientID, err := registerClient(ctx, httpClient, meta.RegistrationEndpoint, loopback.RedirectURI())
+	clientID, err := registerClient(ctx, httpClient, meta.RegistrationEndpoint, redirectURI)
 	if err != nil {
 		return nil, err
 	}
 
-	authorizeParams := url.Values{
-		"response_type":         {"code"},
-		"client_id":             {clientID},
-		"redirect_uri":          {loopback.RedirectURI()},
-		"state":                 {pk.State},
-		"code_challenge":        {pk.Challenge},
-		"code_challenge_method": {"S256"},
-		"scope":                 {accountScope},
+	authorizeURL := func(codePage bool) string {
+		params := url.Values{
+			"response_type":         {"code"},
+			"client_id":             {clientID},
+			"redirect_uri":          {redirectURI},
+			"state":                 {pk.State},
+			"code_challenge":        {pk.Challenge},
+			"code_challenge_method": {"S256"},
+			"scope":                 {accountScope},
+		}
+		if resource != "" {
+			params.Set("resource", resource)
+		}
+		if loginProvider != "" {
+			params.Set("login_provider", loginProvider)
+		}
+		if codePage {
+			params.Set(codeDeliveryParam, codeDeliveryPage)
+		}
+		return meta.AuthorizationEndpoint + "?" + params.Encode()
 	}
-	if resource != "" {
-		authorizeParams.Set("resource", resource)
+	enterCode := func() (*Token, error) {
+		fmt.Fprintf(opts.IO.ErrOut, "Open this address in a browser, on any device, and sign in:\n  %s\n", authorizeURL(true))
+		fmt.Fprint(opts.IO.ErrOut, "Then paste the code the page shows (it is not displayed as you type): ")
+		code, err := waitForCode(ctx, readCode, bound)
+		if err != nil {
+			return nil, err
+		}
+		return exchangeEnteredCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, redirectURI, resource)
 	}
-	if loginProvider != "" {
-		authorizeParams.Set("login_provider", loginProvider)
-	}
-	authorizeURL := meta.AuthorizationEndpoint + "?" + authorizeParams.Encode()
 
+	if opts.CodeEntry {
+		return enterCode()
+	}
+
+	defaultURL := authorizeURL(false)
 	fmt.Fprintln(opts.IO.ErrOut, "Opening your browser to sign in to Hadron...")
-	fmt.Fprintf(opts.IO.ErrOut, "If the browser doesn't open, visit:\n  %s\n", authorizeURL)
-	if err := openBrowser(authorizeURL); err != nil {
+	fmt.Fprintf(opts.IO.ErrOut, "If the browser doesn't open, visit:\n  %s\n", defaultURL)
+	if err := openBrowser(defaultURL); err != nil {
 		fmt.Fprintf(opts.IO.ErrOut, "(could not open browser automatically: %v)\n", err)
+		// No browser here, so the redirect can never arrive: stop waiting for
+		// it and take the code by hand, chosen on this side (the server never
+		// infers it).
+		_ = loopback.Close()
+		if !canReadCode {
+			return nil, errNoCodeInput()
+		}
+		return enterCode()
 	}
 
-	code, err := loopback.Wait(ctx, bound)
-	if errors.Is(err, errInvalidScope) {
-		return nil, exitcode.Newf(exitcode.Error,
-			"%s refused the %q OAuth scope (%v); the CLI needs a server that issues %q keys (hadron-server#1261) — %s",
-			opts.ServerURL, accountScope, err, accountScope, withTokenHint)
+	// A code pasted while the redirect is awaited completes the login too,
+	// whichever comes first (cor:aut:030:01: the client always accepts a
+	// pasted code). Reading stops when this returns (ctx ends with it) and the terminal is restored.
+	var pasted chan pasteResult
+	if canReadCode {
+		fmt.Fprintln(opts.IO.ErrOut, "If you were given a code instead, paste it here (nothing is shown as you type):")
+		pasted = make(chan pasteResult, 1)
+		go func() {
+			c, err := readCode(ctx)
+			pasted <- pasteResult{code: c, err: err}
+		}()
 	}
-	if err != nil {
-		return nil, err
+	for {
+		select {
+		case res := <-loopback.results:
+			if errors.Is(res.err, errInvalidScope) {
+				return nil, exitcode.Newf(exitcode.Error,
+					"%s refused the %q OAuth scope (%v); the CLI needs a server that issues %q keys (hadron-server#1261) — %s",
+					opts.ServerURL, accountScope, res.err, accountScope, withTokenHint)
+			}
+			if res.err != nil {
+				return nil, res.err
+			}
+			return exchangeCode(ctx, httpClient, meta.TokenEndpoint, clientID, res.code, pk.Verifier, redirectURI, resource)
+		case p := <-pasted:
+			pasted = nil // a failed read does not end the wait for the redirect
+			if p.err != nil {
+				continue
+			}
+			code := cleanCode(p.code)
+			if code == "" {
+				continue
+			}
+			return exchangeEnteredCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, redirectURI, resource)
+		case <-ctx.Done():
+			return nil, ctxDoneError(ctx, bound)
+		}
 	}
+}
 
-	return exchangeCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, loopback.RedirectURI(), resource)
+type pasteResult struct {
+	code string
+	err  error
 }
 
 // loginProviderParam returns the provider hint sent to /oauth/authorize.
@@ -155,7 +238,23 @@ func loginProviderParam(provider string) (string, error) {
 	}
 }
 
+// exchangeEnteredCode is exchangeCode for a code a person pasted. The server
+// refuses a wrong, expired, used, exhausted or mismatched code with the same
+// invalid_grant, and the CLI answers all of them with the one fixed line: it
+// never repeats the code and counts nothing itself (the limit is the server's).
+func exchangeEnteredCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, clientID, code, verifier, redirectURI, resource string) (*Token, error) {
+	tok, err := exchangeCodeWith(ctx, httpClient, tokenEndpoint, clientID, code, verifier, redirectURI, resource, true)
+	if errors.Is(err, errCodeRefused) {
+		return nil, exitcode.Newf(exitcode.Error, "%s", codeRefusal)
+	}
+	return tok, err
+}
+
 func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, clientID, code, verifier, redirectURI, resource string) (*Token, error) {
+	return exchangeCodeWith(ctx, httpClient, tokenEndpoint, clientID, code, verifier, redirectURI, resource, false)
+}
+
+func exchangeCodeWith(ctx context.Context, httpClient *http.Client, tokenEndpoint, clientID, code, verifier, redirectURI, resource string, entered bool) (*Token, error) {
 	form := url.Values{
 		"grant_type":    {"authorization_code"},
 		"code":          {code},
@@ -183,6 +282,9 @@ func exchangeCode(ctx context.Context, httpClient *http.Client, tokenEndpoint, c
 		}
 		if fault := api.PlainHTTPInternalFault(resp.Header, body); fault != nil {
 			return nil, fault
+		}
+		if entered && resp.StatusCode == http.StatusBadRequest && isInvalidGrant(body) {
+			return nil, errCodeRefused
 		}
 		return nil, exitcode.Newf(exitcode.Error, "token exchange returned HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
@@ -260,4 +362,13 @@ func OpenInBrowser(target string) error {
 	default:
 		return exec.Command("xdg-open", target).Start()
 	}
+}
+
+// isInvalidGrant reports whether a token-endpoint body is the OAuth
+// invalid_grant error (RFC 6749 §5.2).
+func isInvalidGrant(body []byte) bool {
+	var e struct {
+		Error string `json:"error"`
+	}
+	return json.Unmarshal(body, &e) == nil && e.Error == "invalid_grant"
 }
