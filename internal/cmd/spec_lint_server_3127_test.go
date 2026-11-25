@@ -148,7 +148,10 @@ func runCorpusLint3127(t *testing.T, flag, scope string, lintResp string, extra 
 
 func corpusLintResp3127(unavailable string) string {
 	return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[` + unavailable + `],"nodes":[` +
-		`{"id":"id-msg:010:02","loc":"msg:010:02","specLint":[{"citation":"msg:010:02","line":4,"message":"limits something, no reason","rule":"LIMIT_WITHOUT_REASON","sentence":"X is excluded.","severity":"WARNING"}]}]}}}`
+		`{"id":"id-msg:010:02","loc":"msg:010:02","specLint":[{"citation":"msg:010:02","line":4,"message":"limits something, no reason","rule":"LIMIT_WITHOUT_REASON","sentence":"X is excluded.","severity":"WARNING"}]}` +
+		// Every ref asked about comes back in nodes or unavailable (the nodeBatch
+		// contract): the second spec is clean when nothing is named unavailable.
+		cleanSecond3127(unavailable) + `]}}}`
 }
 
 func TestSpecLintCorpusAsksForEveryNodeAndNamesTheUnavailable(t *testing.T) {
@@ -194,4 +197,11 @@ func TestSpecLintTablePrintsLineAndSentence(t *testing.T) {
 	if !strings.Contains(out, "limit-without-reason") || !strings.Contains(out, "line 4: limits something, no reason: X is excluded.") {
 		t.Errorf("table must carry the line and the sentence:\n%s", out)
 	}
+}
+
+func cleanSecond3127(unavailable string) string {
+	if unavailable != "" {
+		return ""
+	}
+	return `,{"id":"id-msg:010:03","loc":"msg:010:03","specLint":[]}`
 }

@@ -3,7 +3,18 @@
 # sentence with no reason (WARNING). Computed on read from the stored text, so
 # the body is asked raw, which is what the server lints. Null specLint means the
 # node's text was not loaded for this read — NOT "no findings" — so it stays a
-# pointer. Its own operation, never part of an ordinary node read: an older
+# pointer.
+#
+# Selecting `content` is NOT needed for specLint to answer. Verified two ways at
+# server e07173d7: the resolver (src/api/graphql/schema/resolvers.types.ts:1299)
+# returns null only when the parent row carries no content (`n.content ===
+# undefined`), and nodeBatch rows always carry it; and a real run of this
+# operation through `hadron spec lint` against a live server returned
+# rule-why-missing and limit-without-reason findings without ever selecting
+# `content`. If a future server stops populating it, the failure is loud, not
+# silent: every spec comes back null and `spec lint` reports spec-lint-not-read.
+#
+# Its own operation, never part of an ordinary node read: an older
 # server rejects the field, and only `spec lint` should have to tolerate that.
 query SpecLintBatch($refs: [ID!]!) {
   nodeBatch(refs: $refs) {

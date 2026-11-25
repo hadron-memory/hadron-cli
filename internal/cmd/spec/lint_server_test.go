@@ -119,3 +119,12 @@ func TestCollectServerLintTruncatedWithoutNodesIsAnError(t *testing.T) {
 		t.Errorf("a truncation that serves nothing must fail and name refs: %v", err)
 	}
 }
+
+func TestCollectServerLintTruncatedEmptyOmittedHasNoDanglingFirst(t *testing.T) {
+	_, err := collectServerLint([]specNode{{ID: "a", Loc: "x"}}, func([]string) (*gen.SpecLintBatchNodeBatchNodeBatchResult, error) {
+		return &gen.SpecLintBatchNodeBatchNodeBatchResult{Truncated: true}, nil
+	})
+	if err == nil || strings.Contains(err.Error(), "first:") || !strings.Contains(err.Error(), "0 omitted") {
+		t.Errorf("no omitted refs, so no 'first:' clause: %v", err)
+	}
+}

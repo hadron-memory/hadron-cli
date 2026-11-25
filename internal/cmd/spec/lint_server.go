@@ -115,7 +115,11 @@ func collectServerLint(nodes []specNode, fetch serverLintFetch) ([]lintFindingDT
 		}
 		if res.Truncated {
 			if len(res.Nodes) == 0 {
-				return nil, fmt.Errorf("nodeBatch truncated without returning any node (%d omitted, first: %s)", len(res.Omitted), strings.Join(firstN(res.Omitted, unreadShown), ", "))
+				msg := fmt.Sprintf("nodeBatch truncated without returning any node (%d omitted", len(res.Omitted))
+				if len(res.Omitted) > 0 {
+					msg += ", first: " + strings.Join(firstN(res.Omitted, unreadShown), ", ")
+				}
+				return nil, fmt.Errorf("%s)", msg)
 			}
 			queue = append(queue, res.Omitted...)
 		}
