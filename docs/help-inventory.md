@@ -496,7 +496,7 @@ section between the markers.
 | `team` |  |  | n | #1054 | 7793845b93a3 |  | unread |  |
 | `team alarm` |  |  | y | #1054 | d05b0126d4f8 |  | unread |  |
 | `team alarm ack` |  |  | y | #1054 | 29d38a098bfe |  | unread |  |
-| `team alarms` |  |  | y | #1054 | 6901ce29ba26 |  | unread |  |
+| `team alarms` |  |  | y | #1054 | 03a80d11ee74 |  | unread |  |
 | `team app` |  |  | n | #1054 | bbbe1a367274 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
 | `team app sweep-mode` |  |  | y | #1054 | 82d170675b99 |  | unread |  |
 | `team attention` |  |  | n | #1054 | 3e629b7c00ed |  | unread |  |
@@ -518,7 +518,7 @@ section between the markers.
 | `team delivery-settings` |  |  | n | #1054 | b93ae59855e1 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team delivery-settings get` |  |  | n | #1054 | 6960f5393bbf | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team delivery-settings set` |  |  | y | #1054 | 3c1f5a386a3f | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
-| `team events` |  |  | n | #1054 | bfbf2d40f15f |  | unread |  |
+| `team events` |  |  | n | #1054 | de8a2c0fa357 |  | unread |  |
 | `team grant` |  |  | n | #1054 | d70982b794a3 |  | unread |  |
 | `team grant action` |  |  | y | #1054 | 5b1b449f56b2 |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 82f0c9a5a075 |  | unread |  |
@@ -651,7 +651,7 @@ section between the markers.
 | `team usage show` |  |  | y | #1054 | 2fd15ffee8dd | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team usage status` |  |  | y | #1054 | bf15aac44c75 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team usage uninstall` |  |  | y | #1054 | 366acfcd4fad | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team utilization` |  |  | y | #1054 | 0b3329831a5b |  | unread |  |
+| `team utilization` |  |  | y | #1054 | 94a305d18d00 |  | unread |  |
 | `team wake-settings` |  |  | n | #1054 | fa519c03c3df |  | unread |  |
 | `team wake-settings get` |  |  | y | #1054 | d539cc4d9c80 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team wake-settings set` |  |  | y | #1054 | 7627a413e70a |  | unread |  |
