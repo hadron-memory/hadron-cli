@@ -115,6 +115,10 @@ func TestSecretClientIssueUseUsageErrorsSendNothing3014(t *testing.T) {
 		"USE with a worker":              append([]string{"issue", "s1", "--reason", "r", "--mode", "USE", "--worker", "w"}, bind...),
 		"USE with a worker and an agent": append([]string{"issue", "s1", "--reason", "r", "--mode", "USE", "--worker", "w", "--agent", "a"}, bind...),
 		"USE with a blank agent":         append([]string{"issue", "s1", "--reason", "r", "--mode", "USE", "--agent", " "}, bind...),
+		"USE with no binding":            {"issue", "s1", "--reason", "r", "--mode", "USE", "--app-holder"},
+		"USE with only a prefix":         {"issue", "s1", "--reason", "r", "--mode", "USE", "--app-holder", "--binding-prefix", "https://a.example/"},
+		"USE with only a header":         {"issue", "s1", "--reason", "r", "--mode", "USE", "--agent", "a", "--binding-header", "X-K"},
+		"blank agent, mode defaulted":    {"issue", "s1", "--reason", "r", "--agent", ""},
 		"agent, mode defaulted":          {"issue", "s1", "--reason", "r", "--agent", "a"},
 		"agent, REVEAL":                  {"issue", "s1", "--reason", "r", "--mode", "REVEAL", "--agent", "a"},
 		"app-holder, mode defaulted":     {"issue", "s1", "--reason", "r", "--app-holder"},
@@ -179,5 +183,62 @@ func TestSecretClientListShowsAUseClientAsAnyClient3014(t *testing.T) {
 	var rows []map[string]any
 	if e := json.Unmarshal([]byte(out), &rows); e != nil || len(rows) != 1 || len(rows[0]) != 10 {
 		t.Fatalf("a list row keeps its ten fields: %v\n%s", e, out)
+	}
+}
+
+// Blind P3: a blank --agent without --mode USE gets the same diagnosis as a
+// non-blank one (it is a USE flag), not a different "needs a value" message.
+func TestSecretClientIssueBlankAgentWithoutUseSaysUseFlag3014(t *testing.T) {
+	srv, _ := attnServer(t, issueResponses2631("OPEN"))
+	_, _, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r", "--agent", "")
+	if err == nil || !strings.Contains(err.Error(), "USE flag") {
+		t.Fatalf("want the USE-flag diagnosis, got %v", err)
+	}
+}
+
+// Blind P3: --mode is trimmed and case-folded (documented), so " use " is USE.
+func TestSecretClientIssueModeIsTrimmedAndCaseFolded3014(t *testing.T) {
+	srv, calls := attnServer(t, issueResponses2631("OPEN"))
+	_, errOut, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r", "--mode", " use ", "--app-holder",
+		"--binding-prefix", "https://a.example/", "--binding-header", "X-K")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, errOut)
+	}
+	if got := string(rawIssueInput3014(t, calls)["mode"]); got != `"USE"` {
+		t.Errorf("mode = %s", got)
+	}
+}
+
+// Blind P3: a blank binding value is deliberately sent (the server judges every
+// value; the person signs the bytes typed), not dropped.
+func TestSecretClientIssueUseSendsABlankBindingValue3014(t *testing.T) {
+	srv, calls := attnServer(t, issueResponses2631("OPEN"))
+	_, errOut, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r", "--mode", "USE", "--app-holder",
+		"--binding-prefix", "", "--binding-header", " ")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, errOut)
+	}
+	in := rawIssueInput3014(t, calls)
+	if string(in["bindingPrefix"]) != `""` || string(in["bindingHeader"]) != `" "` {
+		t.Errorf("blank bindings must reach the wire: %s %s", in["bindingPrefix"], in["bindingHeader"])
+	}
+}
+
+// Blind P3: USE composes with --wait and --auto-delete.
+func TestSecretClientIssueUseComposesWithWaitAndAutoDelete3014(t *testing.T) {
+	srv, calls := attnServer(t, issueResponses2631("COMPLETED"))
+	out, errOut, err := runSecretClient2631(t, srv.URL, "issue", "s1", "--reason", "r", "--mode", "USE", "--app-holder",
+		"--binding-prefix", "https://a.example/", "--binding-header", "X-K", "--max-reads", "1", "--auto-delete", "--wait", "--json")
+	if err != nil {
+		t.Fatalf("%v\n%s", err, errOut)
+	}
+	if !strings.Contains(errOut, ceremonyURL2631) || !strings.Contains(errOut, "note: --auto-delete was sent") {
+		t.Errorf("stderr must carry the ceremony URL and the auto-delete note: %q", errOut)
+	}
+	if in := rawIssueInput3014(t, calls); string(in["mode"]) != `"USE"` || string(in["autoDelete"]) != "true" {
+		t.Errorf("input: %v", in)
+	}
+	if !strings.Contains(out, "COMPLETED") {
+		t.Errorf("the record must print the end state: %s", out)
 	}
 }
