@@ -92,7 +92,7 @@ func normalizeNumberedRef(kind, raw, defaultRepo string) (string, int, error) {
 		}
 		repo, ok := canonicalRepo(defaultRepo)
 		if !ok {
-			return "", 0, fmt.Errorf("session repo %q is not owner/repo — pass the full ref owner/repo#N", defaultRepo)
+			return "", 0, fmt.Errorf("session repo (not shown) is not owner/repo — pass the full ref owner/repo#N")
 		}
 		return fmt.Sprintf("%s#%d", repo, n), n, nil
 	}
@@ -125,7 +125,7 @@ func normalizeCommitRef(raw, defaultRepo string) (string, int, error) {
 		}
 		repo, ok := canonicalRepo(defaultRepo)
 		if !ok {
-			return "", 0, fmt.Errorf("session repo %q is not owner/repo — pass the full ref owner/repo@sha", defaultRepo)
+			return "", 0, fmt.Errorf("session repo (not shown) is not owner/repo — pass the full ref owner/repo@sha")
 		}
 		return repo + "@" + sha, 0, nil
 	}
@@ -182,7 +182,7 @@ func normalizeBranchRef(raw, defaultRepo string) (string, int, error) {
 	}
 	repo, ok := canonicalRepo(defaultRepo)
 	if !ok {
-		return "", 0, fmt.Errorf("session repo %q is not owner/repo — pass the full ref owner/repo:branch", defaultRepo)
+		return "", 0, fmt.Errorf("session repo (not shown) is not owner/repo — pass the full ref owner/repo:branch")
 	}
 	return repo + ":" + raw, 0, nil
 }
