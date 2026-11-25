@@ -83,19 +83,19 @@ func uploadScanError(err error, filename string) error {
 }
 
 // downloadScanError rewrites assetDownloadUrl's two scan gates.
-func downloadScanError(err error, ref string) error {
+func downloadScanError(err error) error {
 	switch {
 	case isScanRefusal(err, codeScanPending, msgScanPending):
 		// PENDING is never terminal: the upload succeeded and the server's
 		// sweep retries on backoff, so this is "not yet", not "no".
 		return exitcode.Newf(exitcode.Error,
-			"%s has not finished its malware scan yet — downloads are gated until it settles. "+
+			"the asset (the ref given is not shown) has not finished its malware scan yet — downloads are gated until it settles. "+
 				"This is not a dead end: the server retries on a backoff, so try again shortly "+
-				"(`hadron asset list -m <memory>` shows the scan status).", ref)
+				"(`hadron asset list -m <memory>` shows the scan status).")
 	case isScanRefusal(err, codeScanBlocked, msgScanBlocked):
 		return exitcode.Newf(exitcode.Error,
-			"%s failed the malware scan and cannot be downloaded — its bytes were deleted and the record is kept for audit. "+
-				"`hadron asset list -m <memory> --include-deleted` shows the engine signature.", ref)
+			"the asset (the ref given is not shown) failed the malware scan and cannot be downloaded — its bytes were deleted and the record is kept for audit. "+
+				"`hadron asset list -m <memory> --include-deleted` shows the engine signature.")
 	}
 	return api.MapError(err)
 }

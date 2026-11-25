@@ -54,7 +54,7 @@ type chatbotPinDTO struct {
 // comes back as nil. The explicit `chatbot-ai-config get` passes false: it must
 // not claim a selection is unset when the capability was never read. A null App
 // is NotFound for both, never an unset pin.
-func readChatbotPin(ctx context.Context, client graphql.Client, ref, shown string, tolerateOldServer bool) (*string, error) {
+func readChatbotPin(ctx context.Context, client graphql.Client, ref string, tolerateOldServer bool) (*string, error) {
 	resp, err := gen.GetAppChatbotAiConfig(ctx, client, ref)
 	if err != nil {
 		if tolerateOldServer && api.IsGraphQLValidationOnlyFor(err, "chatbotAiConfigId") {
@@ -63,7 +63,7 @@ func readChatbotPin(ctx context.Context, client graphql.Client, ref, shown strin
 		return nil, api.MapErrorKeepingCode(err)
 	}
 	if resp.App == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "no App found for %q", shown)
+		return nil, exitcode.Newf(exitcode.NotFound, "no App found (the ref given is not shown)")
 	}
 	return resp.App.ChatbotAiConfigId, nil
 }
@@ -180,7 +180,7 @@ choices could not be read, so membership is unknown.
 			if err != nil {
 				return err
 			}
-			id, err := readChatbotPin(cmd.Context(), client, ref, args[0], false)
+			id, err := readChatbotPin(cmd.Context(), client, ref, false)
 			if err != nil {
 				return err
 			}
@@ -342,7 +342,7 @@ func matchOwnChoice(rows []chatbotChoiceDTO, want string) (string, error) {
 	case 0:
 		return want, nil
 	default:
-		return "", exitcode.Newf(exitcode.Usage, "%q names more than one of the App's configs; pass an id: %s", want, strings.Join(ids, ", "))
+		return "", exitcode.Newf(exitcode.Usage, "the name given (not shown) matches more than one of the App's configs; pass an id: %s", strings.Join(ids, ", "))
 	}
 }
 

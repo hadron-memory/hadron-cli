@@ -80,7 +80,7 @@ whether the value is unset or withheld. The server decides access.`,
 			if a == nil {
 				return exitcode.Newf(exitcode.NotFound, "no App found (the App ref given is not shown)")
 			}
-			pinID, err := readChatbotPin(cmd.Context(), client, ref, args[0], true)
+			pinID, err := readChatbotPin(cmd.Context(), client, ref, true)
 			if err != nil {
 				return err
 			}

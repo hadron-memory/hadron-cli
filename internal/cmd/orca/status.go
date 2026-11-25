@@ -357,7 +357,7 @@ func runStatus(ctx context.Context, f *cmdutil.Factory, env Env, args []string, 
 			}
 		}
 		if found == nil {
-			return exitcode.Newf(exitcode.NotFound, "no active worker or terminal %q", arg)
+			return exitcode.Newf(exitcode.NotFound, "no such active worker or terminal (the name given is not shown)")
 		}
 		targets = append(targets, target{worker: *found})
 	}

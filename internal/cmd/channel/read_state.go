@@ -136,7 +136,7 @@ each, so a typo never reads as "has seen nothing". Record progress with
 				// nothing", which the server answers with a lastSeenSeq-0 row.
 				// One wording for all three: the CLI must not be a finer
 				// existence oracle than advanceChannelReadState's NOT_FOUND.
-				return exitcode.Newf(exitcode.NotFound, "no readable attendee %q on this channel", attendee)
+				return exitcode.Newf(exitcode.NotFound, "no such readable attendee on this channel (the ref given is not shown)")
 			}
 			r := resp.ChannelReadState
 			dto := readStateDTO{

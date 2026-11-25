@@ -123,7 +123,7 @@ session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
 					return api.MapError(err)
 				}
 				if r.Agent == nil {
-					return exitcode.Newf(exitcode.NotFound, "agent %q not found, or this credential cannot read it; pass the agent ID instead", ref)
+					return exitcode.Newf(exitcode.NotFound, "agent not found, or this credential cannot read it (the ref given is not shown); pass the agent ID instead")
 				}
 				agentID = r.Agent.Id
 			}

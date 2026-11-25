@@ -55,7 +55,7 @@ the full reason).`,
 			if status != "" {
 				upper := strings.ToUpper(strings.TrimSpace(status))
 				if !isValidStatus(upper) {
-					return exitcode.Newf(exitcode.Usage, "invalid --status %q — one of %s", status, strings.Join(statusValues, ", "))
+					return exitcode.Newf(exitcode.Usage, "invalid --status — one of %s", strings.Join(statusValues, ", "))
 				}
 				s := gen.AppRunStatus(upper)
 				statusEnum = &s
@@ -72,7 +72,7 @@ the full reason).`,
 				for _, v := range statuses {
 					u := strings.ToUpper(strings.TrimSpace(v))
 					if !isValidStatus(u) {
-						return exitcode.Newf(exitcode.Usage, "invalid --statuses value %q", v)
+						return exitcode.Newf(exitcode.Usage, "invalid --statuses value — each one of %s", strings.Join(statusValues, ", "))
 					}
 					many = append(many, gen.AppRunStatus(u))
 				}

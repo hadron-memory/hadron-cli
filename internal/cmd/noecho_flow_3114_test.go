@@ -37,10 +37,15 @@ type echoFlow struct {
 	params  map[string]bool       // FullName#i, for callers in another package
 	results map[string]bool       // FullName#i
 	lits    map[types.Object]*ast.FuncLit
+	paths   map[types.Object]bool // local file paths: handed straight to os.Open, Stat, ReadFile
 	changed bool
 }
 
 func (e *echoFlow) markObj(o types.Object) {
+	// A generated request or answer field is the wire, not this program's copy.
+	if v, ok := o.(*types.Var); ok && v.IsField() && v.Pkg() != nil && strings.HasSuffix(v.Pkg().Path(), "/internal/api/gen") {
+		return
+	}
 	if o != nil && !e.objs[o] && textual(o.Type()) {
 		e.objs[o] = true
 		e.changed = true
@@ -90,13 +95,18 @@ func passThrough(fn *types.Func) bool {
 	case "strings", "strconv", "fmt":
 		return true
 	}
-	return false
+	// A text-to-text helper (ShellQuote, SafeCell, CanonicalMemoryRef) is judged by the value
+	// it is given here, not by what some other caller gives it.
+	sig := fn.Type().(*types.Signature)
+	return sig.Params().Len() == 1 && sig.Results().Len() == 1 &&
+		textual(sig.Params().At(0).Type()) && textual(sig.Results().At(0).Type())
 }
 
 func (e *echoFlow) carries(info *types.Info, x ast.Expr, res int) bool {
 	switch v := ast.Unparen(x).(type) {
 	case *ast.Ident:
-		return e.objs[info.Uses[v]] || e.objs[info.Defs[v]]
+		o := info.Uses[v]
+		return o != nil && e.objs[o] && !e.paths[o]
 	case *ast.SelectorExpr:
 		return e.objs[info.Uses[v.Sel]]
 	case *ast.IndexExpr:
@@ -297,6 +307,16 @@ func (e *echoFlow) call(info *types.Info, c *ast.CallExpr) {
 		}
 	}
 	fn := calleeOf(info, c)
+	if fn != nil && len(c.Args) > 0 {
+		switch fn.FullName() {
+		case "os.Open", "os.Stat", "os.ReadFile":
+			// A variable used AS a file name names a local file (the table's "path" class, OUT).
+			if id, ok := ast.Unparen(c.Args[0]).(*ast.Ident); ok && info.Uses[id] != nil && !e.paths[info.Uses[id]] {
+				e.paths[info.Uses[id]] = true
+				e.changed = true
+			}
+		}
+	}
 	if fn == nil || fn.Pkg() == nil || !strings.HasPrefix(fn.Pkg().Path(), "github.com/hadron-memory/hadron-cli/internal/cmd") {
 		return
 	}
@@ -310,7 +330,7 @@ func (e *echoFlow) call(info *types.Info, c *ast.CallExpr) {
 }
 
 func refusalEchoes(pkgs []*packages.Package) []string {
-	e := &echoFlow{objs: map[types.Object]bool{}, params: map[string]bool{}, results: map[string]bool{}, lits: map[types.Object]*ast.FuncLit{}}
+	e := &echoFlow{objs: map[types.Object]bool{}, params: map[string]bool{}, results: map[string]bool{}, lits: map[types.Object]*ast.FuncLit{}, paths: map[types.Object]bool{}}
 	for e.changed = true; e.changed; {
 		e.changed = false
 		for _, p := range pkgs {

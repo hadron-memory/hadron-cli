@@ -108,7 +108,7 @@ that predates task search rejects the request: update the server.`,
 						}
 					}
 					if !valid {
-						return exitcode.Newf(exitcode.Usage, "invalid --entity-type %q; see find --help", v)
+						return exitcode.Newf(exitcode.Usage, "invalid --entity-type; see find --help for the valid types")
 					}
 					entityTypes = append(entityTypes, e)
 				}
@@ -128,7 +128,7 @@ that predates task search rejects the request: update the server.`,
 						}
 					}
 					if !valid {
-						return exitcode.Newf(exitcode.Usage, "invalid --field %q; see find --help", v)
+						return exitcode.Newf(exitcode.Usage, "invalid --field; see find --help for the valid fields")
 					}
 					searchFields = append(searchFields, e)
 				}

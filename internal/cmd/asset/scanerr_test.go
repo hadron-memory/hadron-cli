@@ -119,7 +119,7 @@ func TestDownloadScanErrorRewritesBothGates(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := downloadScanError(tc.err, "a1")
+			got := downloadScanError(tc.err)
 			if got == nil {
 				t.Fatal("a refusal must stay an error")
 			}
@@ -146,10 +146,10 @@ func TestDownloadScanErrorRewritesBothGates(t *testing.T) {
 // not-found must not come back as a scan message.
 func TestScanErrorsPassOtherErrorsThrough(t *testing.T) {
 	notFound := codedErr("NOT_FOUND", "asset not found")
-	if code := exitcode.FromError(downloadScanError(notFound, "a1")); code != exitcode.NotFound {
+	if code := exitcode.FromError(downloadScanError(notFound)); code != exitcode.NotFound {
 		t.Errorf("a NOT_FOUND must still map to exit 4, got %d", code)
 	}
-	if msg := downloadScanError(notFound, "a1").Error(); strings.Contains(msg, "malware") {
+	if msg := downloadScanError(notFound).Error(); strings.Contains(msg, "malware") {
 		t.Errorf("unrelated error rewritten as a scan refusal: %q", msg)
 	}
 	if msg := uploadScanError(wireErr("MIME_NOT_ALLOWED: text/plain is not accepted"), "x.txt").Error(); strings.Contains(msg, "malware") {

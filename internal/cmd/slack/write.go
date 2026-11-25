@@ -64,12 +64,7 @@ func hasControlOrFormatCharacter(s string) bool {
 // dash is a flag to cobra), and no outer prose quotes (single quotes are literal
 // inside double quotes, so $( ) would expand again when pasted). An id with
 // control characters is never named; the runnable listing command stands in.
-func getConnectionSuggestion(id string) string {
-	if hasControlOrFormatCharacter(id) {
-		return "The listing is paged, so follow its --offset hint before concluding it is gone. Check whether it still exists by listing connections with:\n  hadron slack status"
-	}
-	return "Check whether it still exists with:\n  hadron slack get -- " + cmdutil.ShellQuote(id)
-}
+const getConnectionSuggestion = "Check whether it still exists with:\n  hadron slack get -- <connection-id>"
 
 // readToken reads one token from its file flag. "-" is stdin and is refused on
 // a terminal (the token would be typed in the clear); the file reader itself
@@ -157,21 +152,11 @@ token). Re-connecting a workspace that was disconnected registers it again.`,
 				return err
 			}
 			secrets := []string{bot, appTok}
-			// --org is the operator's own text and may, by mistake, equal a token:
-			// every post-submission message built from it is redacted too.
-			// A value that holds a token is never printed, quoted or not: the pointer
-			// then asks for the real reference instead of showing a broken command.
-			// Detected on the ORIGINAL value, before any quoting (quoting splits an
-			// apostrophe-bearing token so exact redaction would miss it). A sensitive
-			// or control-character value is dropped from the command altogether: the
-			// unfiltered "hadron slack status" runs as printed and lists every
-			// organization the caller may see.
-			statusCmd := "hadron slack status"
-			if !api.ContainsSecret(orgRef, secrets) && !hasControlOrFormatCharacter(orgRef) {
-				statusCmd += " --org=" + cmdutil.ShellQuote(orgRef)
-			}
+			// The operator's own --org is never repeated after submission (#2898 policy; by
+			// mistake it may equal a token): the unfiltered status lists every organization
+			// the caller may see.
 			// Prose first, the command last: nothing may follow it on the line.
-			where := fmt.Sprintf("The listing is paged, so follow its --offset hint before deciding the workspace is not connected. Check with:\n  %s", statusCmd)
+			const where = "The listing is paged, so follow its --offset hint before deciding the workspace is not connected. Check with:\n  hadron slack status"
 			resp, err := gen.CreateSlackConnection(cmd.Context(), client, orgRef, canonicalAppRef, bot, appTok)
 			if err != nil {
 				return redactConnectError(err, secrets, "connect outcome unknown (sent once, not retried)", where)
@@ -267,12 +252,12 @@ before trying again.`,
 			if err != nil {
 				mapped := api.MapErrorKeepingCode(err)
 				if code := exitcode.FromError(mapped); code == exitcode.Error || code == exitcode.Unavailable {
-					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried): %s. %s", mapped, getConnectionSuggestion(id)), err)
+					mapped = api.WithServerCode(exitcode.Newf(code, "disconnect outcome unknown (sent once, not retried): %s. %s", mapped, getConnectionSuggestion), err)
 				}
 				return mapped
 			}
 			if resp == nil || !resp.DeleteSlackConnection {
-				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect. %s", getConnectionSuggestion(id))
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the disconnect. %s", getConnectionSuggestion)
 			}
 			dto := disconnectDTO{ConnectionID: id, Disconnected: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

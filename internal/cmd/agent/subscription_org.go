@@ -76,16 +76,16 @@ unusable answer) nothing is retried: check with "hadron agent subscription list
 			}
 			resp, err := gen.SubscribeOrgToAgent(cmd.Context(), client, agent, org)
 			if err != nil {
-				return orgGrantWriteError(err, "subscribe", org, "createAgentOrgGrant")
+				return orgGrantWriteError(err, "subscribe", "createAgentOrgGrant")
 			}
 			if resp == nil || resp.CreateAgentOrgGrant == nil {
-				return orgGrantUnknown("subscribe", org, nil)
+				return orgGrantUnknown("subscribe", nil)
 			}
 			g := resp.CreateAgentOrgGrant
 			// Rule (same active predicate as revoke, mirrored): a subscribe must
 			// come back ACTIVE and not revoked.
 			if !g.IsActive || g.RevokedAt != nil {
-				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s does not come back active and unrevoked (active: %v); check with `hadron agent subscription list --org %s`", org, agent, g.IsActive, cmdutil.ShellQuote(org))
+				return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of the organization to the Agent (the refs given are not shown) does not come back active and unrevoked (active: %v); check with `hadron agent subscription list --org <org>`", g.IsActive)
 			}
 			return renderGrant(f, orgAgentGrantDTO{AgentID: g.AgentId, OrgID: g.OrgId, IsActive: g.IsActive, CreatedAt: g.CreatedAt, ActivatedAt: g.ActivatedAt, ExpiresAt: g.ExpiresAt, RevokedAt: g.RevokedAt}, "Subscribed")
 		}}
@@ -109,15 +109,15 @@ func runOrgRevoke(f *cmdutil.Factory, cmd *cobra.Command, agent, org string, yes
 	}
 	resp, err := gen.UnsubscribeOrgFromAgent(cmd.Context(), client, agent, org)
 	if err != nil {
-		return orgGrantWriteError(err, "revoke", org, "revokeAgentOrgGrant")
+		return orgGrantWriteError(err, "revoke", "revokeAgentOrgGrant")
 	}
 	if resp == nil || resp.RevokeAgentOrgGrant == nil {
-		return orgGrantUnknown("revoke", org, nil)
+		return orgGrantUnknown("revoke", nil)
 	}
 	g := resp.RevokeAgentOrgGrant
 	// Rule: a revoke must come back revoked (revokedAt set) AND inactive.
 	if g.IsActive || g.RevokedAt == nil {
-		return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of organization %s to Agent %s does not come back revoked (active: %v); check with `hadron agent subscription list --org %s`", org, agent, g.IsActive, cmdutil.ShellQuote(org))
+		return exitcode.Newf(exitcode.Error, "the server answered, but the subscription of the organization to the Agent (the refs given are not shown) does not come back revoked (active: %v); check with `hadron agent subscription list --org <org>`", g.IsActive)
 	}
 	return renderGrant(f, orgAgentGrantDTO{AgentID: g.AgentId, OrgID: g.OrgId, IsActive: g.IsActive, CreatedAt: g.CreatedAt, ActivatedAt: g.ActivatedAt, ExpiresAt: g.ExpiresAt, RevokedAt: g.RevokedAt}, "Revoked")
 }
@@ -127,15 +127,15 @@ func runOrgRevoke(f *cmdutil.Factory, cmd *cobra.Command, agent, org string, yes
 // effect; an error below the field came from resolving the returned object after
 // the write committed, and anything else may follow a commit too: both are
 // reported as an unknown outcome, never retried.
-func orgGrantWriteError(err error, verb, org, field string) error {
+func orgGrantWriteError(err error, verb, field string) error {
 	if api.IsDefiniteRefusalAt(err, field) {
 		return api.MapError(err)
 	}
-	return orgGrantUnknown(verb, org, err)
+	return orgGrantUnknown(verb, err)
 }
 
-func orgGrantUnknown(verb, org string, cause error) error {
-	check := fmt.Sprintf("Nothing was retried. Check with `hadron agent subscription list --org %s` before running it again", cmdutil.ShellQuote(org))
+func orgGrantUnknown(verb string, cause error) error {
+	const check = "Nothing was retried. Check with `hadron agent subscription list --org <org>` before running it again"
 	if cause == nil {
 		return exitcode.Newf(exitcode.Unavailable, "%s outcome unknown (the answer was unusable). %s", verb, check)
 	}

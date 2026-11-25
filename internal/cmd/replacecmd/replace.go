@@ -174,13 +174,13 @@ again) and restore it with hadron node revision restore <revision-id>.`,
 				return exitcode.Newf(exitcode.Usage, "pass at least one --field (content, name, alias, description, abstract, tags)")
 			}
 			if maxNodes < 0 {
-				return exitcode.Newf(exitcode.Usage, "--max-nodes must be zero (no limit) or a positive integer, got %d", maxNodes)
+				return exitcode.Newf(exitcode.Usage, "--max-nodes must be zero (no limit) or a positive integer")
 			}
 			gqlFields := make([]gen.NodeTextField, 0, len(fields))
 			for _, fl := range fields {
 				tf, ok := textFields[strings.ToLower(fl)]
 				if !ok {
-					return exitcode.Newf(exitcode.Usage, "unknown --field %q (valid: content, name, alias, description, abstract, tags)", fl)
+					return exitcode.Newf(exitcode.Usage, "unknown --field (valid: content, name, alias, description, abstract, tags)")
 				}
 				gqlFields = append(gqlFields, tf)
 			}

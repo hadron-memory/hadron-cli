@@ -87,7 +87,7 @@ while task render records no action-run and never executes.`,
 				for _, arg := range args {
 					key, value, found := findArgKV(arg)
 					if !found {
-						return exitcode.Newf(exitcode.Usage, "--arg must be in the format key=value, got %q", arg)
+						return exitcode.Newf(exitcode.Usage, "--arg must be in the format key=value (the value given is not shown)")
 					}
 					argsMap[key] = value
 				}

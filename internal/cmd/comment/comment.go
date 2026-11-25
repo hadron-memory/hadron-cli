@@ -361,7 +361,7 @@ func deleteThread(cmd *cobra.Command, f *cmdutil.Factory, connect Connect, memor
 	if !*deleted {
 		// Defence only: the server answers true or throws (#2538 gate), so a
 		// false is kept as a conflict with its detail, not a success line.
-		return exitcode.Newf(exitcode.Conflict, "thread of %s was not deleted (deleted:false); read the thread (comment get) before retrying", ref)
+		return exitcode.Newf(exitcode.Conflict, "the thread (the ref given is not shown) was not deleted (deleted:false); read the thread (comment get) before retrying")
 	}
 	dto := threadDeletedDTO{Thread: ref, Deleted: true}
 	return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

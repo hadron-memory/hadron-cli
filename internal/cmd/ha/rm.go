@@ -49,7 +49,7 @@ Prints "✓ deleted Home Assistant instance <id>"; --json prints
 			if err != nil {
 				return err
 			}
-			check := "hadron ha get " + cmdutil.ShellQuote(id)
+			const check = "hadron ha get <instance-id>"
 			resp, err := gen.DeleteHomeAssistantInstance(cmd.Context(), client, id)
 			if err != nil {
 				return writeError(err, check, "")
@@ -57,7 +57,7 @@ Prints "✓ deleted Home Assistant instance <id>"; --json prints
 			// The server refuses a missing row with NOT_FOUND; false is not a
 			// delete, so it is never reported as one.
 			if resp == nil || !resp.DeleteHomeAssistantInstance {
-				return exitcode.Newf(exitcode.Error, "the server did not confirm the deletion of %s; run `%s` to see whether it is still registered", id, check)
+				return exitcode.Newf(exitcode.Error, "the server did not confirm the deletion (the id given is not shown); run `%s` to see whether it is still registered", check)
 			}
 			dto := deletedDTO{ID: id, Status: "deleted"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

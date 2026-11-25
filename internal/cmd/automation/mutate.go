@@ -33,25 +33,17 @@ func inApp(sel *selection, app string) string {
 	return " in " + app
 }
 
-// terminalSafe reports whether s survives sanitizing unchanged — the condition
-// for putting it in a command a person may copy.
-func terminalSafe(s string) bool { return safeText(s, 4*maxFact) == s }
+// approvalCommand is the re-read after a refusal, by the kind of selection. It never
+// repeats the name, run or App the operator typed (#2898 policy).
+func approvalCommand(sel *selection) string {
+	if sel.Trigger.Name == "" {
+		return "hadron automation approval --run <run-id>"
+	}
+	return "hadron automation approval <name>"
+}
 
-// approvalHint is the copy-pasteable re-read after a refusal. A trigger or run
-// name that sanitizing would change is never put in a command (the copy would
-// name a different target, or carry terminal controls): the hint then points
-// at the list instead.
-func approvalHint(sel *selection, app string) string {
-	target := "--run " + shellQuote(sel.Trigger.Ref)
-	raw := sel.Trigger.Ref
-	if sel.Trigger.Name != "" {
-		raw = kindWord(sel.Kind) + "/" + sel.Trigger.Name
-		target = shellQuote(raw)
-	}
-	if !terminalSafe(raw) || !terminalSafe(app) {
-		return "`hadron automation list` and review it again (the name contains characters that cannot be shown safely)"
-	}
-	return "`hadron automation approval " + target + " --app " + shellQuote(app) + "`"
+func approvalHint(sel *selection) string {
+	return "`" + approvalCommand(sel) + " --app <app-ref>`"
 }
 
 // mutationError classifies a failed approve or decline. `partial` is true when
@@ -62,7 +54,7 @@ func mutationError(err error, partial bool, verb string, sel *selection, app str
 	if partial {
 		return exitcode.Newf(exitcode.Unavailable,
 			"outcome unknown: %s. The %s may or may not have been applied and was not retried — run %s to check",
-			api.MapError(err), verb, approvalHint(sel, app))
+			api.MapError(err), verb, approvalHint(sel))
 	}
 	if api.IsSchemaSkew(err) {
 		return exitcode.Newf(exitcode.Unavailable, "%s", skewMessage)
@@ -70,40 +62,14 @@ func mutationError(err error, partial bool, verb string, sel *selection, app str
 	if verb == "approval" && api.HasErrorCode(err, "AUTOMATION_CHANGED") {
 		return exitcode.Newf(exitcode.Conflict,
 			"the automation changed since you looked, so nothing was approved and nothing was retried: run %s and approve again",
-			approvalHint(sel, app))
+			approvalHint(sel))
 	}
 	return api.MapError(err)
 }
 
-// approvalTarget is the name argument for a copy-pasteable `approval` command
-// (terminal-safe only; otherwise the placeholder).
-func approvalTarget(sel *selection) string {
-	raw := "--run " + sel.Trigger.Ref
-	name := kindWord(sel.Kind) + "/" + sel.Trigger.Name
-	if sel.Trigger.Name != "" {
-		raw = name
-	}
-	if !terminalSafe(raw) {
-		return "<name>"
-	}
-	if sel.Trigger.Name != "" {
-		return shellQuote(name)
-	}
-	return "--run " + shellQuote(sel.Trigger.Ref)
-}
-
-// approvalAppFlag is " --app <app>" for a copy-pasteable command, or nothing when
-// the App ref would not survive sanitizing.
-func approvalAppFlag(app string) string {
-	if !terminalSafe(app) {
-		return ""
-	}
-	return " --app " + shellQuote(app)
-}
-
 func notConfirmed(verb string, sel *selection, app string) error {
 	return exitcode.Newf(exitcode.Unavailable,
-		"outcome unknown: the server did not confirm the %s. Run %s to check", verb, approvalHint(sel, app))
+		"outcome unknown: the server did not confirm the %s. Run %s to check", verb, approvalHint(sel))
 }
 
 func newCmdApprove(f *cmdutil.Factory) *cobra.Command {
@@ -159,12 +125,12 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 				// AUTOMATION_CHANGED: exit 5).
 				return exitcode.Newf(exitcode.Conflict,
 					"nothing was approved: this automation's entry node no longer resolves; set the trigger to the entry node's current URN, then run %s again",
-					approvalHint(sel, app))
+					approvalHint(sel))
 			}
 			if incomplete {
 				return exitcode.Newf(exitcode.Unavailable,
-					"unavailable: the summary is too large to show in full, so nothing was approved (approval needs the whole summary on screen). Read all of it with `hadron automation approval %s --json%s`",
-					approvalTarget(sel), approvalAppFlag(app))
+					"unavailable: the summary is too large to show in full, so nothing was approved (approval needs the whole summary on screen). Read all of it with `%s --app <app-ref> --json`",
+					approvalCommand(sel))
 			}
 			where := ""
 			if sel.Kind != gen.AutomationTriggerKindManual {

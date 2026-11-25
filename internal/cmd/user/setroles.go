@@ -167,7 +167,7 @@ func parseRoles(raw []string) ([]gen.Role, error) {
 		}
 		role := gen.Role(token)
 		if !slices.Contains(platformRoles, role) {
-			return nil, exitcode.Newf(exitcode.Usage, "unknown role %q — valid roles are %s", r, validRoleList())
+			return nil, exitcode.Newf(exitcode.Usage, "unknown --role — valid roles are %s", validRoleList())
 		}
 		if !slices.Contains(out, role) {
 			out = append(out, role)
