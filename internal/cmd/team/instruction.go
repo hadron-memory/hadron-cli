@@ -87,7 +87,7 @@ func instructedSession(ctx context.Context, f *cmdutil.Factory, snap instruction
 		return "", "", err
 	}
 	if api.Endpoint(server) != api.Endpoint(b.Server) {
-		return "", "its session binding belongs to " + b.Server + ", not " + server, nil
+		return "", "its session binding belongs to " + b.Server + ", and this call targets another server (not shown)", nil
 	}
 	if targetAppID == "" || b.AppID != targetAppID {
 		return "", "its session binding is for a different App than the one this change targets", nil

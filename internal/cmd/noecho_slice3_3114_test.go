@@ -29,7 +29,7 @@ func TestSlice3RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 		{"worker get urn", noWorker, []string{"team", "worker", "get", "hrn:worker:acme.com:ops:" + low}, "no worker", exitcode.NotFound},
 		{"task get", map[string]string{"AgentTaskGet": `{"data":{"agentTask":null}}`}, []string{"team", "task", "get", p}, "task not found", exitcode.NotFound},
 		{"task tree", map[string]string{"AgentTaskTree": `{"data":{"agentTaskTree":[]}}`}, []string{"team", "task", "tree", p}, "task not found", exitcode.NotFound},
-		{"task handle with app id", nil, []string{"team", "task", "get", "AT1.2", "--app", "01a2112fa4677921b26bd792c3cd0e6e"}, "needs the App's URN", exitcode.Usage},
+		{"task handle with app id", nil, []string{"team", "task", "get", "AT1.2", "--app", "01a2112fa4677921b26bd792c3cd0e6e"}, "neither value is shown", exitcode.Usage},
 		{"task party", nil, append([]string{"team", "task", "ls", "--assignee", p}, app...), "names a party", exitcode.Usage},
 		{"task ref", nil, append([]string{"team", "task", "create", "x", "--ref", p}, app...), "--ref takes", exitcode.Usage},
 		{"task ref target", nil, append([]string{"team", "task", "create", "x", "--ref", "issue=|" + p}, app...), "no target", exitcode.Usage},
@@ -46,9 +46,9 @@ func TestSlice3RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 		{"session ls branch", nil, append([]string{"team", "session", "ls", "--branch", p + ":x:y"}, app...), "branch ref", exitcode.Usage},
 		{"wake worker", nil, []string{"team", "wake-settings", "get", "--worker", p}, "worker id", exitcode.Usage},
 		{"host arg twice", nil, append([]string{"team", "host", "issue", "worker.start", "--host", "h1", "--worker", "w1", "--arg", p + "=1", "--arg", p + "=2"}, app...), "given twice", exitcode.Usage},
-		{"task other app", nil, []string{"team", "task", "get", "hrn:agenttask:acme.com:" + low + ":AT1", "--app", "hrn:app:acme.com:ops"}, "names a task in another App", exitcode.Usage},
+		{"task other app", nil, []string{"team", "task", "get", "hrn:agenttask:acme.com:" + low + ":AT1", "--app", "hrn:app:acme.com:ops"}, "task in another App than --app (neither value is shown)", exitcode.Usage},
 		{"host setup workdir", nil, append([]string{"team", "host", "assign", "w1", "--host", "h1", "--family", "claude", "--workdir", "/" + p}, app...), "--workdir is", exitcode.Usage},
-		{"role rm", map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON}, append([]string{"team", "role", "rm", p, "--yes"}, app...), "no role", exitcode.NotFound},
+		{"role rm", map[string]string{"TeamRoles": teamRolesJSON, "TeamAppIdentity": teamAppIdentityJSON}, append([]string{"team", "role", "rm", p, "--yes"}, app...), "no such role", exitcode.NotFound},
 		{"role list name", nil, append([]string{"team", "role-lists", "set", "defect-link", p + ":x"}, app...), "':' or whitespace", exitcode.Usage},
 		{"availability name", nil, []string{"team", "availability", "set", "--worker", p, "--state", "available"}, "needs the App", exitcode.Usage},
 		{"alarms party", nil, append([]string{"team", "alarms", "--team=user:" + p}, app...), "--team names a worker", exitcode.Usage},
@@ -62,7 +62,7 @@ func TestSlice3RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 			if strings.Contains(strings.ToLower(seen), low) {
 				t.Errorf("shows the value: %s", seen)
 			}
-			if !strings.Contains(seen, tc.says) || !strings.Contains(seen, "not shown") {
+			if !strings.Contains(seen, tc.says) || !(strings.Contains(seen, "not shown") || strings.Contains(seen, "neither value is shown")) {
 				t.Errorf("want %q and that the value is not shown: %s", tc.says, seen)
 			}
 		})

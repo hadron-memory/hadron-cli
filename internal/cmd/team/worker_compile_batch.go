@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -387,7 +388,7 @@ func filterOnlyNoting(rows []batchWorkerRow, only []string, appRef, nothingDone 
 	}
 	kept, missing := []batchWorkerRow{}, []string{}
 	seen := map[string]bool{}
-	for _, want := range only {
+	for i, want := range only {
 		found := false
 		for _, w := range rows {
 			if strings.EqualFold(w.Name, want) || w.Id == want || strings.EqualFold(strPtr(w.Urn), want) {
@@ -399,11 +400,11 @@ func filterOnlyNoting(rows []batchWorkerRow, only []string, appRef, nothingDone 
 			}
 		}
 		if !found {
-			missing = append(missing, want)
+			missing = append(missing, strconv.Itoa(i+1))
 		}
 	}
 	if len(missing) > 0 {
-		return nil, exitcode.Newf(exitcode.NotFound, "not a live worker in %s: %s (%s)", appRef, strings.Join(missing, ", "), nothingDone)
+		return nil, exitcode.Newf(exitcode.NotFound, "not a live worker in the App: --only value(s) %s, counted from 1 (the refs given are not shown; %s)", strings.Join(missing, ", "), nothingDone)
 	}
 	sort.SliceStable(kept, func(i, j int) bool { return strings.ToLower(kept[i].Name) < strings.ToLower(kept[j].Name) })
 	return kept, nil

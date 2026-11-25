@@ -192,7 +192,7 @@ func TestPRVerbsHonorAppFlag3037(t *testing.T) {
 	}
 	t.Run("a task in another App than --app is refused before any request", func(t *testing.T) {
 		calls, out, err := runBound3037(t, true, nil, "team", "pr", "readiness", "hrn:agenttask:other.com:team:AT0.7", "--head", sha3037, "--app", bound3037URN)
-		if err == nil || len(*calls) != 0 || !strings.Contains(out+err.Error(), "names a task in App") {
+		if err == nil || len(*calls) != 0 || !strings.Contains(out+err.Error(), "names a task in another App") || strings.Contains(err.Error(), "other.com") {
 			t.Fatalf("want a usage refusal and no request: %v %d %s", err, len(*calls), out)
 		}
 	})

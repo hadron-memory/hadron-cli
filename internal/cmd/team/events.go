@@ -108,7 +108,7 @@ one refuses the read and nothing is printed.
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			if limit < 1 || limit > teamEventPageCap {
-				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
+				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — another value would be clamped silently", teamEventPageCap)
 			}
 			if newest && after != "" {
 				return exitcode.Newf(exitcode.Usage, "--after continues an oldest-first read; with --newest page toward older events with --before <id>")
@@ -118,7 +118,7 @@ one refuses the read and nothing is printed.
 			}
 			if since != "" {
 				if _, err := time.Parse(time.RFC3339, since); err != nil {
-					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 timestamp, e.g. 2026-10-12T00:00:00Z, got %q", since)
+					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 timestamp, e.g. 2026-10-12T00:00:00Z")
 				}
 			}
 			b, err := readBindingOrNilWithApp(ctx, f)

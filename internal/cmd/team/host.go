@@ -643,13 +643,13 @@ the original cursor from --json.`,
 				}
 			}
 			if limit < 1 || limit > hostOpsPageCap {
-				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", hostOpsPageCap, limit)
+				return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — another value would be clamped silently", hostOpsPageCap)
 			}
 			var statusArg *gen.HostOperationStatus
 			if status != "" {
 				s := strings.ToUpper(strings.TrimSpace(status))
 				if !containsString(hostOperationStatuses, s) {
-					return exitcode.Newf(exitcode.Usage, "--status takes issued, collected, succeeded or failed, got %q", status)
+					return exitcode.Newf(exitcode.Usage, "--status takes issued, collected, succeeded or failed")
 				}
 				st := gen.HostOperationStatus(s)
 				statusArg = &st
@@ -743,10 +743,10 @@ func parseHostOpArgs(pairs []string) (*json.RawMessage, error) {
 		k, v, ok := strings.Cut(p, "=")
 		k = strings.TrimSpace(k)
 		if !ok || k == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "--arg takes key=value, got %q", p)
+			return nil, exitcode.Newf(exitcode.Usage, "--arg takes key=value (the value given is not shown)")
 		}
 		if _, dup := m[k]; dup {
-			return nil, exitcode.Newf(exitcode.Usage, "--arg %s is given twice", k)
+			return nil, exitcode.Newf(exitcode.Usage, "an --arg key is given twice (the key given is not shown)")
 		}
 		m[k] = v
 	}

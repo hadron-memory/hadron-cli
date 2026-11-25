@@ -223,7 +223,7 @@ before any request. Needs server
 				return err
 			}
 			if cmd.Flags().Changed("first") && first < 1 {
-				return exitcode.Newf(exitcode.Usage, "--first must be at least 1, got %d", first)
+				return exitcode.Newf(exitcode.Usage, "--first must be at least 1")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {

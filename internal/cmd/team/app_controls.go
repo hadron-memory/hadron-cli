@@ -280,7 +280,7 @@ dailyWakeBudget and dailyWakeBudgetDerived.`, Example: "  hadron team ticker set
 					if strings.EqualFold(strings.TrimSpace(raw[i]), "null") {
 						return exitcode.Newf(exitcode.Usage, "--%s takes a whole number; null is not accepted (omit the flag to preserve the value)", name)
 					}
-					return exitcode.Newf(exitcode.Usage, "--%s takes a whole number that fits 32 bits, got %q", name, raw[i])
+					return exitcode.Newf(exitcode.Usage, "--%s takes a whole number that fits 32 bits", name)
 				}
 				n := int(v)
 				vals[i] = &n

@@ -47,7 +47,7 @@ func WorkerWriteSession(f *cmdutil.Factory) func(context.Context, ...string) (cm
 			return nil, err
 		}
 		if api.Endpoint(server) != api.Endpoint(b.Server) {
-			return nil, refuse("it belongs to " + b.Server + ", not " + server)
+			return nil, refuse("it belongs to " + b.Server + ", and this call targets another server (not shown)")
 		}
 		app, err := f.App()
 		if err != nil {

@@ -79,7 +79,7 @@ func newCmdTeamReviewStats(f *cmdutil.Factory) *cobra.Command {
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if !reviewStatsMonth.MatchString(month) {
-				return exitcode.Newf(exitcode.Usage, "--month must be a UTC calendar month written YYYY-MM (for example 2026-10), got %q", month)
+				return exitcode.Newf(exitcode.Usage, "--month must be a UTC calendar month written YYYY-MM (for example 2026-10)")
 			}
 			// The App is --app, else the App context or the worktree binding;
 			// with none, exit 2 naming --app before any request (a review

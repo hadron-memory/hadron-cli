@@ -165,19 +165,19 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 			if cmd.Flags().Changed("since") {
 				t, err := time.Parse(time.RFC3339, since)
 				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 time such as 2026-11-02T00:00:00Z, got %q", since)
+					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 time such as 2026-11-02T00:00:00Z")
 				}
 				sinceAt, sinceArg = t, &since
 			}
 			if cmd.Flags().Changed("until") {
 				t, err := time.Parse(time.RFC3339, until)
 				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 time such as 2026-11-09T00:00:00Z, got %q", until)
+					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 time such as 2026-11-09T00:00:00Z")
 				}
 				untilAt, untilArg = t, &until
 			}
 			if sinceArg != nil && untilArg != nil && sinceAt.After(untilAt) {
-				return exitcode.Newf(exitcode.Usage, "--since %s is after --until %s", since, until)
+				return exitcode.Newf(exitcode.Usage, "--since is after --until")
 			}
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {

@@ -162,8 +162,8 @@ func parseTaskPartyFlag(flag, value string) (*gen.AgentTaskPartyInput, error) {
 		}
 	}
 	return nil, exitcode.Newf(exitcode.Usage,
-		"%s names a party as worker:<id, URN or name> or user:<id or handle> — the kind prefix is required (a worker name and a user handle are both bare words), got %q",
-		flag, value)
+		"%s names a party as worker:<id, URN or name> or user:<id or handle> — the kind prefix is required (a worker name and a user handle are both bare words); the value given is not shown",
+		flag)
 }
 
 // taskRefArg validates the one positional task id every task-id verb takes.
@@ -482,12 +482,12 @@ warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 			}
 			if startBy != "" {
 				if _, err := time.Parse(time.RFC3339, startBy); err != nil {
-					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
+					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z")
 				}
 			}
 			if cmd.Flags().Changed("finish-by") {
 				if _, ok := cmdutil.ParseStrictDateTime(finishBy); !ok {
-					return exitcode.Newf(exitcode.Usage, "--finish-by takes an RFC 3339 timestamp, e.g. 2099-11-02T09:00:00Z, got %q", finishBy)
+					return exitcode.Newf(exitcode.Usage, "--finish-by takes an RFC 3339 timestamp, e.g. 2099-11-02T09:00:00Z")
 				}
 			}
 			groupsIn, groupsNotIn, err := taskModelGroupFlags(cmd, modelGroupIn, modelGroupNotIn)
@@ -513,7 +513,7 @@ warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 					s := gen.AgentTaskCreateStatusPending
 					createStatus = &s
 				default:
-					return exitcode.Newf(exitcode.Usage, "--status is backlog or pending at creation (every other status is reached by a move), got %q", status)
+					return exitcode.Newf(exitcode.Usage, "--status is backlog or pending at creation (every other status is reached by a move)")
 				}
 			}
 			var priorityArg *int
@@ -1233,7 +1233,7 @@ and in --json as result.workedFromRoleTaskRefs [{nodeId, urn, revision}].`,
 			// underscore, hyphen or dot up to 64 characters — the event
 			// stream never holds free text, so neither does this word.
 			if !taskOutcomeRe.MatchString(outcome) {
-				return exitcode.Newf(exitcode.Usage, "--outcome is one word of letters, digits, underscore, hyphen or dot (up to 64 characters), got %q", outcome)
+				return exitcode.Newf(exitcode.Usage, "--outcome is one word of letters, digits, underscore, hyphen or dot (up to 64 characters); the value given is not shown")
 			}
 			refs, err := workedFromRefs(workedFrom)
 			if err != nil {
@@ -1332,7 +1332,7 @@ func handBackCodeFrom(s string) (gen.AgentTaskHandBackCode, error) {
 			return gen.AgentTaskHandBackCode(norm), nil
 		}
 	}
-	return "", exitcode.Newf(exitcode.Usage, "--code is required and must be one of %s, got %q", strings.Join(handBackCodes, " | "), s)
+	return "", exitcode.Newf(exitcode.Usage, "--code is required and must be one of %s", strings.Join(handBackCodes, " | "))
 }
 
 func newCmdTeamTaskHandBack(f *cmdutil.Factory) *cobra.Command {

@@ -551,7 +551,7 @@ host without the runbook: the orca1 import is the host manager's step.`,
 				return exitcode.Newf(exitcode.Usage, "--from and --host are required")
 			}
 			if !hostSetupHostIDRe.MatchString(hostID) {
-				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; got %q", hostID)
+				return exitcode.Newf(exitcode.Usage, "--host is a host id: letters, digits, \".\", \"_\", \":\" or \"-\", up to 128 characters; the value given is not shown")
 			}
 			cfg, err := hostpoller.LoadConfigForImport(from)
 			if err != nil {

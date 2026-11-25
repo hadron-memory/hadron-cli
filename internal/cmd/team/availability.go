@@ -212,13 +212,13 @@ reference and admission, not whether an instruction really happened.`,
 			}
 			st, ok := availabilityStates[strings.ToLower(state)]
 			if !ok {
-				return exitcode.Newf(exitcode.Usage, "--state takes available or unavailable, got %q", state)
+				return exitcode.Newf(exitcode.Usage, "--state takes available or unavailable")
 			}
 			var reasonIn *gen.AvailabilityReason
 			if reason != "" {
 				r, ok := availabilityReasons[strings.ToUpper(reason)]
 				if !ok {
-					return exitcode.Newf(exitcode.Usage, "--reason takes HOST_DOWN, OTHER, OUT_OF_TOKENS or STALLED, got %q", reason)
+					return exitcode.Newf(exitcode.Usage, "--reason takes HOST_DOWN, OTHER, OUT_OF_TOKENS or STALLED")
 				}
 				reasonIn = &r
 			}
@@ -234,7 +234,7 @@ reference and admission, not whether an instruction really happened.`,
 			}
 			if until != "" {
 				if _, err := time.Parse(time.RFC3339, until); err != nil {
-					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 timestamp, e.g. 2026-10-13T00:00:00Z, got %q", until)
+					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 timestamp, e.g. 2026-10-13T00:00:00Z")
 				}
 			}
 			var claim *gen.ActInstructionInput
@@ -275,7 +275,7 @@ reference and admission, not whether an instruction really happened.`,
 				return err
 			} else if !workerRefIsSelfSufficient(workerRef) {
 				return exitcode.Newf(exitcode.Usage,
-					"a worker NAME needs the App — pass --app, set an App context, or bind a worker session (a worker id or URN names itself), got %q", workerRef)
+					"a worker NAME needs the App — pass --app, set an App context, or bind a worker session (a worker id or URN names itself); the ref given is not shown")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {

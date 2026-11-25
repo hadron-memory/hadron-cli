@@ -124,7 +124,7 @@ func initViaMemory(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client
 		return api.MapError(err)
 	}
 	if resp.Memory == nil {
-		return exitcode.Newf(exitcode.NotFound, "memory %q not found", asTyped)
+		return exitcode.Newf(exitcode.NotFound, "memory not found (the ref given is not shown)")
 	}
 	if err := requireAppClass(resp.Memory.Urn, resp.Memory.Class); err != nil {
 		return err
@@ -150,7 +150,7 @@ func sharedMemoryStatus(ctx context.Context, client graphql.Client, appRef strin
 		return false, "", "", api.MapError(err)
 	}
 	if pre.App == nil {
-		return false, "", "", exitcode.Newf(exitcode.NotFound, "App %q not found", appRef)
+		return false, "", "", exitcode.Newf(exitcode.NotFound, "App not found (the ref given is not shown)")
 	}
 	if pre.App.SharedMemory == nil {
 		return false, "", "", nil
@@ -171,7 +171,7 @@ func worklogDeclared(urn string, schema *json.RawMessage) (bool, error) {
 		ObjectTypes map[string]json.RawMessage `json:"objectTypes"`
 	}
 	if err := json.Unmarshal(*schema, &parsed); err != nil {
-		return false, fmt.Errorf("memory %s has an unparseable schema (%v) — fix it with `hadron memory set --schema` first", urn, err)
+		return false, fmt.Errorf("the App's shared memory (its ref is not shown) has an unparseable schema (%v) — fix it with `hadron memory set --schema` first", err)
 	}
 	_, declared := parsed.ObjectTypes["worklog"]
 	return declared, nil
@@ -249,6 +249,6 @@ func requireAppClass(urn string, class gen.MemoryClass) error {
 		hint = " — a system memory is an Agent's design, read-only from every App that runs it (cor:dmo:050:03), so `recordWork` could never write rows against a collection declared there"
 	}
 	return exitcode.Newf(exitcode.Usage,
-		"memory %s is class %q, not \"app\"%s. Pass the team App's own shared memory; on a brand-new App it is created by the server on the first `hadron team chat post`",
-		urn, string(class), hint)
+		"the memory (the ref given is not shown) is class %q, not \"app\"%s. Pass the team App's own shared memory; on a brand-new App it is created by the server on the first `hadron team chat post`",
+		string(class), hint)
 }

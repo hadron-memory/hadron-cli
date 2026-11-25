@@ -113,10 +113,10 @@ accepts it from that worker's own live session.`,
 					return api.MapError(err)
 				}
 				if resp.App == nil {
-					return exitcode.Newf(exitcode.NotFound, "App %q not found, or not visible to you (cor:api:140:03)", scope.Ref)
+					return exitcode.Newf(exitcode.NotFound, "App not found, or not visible to you (cor:api:140:03); the ref given is not shown")
 				}
 				if resp.App.DefaultChannel == nil {
-					return exitcode.Newf(exitcode.NotFound, "the App %s has no team chat Channel yet — nothing to mark read", scope.Ref)
+					return exitcode.Newf(exitcode.NotFound, "the App has no team chat Channel yet — nothing to mark read (the ref given is not shown)")
 				}
 				channelRef = resp.App.DefaultChannel.Id
 			}

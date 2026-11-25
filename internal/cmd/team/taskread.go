@@ -151,7 +151,7 @@ original values.`,
 				return mapTaskError(err)
 			}
 			if resp.AgentTask == nil {
-				return exitcode.Newf(exitcode.NotFound, "task %s not found", taskId)
+				return exitcode.Newf(exitcode.NotFound, "task not found (the ref given is not shown)")
 			}
 			base, err := taskDTOFrom(resp.AgentTask.AgentTaskFields)
 			if err != nil {
@@ -558,7 +558,7 @@ ageFrom; --tree changes text only.`,
 			}
 			for _, s := range statuses {
 				if !taskStatuses[strings.ToUpper(s)] {
-					return exitcode.Newf(exitcode.Usage, "--status takes %s, got %q", taskStatusDoc, s)
+					return exitcode.Newf(exitcode.Usage, "--status takes %s", taskStatusDoc)
 				}
 			}
 			if cmd.Flags().Changed("ref-kind") && !cmd.Flags().Changed("ref") {
@@ -752,10 +752,10 @@ const taskListDefaultLimit = 20
 
 func checkTaskPage(limit, offset int) error {
 	if limit < 1 || limit > teamEventPageCap {
-		return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — %d would be clamped silently", teamEventPageCap, limit)
+		return exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d (the server's page cap) — another value would be clamped silently", teamEventPageCap)
 	}
 	if offset < 0 {
-		return exitcode.Newf(exitcode.Usage, "--offset takes a non-negative page offset, got %d", offset)
+		return exitcode.Newf(exitcode.Usage, "--offset takes a non-negative page offset")
 	}
 	return nil
 }
@@ -1051,8 +1051,7 @@ binding's server must be the one this call targets.`,
 				return exitcode.Newf(exitcode.Usage, "the worker session binding does not record its session, worker and App — re-run `hadron team session start`")
 			}
 			if !bindingServerMatches(f, b) {
-				server, _ := f.Server()
-				return exitcode.Newf(exitcode.Usage, "the worker session is bound on %s, and this call targets %s — `task mine` reads only the bound server", b.Server, server)
+				return exitcode.Newf(exitcode.Usage, "the worker session is bound on %s, and this call targets another server (not shown) — `task mine` reads only the bound server", b.Server)
 			}
 			// --app may restate the bound App in any spelling: compared by
 			// identity, and the query below stays on the bound id.
@@ -1066,7 +1065,7 @@ binding's server must be the one this call targets.`,
 					return err
 				}
 				if !same {
-					return exitcode.Newf(exitcode.Usage, "`task mine` reads the bound worker's App %s; --app %s is not that App (omit --app)", b.AppID, f.AppFlag)
+					return exitcode.Newf(exitcode.Usage, "`task mine` reads the bound worker's App %s; --app (its value is not shown) is not that App (omit --app)", b.AppID)
 				}
 			}
 			worker := b.WorkerID
@@ -1142,7 +1141,7 @@ complete, original values.`,
 				return mapTaskError(err)
 			}
 			if len(resp.AgentTaskTree) == 0 {
-				return exitcode.Newf(exitcode.NotFound, "task %s not found", rootId)
+				return exitcode.Newf(exitcode.NotFound, "task not found (the ref given is not shown)")
 			}
 			appID := ""
 			for _, t := range resp.AgentTaskTree {

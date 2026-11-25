@@ -94,7 +94,7 @@ func wakeWorkerRef(v string) (string, error) {
 	ref := strings.TrimSpace(v)
 	if !workerRefIsSelfSufficient(ref) {
 		return "", exitcode.Newf(exitcode.Usage,
-			"pass a worker id or fully-qualified hrn:worker: URN (names are not addresses); `hadron team worker list` shows the refs, got %q", v)
+			"pass a worker id or fully-qualified hrn:worker: URN (names are not addresses); `hadron team worker list` shows the refs; the value given is not shown")
 	}
 	return ref, nil
 }
@@ -149,7 +149,7 @@ worker with no stored settings shows the server's defaults.`,
 				return wakeSettingsError(err)
 			}
 			if resp.WorkerWakeSettings == nil {
-				return exitcode.Newf(exitcode.NotFound, "the server returned no wake settings for %s", ref)
+				return exitcode.Newf(exitcode.NotFound, "the server returned no wake settings for the worker (the ref given is not shown)")
 			}
 			dto := wakeSettingsDTOFrom(&resp.WorkerWakeSettings.WorkerWakeSettingsFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error { return renderWakeSettings(w, dto) })
@@ -208,13 +208,13 @@ manages the App.`,
 			if cmd.Flags().Changed("mentions") {
 				m := gen.MentionWake(strings.ToUpper(strings.TrimSpace(mentions)))
 				if m != gen.MentionWakeImmediate && m != gen.MentionWakeOff {
-					return exitcode.Newf(exitcode.Usage, "--mentions takes immediate or off, got %q", mentions)
+					return exitcode.Newf(exitcode.Usage, "--mentions takes immediate or off")
 				}
 				input.Mentions = &m
 			}
 			if cmd.Flags().Changed("paused-until") {
 				if _, err := time.Parse(time.RFC3339, pausedUntil); err != nil {
-					return exitcode.Newf(exitcode.Usage, "--paused-until takes an RFC 3339 timestamp, e.g. 2026-11-01T00:00:00Z, got %q", pausedUntil)
+					return exitcode.Newf(exitcode.Usage, "--paused-until takes an RFC 3339 timestamp, e.g. 2026-11-01T00:00:00Z")
 				}
 				input.PausedUntil = &pausedUntil
 			}
