@@ -38,7 +38,7 @@ API names, so **a batch file that says `"parentTaskId"` is now refused before
 any call (exit 2)**, with a message naming the new key:
 
 ```
-parsing --batch-file: task 1 of 2: "parentTaskId" was renamed to "parentTaskRef"; use "parentTaskRef" in the task object
+parsing --batch-file: task 1: "parentTaskId" was renamed to "parentTaskRef"; use "parentTaskRef" in the task object
 ```
 
 Rename the key to `parentTaskRef` in the file. There is no alias.
