@@ -1,17 +1,19 @@
 # Worker-own grant read, scoped by the bound person-driven session.
 query TeamGrant($ref: ID!) {
-  grant(ref: $ref) { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows }
+  grant(ref: $ref) { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows state }
 }
 
 # One explicit page of the bound worker's grants; zero limit counts only.
 query TeamGrants($limit: Int!, $offset: Int!) {
   grants(limit: $limit, offset: $offset) {
     total
-    items { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows }
+    items { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows state }
   }
 }
 
 # cli#1868: the bound worker asks for a grant (pending until a person signs it).
+# cli#1846: a person who manages an App creates one too (input.appRef); the
+# answer is read as the manager reads it (GrantManagerFields).
 # Optional input fields are omitted when unset: omitted preserves the server
 # default, an explicit null would be read as a value.
 # @genqlient(for: "CreateGrantInput.startsAt", omitempty: true)
@@ -21,7 +23,7 @@ query TeamGrants($limit: Int!, $offset: Int!) {
 mutation TeamCreateGrant(
   $input: CreateGrantInput!
 ) {
-  createGrant(input: $input) { id action values holderKind holderId startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt allows }
+  createGrant(input: $input) { ...GrantManagerFields }
 }
 
 fragment TeamGrantSigningRequestFields on GrantSigningRequest {

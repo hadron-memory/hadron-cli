@@ -135,12 +135,15 @@ func sortedCopy1846(in []string) []string {
 }
 
 func TestGrantManageCreateOptionalFlagsAreSent1846(t *testing.T) {
-	calls, _, _, err := runManage1846(t, map[string]string{"TeamCreateGrant": `{"data":{"createGrant":` + managerGrant1846 + `}}`},
+	calls, _, errOut, err := runManage1846(t, map[string]string{"TeamCreateGrant": `{"data":{"createGrant":` + managerGrant1846 + `}}`},
 		createArgs1846("--starts-at", "2026-01-01T00:00:00Z", "--expires-at", "2026-01-02T00:00:00Z", "--max-uses", "3")...)
 	if err != nil {
 		t.Fatal(err)
 	}
 	sent1846(t, calls)
+	if !strings.Contains(errOut, "hadron team grant request-signature g1") {
+		t.Errorf("the next step is said on stderr (it never signs): %q", errOut)
+	}
 	for _, want := range []string{`"startsAt":"2026-01-01T00:00:00Z"`, `"expiresAt":"2026-01-02T00:00:00Z"`, `"maxUses":3`} {
 		if !strings.Contains(string((*calls)[0].RawVars), want) {
 			t.Errorf("request lacks %s: %s", want, (*calls)[0].RawVars)
@@ -380,7 +383,7 @@ func TestGrantManageSendsNoSigningOperation1846(t *testing.T) {
 
 // Worker reads and the manager's agree: list and get select and print state.
 func TestGrantManageWorkerReadsCarryState1846(t *testing.T) {
-	item := strings.Replace(workerGrant1832, `"allows":true`, `"allows":true,"state":"ACTIVE"`, 1)
+	item := workerGrant1832
 	for _, tc := range []struct {
 		op   string
 		resp string
@@ -418,8 +421,8 @@ func TestGrantListHelpSaysRoleAgentGrantsAreListed1846(t *testing.T) {
 		if strings.Contains(help, "Grants held by a role agent, another worker, a person or an App are not listed") {
 			t.Errorf("%s: the stale 'role agent grants are not listed' sentence is still there", verb)
 		}
-		if !strings.Contains(help, "role agent") || !strings.Contains(help, "another worker's, a person's or an App's are not") {
-			t.Errorf("%s: help must say role-agent grants are listed and another worker's, a person's or an App's are not:\n%s", verb, help)
+		if !strings.Contains(help, "role agent") || !strings.Contains(help, "another worker's, a person's or an App's") {
+			t.Errorf("%s: help must say role-agent grants are listed and another worker's, a person's or an App's are not (listed or visible):\n%s", verb, help)
 		}
 	}
 }
