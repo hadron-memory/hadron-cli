@@ -510,9 +510,9 @@ section between the markers.
 | `team chat` |  |  | n | #1054 | fe0007157afc |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 5fce1fb88b41 |  | unread |  |
 | `team chat inbox` |  |  | n | #1054 | 098ce787ca9f |  | unread |  |
-| `team chat mark-read` |  |  | y | #1054 | 32128682f35a |  | unread |  |
+| `team chat mark-read` |  |  | y | #1054 | 0d30e7f837ba |  | unread |  |
 | `team chat post` |  |  | y | #1054 | 78b985ffef96 |  | unread |  |
-| `team chat read` | pull |  | y | #1054 | 99f61b8dfc39 |  | unread |  |
+| `team chat read` | pull |  | y | #1054 | 7e78a3c9b9df |  | unread |  |
 | `team chat search` |  |  | y | #1054 | 761bf8adfcb1 |  | unread |  |
 | `team composition` |  |  | n | #1054 | 56db72727109 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
 | `team delivery-settings` |  |  | n | #1054 | b93ae59855e1 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
@@ -603,7 +603,7 @@ section between the markers.
 | `team session shed` |  |  | y | #1054 | 3a98d6ff8a57 |  | unread |  |
 | `team session start` |  |  | y | #1054 | 31d7523691c8 |  | unread |  |
 | `team session sync-model` |  |  | y | #1054 | 28bc63be5c00 |  | unread |  |
-| `team session whoami` |  |  | y | #1054 | b51ff972ba7a |  | unread |  |
+| `team session whoami` |  |  | y | #1054 | 20b80a78bd7f |  | unread |  |
 | `team session work-items` |  |  | y | #1054 | aa707c9c9f95 |  | unread |  |
 | `team stall-schedule` |  |  | n | #1054 | aa1c65ef79dc |  | unread |  |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |

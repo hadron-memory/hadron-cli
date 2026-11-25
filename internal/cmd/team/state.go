@@ -70,7 +70,8 @@ type binding struct {
 	Model string `json:"model"`
 	// ChatSeenSeq is a per-worktree RENDERING CACHE: how far this worktree has
 	// actually READ the team chat (#474). `chat read` records the seq it returned
-	// and is its only reader: the contiguity check there (chat.go) decides
+	// and is its only consumer (`chat mark-read` on the team chat also writes it,
+	// cli#1854, but never consults it): the contiguity check there (chat.go) decides
 	// whether a read counts as read-through, and so whether the server-side mark
 	// counts. It is never an unread position and never the attendee's read
 	// state: every unread claim (`session log`, `chat check`) derives from the
@@ -797,7 +798,7 @@ func marshalBinding(b *binding) ([]byte, error) {
 // The session check stays INSIDE the mutation, which runs under the lock
 // against a fresh read: by then the worktree may belong to a different session
 // — `session start` may have replaced the binding while this command was
-// rendering — in which case this watermark is not ours to record.
+// rendering — in which case this cache value is not ours to record.
 //
 // Best-effort throughout: the caller has already delivered the messages, and a
 // failed bookkeeping write must not turn that into an error.
