@@ -26,7 +26,7 @@ func utilHelpLong2964(t *testing.T) string {
 }
 
 func TestUtilizationHelpNamesTheServerFloorAndTheNotes2964(t *testing.T) {
-	help := flat2906(utilHelpLong2964(t))
+	help := flat(utilHelpLong2964(t))
 	for _, want := range []string{
 		"Needs server 2026-11-21 or later",
 		"--family cannot select an open-family row",
@@ -41,7 +41,7 @@ func TestUtilizationHelpNamesTheServerFloorAndTheNotes2964(t *testing.T) {
 }
 
 func TestAgenticUsageUtilizationNamesTheFloorAndTheNotes2964(t *testing.T) {
-	contract := flat2906(string(readContract(t)))
+	contract := flat(string(readContract(t)))
 	i := strings.Index(contract, "hadron team utilization (--all")
 	if i < 0 {
 		t.Fatal("agentic-usage has no team utilization entry")

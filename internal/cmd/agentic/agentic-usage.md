@@ -3601,8 +3601,8 @@ server error fails the command).
   cor:dmo:090:06: unread is the channel's head minus the attendee's server read
   state) — the moment before you publish something durable is the last point a
   missed decision can still change what you do. The count and the `chat read
-  --since <seq>` remedy start at that cursor and never at the binding's local
-  `chatSeenSeq` hint, which only some reads move and which once produced
+  --since <seq>` remedy start at that cursor and never at the binding's
+  `chatSeenSeq` rendering cache, which only some reads move and which once produced
   "111213 new messages" against a true gap of about 136. Where the cursor cannot
   be read (a binding without a worker, no team chat, a failed read, no cursor row,
   or a legacy / previous-incarnation cursor, the same rule as `chat check` and
@@ -3612,13 +3612,13 @@ server error fails the command).
   append-only sequence can produce and which is impossible rather than merely
   stale — rather than reporting the unknown as "none". Best-effort: the milestone is
   already recorded when it runs, so a failed or unreadable chat never fails the
-  log, and `session log --json` is untouched. `chat read` still records the local
-  watermark on the binding (`whoami --json` carries the optional `chatSeenSeq`, absent on a binding
-  that has never read, `0` on one that read an empty chat). It is a per-worktree rendering cache:
-  only `chat read` reads it, to decide whether a read counts as read through (and so whether the
-  server-side mark counts); it is never an unread position and never the attendee's read state
+  log, and `session log --json` is untouched. `chat read` still records its progress on the binding
+  (`whoami --json` carries the optional `chatSeenSeq`, absent on a binding that has never read or that predates the field, `0` on one that read an empty chat). It is a per-worktree rendering cache:
+  only `chat read` acts on it, to decide whether a read counts as read through (it starts at or
+  before the cache, or at 0 when there is none), which is when the server-side mark counts; it is
+  never an unread position and never the attendee's read state
   (cor:dmo:090:06: unread derives from the server read cursor, and one worker bound in two
-  worktrees holds two hints). `session log` does not read it.
+  worktrees holds two caches). `session log` does not read it.
   `session end` ends the bound worker session — the SESSION, never the name
   hold (`worker release` does that) — unless another active worker session
   still has it (check `session list --active`).
