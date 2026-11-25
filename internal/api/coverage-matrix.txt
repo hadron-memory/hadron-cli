@@ -279,7 +279,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 375: 342 command, 16 gap, 17 excluded
+[Mutation] 375: 343 command, 15 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
