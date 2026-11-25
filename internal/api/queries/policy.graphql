@@ -41,13 +41,30 @@ fragment QuotaCounterFields on QuotaCounter {
 }
 
 # Quota counters (server #510): usage vs limit for an org, plus one App's rows
-# when appRef is given. Org ADMIN. Rows materialize on first view.
+# when appRef is given. Org ADMIN. Rows materialize on first view. This document
+# names no userRef: `quota list --org` must keep working against a server that
+# predates #5074, which rejects an unknown argument even when its variable is
+# omitted (review:old-server-graphql-document-compatibility, cli#3139).
 query QuotaCounters(
   $orgRef: String!
   # @genqlient(omitempty: true)
   $appRef: String
 ) {
   quotaCounters(orgRef: $orgRef, appRef: $appRef) {
+    ...QuotaCounterFields
+  }
+}
+
+# cli#3139 (server #5074): the two forms the org-only document cannot express, an App on its own
+# (appRef alone) and a person (userRef alone). Every ref is optional and omitted when unset (never
+# null); the CLI sends exactly one of the two, and the server judges access. Needs a server with #5074.
+query QuotaCountersScoped(
+  # @genqlient(omitempty: true)
+  $appRef: String
+  # @genqlient(omitempty: true)
+  $userRef: ID
+) {
+  quotaCounters(appRef: $appRef, userRef: $userRef) {
     ...QuotaCounterFields
   }
 }
