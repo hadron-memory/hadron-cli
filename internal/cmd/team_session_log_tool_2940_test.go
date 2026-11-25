@@ -95,6 +95,39 @@ func runLog2940(t *testing.T, url string, args ...string) (string, string, error
 	return out.String(), errOutBuilder.String(), err
 }
 
+// bindingWithTool2940 returns fixture with its tool set to tool, rewritten
+// through JSON rather than a string replace, so reformatting the fixture cannot
+// turn the rewrite into a silent no-op (cli#3177 item 3). It fails when the
+// fixture has no tool key at all.
+func bindingWithTool2940(t *testing.T, fixture, tool string) string {
+	t.Helper()
+	var m map[string]any
+	if err := json.Unmarshal([]byte(fixture), &m); err != nil {
+		t.Fatalf("fixture is not valid JSON: %v", err)
+	}
+	if _, ok := m["tool"]; !ok {
+		t.Fatal("fixture has no tool key to rewrite")
+	}
+	m["tool"] = tool
+	out, err := json.Marshal(m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(out)
+}
+
+// assertNoFillNote2940 fails when either stream carries a fill note: the
+// concurrent-divergence note or the failed-local-fill note. Both streams, so a
+// note moved to stdout cannot pass vacuously (cli#3177 item 4).
+func assertNoFillNote2940(t *testing.T, out, errOut, why string) {
+	t.Helper()
+	for name, text := range map[string]string{"stdout": out, "stderr": errOut} {
+		if strings.Contains(text, "concurrent log") || strings.Contains(text, "filling this binding's tool locally failed") {
+			t.Errorf("%s: no fill note may print on %s, got %q", why, name, text)
+		}
+	}
+}
+
 // recordedTool2940 returns the tool sent on the LAST RecordTeamWork capture,
 // failing when that capture's ref is not wantRef — the ref check is what makes
 // a last-capture read trustworthy across a test's second log (a stale first
@@ -390,7 +423,7 @@ func TestSessionLogToolConcurrentDifferentFillNotes(t *testing.T) {
 	stubs := logStubs2940()
 	gql, _ := captureGraphQLFunc(t, func(op string) string {
 		if op == "RecordTeamWork" {
-			rewritten := strings.Replace(bindingNoToolFixture, `"tool":""`, `"tool":"codex-cli"`, 1)
+			rewritten := bindingWithTool2940(t, bindingNoToolFixture, "codex-cli")
 			if err := os.WriteFile(path, []byte(rewritten), 0o600); err != nil {
 				t.Errorf("rewrite binding mid-flight: %v", err)
 			}
@@ -434,12 +467,14 @@ func TestSessionLogToolConcurrentDifferentFillNotes(t *testing.T) {
 func TestSessionLogToolConcurrentSameTokenFillStaysSilent(t *testing.T) {
 	path := bindFixture2940(t, bindingNoToolFixture)
 	stubs := logStubs2940()
+	rewrote := false
 	gql, captured := captureGraphQLFunc(t, func(op string) string {
 		if op == "RecordTeamWork" {
-			rewritten := strings.Replace(bindingNoToolFixture, `"tool":""`, `"tool":"claude-code"`, 1)
+			rewritten := bindingWithTool2940(t, bindingNoToolFixture, "claude-code")
 			if err := os.WriteFile(path, []byte(rewritten), 0o600); err != nil {
 				t.Errorf("rewrite binding mid-flight: %v", err)
 			}
+			rewrote = true
 		}
 		return stubs[op]
 	})
@@ -451,9 +486,10 @@ func TestSessionLogToolConcurrentSameTokenFillStaysSilent(t *testing.T) {
 	if !strings.Contains(out, "✓ logged") {
 		t.Errorf("missing success line: %q", out)
 	}
-	if strings.Contains(errOut, "concurrent log") || strings.Contains(errOut, "filling this binding's tool locally failed") {
-		t.Errorf("a restatement is not a divergence: no fill note may print, got %q", errOut)
+	if !rewrote {
+		t.Fatal("the mid-flight rewrite never ran: RecordTeamWork was not sent")
 	}
+	assertNoFillNote2940(t, out, errOut, "a restatement is not a divergence")
 	if got := recordedTool2940(t, captured, "hadron-memory/hadron-cli#371"); got != "Claude-Code" {
 		t.Errorf("the CLI sends the trimmed flag value (the server normalizes), got %q", got)
 	}
@@ -464,22 +500,31 @@ func TestSessionLogToolConcurrentSameTokenFillStaysSilent(t *testing.T) {
 	// The same race with the concurrent value spelled as a pre-#2940 binding
 	// holds it: still the same token, so still silent, and still kept.
 	path = bindFixture2940(t, bindingNoToolFixture)
-	gql, _ = captureGraphQLFunc(t, func(op string) string {
+	rewrote = false
+	gql, captured = captureGraphQLFunc(t, func(op string) string {
 		if op == "RecordTeamWork" {
-			rewritten := strings.Replace(bindingNoToolFixture, `"tool":""`, `"tool":"Claude-Code"`, 1)
+			rewritten := bindingWithTool2940(t, bindingNoToolFixture, "Claude-Code")
 			if err := os.WriteFile(path, []byte(rewritten), 0o600); err != nil {
 				t.Errorf("rewrite binding mid-flight: %v", err)
 			}
+			rewrote = true
 		}
 		return stubs[op]
 	})
 
-	_, errOut, err = runLog2940(t, gql.URL, "--pr", "371", "--tool", "claude-code")
+	out, errOut, err = runLog2940(t, gql.URL, "--pr", "371", "--tool", "claude-code")
 	if err != nil {
 		t.Fatalf("a same-token concurrent fill in another spelling must not fail the log: %v", err)
 	}
-	if strings.Contains(errOut, "concurrent log") || strings.Contains(errOut, "filling this binding's tool locally failed") {
-		t.Errorf("a restatement in another spelling is not a divergence: no fill note may print, got %q", errOut)
+	if !rewrote {
+		t.Fatal("the mid-flight rewrite never ran: RecordTeamWork was not sent")
+	}
+	if !strings.Contains(out, "✓ logged") {
+		t.Errorf("missing success line: %q", out)
+	}
+	assertNoFillNote2940(t, out, errOut, "a restatement in another spelling is not a divergence")
+	if got := recordedTool2940(t, captured, "hadron-memory/hadron-cli#371"); got != "claude-code" {
+		t.Errorf("the CLI sends the trimmed flag value, got %q", got)
 	}
 	if got := boundTool2940(t, path); got != "Claude-Code" {
 		t.Errorf("fill-never-change keeps the concurrent spelling it found, got %q", got)
