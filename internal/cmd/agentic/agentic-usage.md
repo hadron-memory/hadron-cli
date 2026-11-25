@@ -2377,7 +2377,16 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   exempt from structure checks only; corpus link checks still apply. Invalid
   type names are per-node findings and do not abort checks of the other nodes.
   This checks mechanics, not factual
-  correctness or approval. `spec lint` also
+  correctness or approval. Two content checks come from the SERVER
+  (`Node.specLint`, hadron-cli#3127), not the CLI: a Rule spec with no, or an
+  empty, `## Why We Need This Rule` section is an error (rules
+  `rule-why-missing`, `rule-why-empty`, exit 5), and a sentence that restricts
+  something with no reason in its paragraph is a warning (rule
+  `limit-without-reason`; `--json` findings then also carry `line` and
+  `sentence`). Warnings never fail a run unless `--strict`. A server without
+  the field gets one info finding, rule `spec-lint-unavailable`, saying the two
+  checks did NOT run; a spec whose text the server did not load gets
+  `spec-lint-not-read`. Neither is a clean answer and neither fails `--strict`. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5). A corpus-scope lint also
