@@ -8573,6 +8573,12 @@ type AgentTaskFinishResponse struct {
 	// malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
 	// every finish. Both are judged after the assignee and status checks and before any write or event: the task
 	// stays started. With no set, any one word is accepted. The set is read only at finish.
+	// #5036: a task bound as a PR review seat (pr seat) with no verdict recorded at its assigned head is refused with
+	// SEAT_VERDICT_REQUIRED, whose message names hadron team pr verdict; record the verdict, then finish. Exempt: a
+	// seat never bound, a seat superseded by a later seat, and a task finished with outcome failed or cancelled (any
+	// case). Judged at the assigned head of the seat, not the current frozen head of the build task, after the assignee and status
+	// checks and before any write or event: the task stays started. Rule: the team memory
+	// coordination:pr-finishing (Finishing a review seat).
 	FinishAgentTask *AgentTaskFinishFinishAgentTask `json:"finishAgentTask"`
 }
 
@@ -9036,6 +9042,12 @@ type AgentTaskFinishWithFindingsResponse struct {
 	// malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
 	// every finish. Both are judged after the assignee and status checks and before any write or event: the task
 	// stays started. With no set, any one word is accepted. The set is read only at finish.
+	// #5036: a task bound as a PR review seat (pr seat) with no verdict recorded at its assigned head is refused with
+	// SEAT_VERDICT_REQUIRED, whose message names hadron team pr verdict; record the verdict, then finish. Exempt: a
+	// seat never bound, a seat superseded by a later seat, and a task finished with outcome failed or cancelled (any
+	// case). Judged at the assigned head of the seat, not the current frozen head of the build task, after the assignee and status
+	// checks and before any write or event: the task stays started. Rule: the team memory
+	// coordination:pr-finishing (Finishing a review seat).
 	FinishAgentTask *AgentTaskFinishWithFindingsFinishAgentTask `json:"finishAgentTask"`
 }
 
@@ -40542,9 +40554,10 @@ type CreateAgentTaskInput struct {
 	Description          *string `json:"description"`
 	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims, for example an issue's
 	// canonical URL. Stored and compared exactly as written; 1 to 512 characters with no whitespace, control or invisible
-	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
-	// task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
-	// names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. At most one
+	// ACTIVE task (backlog, pending or started) per App holds a given value; a finished or cancelled task keeps its value
+	// but no longer blocks a new claim. A create while an active task holds the value is refused TASK_EXTERNAL_ID_TAKEN,
+	// which names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
 	// #4113 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): naming it with YOURSELF as the assignee is the claim, and a
 	// claim is created STARTED in this one call (startedAt set; task.created, task.assigned, task.started; never queued,
 	// matched or alarmed as not started). A claim naming another assignee, no assignee, or an open blocker stays PENDING
@@ -53323,7 +53336,11 @@ type FindNodesFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
@@ -53546,7 +53563,11 @@ type FindNodesWithCommentSummaryFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
@@ -89810,7 +89831,7 @@ type ResumeSessionInput struct {
 	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
 	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
 	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
-	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read. That id-only refusal is built behaviour (#3822), not a rule of cor:agt:020:03, which says only that the caller may name the worker it expects and that a blank one is refused; the field is a known gap against cor:api:140:01, deferred to hadron-server#5163.
+	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read. That id-only refusal is built behaviour (#3822), not a rule of hrn:node:hadronmemory.com:specs:cor:agt:020:03, which says only that the caller may name the worker it expects and that a blank one is refused; the field is a known gap against hrn:node:hadronmemory.com:specs:cor:api:140:01, deferred to hadron-server#5163.
 	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
@@ -93734,7 +93755,11 @@ type SearchNodesFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
