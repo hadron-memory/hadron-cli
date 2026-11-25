@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/intake"
 	"github.com/hadron-memory/hadron-cli/pkg/intakecontract"
 )
@@ -254,20 +255,87 @@ func TestHowToSampleAdapterTracks3062(t *testing.T) {
 	}
 }
 
-// The sample refuses a request that speaks another contract version: exit 2
-// and the reason on stderr. Deleting that check from the page must fail here.
+// The sample refuses a request that speaks another contract version, on every
+// call: exit 2 and the reason on stderr. Deleting that check from the page must
+// fail here.
 func TestHowToSampleAdapterRefusesOtherContractVersion3062(t *testing.T) {
 	bin := buildSample3062(t)
-	cmd := exec.Command(bin, "describe")
-	cmd.Stdin = strings.NewReader(`{"contractVersion": 2}`)
-	var stderr strings.Builder
-	cmd.Stderr = &stderr
-	err := cmd.Run()
-	var ee *exec.ExitError
-	if !errors.As(err, &ee) || ee.ExitCode() != 2 {
-		t.Fatalf("a contractVersion 2 request must exit 2, got %v", err)
+	for _, call := range []string{"describe", "list-untracked", "mark-tracked"} {
+		t.Run(call, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, bin, call)
+			cmd.Stdin = strings.NewReader(`{"contractVersion": 2, "externalId": "x"}`)
+			var stderr strings.Builder
+			cmd.Stderr = &stderr
+			err := cmd.Run()
+			var ee *exec.ExitError
+			if !errors.As(err, &ee) || ee.ExitCode() != 2 {
+				t.Fatalf("a contractVersion 2 request must exit 2, got %v", err)
+			}
+			if !strings.Contains(stderr.String(), "speaks contract version 1") {
+				t.Fatalf("stderr must say the adapter speaks contract version 1: %q", stderr.String())
+			}
+		})
 	}
-	if !strings.Contains(stderr.String(), "speaks contract version 1") {
-		t.Fatalf("stderr must say the adapter speaks contract version 1: %q", stderr.String())
+}
+
+// The page says what `limit` the CLI sends to list-untracked: the user's
+// --limit raised to 20, so --limit 1 and no --limit both send 20 and --limit 50
+// sends 50 (above 100 the flag is refused before any call, pinned in
+// TestAdapterUsageRefusalsSendNothing1961's --limit 101 row).
+func TestHowToPageLimitWordingMatchesWhatTheCLISends3062(t *testing.T) {
+	for argv, want := range map[string]float64{"": 20, "--limit 1": 20, "--limit 20": 20, "--limit 50": 50, "--limit 100": 100} {
+		path, log := fakeAdapter1961(t, "", `echo '{"items":[]}'`, "")
+		args := []string{"--json"}
+		if argv != "" {
+			args = append(args, strings.Fields(argv)...)
+		}
+		if _, _, stderr, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, args...); err != nil {
+			t.Fatalf("%q: %v\n%s", argv, err, stderr)
+		}
+		reqs := adapterLog1961(t, log, "list-untracked")
+		if len(reqs) != 1 {
+			t.Fatalf("%q: one list-untracked call, got %d", argv, len(reqs))
+		}
+		var req struct{ Limit float64 }
+		if err := json.Unmarshal([]byte(reqs[0]), &req); err != nil || req.Limit != want {
+			t.Errorf("%q must send limit %v, got %v (%v)", argv, want, req.Limit, err)
+		}
+	}
+	page := strings.Join(strings.Fields(readHowTo3062(t)), " ")
+	for _, want := range []string{"raised to 20 if it is lower", "or a run with no `--limit` at all, asks for 20", "refuses a `--limit` above 100"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page must say %q", want)
+		}
+	}
+}
+
+// The page's two exit-2 messages: an adapter that does not answer a call this
+// run needs, and --track with no one to hold the claim.
+func TestHowToPageExitTwoMessages3062(t *testing.T) {
+	describe := `{"name":"fake","contractVersion":1,"calls":["describe","list-untracked"],"filters":[],"order":"x"}`
+	path, _ := fakeAdapter1961(t, describe, `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+	_, _, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, "--track")
+	if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "does not answer mark-tracked") {
+		t.Fatalf("a describe without mark-tracked, on --track: exit 2 naming the call, got %d %v", exitCodeFor(err), err)
+	}
+
+	// No worktree binding and no --for/--assignee: nobody to hold the claim.
+	path, _ = fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+	t.Setenv(adapterEnvForTest, "")
+	srv, _ := attnServer(t, withEmptyChanges1962(map[string]string{"IntakeTasksByExternalIds": held1961()}))
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "task", "find-untracked", "--adapter", path, "--track"})
+	err = root.Execute()
+	if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "pass --for <worker> or --assignee <party>") {
+		t.Fatalf("--track with no one to hold the claim: exit 2 asking for --for or --assignee, got %d %v", exitCodeFor(err), err)
+	}
+	page := strings.Join(strings.Fields(readHowTo3062(t)), " ")
+	for _, want := range []string{"says which call the adapter does not answer", "asks you to pass `--for` or `--assignee`"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page must say %q", want)
+		}
 	}
 }
