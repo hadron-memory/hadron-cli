@@ -149,7 +149,7 @@ section between the markers.
 | `node revision delete` | rm |  | y | #1051 | 8e7b78330a64 |  | unread |  |
 | `node revision get` | show |  | y | #1051 | 1b6743721073 |  | unread |  |
 | `node revision label` |  |  | y | #1051 | 4d6d61c86748 |  | unread |  |
-| `node revision list` | ls |  | y | #1051 | c1850041b82b | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision list` | ls |  | y | #1051 | ad0540a955bd |  | unread |  |
 | `node revision restore` |  |  | y | #1051 | 16f3308fc24e |  | unread |  |
 | `node set-properties` |  |  | y | #1051 | f84e08665ddc |  | unread |  |
 | `node sign` |  |  | y | #1051 | 1b7cde5ce156 |  | unread |  |
