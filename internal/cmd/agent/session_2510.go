@@ -99,7 +99,7 @@ session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
 			// refused locally, before the URN read or any mutation, so a bad
 			// invocation sends zero requests.
 			if cmd.Flags().Changed("timeout-seconds") && timeoutSeconds <= 0 {
-				return exitcode.Newf(exitcode.Usage, "--timeout-seconds must be positive, got %d", timeoutSeconds)
+				return exitcode.Newf(exitcode.Usage, "--timeout-seconds must be positive")
 			}
 			if cmd.Flags().Changed("external-user") && strings.TrimSpace(externalUser) == "" {
 				return exitcode.Newf(exitcode.Usage, "--external-user is empty or blank")

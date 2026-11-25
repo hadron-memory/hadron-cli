@@ -50,7 +50,7 @@ func approvalHint(sel *selection) string {
 // the response carried a true result next to the error: the write may have
 // committed, so it is outcome UNKNOWN (7) and never retried. The server's
 // refusals keep its wording and the exit code api.MapError gives them.
-func mutationError(err error, partial bool, verb string, sel *selection, app string) error {
+func mutationError(err error, partial bool, verb string, sel *selection) error {
 	if partial {
 		return exitcode.Newf(exitcode.Unavailable,
 			"outcome unknown: %s. The %s may or may not have been applied and was not retried — run %s to check",
@@ -67,7 +67,7 @@ func mutationError(err error, partial bool, verb string, sel *selection, app str
 	return api.MapError(err)
 }
 
-func notConfirmed(verb string, sel *selection, app string) error {
+func notConfirmed(verb string, sel *selection) error {
 	return exitcode.Newf(exitcode.Unavailable,
 		"outcome unknown: the server did not confirm the %s. Run %s to check", verb, approvalHint(sel))
 }
@@ -151,10 +151,10 @@ Display and prompt go to stderr, so stdout carries only the result.`,
 			}
 			resp, err := gen.ApproveAutomation(cmd.Context(), client, sel.Kind, sel.Trigger.Ref, dto.Hash)
 			if err != nil {
-				return mutationError(err, resp != nil && resp.ApproveAutomation, "approval", sel, app)
+				return mutationError(err, resp != nil && resp.ApproveAutomation, "approval", sel)
 			}
 			if resp == nil || !resp.ApproveAutomation {
-				return notConfirmed("approval", sel, app)
+				return notConfirmed("approval", sel)
 			}
 			res := resultDTO{App: app, Trigger: sel.Trigger, Status: "approved", Hash: dto.Hash}
 			return output.Write(f.IOStreams, f.JSON, res, func(w io.Writer) error {
@@ -232,10 +232,10 @@ before anything is sent, and "no" or end-of-input exits 6.`,
 			}
 			resp, err := gen.DeclineAutomation(cmd.Context(), client, sel.Kind, sel.Trigger.Ref)
 			if err != nil {
-				return mutationError(err, resp != nil && resp.DeclineAutomation, "decline", sel, app)
+				return mutationError(err, resp != nil && resp.DeclineAutomation, "decline", sel)
 			}
 			if resp == nil || !resp.DeclineAutomation {
-				return notConfirmed("decline", sel, app)
+				return notConfirmed("decline", sel)
 			}
 			res := resultDTO{App: app, Trigger: sel.Trigger, Status: "declined"}
 			return output.Write(f.IOStreams, f.JSON, res, func(w io.Writer) error {

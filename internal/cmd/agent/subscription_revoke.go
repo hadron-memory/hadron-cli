@@ -62,7 +62,7 @@ func subscriptionRevokeError(err error) error {
 
 // confirmedRevoked checks the answer is a subscription that now reads as ended: not
 // active, with a revokedAt. Anything else is not a confirmation.
-func confirmedRevoked(s *gen.RevokeAgentSubscriptionRevokeAgentSubscription, agent, user string) (subscriptionRevokeDTO, error) {
+func confirmedRevoked(s *gen.RevokeAgentSubscriptionRevokeAgentSubscription) (subscriptionRevokeDTO, error) {
 	if s == nil || strings.TrimSpace(s.AgentId) == "" || strings.TrimSpace(s.UserId) == "" {
 		return subscriptionRevokeDTO{}, subscriptionRevokeNotConfirmed("the server returned no subscription")
 	}
@@ -164,7 +164,7 @@ activatedAt,expiresAt,revokedAt}.`,
 			if resp != nil {
 				s = resp.RevokeAgentSubscription
 			}
-			d, err := confirmedRevoked(s, agentRef, userRef)
+			d, err := confirmedRevoked(s)
 			if err != nil {
 				return err
 			}

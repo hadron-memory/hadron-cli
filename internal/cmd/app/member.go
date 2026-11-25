@@ -106,8 +106,8 @@ func requireMemberUser(user string) error {
 //
 // `partial` is true when the response carried a result next to the error: the
 // resolver ran and returned data, so the write may have committed whatever the
-// error says. The recovery command repeats the frozen target App.
-func memberWriteError(err error, partial bool, appRef string) error {
+// error says. The recovery command names the form of the target App, never the ref typed (cli#3114).
+func memberWriteError(err error, partial bool) error {
 	if !partial && api.AppMemberWriteRefused(err) {
 		return api.MapErrorKeepingCode(err)
 	}
@@ -121,13 +121,6 @@ func memberWriteError(err error, partial bool, appRef string) error {
 // memberListHint is the check after an unknown outcome. It never repeats the App
 // ref the operator typed (#2898 policy).
 const memberListHint = "`hadron app member list --app <app-ref>`"
-
-func shellQuote(s string) string {
-	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._/@-") == "" {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
 
 func memberUserDTO(id string, handle, urn *string) appMemberUserDTO {
 	return appMemberUserDTO{ID: id, Handle: handle, URN: urn}
@@ -293,7 +286,7 @@ retried): check with "hadron app member list".`,
 			}
 			resp, err := ensureMember(ctx, client, appRef, user, role, claim)
 			if err != nil {
-				return memberWriteError(err, resp != nil && resp.EnsureAppMember != nil, appRef)
+				return memberWriteError(err, resp != nil && resp.EnsureAppMember != nil)
 			}
 			if resp == nil || resp.EnsureAppMember == nil || resp.EnsureAppMember.User == nil {
 				return exitcode.Newf(exitcode.Unavailable,
@@ -370,7 +363,7 @@ non-interactive run is refused before anything is sent.`,
 			}
 			resp, err := removeMember(ctx, client, appRef, user, claim)
 			if err != nil {
-				return memberWriteError(err, resp != nil && resp.RemoveAppMember != nil, appRef)
+				return memberWriteError(err, resp != nil && resp.RemoveAppMember != nil)
 			}
 			if resp == nil || resp.RemoveAppMember == nil || !*resp.RemoveAppMember {
 				return exitcode.Newf(exitcode.Unavailable,

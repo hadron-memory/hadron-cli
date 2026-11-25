@@ -204,8 +204,8 @@ func (e *echoFlow) walk(p *packages.Package) {
 	info := p.TypesInfo
 	for _, f := range p.Syntax {
 		// returns are attributed to the innermost function.
-		var visit func(n ast.Node, fn *types.Func, results *ast.FieldList)
-		visit = func(root ast.Node, fn *types.Func, results *ast.FieldList) {
+		var visit func(n ast.Node, fn *types.Func)
+		visit = func(root ast.Node, fn *types.Func) {
 			ast.Inspect(root, func(n ast.Node) bool {
 				switch s := n.(type) {
 				case *ast.FuncDecl:
@@ -224,13 +224,13 @@ func (e *echoFlow) walk(p *packages.Package) {
 							}
 						}
 					}
-					visit(s.Body, decl, s.Type.Results)
+					visit(s.Body, decl)
 					return false
 				case *ast.FuncLit:
 					if id := isRunShaped(info, s.Type); id != nil {
 						e.markObj(info.Defs[id])
 					}
-					visit(s.Body, nil, nil)
+					visit(s.Body, nil)
 					return false
 				case *ast.AssignStmt:
 					for i, l := range s.Lhs {
@@ -287,7 +287,7 @@ func (e *echoFlow) walk(p *packages.Package) {
 				return true
 			})
 		}
-		visit(f, nil, nil)
+		visit(f, nil)
 	}
 }
 
