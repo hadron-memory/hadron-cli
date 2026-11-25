@@ -12,9 +12,8 @@
 # uses; the schema-drift workflow runs it nightly against server main, and its snapshot-reproduces job exports exactly server_sha with the tool versions below and compares the bytes.
 #
 # PRE-MERGE PIN (hadron-cli#3107, the CLI companion of hadron-server#5050): server_sha below is the frozen
-# hadron-server#5123 head 818a4f55, not a main commit. schema.graphql is a plain export of it. It descends
-# from c1cbdc90 (the previous pin); the snapshot differs from that one by #5123's appRuns change and by
-# SecretChangeRequest.ceremonyUrl, which came from server main in between and which no operation here selects. The
+# hadron-server#5123 head 818a4f55, not a main commit. schema.graphql is a plain export of it. Its merge base with
+# server main is 9058d724 (the previous pin), so the snapshot differs from that one only by #5123's appRuns change. The
 # nightly snapshot-reproduces job may not be able to fetch it until #5123 merges. Exit: after #5123 merges and this
 # repository's #2918 (nodeExport ref) is on main, re-export at the server main SHA carrying #5050, set server_sha to it
 # and delete this block, before the ready call. This PR must not merge before the #5123 deploy is verified (ruling 0274).

@@ -509,3 +509,25 @@ func TestPolicyExplain1343DeniedWithoutDenyingLayer(t *testing.T) {
 		t.Fatalf("verdict line = %q", strings.SplitN(out, "\n", 2)[0])
 	}
 }
+
+// The refresh made SetQuotaLimitInput.orgRef/userRef nullable. An org-scoped set
+// must not send `userRef: null` (omitted = preserve, null = clear): pin the exact
+// input.
+func TestQuotaSetOrgScopedSendsNoUserRef3061(t *testing.T) {
+	_, captured, err := run1343(t, map[string]string{
+		"SetQuotaLimit": `{"data":{"setQuotaLimit":` + quotaRowJSON + `}}`,
+	}, "", "quota", "set", "--org", "acme.com", "--action", "run.execute", "--limit", "5")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	var vars struct {
+		Input json.RawMessage `json:"input"`
+	}
+	_ = json.Unmarshal(captured["SetQuotaLimit"], &vars)
+	var got, want map[string]any
+	_ = json.Unmarshal(vars.Input, &got)
+	_ = json.Unmarshal([]byte(`{"action":"run.execute","limit":5,"orgRef":"acme.com"}`), &want)
+	if len(got) != len(want) || got["action"] != want["action"] || got["limit"] != want["limit"] || got["orgRef"] != want["orgRef"] {
+		t.Fatalf("input = %s, want exactly %v (no userRef/appRef key)", vars.Input, want)
+	}
+}
