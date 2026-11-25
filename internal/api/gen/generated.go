@@ -84600,6 +84600,128 @@ func (v *QuotaCountersResponse) GetQuotaCounters() []*QuotaCountersQuotaCounters
 	return v.QuotaCounters
 }
 
+// QuotaCountersScopedQuotaCountersQuotaCounter includes the requested fields of the GraphQL type QuotaCounter.
+// The GraphQL type's documentation follows.
+//
+// Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
+type QuotaCountersScopedQuotaCountersQuotaCounter struct {
+	QuotaCounterFields `json:"-"`
+}
+
+// GetId returns QuotaCountersScopedQuotaCountersQuotaCounter.Id, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetId() string { return v.QuotaCounterFields.Id }
+
+// GetScopeKind returns QuotaCountersScopedQuotaCountersQuotaCounter.ScopeKind, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetScopeKind() string {
+	return v.QuotaCounterFields.ScopeKind
+}
+
+// GetScopeId returns QuotaCountersScopedQuotaCountersQuotaCounter.ScopeId, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetScopeId() string {
+	return v.QuotaCounterFields.ScopeId
+}
+
+// GetAction returns QuotaCountersScopedQuotaCountersQuotaCounter.Action, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetAction() string {
+	return v.QuotaCounterFields.Action
+}
+
+// GetWindow returns QuotaCountersScopedQuotaCountersQuotaCounter.Window, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetWindow() string {
+	return v.QuotaCounterFields.Window
+}
+
+// GetUsed returns QuotaCountersScopedQuotaCountersQuotaCounter.Used, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetUsed() int {
+	return v.QuotaCounterFields.Used
+}
+
+// GetLimit returns QuotaCountersScopedQuotaCountersQuotaCounter.Limit, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetLimit() int {
+	return v.QuotaCounterFields.Limit
+}
+
+// GetResetAt returns QuotaCountersScopedQuotaCountersQuotaCounter.ResetAt, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetResetAt() string {
+	return v.QuotaCounterFields.ResetAt
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*QuotaCountersScopedQuotaCountersQuotaCounter
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.QuotaCountersScopedQuotaCountersQuotaCounter = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.QuotaCounterFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalQuotaCountersScopedQuotaCountersQuotaCounter struct {
+	Id string `json:"id"`
+
+	ScopeKind string `json:"scopeKind"`
+
+	ScopeId string `json:"scopeId"`
+
+	Action string `json:"action"`
+
+	Window string `json:"window"`
+
+	Used int `json:"used"`
+
+	Limit int `json:"limit"`
+
+	ResetAt string `json:"resetAt"`
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) __premarshalJSON() (*__premarshalQuotaCountersScopedQuotaCountersQuotaCounter, error) {
+	var retval __premarshalQuotaCountersScopedQuotaCountersQuotaCounter
+
+	retval.Id = v.QuotaCounterFields.Id
+	retval.ScopeKind = v.QuotaCounterFields.ScopeKind
+	retval.ScopeId = v.QuotaCounterFields.ScopeId
+	retval.Action = v.QuotaCounterFields.Action
+	retval.Window = v.QuotaCounterFields.Window
+	retval.Used = v.QuotaCounterFields.Used
+	retval.Limit = v.QuotaCounterFields.Limit
+	retval.ResetAt = v.QuotaCounterFields.ResetAt
+	return &retval, nil
+}
+
+// QuotaCountersScopedResponse is returned by QuotaCountersScoped on success.
+type QuotaCountersScopedResponse struct {
+	// Usage-vs-limit counters (#510, #5074, hrn:node:hadronmemory.com:specs:cor:acl:050:04). orgRef: the org's (+ one app with appRef), org-ADMIN. appRef alone: the App's and its organization's, or for a person's App the App's and, for its owner or a platform admin, the owner's user counters; every denial is NOT_FOUND. userRef alone: that person's, the person or a platform admin (FORBIDDEN otherwise). No ref, or userRef with another ref: BAD_USER_INPUT. Rows materialize on first view, seeded with platform defaults.
+	QuotaCounters []*QuotaCountersScopedQuotaCountersQuotaCounter `json:"quotaCounters"`
+}
+
+// GetQuotaCounters returns QuotaCountersScopedResponse.QuotaCounters, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedResponse) GetQuotaCounters() []*QuotaCountersScopedQuotaCountersQuotaCounter {
+	return v.QuotaCounters
+}
+
 // ReAdoptAutomationResponse is returned by ReAdoptAutomation on success.
 type ReAdoptAutomationResponse struct {
 	// #1719: rebind a trigger to its reviewed graph. expectedHash must match previewAutomation; edits since preview refuse adoption.
@@ -140828,6 +140950,18 @@ func (v *__QuotaCountersInput) GetOrgRef() string { return v.OrgRef }
 // GetAppRef returns __QuotaCountersInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__QuotaCountersInput) GetAppRef() *string { return v.AppRef }
 
+// __QuotaCountersScopedInput is used internally by genqlient
+type __QuotaCountersScopedInput struct {
+	AppRef  *string `json:"appRef,omitempty"`
+	UserRef *string `json:"userRef,omitempty"`
+}
+
+// GetAppRef returns __QuotaCountersScopedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__QuotaCountersScopedInput) GetAppRef() *string { return v.AppRef }
+
+// GetUserRef returns __QuotaCountersScopedInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__QuotaCountersScopedInput) GetUserRef() *string { return v.UserRef }
+
 // __ReAdoptAutomationInput is used internally by genqlient
 type __ReAdoptAutomationInput struct {
 	TriggerKind  AutomationTriggerKind `json:"triggerKind"`
@@ -178974,7 +179108,10 @@ fragment QuotaCounterFields on QuotaCounter {
 `
 
 // Quota counters (server #510): usage vs limit for an org, plus one App's rows
-// when appRef is given. Org ADMIN. Rows materialize on first view.
+// when appRef is given. Org ADMIN. Rows materialize on first view. This document
+// names no userRef: `quota list --org` must keep working against a server that
+// predates #5074, which rejects an unknown argument even when its variable is
+// omitted (review:old-server-graphql-document-compatibility, cli#3139).
 func QuotaCounters(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -178991,6 +179128,55 @@ func QuotaCounters(
 	}
 
 	data_ = &QuotaCountersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by QuotaCountersScoped.
+const QuotaCountersScoped_Operation = `
+query QuotaCountersScoped ($appRef: String, $userRef: ID) {
+	quotaCounters(appRef: $appRef, userRef: $userRef) {
+		... QuotaCounterFields
+	}
+}
+fragment QuotaCounterFields on QuotaCounter {
+	id
+	scopeKind
+	scopeId
+	action
+	window
+	used
+	limit
+	resetAt
+}
+`
+
+// cli#3139 (server #5074): the two forms the org-only document cannot express, an App on its own
+// (appRef alone) and a person (userRef alone). Every ref is optional and omitted when unset (never
+// null); the CLI sends exactly one of the two, and the server judges access. Needs a server with #5074.
+func QuotaCountersScoped(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef *string,
+	userRef *string,
+) (data_ *QuotaCountersScopedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "QuotaCountersScoped",
+		Query:  QuotaCountersScoped_Operation,
+		Variables: &__QuotaCountersScopedInput{
+			AppRef:  appRef,
+			UserRef: userRef,
+		},
+	}
+
+	data_ = &QuotaCountersScopedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
