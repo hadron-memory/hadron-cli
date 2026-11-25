@@ -12,9 +12,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -383,7 +385,14 @@ validates the object (QUESTION_INVALID names each bad field by JSON pointer) and
 decides who may ask: any writer of the log's Memory.
 
 On success the question prints as question get shows it, prefixed "✓ asked";
---json prints the same question as one object.`,
+--json prints the same question as one object.
+
+Exit ` + strconv.Itoa(exitcode.Unavailable) + ` is an unknown outcome: the reply never arrived, came back without the
+question, or reported a server error, so the question may have been created.
+Nothing is resent, and it is not retry-safe: the server gives every ask the
+next code, so asking again can create a second question.
+
+` + wrapHelp("To recover, "+AskReadBack("<log>")+".", 80),
 		Example: `  cat > ask.json <<'EOF'
 {"title":"Pick a database","options":[{"key":"pg","label":"Postgres","whyChoose":"we run it"},{"key":"my","label":"MySQL"}],"recommendation":{"key":"pg","reason":"we run it already"}}
 EOF
@@ -438,12 +447,13 @@ EOF
 			if err != nil {
 				return err
 			}
+			readBack := AskReadBack(cmdutil.ShellQuote(logRef))
 			resp, err := gen.AskQuestion(cmd.Context(), client, logRef, &input)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "askQuestion", "ask", readBack, resp != nil && resp.AskQuestion != nil)
 			}
-			if resp.AskQuestion == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no question")
+			if resp == nil || resp.AskQuestion == nil {
+				return questionWriteNotConfirmed("ask", readBack, "the server returned no question", nil)
 			}
 			return writeQuestion(f, questionFrom(&resp.AskQuestion.QuestionFields), "✓ asked")
 		},
@@ -484,7 +494,14 @@ it again and retry with the new revision. The server decides who may amend what:
 before any answer any writer, after one a decider only, and priority and tier
 are a decider's to change.
 
-On success the question prints as question get shows it, prefixed "✓ amended".`,
+On success the question prints as question get shows it, prefixed "✓ amended".
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the amend may have been recorded.
+Nothing is resent: read the question with question get before trying again. A
+refusal before the mutation ran keeps its ordinary exit, and a connection that
+never opened is "could not reach the server" (also exit 7) with no claim about
+the amend.`,
 		Example: `  hadron question amend hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "clarify" --title "Pick a primary database"
   cat > amend.json <<'EOF'
 {"assignee":null,"specsTouched":[{"spec":"<a spec citation>"}]}
@@ -550,12 +567,13 @@ EOF
 			if err != nil {
 				return err
 			}
+			readBack := readBackQuestion(ref)
 			resp, err := gen.AmendQuestion(cmd.Context(), client, ref, &input, expected, reason)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "amendQuestion", "amend", readBack, resp != nil && resp.AmendQuestion != nil)
 			}
-			if resp.AmendQuestion == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no question")
+			if resp == nil || resp.AmendQuestion == nil {
+				return questionWriteNotConfirmed("amend", readBack, "the server returned no question", nil)
 			}
 			return writeQuestion(f, questionFrom(&resp.AmendQuestion.QuestionFields), "✓ amended")
 		},
@@ -683,10 +701,10 @@ may have been recorded.`,
 			}
 			resp, err := gen.AnswerQuestion(cmd.Context(), client, ref, &input, expected)
 			if err != nil {
-				return questionWriteError(err, "answerQuestion", "answer", ref, resp != nil && resp.AnswerQuestion != nil)
+				return questionWriteError(err, "answerQuestion", "answer", readBackQuestion(ref), resp != nil && resp.AnswerQuestion != nil)
 			}
 			if resp == nil || resp.AnswerQuestion == nil {
-				return questionWriteNotConfirmed("answer", ref, "the server returned no question", nil)
+				return questionWriteNotConfirmed("answer", readBackQuestion(ref), "the server returned no question", nil)
 			}
 			q := questionFrom(&resp.AnswerQuestion.QuestionFields)
 			// Success is only claimed when the returned question carries a standing
@@ -768,10 +786,10 @@ about the retraction. In the unknown cases the retraction may have been recorded
 			}
 			resp, err := gen.RetractQuestionAnswer(cmd.Context(), client, ref, expected, optString(cmd, "reason", reason), &via)
 			if err != nil {
-				return questionWriteError(err, "retractQuestionAnswer", "retraction", ref, resp != nil && resp.RetractQuestionAnswer != nil)
+				return questionWriteError(err, "retractQuestionAnswer", "retraction", readBackQuestion(ref), resp != nil && resp.RetractQuestionAnswer != nil)
 			}
 			if resp == nil || resp.RetractQuestionAnswer == nil {
-				return questionWriteNotConfirmed("retraction", ref, "the server returned no question", nil)
+				return questionWriteNotConfirmed("retraction", readBackQuestion(ref), "the server returned no question", nil)
 			}
 			q := questionFrom(&resp.RetractQuestionAnswer.QuestionFields)
 			// "Pending again" is only claimed when the returned question has no
@@ -1059,7 +1077,14 @@ func newCmdWithdraw(f *cmdutil.Factory) *cobra.Command {
 		Short: "Withdraw a question (final; its code stays used)",
 		Long: `Withdraw a question. This is final, and its code is never reused. The server
 decides who may: the asker or a decider, and only a decider once it is answered.
-Prompts on a terminal; --yes is required otherwise.`,
+Prompts on a terminal; --yes is required otherwise.
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the withdrawal may have been recorded.
+Nothing is resent: read the question with question get before trying again. A
+refusal before the mutation ran keeps its ordinary exit, and a connection that
+never opened is "could not reach the server" (also exit 7) with no claim about
+the withdrawal.`,
 		Example: `  hadron question withdraw hrn:node:acme.com:eng:questions:QA --expected-revision 3 --reason "no longer needed" --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1080,12 +1105,13 @@ Prompts on a terminal; --yes is required otherwise.`,
 			if err := cmdutil.Confirm(f.IOStreams, yes, "Withdraw question "+output.SafeCell(ref)+"? Withdrawal is final and its code is never reused."); err != nil {
 				return err
 			}
+			readBack := readBackQuestion(ref)
 			resp, err := gen.WithdrawQuestion(cmd.Context(), client, ref, reason, expected)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "withdrawQuestion", "withdrawal", readBack, resp != nil && resp.WithdrawQuestion != nil)
 			}
-			if resp.WithdrawQuestion == nil {
-				return exitcode.Newf(exitcode.Error, "server returned no question")
+			if resp == nil || resp.WithdrawQuestion == nil {
+				return questionWriteNotConfirmed("withdrawal", readBack, "the server returned no question", nil)
 			}
 			return writeQuestion(f, questionFrom(&resp.WithdrawQuestion.QuestionFields), "✓ withdrew")
 		},
@@ -1108,7 +1134,15 @@ question is refused (QUESTION_ANSWERED). A question left in the older question
 format (before the shape change of November 2026) counts as never answered only
 while its payload holds no answer or answer history: the server refuses one that
 does. Prompts on a
-terminal; --yes is required otherwise.`,
+terminal; --yes is required otherwise.
+
+Exit 7 is an unknown outcome: the reply never arrived, was unusable, or came
+with an error beneath the mutation, so the purge may have happened. Nothing is
+resent: read it with question get. A question that is not found most likely
+means the purge happened (check the ref is the one you meant); one that is
+still there means it did not. A refusal before the mutation ran keeps its
+ordinary exit, and a connection that never opened is "could not reach the
+server" (also exit 7) with no claim about the purge.`,
 		Example: `  hadron question purge hrn:node:acme.com:eng:questions:QC --reason "test data" --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -1126,11 +1160,18 @@ terminal; --yes is required otherwise.`,
 			if err := cmdutil.ConfirmDeletion(f.IOStreams, yes, "question "+ref+" (purge is permanent; the server refuses it for a question that was ever answered, including one in the older question format whose payload holds an answer)"); err != nil {
 				return err
 			}
+			// A purged question no longer exists, so reading it back is how the outcome shows:
+			// "not found" means the purge happened.
+			readBack := "read it with `hadron question get " + cmdutil.ShellQuote(ref) + "`: a question that is not found most likely means the purge happened (check that the ref is the one you meant), one that is still there means it did not"
 			resp, err := gen.PurgeUnansweredQuestion(cmd.Context(), client, ref, reason)
 			if err != nil {
-				return api.MapError(err)
+				return questionWriteError(err, "purgeUnansweredQuestion", "purge", readBack, resp != nil && resp.PurgeUnansweredQuestion != nil && *resp.PurgeUnansweredQuestion)
 			}
-			if !resp.PurgeUnansweredQuestion {
+			// A null or absent answer is not "no": the purge may have run, so it is an unknown outcome.
+			if resp == nil || resp.PurgeUnansweredQuestion == nil {
+				return questionWriteNotConfirmed("purge", readBack, "the server returned no answer", nil)
+			}
+			if !*resp.PurgeUnansweredQuestion {
 				return exitcode.Newf(exitcode.Error, "the server did not confirm the purge of %s", ref)
 			}
 			dto := purgeDTO{Ref: ref, Purged: true}
@@ -1239,20 +1280,79 @@ func retractionConfirmed(q questionDTO, expectedRevision int) bool {
 	return q.Answers[len(q.Answers)-1].Kind == string(gen.QuestionAnswerKindRetraction) && q.Revision > expectedRevision
 }
 
-// questionWriteError maps a failed answer or retract. A coded refusal at the mutation's
-// own level (no path, or exactly [field]), an HTTP 400/401/403/404/405/413/415/429 whose
-// body shows no data and no error below the mutation, and a connection that never opened
-// are definitive: nothing was written, so the ordinary typed exit applies. When the reply
-// carries the question beside the error (dataSeen) a resolver ran, so it is never definitive. A coded error
-// BELOW the field comes from resolving the returned question and so may follow the write
-// (cli#398, cli#2680), and a reset or timeout after the request left, a 5xx, an internal
-// error or an unusable answer may follow the commit too: those are an unknown outcome,
-// exit 7, never resent, with the read-back sentence.
-func questionWriteError(err error, field, what, ref string, dataSeen bool) error {
+// wrapHelp breaks text on spaces so no line is longer than width (a word longer than
+// width stays whole). It lets a sentence shared with an error, which is one line, sit in
+// help text that is kept to 80 columns.
+func wrapHelp(text string, width int) string {
+	var lines []string
+	line := ""
+	for _, w := range helpWords(text) {
+		if line != "" && utf8.RuneCountInString(line)+1+utf8.RuneCountInString(w) > width {
+			lines = append(lines, line)
+			line = w
+			continue
+		}
+		if line != "" {
+			line += " "
+		}
+		line += w
+	}
+	if line != "" {
+		lines = append(lines, line)
+	}
+	return strings.Join(lines, "\n")
+}
+
+// helpWords splits on spaces but keeps a `backticked span` whole, so a command in the text is
+// never broken across lines (it must stay copyable from --help).
+func helpWords(text string) []string {
+	var words []string
+	cur := ""
+	inCode := false
+	for _, r := range text {
+		switch {
+		case r == '`':
+			inCode = !inCode
+			cur += string(r)
+		case r == ' ' && !inCode:
+			if cur != "" {
+				words = append(words, cur)
+				cur = ""
+			}
+		default:
+			cur += string(r)
+		}
+	}
+	if cur != "" {
+		words = append(words, cur)
+	}
+	return words
+}
+
+// AskReadBack (exported so the cmd tests can assert against the same sentence the help and
+// the error carry) is the one recovery sentence for an unknown `question ask` outcome. The ask
+// help and the exit-7 error are both built from it, so they cannot word the advice
+// differently. logRef is the log as it should appear in the command: the caller's ref,
+// shell-quoted, in the error; the placeholder <log> in the help.
+func AskReadBack(logRef string) string {
+	return "list the log with `hadron question list --log " + logRef + " --json` and look for the title you sent, matching askedBy and askedAt when titles repeat (the listing is paged: use --limit and --offset) before asking again"
+}
+
+// questionWriteError maps a failed question write (ask, amend, answer, retract, withdraw,
+// purge; cli#2680, cli#2854). A coded refusal at the mutation's own level (no path, or exactly
+// [field]), an HTTP 400/401/403/404/405/413/415/429 whose body shows no data and no error
+// below the mutation, and a connection that never opened are definitive: nothing was written,
+// so the ordinary typed exit applies. When the reply carries the result beside the error
+// (dataSeen) a resolver ran, so it is never definitive. A coded error BELOW the field comes
+// from resolving the returned value and so may follow the write (cli#398, cli#2680), and a
+// reset or timeout after the request left, a 5xx, an internal error or an unusable answer may
+// follow the commit too: those are an unknown outcome, exit 7, never resent, with the
+// read-back sentence.
+func questionWriteError(err error, field, what, readBack string, dataSeen bool) error {
 	// The server returned the question beside the error: a resolver ran and the write may
 	// have followed, whatever the error says.
 	if dataSeen || api.ErrorShowsData(err) {
-		return questionWriteNotConfirmed(what, ref, api.MapError(err).Error(), err)
+		return questionWriteNotConfirmed(what, readBack, api.MapError(err).Error(), err)
 	}
 	// A refusal of the mutation itself, an HTTP answer from the allowlist in
 	// api.RequestNotProcessed (a refused credential, a rate limit, an invalid request) or a
@@ -1260,16 +1360,23 @@ func questionWriteError(err error, field, what, ref string, dataSeen bool) error
 	if api.IsDefiniteRefusalAt(err, field) || api.RequestNotProcessed(err) {
 		return api.MapError(err)
 	}
-	return questionWriteNotConfirmed(what, ref, api.MapError(err).Error(), err)
+	return questionWriteNotConfirmed(what, readBack, api.MapError(err).Error(), err)
 }
 
-// questionWriteNotConfirmed builds the unknown-outcome error. The read-back command is a
-// copy-paste line, so the ref is shell-quoted (cmdutil.ShellQuote), not just made inert for
-// the terminal (output.SafeCell): a ref with a space or a quote must still paste as one word.
-func questionWriteNotConfirmed(what, ref, why string, cause error) error {
-	e := exitcode.Newf(exitcode.Unavailable, "%s not confirmed (%s): the outcome is unknown and the call is not resent; read the question with `hadron question get %s` before trying again", what, why, cmdutil.ShellQuote(ref))
+// questionWriteNotConfirmed builds the unknown-outcome error. readBack is the sentence that
+// tells the operator how to see what happened before trying again, worded per verb (a read of
+// the question, a listing of the log for an ask that has no ref yet, a not-found read for a purge).
+func questionWriteNotConfirmed(what, readBack, why string, cause error) error {
+	e := exitcode.Newf(exitcode.Unavailable, "%s not confirmed (%s): the outcome is unknown and the call is not resent; %s", what, why, readBack)
 	if cause != nil {
 		return api.WithServerCode(e, cause)
 	}
 	return e
+}
+
+// readBackQuestion is the read-back sentence for a write on an existing question. The command is
+// a copy-paste line, so the ref is shell-quoted (cmdutil.ShellQuote), not just made inert for the
+// terminal (output.SafeCell): a ref with a space or a quote must still paste as one word.
+func readBackQuestion(ref string) string {
+	return "read the question with `hadron question get " + cmdutil.ShellQuote(ref) + "` before trying again"
 }

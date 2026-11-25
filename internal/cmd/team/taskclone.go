@@ -30,10 +30,10 @@ func newCmdTeamTaskClone(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "clone <task>",
 		Short: "Make a new task from an existing one",
-		Long: `Make a NEW task from an existing one, in its App and linked to it
-(cor:agt:050:02). A clone is a create: whoever may read the source and create a
-task there may clone it, in any status. The source is never changed and an ended
-task is never reopened.
+		Long: `Make a NEW task from an existing one, in its App and linked to it. A clone
+is a create: whoever may read the source and create a task there may clone it,
+in any status. The source is never changed and an ended task is never
+reopened.
 
 The server copies the title, description, source, tags, requirements,
 references, close-session choice, priority, properties and parent. It does not
@@ -42,9 +42,9 @@ external id. The clone is PENDING (or BACKLOG with --status backlog) and a
 queued one is matched like any other. Priority and properties are copied only
 for a caller who may set them, and are otherwise left out without a refusal.
 A --properties value from a caller who may not set properties is not a refusal
-either: the clone is made without properties and the value is not judged
-(cor:agt:050:28). A properties refusal (PROPERTIES_*) is only for a caller who
-may set them and names an invalid value.
+either: the clone is made without properties and the value is not judged. A
+properties refusal (PROPERTIES_*) is only for a caller who may set them and
+names an invalid value.
 ` + "`task get`" + ` on either task shows the link ("cloned from" / "replaces" and the
 clones).
 
@@ -79,6 +79,9 @@ Without either, the parent is kept for someone who may create a child of it
 as a root, and a clone under an ended parent goes under AT0. A value flag and its
 --clear-… twin together are exit 2, as in task update.
 
+References:
+` + taskRefCapsSentence + `
+
 Refusals: an unknown, unreadable or other-App source or parent is exit 4
 (TASK_NOT_FOUND, one answer for all three); AT0 itself cannot be cloned
 (BAD_USER_INPUT, exit 2); an owner who is not a possible owner is
@@ -87,9 +90,10 @@ TASK_OWNER_INVALID (exit 2); TASK_NOT_ASSIGNEE and a priority you may not set
 A transport failure after the request left can leave the outcome unknown: list
 the App's tasks before you clone again, since a clone is not deduplicated.
 
-Needs a provider with hadron-server#2646; an older one rejects the document as
-schema skew (exit 2). Success prints the new task's handle, id and status;
---json returns the task with its warnings list, as ` + "`task create`" + ` does.`,
+Needs a server released on or after 2026-11-02; an older one rejects the
+document as schema skew (exit 2). Success prints the new task's handle, id and
+status; --json returns the task with its warnings list, as
+` + "`task create`" + ` does.`,
 		Example: `  # a plain copy
   hadron team task clone AT0.12
 
@@ -325,12 +329,12 @@ schema skew (exit 2). Success prints the new task's handle, id and status;
 	cmd.Flags().BoolVar(&noCloseSession, "no-close-session", false, "finishing or cancelling does not ask the assignee to end its worker session")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "a tag, repeatable; --tag replaces the whole copied list")
 	cmd.Flags().BoolVar(&clearTags, "clear-tags", false, "the clone has no tags")
-	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole copied list; kind is "+taskRefKindsDoc)
+	cmd.Flags().StringArrayVar(&refs, "ref", nil, "typed reference <kind>=<target>[|<label>], repeatable; --ref replaces the whole copied list; kind is "+taskRefKindsDoc+taskRefCapsFlagDoc)
 	cmd.Flags().BoolVar(&clearRefs, "clear-refs", false, "the clone has no references")
 	cmd.Flags().StringVar(&properties, "properties", "", "the clone's own JSON object, or @file; replaces the copied value (left out, not refused, for a caller who may not set properties)")
 	cmd.Flags().BoolVar(&clearProperties, "clear-properties", false, "the clone has no properties")
 	cmd.Flags().StringVar(&minTier, "min-tier", "", "minimum model tier: low, mid or high; replaces the whole requirements")
-	cmd.Flags().StringVar(&requireRole, "require-role", "", "required role; replaces the whole requirements")
+	cmd.Flags().StringVar(&requireRole, "require-role", "", "the one role a worker must hold (a single name: a comma is part of it, not a list; task create takes a list); replaces the task's whole requirements")
 	addTaskModelGroupFlags(cmd, &modelGroupIn, &modelGroupNotIn)
 	cmd.Flags().StringVar(&familyIn, "family-in", "", "comma list of model families the assignee must run as; replaces the whole requirements")
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families the assignee must not run as; replaces the whole requirements")

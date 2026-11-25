@@ -44,7 +44,7 @@ cannot expand, a malformed or repeated registry heading, or a spec that listed
 but could not be read. They are reported, never guessed.
 
 Only registry IDs (D-YYYY-MM-DD-<NNN|X>) are read. Platform decision codes
-(DA, DU-1; cor:dmo:140), ruling numbers (rulings:0061) and R-codes (R218) are
+(DA, DU-1), ruling numbers (rulings:0061) and R-codes (R218) are
 never unregistered decisions. The registry FILE is the authority, not a Hadron
 node: pass --registry, or run from a hadron-concept checkout. Read-only: it
 mints, rewrites and changes nothing. Pending entries are re-evaluated on every

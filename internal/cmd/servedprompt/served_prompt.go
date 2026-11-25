@@ -70,11 +70,11 @@ func selectionHelp(worker bool) string {
 STARTED open session was bound: what that session was actually told. A bind
 ends the same person's other open sessions on the worker, but a worker can
 still have several open: an App key's or another person's session is never
-ended by your bind. Only the newest-started one is read, live or not; it is not
-necessarily the worker's latest record overall. The record is null when the
-worker has no open session, when that newest session has none (it began before
-serving was on), or when you may not see the worker's internals. For older or
-other sessions, use ` + "`team session served-prompts <session-id>`" + `; find
+ended by your bind. Only the newest-started one is read, live or not; it is
+not necessarily the worker's latest record overall. The record is null when
+the worker has no open session, when that newest session has none (it began
+before serving was on), or when you may not see the worker's internals. For
+older or other sessions, use ` + "`team session served-prompts <session-id>`" + `; find
 session ids with ` + "`team session list`" + `. It is not the worker's current
 pointer or the latest compile: for those, use ` + "`team worker get`" + ` and
 ` + "`node get <compiled-node>`" + `.`
@@ -102,8 +102,9 @@ nodes and saved as one node.
 	}
 	return `Show the boot prompt a run started with: which compiled revision was served,
 its hash and the values filled in. Use it to answer "what was this run told?".
-A boot prompt is the instruction text an Agent is given at the start; "compiled"
-means it was assembled from the Agent's source nodes and saved as one node.
+A boot prompt is the instruction text an Agent is given at the start;
+"compiled" means it was assembled from the Agent's source nodes and saved as
+one node.
 
 `
 }
@@ -115,9 +116,9 @@ func refHelp(worker bool) string {
 worker URN; names and ambient App/worktree selection are not used (see
 "hadron team worker get"). The server decides whether you may read it.`
 	}
-	return ` The run is named by its run id, which "hadron run list"
-prints (and "hadron run trigger" prints when it starts one). The server decides
-whether you may read it.`
+	return ` The run is named by its run id, which
+"hadron run list" prints (and "hadron run trigger" prints when it starts one).
+The server decides whether you may read it.`
 }
 
 func servedExample(worker bool) string {
@@ -142,9 +143,10 @@ func newCommand(f *cmdutil.Factory, worker bool) *cobra.Command {
 		Short: "Show the recorded boot-prompt revision and provenance",
 		Long: servedIntro(worker) + `Reads the recorded boot-prompt revision, hash, pointer level and filled-in
 variables, with one page of scalar-only provenance. This never reconstructs a
-prompt from what the Agent points at now. Revision numbers count saved versions
-of a node (revSeq), the numbering "node get" uses. Pruned revisions stay
-recorded; no replacement text is fetched. Variables are the recorded values and may contain sensitive text.
+prompt from what the Agent points at now. Revision numbers count saved
+versions of a node (revSeq), the numbering "node get" uses. Pruned revisions
+stay recorded; no replacement text is fetched. Variables are the recorded
+values and may contain sensitive text.
 ` + selectionHelp(worker) + `
 
 A null record is unavailable: it may be unrecorded, unreadable or serving may

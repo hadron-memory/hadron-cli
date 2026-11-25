@@ -35,8 +35,8 @@ func surfaceCases1338() []surfaceCase1338 {
 		{"previous", "LatestAppRun", `{"latestAppRun":` + appRunJSON + `}`, []string{"run", "latest", "acme.com:team", "--previous"}, map[string]any{"appRef": "hrn:app:acme.com:team", "previous": true}, nil},
 		{"previous false", "LatestAppRun", `{"latestAppRun":` + appRunJSON + `}`, []string{"run", "latest", "acme.com:team", "--previous=false"}, map[string]any{"appRef": "hrn:app:acme.com:team", "previous": false}, nil},
 		{"whoami", "MyApp", `{"myApp":` + app1338 + `}`, []string{"app", "whoami"}, map[string]any{}, nil},
-		{"enable", "SetAgentAssetUploadEnabled", `{"setAgentAssetUploadEnabled":{"id":"a1","urn":"hrn:app:acme.com:team","agentTools":["asset:upload"]}}`, []string{"app", "asset-upload", "enable", "hrn:agent:acme.com:bot", "--yes"}, map[string]any{"input": map[string]any{"agentUrn": "hrn:agent:acme.com:bot", "enabled": true}}, nil},
-		{"disable", "SetAgentAssetUploadEnabled", `{"setAgentAssetUploadEnabled":{"id":"a1","urn":"hrn:app:acme.com:team","agentTools":[]}}`, []string{"app", "asset-upload", "disable", "hrn:agent:acme.com:bot", "--yes"}, map[string]any{"input": map[string]any{"agentUrn": "hrn:agent:acme.com:bot", "enabled": false}}, nil},
+		{"enable", "SetAgentAssetUploadEnabled", `{"setAgentAssetUploadEnabled":{"id":"a1","urn":"hrn:app:acme.com:team","agentTools":["asset:upload"]}}`, []string{"app", "asset-upload", "enable", "hrn:agent:acme.com:bot", "--yes"}, map[string]any{"input": map[string]any{"agentRef": "hrn:agent:acme.com:bot", "enabled": true}}, nil},
+		{"disable", "SetAgentAssetUploadEnabled", `{"setAgentAssetUploadEnabled":{"id":"a1","urn":"hrn:app:acme.com:team","agentTools":[]}}`, []string{"app", "asset-upload", "disable", "hrn:agent:acme.com:bot", "--yes"}, map[string]any{"input": map[string]any{"agentRef": "hrn:agent:acme.com:bot", "enabled": false}}, nil},
 	}
 }
 

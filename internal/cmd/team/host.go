@@ -51,6 +51,180 @@ type hostRegistrationDTO struct {
 	Workers             []hostWorkerDTO `json:"workers"`
 }
 
+// pagedHostRegistration is one row of the paged registrations read (cli#2824),
+// aliased because genqlient's generated name is deeply nested.
+type pagedHostRegistration = gen.HostRegistrationsPageHostRegistrationsPageHostRegistrationPageItemsHostRegistration
+
+// wholeHostRegistration is one row of the unpaged whole-set read, the same
+// registration through the field every server has.
+type wholeHostRegistration = gen.HostRegistrationsHostRegistrationsHostRegistration
+
+// hostRegistrationsPageMissing names the gap a server too old for the paged
+// read hits: it rejects the hostRegistrationsPage document itself
+// (GRAPHQL_VALIDATION_FAILED), before execution (hadron-server #2213 S3).
+const hostRegistrationsPageMissing = "this server has no hostRegistrationsPage (older than hadron-server #2213 S3)"
+
+// hostRegistrationPageDTO is `team host list`'s --json shape in SINGLE-PAGE
+// mode only (cli#2824): the page plus what a consumer needs to continue it.
+// The default drain keeps the bare array, so an agent can tell "the complete
+// set" from "one page" by the shape alone (cor:api:120:04). Served counts the
+// rows the server returned, null items included — the count the continue
+// point advances by — and NextOffset is that point: nil (null on the wire)
+// when no further page follows, a last page or a count-only one (cli#2971).
+type hostRegistrationPageDTO struct {
+	Items      []hostRegistrationDTO `json:"items"`
+	Total      int                   `json:"total"`
+	HasMore    bool                  `json:"hasMore"`
+	Offset     int                   `json:"offset"`
+	Limit      int                   `json:"limit"`
+	Served     int                   `json:"served"`
+	NextOffset *int                  `json:"nextOffset"`
+}
+
+// hostRegistrationDTOFrom converts one paged row. A null worker entry is
+// skipped, not fatal: the page's total still counts it, and a null row can
+// come only from a non-conforming server — defensive, not a refusal path.
+func hostRegistrationDTOFrom(r *pagedHostRegistration) hostRegistrationDTO {
+	dto := hostRegistrationDTO{
+		HostID:              r.HostId,
+		Label:               r.Label,
+		PollIntervalSeconds: r.PollIntervalSeconds,
+		RegisteredAt:        r.RegisteredAt,
+		RefreshedAt:         r.RefreshedAt,
+		Live:                r.Live,
+		Workers:             []hostWorkerDTO{},
+	}
+	for _, w := range r.Workers {
+		if w == nil {
+			continue
+		}
+		hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: []string{}}
+		if w.Worker != nil {
+			hw.WorkerName = &w.Worker.Name
+		}
+		hw.Worktrees = append(hw.Worktrees, w.Worktrees...)
+		dto.Workers = append(dto.Workers, hw)
+	}
+	return dto
+}
+
+// nullRowsSkipped names the null items the server sent and the output
+// skipped, "" when there are none (cli#2971): the rows a page shows and the
+// offset its continue hint advances by disagree exactly when a row is
+// skipped, so the page line (and the empty-page line) account for it —
+// cor:api:120:04, the continue point must let the caller reach the rest
+// without a row seeming lost.
+func nullRowsSkipped(served, rendered int) string {
+	if served <= rendered {
+		return ""
+	}
+	rows := "rows"
+	if served-rendered == 1 {
+		rows = "row"
+	}
+	return fmt.Sprintf("%d null %s skipped", served-rendered, rows)
+}
+
+// hostRegistrationDTOFromWhole converts one whole-set row — the same
+// conversion as hostRegistrationDTOFrom, through the unpaged field's own
+// generated type (the two fields answer with identical rows).
+func hostRegistrationDTOFromWhole(r *wholeHostRegistration) hostRegistrationDTO {
+	dto := hostRegistrationDTO{
+		HostID:              r.HostId,
+		Label:               r.Label,
+		PollIntervalSeconds: r.PollIntervalSeconds,
+		RegisteredAt:        r.RegisteredAt,
+		RefreshedAt:         r.RefreshedAt,
+		Live:                r.Live,
+		Workers:             []hostWorkerDTO{},
+	}
+	for _, w := range r.Workers {
+		if w == nil {
+			continue
+		}
+		hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: []string{}}
+		if w.Worker != nil {
+			hw.WorkerName = &w.Worker.Name
+		}
+		hw.Worktrees = append(hw.Worktrees, w.Worktrees...)
+		dto.Workers = append(dto.Workers, hw)
+	}
+	return dto
+}
+
+// readWholeHostRegistrations reads the complete registration list through the
+// unpaged field every server has — the old-server fallback for `team host
+// list`'s default form (cli#2824): the same rows, App gate and refusals the
+// command read before the paged field existed.
+func readWholeHostRegistrations(ctx context.Context, client graphql.Client, appRef string) ([]hostRegistrationDTO, error) {
+	resp, err := gen.HostRegistrations(ctx, client, appRef)
+	if err != nil {
+		return nil, api.MapError(err)
+	}
+	if resp == nil || resp.HostRegistrations == nil {
+		return nil, exitcode.Newf(exitcode.Error, "server returned no host registrations")
+	}
+	hosts := []hostRegistrationDTO{}
+	for _, r := range resp.HostRegistrations {
+		if r == nil {
+			continue
+		}
+		hosts = append(hosts, hostRegistrationDTOFromWhole(r))
+	}
+	return hosts, nil
+}
+
+// readAllHosts reads the App's complete registration list for `team host
+// list`'s default form: it drains hostRegistrationsPage 20 rows at a time
+// until hasMore is false, and, on a server that rejects that document for not
+// knowing the field, falls back to one whole read through hostRegistrations —
+// so the default form keeps the answer it always gave while servers lag. The
+// second return says the fallback was taken (the caller discloses it).
+func readAllHosts(ctx context.Context, client graphql.Client, appRef string) ([]hostRegistrationDTO, bool, error) {
+	rows, err := api.CollectHasMore(func(pageOffset int) ([]*pagedHostRegistration, int, bool, error) {
+		resp, err := gen.HostRegistrationsPage(ctx, client, appRef, api.InventoryPageSize, pageOffset)
+		if err != nil {
+			// Raw, not MapError: the old-server check below reads the error's
+			// envelope; every other refusal is mapped where the error escapes.
+			return nil, 0, false, err
+		}
+		if resp == nil || resp.HostRegistrationsPage == nil {
+			return nil, 0, false, exitcode.Newf(exitcode.Error, "server returned no host registrations page")
+		}
+		return resp.HostRegistrationsPage.Items, resp.HostRegistrationsPage.Total, resp.HostRegistrationsPage.HasMore, nil
+	}, func(r *pagedHostRegistration) *string {
+		// CollectHasMore keys every row through this closure before any nil
+		// filtering of its own, so a null row must be answered here, not by
+		// the caller's skip — unguarded it would panic the whole drain
+		// (cli#2824 BLIND F1 / LOCAL F1; the single-page path skips nulls).
+		if r == nil {
+			return nil
+		}
+		return &r.HostId
+	})
+	if err == nil {
+		hosts := []hostRegistrationDTO{}
+		for _, r := range rows {
+			if r == nil {
+				// A deliberate SILENT skip, unlike the single-page mode's named one
+				// (cli#2939's recorded choice): the whole-set drain prints no page
+				// line to carry a skipped-count.
+				continue
+			}
+			hosts = append(hosts, hostRegistrationDTOFrom(r))
+		}
+		return hosts, false, nil
+	}
+	if !api.IsFrameworkValidationOnlyFor(err, "hostRegistrationsPage") {
+		return nil, false, api.MapError(err)
+	}
+	hosts, ferr := readWholeHostRegistrations(ctx, client, appRef)
+	if ferr != nil {
+		return nil, false, ferr
+	}
+	return hosts, true, nil
+}
+
 type hostOperationDTO struct {
 	ID               string          `json:"id"`
 	AppID            string          `json:"appId"`
@@ -74,6 +248,12 @@ type hostOperationDTO struct {
 	FailureReason *string         `json:"failureReason"`
 }
 
+// errNoHostOperations is a reply that came back without the hostOperations
+// field at all (data null, {} or an explicit null): a named exit-1 refusal, as
+// `team host issue` gives for a reply with no operation (#2572), never a nil
+// dereference (cli#3077). It is not an empty page, which is a field holding no items.
+var errNoHostOperations = exitcode.Newf(exitcode.Error, "server returned no host operations")
+
 const hostOpsNoReasonWarning = "issuedReason is not shown: this server predates hadron-server#4257 and has no such field"
 
 // readHostOperations reads one page of the App's host operations with the
@@ -84,6 +264,9 @@ func readHostOperations(ctx context.Context, client graphql.Client, appRef strin
 	page := hostOperationPageDTO{Items: []hostOperationDTO{}}
 	resp, err := gen.HostOperationsWithReason(ctx, client, appRef, hostID, status, worker, first, after)
 	if err == nil {
+		if resp == nil || resp.HostOperations == nil {
+			return page, errNoHostOperations
+		}
 		page.HasNextPage, page.EndCursor = resp.HostOperations.HasNextPage, resp.HostOperations.EndCursor
 		for _, o := range resp.HostOperations.Items {
 			if o != nil {
@@ -100,6 +283,9 @@ func readHostOperations(ctx context.Context, client graphql.Client, appRef strin
 	plain, err := gen.HostOperations(ctx, client, appRef, hostID, status, worker, first, after)
 	if err != nil {
 		return page, err
+	}
+	if plain == nil || plain.HostOperations == nil {
+		return page, errNoHostOperations
 	}
 	page.Warnings = []string{hostOpsNoReasonWarning}
 	page.HasNextPage, page.EndCursor = plain.HostOperations.HasNextPage, plain.HostOperations.EndCursor
@@ -126,7 +312,7 @@ type hostOperationPageDTO struct {
 	HasNextPage bool               `json:"hasNextPage"`
 	EndCursor   *string            `json:"endCursor"`
 	// Warnings is present only when the list was read without something the
-	// server could not give: a server older than #4257 has no issuedReason.
+	// server could not give: a server older than 2026-11-15 has no issuedReason.
 	Warnings []string `json:"warnings,omitempty"`
 }
 
@@ -170,14 +356,16 @@ func newCmdTeamHost(f *cmdutil.Factory) *cobra.Command {
 		Long: `The machines that launch a team App's workers. A host is one machine
 running this CLI as a poller: it registers which workers it can run, as
 which model family and in which worktree, collects the operations queued
-for it, carries them out and reports the outcome.
+for it, carries them out and reports the outcome. A host has an id (shown
+by ` + "`list`" + `) and a configuration file, host.yaml, kept on that machine.
 
-By goal: see what hosts exist and who they run (` + "`list`" + `, ` + "`setup`" + `); check
+By goal: see which hosts exist (` + "`list`" + `) and who runs what (` + "`setup`" + `); check
 one host's configuration and registration (` + "`status`" + `); read or issue queued
 operations (` + "`ops`" + `, ` + "`issue`" + `); record who runs what
 (` + "`assign`" + `, ` + "`unassign`" + `, ` + "`setup`" + `, ` + "`import`" + `); reconcile workers to that
 record (` + "`up`" + `, ` + "`sweep`" + `, and the recorded outcomes in ` + "`sweep-runs`" + `); keep one
-host running (` + "`run`" + `, ` + "`report-stops`" + `, ` + "`availability`" + `). The three
+host running (` + "`run`" + `, ` + "`report-stops`" + `); mark a worker unavailable for new work from
+the host (` + "`availability`" + `). The three
 reconcile forms differ in who drives: ` + "`run`" + ` is the long-lived poller loop
 that keeps one host's workers up; ` + "`up`" + ` performs one reconcile pass now,
 from a desired state you name; ` + "`sweep`" + ` is the same pass keyed to the
@@ -208,16 +396,36 @@ with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" +
 }
 
 func newCmdTeamHostLs(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
+	var limit, offset int
+	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
 		Short:   "List the App's host registrations",
 		Long: `List the App's host registrations: each host's id and label, how often it
 checks in, whether it is live now (refreshed within the App's host-lapse
 count of its check-ins), and the workers it can launch with
-their family and worktrees. Whoever reads the App's tasks and events may.`,
+their family and worktrees. Whoever reads the App's tasks and events may.
+
+By default the whole list is read, 20 rows at a time, until the App holds no
+more. --limit or --offset asks for ONE page instead: --limit N rows, starting
+--offset M rows in (both count from 0). The server caps a page at 200 and
+serves a larger ask as 200 rather than refusing; --limit 0 asks for the count
+alone. A one-page output says so ("page: <rows> of <total> from offset <o>",
+naming any null row it skipped) and, while more rows exist, prints the command
+that continues the list. Of the run's context only --server and --app are
+carried into it (--limit too when you gave it), and an App resolved from the
+worktree binding makes the hint right only from that directory. An empty page names the total rather than reading as
+"no hosts". In single-page mode --json is an envelope
+{items,total,hasMore,offset,limit,served,nextOffset} (nextOffset is null when
+no page follows); the default keeps the bare array. A server without paging
+reads the whole list in one call, and --limit and --offset are refused there.`,
+		Example: `  hadron team host list --app acme.com:eng-team
+  hadron team host list --limit 10 --offset 10 --json`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 0 || offset < 0 {
+				return exitcode.Newf(exitcode.Usage, "--limit and --offset must be 0 or more")
+			}
 			ctx := cmd.Context()
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
@@ -232,36 +440,121 @@ their family and worktrees. Whoever reads the App's tasks and events may.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.HostRegistrations(ctx, client, scope.Ref)
-			if err != nil {
-				return api.MapError(err)
-			}
-			hosts := []hostRegistrationDTO{}
-			for _, r := range resp.HostRegistrations {
-				if r == nil {
-					continue
+			// Either paging flag selects ONE explicit page; neither drains the
+			// whole inventory 20 rows at a time (cli#2824, cor:api:120:04 — a
+			// client doesn't ask for more than 20 unless its user did).
+			if cmd.Flags().Changed("limit") || cmd.Flags().Changed("offset") {
+				// pageLimit is the limit to ask for: the --limit the caller gave,
+				// or the default page size when only --offset was (cli#2971: the
+				// old one-letter-apart `lim` was easy to misread for `limit`).
+				pageLimit := limit
+				if !cmd.Flags().Changed("limit") {
+					pageLimit = api.InventoryPageSize
 				}
-				dto := hostRegistrationDTO{
-					HostID:              r.HostId,
-					Label:               r.Label,
-					PollIntervalSeconds: r.PollIntervalSeconds,
-					RegisteredAt:        r.RegisteredAt,
-					RefreshedAt:         r.RefreshedAt,
-					Live:                r.Live,
-					Workers:             []hostWorkerDTO{},
+				resp, err := gen.HostRegistrationsPage(ctx, client, scope.Ref, pageLimit, offset)
+				if err != nil {
+					// An old server cannot serve a page: the unpaged field has
+					// no offset to slice, so the flags are refused by name
+					// rather than failing on the raw validation error (cli#2824
+					// BLIND F2). The default form still reads the whole list.
+					if api.IsFrameworkValidationOnlyFor(err, "hostRegistrationsPage") {
+						return exitcode.Newf(exitcode.Error, "%s; --limit/--offset need it — leave the flags out to read the whole list", hostRegistrationsPageMissing)
+					}
+					return api.MapError(err)
 				}
-				for _, w := range r.Workers {
-					if w == nil {
+				if resp == nil || resp.HostRegistrationsPage == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no host registrations page")
+				}
+				// served is how many rows the server returned, null items included: the continue
+				// point advances by it, so a skipped null's slot is not read again (cli#2971: the
+				// envelope states it, nextOffset, so a consumer need not recount items to know
+				// where to continue — cor:api:120:04).
+				served := len(resp.HostRegistrationsPage.Items)
+				page := hostRegistrationPageDTO{Items: []hostRegistrationDTO{}, Total: resp.HostRegistrationsPage.Total, HasMore: resp.HostRegistrationsPage.HasMore, Offset: offset, Limit: pageLimit, Served: served}
+				if page.HasMore && served > 0 {
+					next := offset + served
+					page.NextOffset = &next
+				}
+				for _, r := range resp.HostRegistrationsPage.Items {
+					// A null item is a server contract fault, not an entry to act on: it is skipped
+					// (a recorded choice, cli#2939) rather than panicking the read — and the output
+					// names how many were skipped, so the rows shown and the offset the continue
+					// hint advances by do not disagree unexplained (cli#2971).
+					if r == nil {
 						continue
 					}
-					hw := hostWorkerDTO{WorkerID: w.WorkerId, Family: w.Family, Worktrees: []string{}}
-					if w.Worker != nil {
-						hw.WorkerName = &w.Worker.Name
-					}
-					hw.Worktrees = append(hw.Worktrees, w.Worktrees...)
-					dto.Workers = append(dto.Workers, hw)
+					page.Items = append(page.Items, hostRegistrationDTOFrom(r))
 				}
-				hosts = append(hosts, dto)
+				return output.Write(f.IOStreams, f.JSON, page, func(w io.Writer) error {
+					if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
+						return err
+					}
+					// continueHint is the command that continues the list, carrying what the caller gave and
+					// nothing else: --server, --app and --limit only when they were passed — and of the
+					// run's resolved context, only --server and --app (never a context --limit; a passed
+					// one keeps its value as given: the server caps a page at 200 whatever is asked, so
+					// it widens nothing). The continue point itself is the envelope's NextOffset — the
+					// one place it is computed (cor:api:120:04) — so the text hint and --json nextOffset
+					// cannot disagree; nil (no further page, or nothing served by a count-only
+					// --limit 0 page) means no hint at all.
+					continueHint := func() string {
+						if page.NextOffset == nil {
+							return ""
+						}
+						hint := "continue: hadron team host list"
+						if f.ServerFlag != "" {
+							hint += " --server " + cmdutil.ShellQuote(output.SafeCell(f.ServerFlag))
+						}
+						if f.AppFlag != "" {
+							hint += " --app " + cmdutil.ShellQuote(output.SafeCell(f.AppFlag))
+						}
+						if cmd.Flags().Changed("limit") {
+							hint += fmt.Sprintf(" --limit %d", limit)
+						}
+						return fmt.Sprintf("%s --offset %d", hint, *page.NextOffset)
+					}
+					if len(page.Items) == 0 {
+						// An empty page is not "no hosts": the App may hold rows
+						// beyond this offset (or --limit 0 asked for none). The
+						// total says which; a failed read never gets here — it
+						// exits non-zero above. A page of only null items (served, none shown)
+						// still continues, and names the skipped rows (cli#2971).
+						skips := ""
+						if s := nullRowsSkipped(served, len(page.Items)); s != "" {
+							skips = ", " + s
+						}
+						if _, err := fmt.Fprintf(w, "no hosts on this page (total %d%s)\n", page.Total, skips); err != nil {
+							return err
+						}
+						if h := continueHint(); h != "" {
+							_, err := fmt.Fprintln(w, h)
+							return err
+						}
+						return nil
+					}
+					if err := writeHostTable(w, page.Items); err != nil {
+						return err
+					}
+					skips := ""
+					if s := nullRowsSkipped(served, len(page.Items)); s != "" {
+						skips = " (" + s + ")"
+					}
+					if _, err := fmt.Fprintf(w, "page: %d of %d from offset %d%s\n", len(page.Items), page.Total, offset, skips); err != nil {
+						return err
+					}
+					if h := continueHint(); h != "" {
+						_, err := fmt.Fprintln(w, h)
+						return err
+					}
+					return nil
+				})
+			}
+			hosts, legacy, err := readAllHosts(ctx, client, scope.Ref)
+			if err != nil {
+				return err
+			}
+			if legacy && !f.JSON {
+				fmt.Fprintln(f.IOStreams.ErrOut, "note: "+hostRegistrationsPageMissing+"; the whole list was read through hostRegistrations in one call")
 			}
 			return output.Write(f.IOStreams, f.JSON, hosts, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {
@@ -271,18 +564,27 @@ their family and worktrees. Whoever reads the App's tasks and events may.`,
 					_, err := fmt.Fprintln(w, "no hosts registered")
 					return err
 				}
-				t := output.NewTable(w, "HOST", "LABEL", "LIVE", "CHECK-IN", "REFRESHED", "WORKERS")
-				for _, h := range hosts {
-					live := "no"
-					if h.Live {
-						live = "yes"
-					}
-					t.Row(output.SafeCell(h.HostID), output.SafeCell(h.Label), output.SafeCell(live), output.SafeCell(strconv.Itoa(h.PollIntervalSeconds)+"s"), output.SafeCell(h.RefreshedAt), output.SafeCell(hostWorkersCell(h.Workers)))
-				}
-				return t.Flush()
+				return writeHostTable(w, hosts)
 			})
 		},
 	}
+	cmd.Flags().IntVar(&limit, "limit", 0, "one page of N rows (default: the whole list, 20 at a time); 0 asks for the count alone")
+	cmd.Flags().IntVar(&offset, "offset", 0, "start the page this many rows in (selects single-page mode)")
+	return cmd
+}
+
+// writeHostTable renders the registrations table shared by both modes of
+// `team host list`.
+func writeHostTable(w io.Writer, hosts []hostRegistrationDTO) error {
+	t := output.NewTable(w, "HOST", "LABEL", "LIVE", "CHECK-IN", "REFRESHED", "WORKERS")
+	for _, h := range hosts {
+		live := "no"
+		if h.Live {
+			live = "yes"
+		}
+		t.Row(output.SafeCell(h.HostID), output.SafeCell(h.Label), output.SafeCell(live), output.SafeCell(strconv.Itoa(h.PollIntervalSeconds)+"s"), output.SafeCell(h.RefreshedAt), output.SafeCell(hostWorkersCell(h.Workers)))
+	}
+	return t.Flush()
 }
 
 // hostWorkersCell renders a registration's workers as name/family[worktrees].
@@ -318,9 +620,9 @@ type, host, worker, status, who issued it and, once reported, its result or
 failure reason. When the platform issued it for no task, the BY cell adds the
 server's reason, as PLATFORM (DESIRED_RUNNING): a long-lived worker that should
 run and has no session; --json carries it as issuedReason, absent when the
-server names none. A server older than #4257 has no such field: the list then
-reads without it and says so once (a stderr note, or a warnings entry in
---json). Whoever reads the App's tasks and events may.
+server names none. A server older than 2026-11-15 has no such field: the
+list then reads without it and says so once (a stderr note, or a warnings
+entry in --json). Whoever reads the App's tasks and events may.
 
 --host, --status (issued, collected, succeeded, failed) and --worker (id,
 URN or name) narrow it. --limit takes 1 to ` + strconv.Itoa(hostOpsPageCap) + `, the server's page cap.
@@ -328,6 +630,8 @@ When more follow, the receipt names the --after that continues the list;
 --json carries it as endCursor, with hasNextPage. If display sanitizes or
 shortens the cursor, the text omits the reusable --after suggestion: obtain
 the original cursor from --json.`,
+		Example: `  hadron team host ops --host orca1 --status failed
+  hadron team host ops --worker Iris --limit 5`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -476,7 +780,7 @@ Issuing worker.start by hand is the one-off form; the usual way to start
 workers is a reconcile — ` + "`team host up --apply`" + ` starts every worker the
 host's record says it runs, but plans nothing unless the App's sweepMode is
 APPLY (see ` + "`team host up --help`" + `). worker.deliver is not issued until a host has a
-delivery path for it (hadron-cli#829), refusing HOST_OPERATION_NOT_ISSUABLE
+delivery path for it, refusing HOST_OPERATION_NOT_ISSUABLE
 (exit 2). Any other type is HOST_OPERATION_TYPE_UNKNOWN (exit 2), and a
 missing, extra or malformed argument BAD_HOST_OPERATION_ARGS (exit 2). An
 unregistered host is HOST_NOT_FOUND (exit 4).
@@ -493,7 +797,7 @@ operation is that worker's: it qualifies only as the target's reports-to.
 Pass --as-person to issue it as yourself instead — as the target's holder or
 the App's manager — with no worker session. With --instruction the write
 goes out through a verified manager-held worker session with the holder's
-claim, as the shared instruction help below describes.`,
+claim, as the --instruction paragraph above describes.`,
 		Example: `  hadron team host issue worktree.create --host orca1 --worker Jonas \
     --arg repo=hadron-memory/hadron-cli --arg baseBranch=main --arg branchName=jonas/871 --arg label=jonas-3
   hadron team host issue worktree.remove --host orca1 --worker Jonas --arg worktree=hadron-memory/hadron-cli/jonas-3 --as-person`,

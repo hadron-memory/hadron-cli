@@ -100,7 +100,7 @@ func checkTeamListFlags(cmd *cobra.Command, args []string, team, staleOver strin
 		return 0, nil
 	}
 	if len(args) > 0 {
-		return 0, exitcode.Newf(exitcode.Usage, "unexpected argument %q: --team takes its worker attached, as --team=worker:<ref>", args[0])
+		return 0, exitcode.Newf(exitcode.Usage, "unexpected argument (the argument given is not shown): --team takes its worker attached, as --team=worker:<ref>")
 	}
 	for _, name := range teamListFlagConflicts {
 		if cmd.Flags().Changed(name) {
@@ -163,8 +163,11 @@ func resolveTeam(workers []rosterWorker, coordinatorRef string) (taskPartyDTO, [
 	return coordinator.party, members, true
 }
 
-// readAllTasks pages the App's task read to the end. A page that adds no new
-// task is a server ignoring the offset: refused, never silently repeated.
+// readAllTasks pages the App's task read to the end: it stops on the server's
+// hasMore, never a full-page guess (cli#2734). The walk advances by the rows
+// served (cor:api:120:04), not by the page size, so a short page with hasMore
+// skips nothing; a page that adds no new task is a server ignoring the offset:
+// refused, never silently repeated.
 func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *string) ([]taskDTO, error) {
 	client, err := f.GraphQLClient()
 	if err != nil {
@@ -173,12 +176,12 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *
 	tasks := []taskDTO{}
 	seen := map[string]bool{}
 	limit := teamEventPageCap
+	offset := 0
 	for page := 0; ; page++ {
 		if page >= teamTaskPageLimit {
 			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not end after %d pages of %d; nothing shown", page, limit)
 		}
-		offset := page * limit
-		rows, count, err := taskListPage(ctx, client, appRef, taskListQuery{limit: limit, offset: offset, text: text})
+		rows, info, err := taskListPage(ctx, client, appRef, taskListQuery{limit: limit, offset: offset, text: text})
 		if err != nil {
 			return nil, err
 		}
@@ -191,12 +194,16 @@ func readAllTasks(ctx context.Context, f *cmdutil.Factory, appRef string, text *
 			added++
 			tasks = append(tasks, t)
 		}
-		if count < limit {
+		if !info.HasMore {
 			return tasks, nil
 		}
 		if added == 0 {
-			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not advance at offset %d (a full page of tasks already read); nothing shown", offset)
+			// "every row it served", not "a full page": the page can be short
+			// (BLIND round 2, cli#2734) — all it takes is every row, however
+			// many, being one already seen.
+			return nil, exitcode.Newf(exitcode.Error, "the App's task read did not advance at offset %d (every row it served was already read); nothing shown", offset)
 		}
+		offset += info.Served
 	}
 }
 

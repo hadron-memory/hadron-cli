@@ -5,10 +5,29 @@
 # Which of these outside items does a task of the App already hold? Hadron's
 # check is authoritative (cor:agt:120): an item is dropped only because a task
 # holds it. 1 to 100 ids; each is compared exactly as written, in any state.
-query IntakeTasksByExternalIds($appRef: ID!, $externalIds: [String!]!) {
-  agentTasks(appRef: $appRef, externalIds: $externalIds) {
-    id
-    externalId
+# cli#2734 (server#4622): the read is paged — an externalIds batch is NOT
+# widened past one 20-row page, and held history can outgrow it, so hasMore is
+# followed to the end before an item is decided unheld.
+query IntakeTasksByExternalIds(
+  $appRef: ID!
+  $externalIds: [String!]!
+  # @genqlient(omitempty: true)
+  $limit: Int
+  # @genqlient(omitempty: true)
+  $offset: Int
+) {
+  agentTasksPage(
+    appRef: $appRef
+    externalIds: $externalIds
+    limit: $limit
+    offset: $offset
+  ) {
+    items {
+      id
+      externalId
+    }
+    total
+    hasMore
   }
 }
 
@@ -20,6 +39,7 @@ query IntakeTasksByExternalIds($appRef: ID!, $externalIds: [String!]!) {
 # per-field omitempty from whichever documents name it, so a document without
 # them makes the generated tags flip between runs.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.isProject", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.finishBy", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.blockedBy", omitempty: true)
@@ -59,7 +79,7 @@ mutation IntakeClaimTask(
 
 # The claimant starts a task it assigned to itself (assignee-only).
 mutation IntakeStartTask($taskId: ID!) {
-  startAgentTask(taskId: $taskId) {
+  startAgentTask(taskRef: $taskId) {
     id
     status
   }

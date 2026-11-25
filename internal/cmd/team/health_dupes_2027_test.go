@@ -8,7 +8,7 @@ package team
 // the orca binary is a script named by delivery.orca_bin, the duplicate
 // agents are real sleeping processes whose argv[0] basename is claude/codex
 // and whose cwd is a real git worktree with a session binding, and the
-// supervised ones run under a real worker-supervise wrapper. The stop is a
+// supervised ones run under a real launcher the poller state records. The stop is a
 // real SIGTERM the agent's trap records, so "nothing was stopped" is
 // observable, not inferred.
 
@@ -16,6 +16,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -66,24 +67,10 @@ type health2027World struct {
 	// pause is the HealthSweepPause answer body (workers page); empty means
 	// the op answers no pending reasons.
 	pause string
-	// reset is the ContextReset answer body; empty means contextReset null.
-	reset string
-	// resetsByID, when set, answers ContextReset per resetId (a JSON body
-	// with the {"data":… wrapper); a resetId missing from it reads as null.
-	resetsByID map[string]string
-	// state is the poller state file's content (hostId or a resets map).
+	// state is the poller state file's content (hostId).
 	state string
-	// midSweepReset, when set, is written to the state file by the pause
-	// handler — strictly after the sweep loaded its state snapshot and
-	// before its fix loop reads the file back (#2037 N2 note: the gate is
-	// not the snapshot).
-	midSweepReset string
-	// withSecondWorker adds a second registered worker (w2, worktree wt2) when set
-	// before health2027Setup returns, see health2027SetupTwo (#2344).
-	withSecondWorker bool
-	worktree2        string
-	// onReset, when set, runs on every ContextReset read before it answers.
-	onReset func(resetID string)
+	// launch is the worker's recorded launch in the state file (cli#2059).
+	launch map[string]any
 	// chatBodies records every CreateTeamChatMessage body that arrived.
 	chatBodies []string
 	chatRefs   []*string
@@ -120,17 +107,10 @@ type health2027World struct {
 }
 
 // health2027Setup builds the host config, worktree, fake orca and fake server.
-func health2027Setup(t *testing.T) *health2027World { return health2027SetupN(t, false) }
-
-// health2027SetupTwo is the same host with a second registered worker, Ivy
-// (w2), bound in worktree wt2, for the tests that need a LATER worker in the
-// fixing loop (#2344).
-func health2027SetupTwo(t *testing.T) *health2027World { return health2027SetupN(t, true) }
-
-func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
+func health2027Setup(t *testing.T) *health2027World {
 	t.Helper()
 	dir := t.TempDir()
-	w := &health2027World{dir: dir, state: `{"hostId":"own"}`, withSecondWorker: withSecondWorker}
+	w := &health2027World{dir: dir, state: `{"hostId":"own"}`}
 	// The sweep reads its notification binding from the process's ambient
 	// worktree: run from a plain directory, not this repo (whose own live
 	// binding would otherwise leak into every test) and not the fixture
@@ -146,16 +126,6 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 	}
 	if err := exec.Command("git", "init", "-q", w.worktree).Run(); err != nil {
 		t.Fatalf("git init: %v", err)
-	}
-
-	if withSecondWorker {
-		w.worktree2 = filepath.Join(dir, "wt-root", "wt2")
-		if err := os.MkdirAll(w.worktree2, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := exec.Command("git", "init", "-q", w.worktree2).Run(); err != nil {
-			t.Fatalf("git init: %v", err)
-		}
 	}
 
 	// The fake orca: list reads a JSON file, read answers a per-handle screen
@@ -209,15 +179,8 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 		switch q.OperationName {
 		case "HostRegistrations":
 			workers := `{"workerId":"w1","worker":{"id":"w1","name":"Iris","urn":"hrn:worker:test:team:iris"},"worktrees":["wt"]}`
-			if w.withSecondWorker {
-				workers += `,{"workerId":"w2","worker":{"id":"w2","name":"Ivy","urn":"hrn:worker:test:team:ivy"},"worktrees":["wt2"]}`
-			}
 			_, _ = io.WriteString(rw, `{"data":{"hostRegistrations":[{"hostId":"own","live":true,"workers":[`+workers+`]}]}}`)
 		case "HealthSweepSetTerminals":
-			if w.withSecondWorker {
-				_, _ = io.WriteString(rw, `{"data":{"setHostWorkerTerminals":{"stored":[{"id":"w1","urn":"hrn:worker:test:team:iris"},{"id":"w2","urn":"hrn:worker:test:team:ivy"}],"refused":[]}}}`)
-				break
-			}
 			_, _ = io.WriteString(rw, health2027SetTerminals)
 		case "HealthSweepPause":
 			if w.beforeFix != nil {
@@ -227,34 +190,11 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 				_, _ = io.WriteString(rw, `{"errors":[{"message":"pause read failed","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`)
 				return
 			}
-			if w.midSweepReset != "" {
-				if err := os.WriteFile(filepath.Join(dir, "state.json"), []byte(w.midSweepReset), 0o600); err != nil {
-					t.Errorf("mid-sweep reset write: %v", err)
-				}
-			}
 			if w.pause == "" {
 				_, _ = io.WriteString(rw, `{"data":{"workers":{"items":[{"id":"w1","name":"Iris","checkStatus":null}],"total":1}}}`)
 				return
 			}
 			_, _ = io.WriteString(rw, w.pause)
-		case "ContextReset":
-			if w.onReset != nil {
-				w.onReset(fmt.Sprint(q.Variables["resetId"]))
-			}
-			if w.resetsByID != nil {
-				body, ok := w.resetsByID[fmt.Sprint(q.Variables["resetId"])]
-				if !ok {
-					_, _ = io.WriteString(rw, `{"data":{"contextReset":null}}`)
-					return
-				}
-				_, _ = io.WriteString(rw, body)
-				return
-			}
-			if w.reset == "" {
-				_, _ = io.WriteString(rw, `{"data":{"contextReset":null}}`)
-				return
-			}
-			_, _ = io.WriteString(rw, w.reset)
 		case "CreateTeamChatMessage":
 			if w.chatFails {
 				_, _ = io.WriteString(rw, `{"errors":[{"message":"chat down","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`)
@@ -277,12 +217,6 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 	t.Cleanup(srv.Close)
 	w.srv = srv
 	w.writeBinding(t, "sess-1")
-	if withSecondWorker {
-		b := fmt.Sprintf(`{"sessionId":"sess-2","workerId":"w2","workerName":"Ivy","appId":"hrn:app:test:team","server":%q}`, srv.URL)
-		if err := os.WriteFile(filepath.Join(w.worktree2, ".git", "hadron-team-session.json"), []byte(b), 0o600); err != nil {
-			t.Fatal(err)
-		}
-	}
 
 	w.agentTerms = filepath.Join(dir, "agent-terms.txt")
 	if err := os.WriteFile(w.agentTerms, []byte(""), 0o600); err != nil {
@@ -290,13 +224,9 @@ func health2027SetupN(t *testing.T, withSecondWorker bool) *health2027World {
 	}
 	w.stateFileWrite(t, w.state)
 
-	extra := ""
-	if withSecondWorker {
-		extra = "  w2:\n    family: codex\n    launch: [fake]\n    worktrees: [wt2]\n"
-	}
-	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [wt]\n%sdelivery:\n  orca_bin: %q\n", srv.URL, filepath.Join(dir, "wt-root"), extra, orcaBin)
+	cfg := fmt.Sprintf("server: %q\napp: hrn:app:test:team\nkey_file: key\nstate_file: state.json\nworktrees_root: %q\nworkers:\n  w1:\n    family: codex\n    launch: [fake]\n    worktrees: [wt]\ndelivery:\n  orca_bin: %q\n", srv.URL, filepath.Join(dir, "wt-root"), orcaBin)
 	path := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(cfg)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "key"), []byte(key), 0o600); err != nil {
@@ -339,13 +269,10 @@ func (w *health2027World) writeList(t *testing.T, path string, terms []health202
 			path = w.worktree
 		}
 		title := "Iris"
-		if w.worktree2 != "" && path == w.worktree2 {
-			title = "Ivy"
-		}
 		rows = append(rows, fmt.Sprintf(`{"handle":%q,"worktreePath":%q,"tabId":%q,"title":%q,"connected":true,"writable":true}`, tm.Handle, path, tm.Tab, title))
 	}
 	list := `{"ok":true,"result":{"terminals":[` + strings.Join(rows, ",") + `]}}`
-	if err := os.WriteFile(path, []byte(list), 0o600); err != nil {
+	if err := os.WriteFile(path, []byte(hostyaml.Supervised(list)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -390,16 +317,44 @@ func (w *health2027World) flipRecheckScreen(t *testing.T, handle string, screen 
 func (w *health2027World) writeBinding(t *testing.T, session string) {
 	t.Helper()
 	b := fmt.Sprintf(`{"sessionId":%q,"workerId":"w1","workerName":"Iris","appId":"hrn:app:test:team","server":%q}`, session, w.serverURL())
-	if err := os.WriteFile(filepath.Join(w.worktree, ".git", "hadron-team-session.json"), []byte(b), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(w.worktree, ".git", "hadron-team-session.json"), []byte(hostyaml.Supervised(b)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 }
 
 func (w *health2027World) stateFileWrite(t *testing.T, content string) {
 	t.Helper()
-	if err := os.WriteFile(filepath.Join(w.dir, "state.json"), []byte(content), 0o600); err != nil {
+	if w.launch != nil {
+		// The poller's record of the worker's launch is the supervision
+		// anchor (cli#2059); every state rewrite keeps it, as the poller does.
+		var m map[string]any
+		if err := json.Unmarshal([]byte(content), &m); err != nil {
+			t.Fatal(err)
+		}
+		m["agents"] = map[string]any{"w1": w.launch}
+		b, err := json.Marshal(m)
+		if err != nil {
+			t.Fatal(err)
+		}
+		content = string(b)
+	}
+	if err := os.WriteFile(filepath.Join(w.dir, "state.json"), []byte(hostyaml.Supervised(content)), 0o600); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// recordLaunch records pid as the worker's launch in the poller state, with
+// the start time the kernel reports for it: what the poller writes when it
+// launches an agent (cli#2059).
+func (w *health2027World) recordLaunch(t *testing.T, pid int) {
+	t.Helper()
+	b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fields := strings.Fields(string(b)[strings.LastIndexByte(string(b), ')')+1:])
+	w.launch = map[string]any{"worktree": "wt", "pid": pid, "start": fields[19]}
+	w.stateFileWrite(t, w.state)
 }
 
 // awaitReady polls a fixture's ready marker for up to 5s and fails the test
@@ -421,7 +376,8 @@ func (w *health2027World) awaitReady(t *testing.T, ready string) {
 }
 
 // spawnAgent starts a sleeping process named claude or codex with its cwd in
-// the worktree; supervised runs it under a worker-supervise wrapper.
+// the worktree; supervised runs it under a launcher the poller state records
+// as the worker's launch (cli#2059).
 func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool) int {
 	t.Helper()
 	bin := filepath.Join(w.dir, "bin", name)
@@ -436,7 +392,7 @@ func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool)
 	}
 	var c *exec.Cmd
 	if supervised {
-		wrap := filepath.Join(w.dir, "bin", "worker-supervise")
+		wrap := filepath.Join(w.dir, "bin", "launcher")
 		if _, err := os.Stat(wrap); err != nil {
 			if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
 				t.Fatal(err)
@@ -450,6 +406,9 @@ func (w *health2027World) spawnAgent(t *testing.T, name string, supervised bool)
 	startFixture2078(t, c)
 	w.agents = append(w.agents, c)
 	w.awaitReady(t, ready)
+	if supervised {
+		w.recordLaunch(t, c.Process.Pid)
+	}
 	return c.Process.Pid
 }
 
@@ -469,9 +428,6 @@ func (w *health2027World) run(t *testing.T, text bool, args ...string) (health20
 	f.IOStreams = streams
 	f.JSON = !text
 	c := newCmdTeamHealthWithReader(f, func(context.Context, string, *hostpoller.Config) ([]byte, int, error) {
-		if w.withSecondWorker {
-			return []byte(`[{"contract":"terminal-status@1","worker":"Iris","status":"idle","prompt":"empty","reason":null,"lastTurnAt":null,"checkedAt":"2026-11-14T00:00:00Z"},{"contract":"terminal-status@1","worker":"Ivy","status":"idle","prompt":"empty","reason":null,"lastTurnAt":null,"checkedAt":"2026-11-14T00:00:00Z"}]`), 0, nil
-		}
 		return []byte(health2027Status), 0, nil
 	})
 	c.SetArgs(append([]string{"sweep", "--config", w.cfgPath}, args...))
@@ -566,9 +522,9 @@ func TestHealth2027SupervisedDuplicateIsStopped(t *testing.T) {
 		t.Fatalf("the supervised agent was signalled: %q", w.terms())
 	}
 	for _, c := range w.agents {
-		if filepath.Base(c.Path) == "worker-supervise" {
+		if filepath.Base(c.Path) == "launcher" {
 			if !w.alive(c.Process.Pid) {
-				t.Fatal("the wrapper is gone; the stop reached the supervised tree")
+				t.Fatal("the launcher is gone; the stop reached the supervised tree")
 			}
 		}
 	}
@@ -579,7 +535,7 @@ func TestHealth2027SupervisedDuplicateIsStopped(t *testing.T) {
 }
 
 // spawnChain starts the layered launch of one logical agent (#2027 review
-// P1): a worker-supervise wrapper whose shim runs the real (trapped) agent as
+// P1): a recorded launcher whose shim runs the real (trapped) agent as
 // a CHILD — the shape that used to count twice, dooming the real agent. The
 // shim and the child both record their names when signalled, so "the chain
 // was left alone" is observable member by member.
@@ -598,7 +554,7 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	if err := os.WriteFile(shim, []byte("#!/bin/sh\ntrap 'echo \"term chain-shim\" >> \""+w.agentTerms+"\"; exit 0' TERM INT\n\""+child+"\" &\nwait\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	wrap := filepath.Join(w.dir, "bin", "worker-supervise")
+	wrap := filepath.Join(w.dir, "bin", "launcher")
 	if _, err := os.Stat(wrap); err != nil {
 		if err := os.WriteFile(wrap, []byte("#!/bin/sh\n\"$1\" &\nwait\n"), 0o755); err != nil {
 			t.Fatal(err)
@@ -611,9 +567,10 @@ func (w *health2027World) spawnChain(t *testing.T) {
 	// The LEAF is the chain's last member up; its marker proves the whole
 	// chain exists before the census reads it.
 	w.awaitReady(t, ready)
+	w.recordLaunch(t, c.Process.Pid)
 }
 
-// #2027 review P1: one logical agent running as a CHAIN (wrapper → shim →
+// #2027 review P1: one logical agent running as a CHAIN (launcher → shim →
 // child) beside a typed stray is ONE supervised agent plus one duplicate —
 // the sweep stops the stray and lays a finger on no member of the chain.
 // The pre-fix census read this as two agents with exactly one supervised and
@@ -862,129 +819,6 @@ func TestHealth2027GoneTabDeclinesAndReportsIt(t *testing.T) {
 	}
 	if _, closes := w.records(); closes != "" {
 		t.Fatalf("a close was attempted on a gone tab: %q", closes)
-	}
-}
-
-// Gate edge 3: resetting workers are skipped and rechecked next sweep.
-func TestHealth2027ResettingWorkerSkipped(t *testing.T) {
-	w := health2027Setup(t)
-	w.state = `{"hostId":"own","resets":{"r1":{"resetId":"r1","workerId":"w1"}}}`
-	w.stateFileWrite(t, w.state)
-	w.reset = `{"data":{"contextReset":{"id":"r1","endedAt":null,"phase":"claimed"}}}`
-	w.spawnAgent(t, "codex", true)
-	w.spawnAgent(t, "claude", false)
-	dto, _, err := w.run(t, false, "--dry-run=false")
-	if err != nil {
-		t.Fatalf("sweep failed: %v", err)
-	}
-	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" })
-	if skip == nil || skip.Worker != "w1" {
-		t.Fatalf("missing resetting skip: %+v", dto.Skips)
-	}
-	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
-		t.Fatalf("a resetting worker was acted on: %+v %q", dto.Fixes, terms)
-	}
-}
-
-// Gate edge 3, #2037 N2: an in-flight reset whose id sorts BELOW an older,
-// ended one must still skip the worker — resetIds carry no ordering contract,
-// so "newest by string max" could read the ended one and act mid-reset.
-func TestHealth2027InFlightResetBelowEndedMaxStillSkips(t *testing.T) {
-	w := health2027Setup(t)
-	w.state = `{"hostId":"own","resets":{"a1":{"resetId":"a1","workerId":"w1"},"zz9":{"resetId":"zz9","workerId":"w1"}}}`
-	w.stateFileWrite(t, w.state)
-	w.resetsByID = map[string]string{
-		"a1":  `{"data":{"contextReset":{"id":"a1","endedAt":null,"phase":"claimed"}}}`,
-		"zz9": `{"data":{"contextReset":{"id":"zz9","endedAt":"2026-11-14T00:00:00Z","phase":"succeeded"}}}`,
-	}
-	w.spawnAgent(t, "codex", true)
-	w.spawnAgent(t, "claude", false)
-	dto, _, err := w.run(t, false, "--dry-run=false")
-	if err != nil {
-		t.Fatalf("sweep failed: %v", err)
-	}
-	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" })
-	if skip == nil || skip.Worker != "w1" {
-		t.Fatalf("missing resetting skip: %+v", dto.Skips)
-	}
-	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
-		t.Fatalf("acted inside a reset window: %+v %q", dto.Fixes, terms)
-	}
-}
-
-// Gate edge 3, #2055 item 4 (the null-read pin): a reset the query cannot
-// SEE — contextReset reads null; a permission mask and a reaped record are
-// indistinguishable — counts as in flight, fail closed: the worker is
-// skipped, never acted on. A mutant that treats the invisible read as ended
-// acts inside the reset window and fails this pin.
-func TestHealth2027InvisibleResetReadCountsAsInFlight(t *testing.T) {
-	w := health2027Setup(t)
-	w.state = `{"hostId":"own","resets":{"vr1":{"resetId":"vr1","workerId":"w1"}}}`
-	w.stateFileWrite(t, w.state)
-	// vr1 is absent from the per-id answers, so its read returns contextReset
-	// null — the invisible (masked or reaped) shape, distinct from unreadable.
-	w.resetsByID = map[string]string{}
-	w.spawnAgent(t, "codex", true)
-	w.spawnAgent(t, "claude", false)
-	dto, _, err := w.run(t, false, "--dry-run=false")
-	if err != nil {
-		t.Fatalf("sweep failed: %v", err)
-	}
-	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" })
-	if skip == nil || skip.Worker != "w1" {
-		t.Fatalf("an invisible reset read must skip the worker: %+v", dto.Skips)
-	}
-	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
-		t.Fatalf("acted on a reset the query could not see: %+v %q", dto.Fixes, terms)
-	}
-}
-
-// Gate edge 3, #2037 N2: a worker whose recorded resets all read ended is
-// not resetting — ended resets must not wedge the skip on.
-func TestHealth2027AllEndedResetsLeaveWorkerActionable(t *testing.T) {
-	w := health2027Setup(t)
-	w.state = `{"hostId":"own","resets":{"a1":{"resetId":"a1","workerId":"w1"},"zz9":{"resetId":"zz9","workerId":"w1"}}}`
-	w.stateFileWrite(t, w.state)
-	w.resetsByID = map[string]string{
-		"a1":  `{"data":{"contextReset":{"id":"a1","endedAt":"2026-11-14T00:00:00Z","phase":"succeeded"}}}`,
-		"zz9": `{"data":{"contextReset":{"id":"zz9","endedAt":"2026-11-14T01:00:00Z","phase":"succeeded"}}}`,
-	}
-	w.spawnAgent(t, "codex", true)
-	w.spawnAgent(t, "claude", false)
-	dto, _, err := w.run(t, false, "--dry-run=false")
-	if err != nil {
-		t.Fatalf("sweep failed: %v", err)
-	}
-	if skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" }); skip != nil {
-		t.Fatalf("ended resets still skipped the worker: %+v", dto.Skips)
-	}
-	if len(dto.Fixes) == 0 {
-		t.Fatalf("ended resets left the duplicate unhandled: %+v", dto.Fixes)
-	}
-}
-
-// Gate edge 3, #2037 N2 note: a reset recorded AFTER the sweep's initial
-// state read must still skip the worker — the pause handler below rewrites
-// the state file mid-sweep, and the fixing loop re-reads it, so the reset
-// gate is not frozen at the sweep's start-of-run snapshot.
-func TestHealth2027MidSweepResetRecordStillSkips(t *testing.T) {
-	w := health2027Setup(t)
-	w.spawnAgent(t, "codex", true)
-	w.spawnAgent(t, "claude", false)
-	w.midSweepReset = `{"hostId":"own","resets":{"r2":{"resetId":"r2","workerId":"w1"}}}`
-	w.resetsByID = map[string]string{
-		"r2": `{"data":{"contextReset":{"id":"r2","endedAt":null,"phase":"claimed"}}}`,
-	}
-	dto, _, err := w.run(t, false, "--dry-run=false")
-	if err != nil {
-		t.Fatalf("sweep failed: %v", err)
-	}
-	skip := health2027Find(dto.Skips, func(s health2027Skip) bool { return s.Code == "resetting" })
-	if skip == nil || skip.Worker != "w1" {
-		t.Fatalf("a mid-sweep reset record went unseen: %+v", dto.Skips)
-	}
-	if terms, _ := w.records(); len(dto.Fixes) != 0 || terms != "" {
-		t.Fatalf("acted on a reset recorded mid-sweep: %+v %q", dto.Fixes, terms)
 	}
 }
 

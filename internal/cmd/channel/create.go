@@ -63,7 +63,7 @@ successful Channel result, with no extra memory lookup.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.CreateChannel == nil {
-				return exitcode.Newf(exitcode.Unavailable, "the server returned no Channel for %q", args[0])
+				return exitcode.Newf(exitcode.Unavailable, "the server returned no Channel (the address given is not shown)")
 			}
 			return writeChannel(f, dtoFrom(resp.CreateChannel.ChannelFields, resp.CreateChannel.ChannelMemory))
 		},

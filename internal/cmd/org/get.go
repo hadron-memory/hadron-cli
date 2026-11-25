@@ -33,7 +33,7 @@ marketplace, and when it was last updated. <org> is its id, URN or root
 				return api.MapError(err)
 			}
 			if resp.Organization == nil {
-				return exitcode.Newf(exitcode.NotFound, "organization %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "organization not found (the ref given is not shown)")
 			}
 			dto := orgDTOFromFields(resp.Organization.OrgFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

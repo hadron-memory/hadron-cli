@@ -61,7 +61,7 @@ the memories other people have shared with you, use memory list
 				return api.MapError(err)
 			}
 			if resp.Memory == nil {
-				return exitcode.Newf(exitcode.NotFound, "memory %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "memory not found (the memory ref given is not shown)")
 			}
 			shares := make([]shareDTO, 0, len(resp.Memory.Shares))
 			for _, s := range resp.Memory.Shares {

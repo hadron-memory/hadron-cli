@@ -22,7 +22,7 @@ import (
 )
 
 // taskStatusDoc is the one help-text spelling of the status set.
-const taskStatusDoc = "PENDING, BACKLOG, STARTED, FINISHED or CANCELLED (cor:agt:050:02)"
+const taskStatusDoc = "PENDING, BACKLOG, STARTED, FINISHED or CANCELLED"
 
 // alarmPageLimit bounds the tree's alarm paging even against a server that
 // advances: 100 pages at the 200 cap is twenty thousand alarm events, past
@@ -111,18 +111,21 @@ in each direction (total/hasMore included; ` + "`task dependencies`" + ` pages t
 rest) and its clone links. Check it before a lifecycle command to see what the
 task allows (the table in ` + "`team task --help`" + `).
 
-Clone links (` + "`task clone`" + `, cor:agt:050:02): "cloned from" names the task this
+Clone links (` + "`task clone`" + `): "cloned from" names the task this
 one was made from, or "replaces" when that source is FINISHED or CANCELLED; it
 is null when the task is no clone or the source is not readable to you. "clones"
 is the first page of the tasks made from this one (a clone you cannot read is
 left out), with total and hasMore; page it with --clones-limit/--clones-offset
 (default 20, cap 200). In --json, clonedFrom is an object or null and clones is
 {items, total, hasMore} with items [] when none. Reading the links needs a
-provider with hadron-server#2646; an older one rejects the document as schema
-skew (exit 2).
+server released on or after 2026-11-02; an older one rejects the document as
+schema skew (exit 2).
 
-The task is named by its id or handle (AT0.7, AT1.2); the server works out the
-App, and an ambiguous bare handle needs an id or a qualified handle such as
+The task is named by its id or handle (AT0.7, AT1.2). A bare handle is read in
+the App you name with --app, else in the App of this worktree's worker-session
+binding when it has one. With neither, the server works out the App and refuses
+a bare handle that is ambiguous (TASK_HANDLE_QUALIFY, for a person in several
+Apps): then use an id, --app, or a qualified handle such as
 hrn:agenttask:acme.com:eng-team:AT1.2. A task you may not read answers "not
 found", exit 4, exactly like a missing one (no existence oracle).
 
@@ -135,7 +138,7 @@ original values.`,
 			if err := checkTaskPage(clonesLimit, clonesOffset); err != nil {
 				return err
 			}
-			taskId, err := taskRefArg(f, args)
+			taskId, err := taskRefArgFromBinding(cmd.Context(), f, args)
 			if err != nil {
 				return err
 			}
@@ -172,7 +175,7 @@ original values.`,
 			})
 		},
 	}
-	cmd.Flags().IntVar(&clonesLimit, "clones-limit", 20, "clones page size (default 20, cap 200)")
+	cmd.Flags().IntVar(&clonesLimit, "clones-limit", 20, "clones page size (the server caps it at 200)")
 	cmd.Flags().IntVar(&clonesOffset, "clones-offset", 0, "offset into the clones page")
 	return cmd
 }
@@ -404,9 +407,12 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 }
 
 // strOr renders an optional string, an em dash for none.
+// nullCell is the word a table prints for a null or empty value.
+const nullCell = "—"
+
 func strOr(s *string) string {
 	if s == nil || *s == "" {
-		return "—"
+		return nullCell
 	}
 	return *s
 }
@@ -446,97 +452,97 @@ func newCmdTeamTaskList(f *cmdutil.Factory) *cobra.Command {
 		Short:   "List the App's tasks (newest first)",
 		Long: `List the team App's tasks, newest first (the server's order). The App comes
 from --app, else the configured App context, else the worktree binding; with
-none of them the command is refused.
+none of them the command is refused. No records is []/exit 0.
 
---unresolved narrows to FINISHED tasks with at least one finding without a
-disposition; all four codes (including deferred) resolve a finding. False or
-omission does not narrow. The server filters under the App read gate before
-paging, ANDed with the other filters. Requires server#3258; it cannot combine
-with --team, even when false. A separate operation keeps older plain/filtered
-list documents unchanged when this flag is omitted. No records is []/exit 0.
+WHAT IT PRINTS. A table with one row per task: HANDLE (when any task has one),
+ID, STATUS, PRIORITY (1 = highest), BLOCKED, BLOCKED BY and BLOCKS (counts),
+TITLE, OWNER and ASSIGNEE ("(queued)" for a task waiting with no assignee,
+"—" for none); columns are added when a row has a minimum tier, model groups,
+a finish-by time or a match failure. --json is the list of tasks, each with the
+same fields. --limit/--offset page (default 20, cap 200); the server's hasMore
+says whether rows remain past the page, and the continuation names the exact
+--offset.
 
---match-failed selects tasks marked by an unsuccessful create --match;
---match-failed=false selects unmarked tasks. Omission keeps the old list.
-The server filters before paging under the App read gate. No results is []
-and exit 0. It cannot combine with the coordinator view --team (exit 2 before
-any read). Marked rows show the reason and time; JSON adds matchFailure only
-when present. Every task command requires provider server#3245 for these fields.
-
-Filters combine with AND, except that repeated --status values are
+FILTERS. All combine with AND, except that repeated --status values are
 alternatives (--status PENDING --status STARTED lists both). --status takes
-` + taskStatusDoc + `; --assignee and
---owner and --creator name a party, --queued keeps only pending tasks with no assignee,
---roots-only drops children, --parent lists one task's children, --tag
-filters by tag. --text matches a case-insensitive substring of title and description
-only, ANDed with other filters. Text is sent unchanged; the server trims and
-refuses blank or over-200-character values (BAD_USER_INPUT, exit 2).
---limit/--offset page (default 20, cap 200); a full default page says more may exist.
+PENDING, BACKLOG, STARTED, FINISHED or CANCELLED. --assignee, --owner and
+--creator name a party (worker:<id, URN or name> or user:<id or handle>);
+--queued keeps only pending tasks with no assignee; --roots-only drops
+children; --parent lists one task's children. --text matches a
+case-insensitive substring of title and description only; the server trims it
+and refuses a blank or over-200-character value (BAD_USER_INPUT, exit 2).
+Tags: --tag filters by one tag, and --tag-any (at least one) and --tag-all
+(every one) each take several; a comma is part of a tag, not a separator.
+--source matches the exact value, never a prefix, and so does --external-id:
+the tasks that claim that outside item. An external id is held by at most one
+ACTIVE task (backlog, pending or started) per App; finished and cancelled
+tasks keep it, so the list can hold several, newest first. The live holder is
+the one still active, and one call finds it, against the same App as the refused
+create and with no other narrowing filter:
+  --external-id <id> --status BACKLOG --status PENDING --status STARTED
+An empty list then means no active
+task matched under these filters (the newest ended task is not a holder); any
+other filter can hide the holder. --ref <target> lists tasks carrying a typed
+reference with exactly that target (never a prefix; the label is ignored), and
+--ref-kind (issue, pull-request, node, task, url) narrows it to one kind;
+--ref-kind alone is a usage error.
+--unresolved narrows to FINISHED tasks with at least one finding without a
+disposition (all four dispositions, including deferred, resolve a finding);
+false or omission does not narrow. It cannot combine with --team, even when
+false, and needs a server released on or after 2026-11-03. It lists finished
+tasks only, so with it the holder lookup above cannot find an active holder.
+--match-failed selects tasks marked by an unsuccessful create --match;
+--match-failed=false selects unmarked tasks; omission keeps the old list. It
+cannot combine with --team (exit 2 before any read). Marked rows show the
+reason and time; JSON adds matchFailure only when present. These need a server
+released on or after 2026-11-03.
 
---tag-any (at least one) and --tag-all (every one) repeat; a comma is part of a
-tag, not a separator. --source matches the exact value, never a prefix, and so
-does --external-id: the tasks that claim that outside item. An external id is
-held by at most one ACTIVE task (backlog, pending or started) per App; finished
-and cancelled tasks keep it, so the list can hold several, newest first. The
-live holder is the one still active, and one call finds it:
---external-id <id> --status BACKLOG --status PENDING --status STARTED, against
-the same App as the refused create and with no other narrowing filter. An empty
-list then means no active task matched under these filters (the newest ended
-task is not a holder); any other filter can hide the holder. --unresolved lists
-finished tasks only, so with it the lookup cannot find an active holder.
---ref <target> lists tasks carrying a typed reference with exactly that target
-(never a prefix; the label is ignored), and --ref-kind (issue, pull-request,
-node, task, url) narrows it to one kind; --ref-kind alone is a usage error.
---overdue lists tasks overdue on the server clock (the database clock). Two
-arms: a pending, not-started task whose start-by has passed, or a pending or
-started task whose finish-by has passed. An ended (finished or cancelled)
-task and a backlog task are never overdue, and neither is a task with
-neither time. Blocking is ignored and a person-assigned task counts like any
-other; --overdue=false lists all other tasks. This is a filter, not an alarm
-(the stall.finish-by deadline alarm is separate and unchanged). The
-finish-by arm needs a provider containing hadron-server#2654; an older one
-filters by start-by only.
---created-/--started-/--finished-after and -before take RFC 3339 times
-with Z or an offset and are inclusive bounds; a task with no start or
-finish time never matches a range on it. A malformed time is a usage
-error (exit 2) and nothing is sent. These filters AND with the rest and
-do not combine with --team.
+TIME FILTERS. --overdue lists tasks overdue on the server clock: a pending,
+not-started task whose start-by has passed, or a pending or started task whose
+finish-by has passed. An ended (finished or cancelled) task and a backlog task
+are never overdue, and neither is a task with neither time. Blocking is
+ignored and a person-assigned task counts like any other; --overdue=false lists
+all other tasks. It is a filter, not an alarm (the stall.finish-by deadline
+alarm is separate). The finish-by arm needs a server released on or after
+2026-11-17; an older one filters by start-by only.
+--created-/--started-/--finished-after and -before take RFC 3339 times with Z
+or an offset and are inclusive bounds; a task with no start or finish time
+never matches a range on it. A malformed time is a usage error (exit 2) and
+nothing is sent. These filters do not combine with --team.
 
---team is a coordinator's view of work in flight (#1044). The team is the
-coordinator — the bound worker for a bare --team, or --team=worker:<id, URN
-or name> (attached with =) — plus every worker whose roster reportsTo chain
+COORDINATOR VIEW (--team). The work in flight of one coordinator's team: the
+coordinator — the bound worker for a bare --team, or --team=worker:<id, URN or
+name> (attached with =) — plus every worker whose roster reportsTo chain
 reaches them, in this App. It lists the App's tasks a team member OWNS, is
-ASSIGNED or CREATED, plus every descendant of those, even where the descendant's parties
-sit outside the team; owner/assignee cells say "(outside)" for a worker in
-another reporting subtree and "(not on roster)" for one the roster does not
-list (a retired worker: the roster omits them, so their tasks join only as a
-descendant or through a current team member). A task a person created does not
-join through its creator, and other Apps are never read (hadron-server#2370). It reads every
-page of the App's tasks (no truncation; a page that does not advance is
-refused, exit 1), then applies --status after the join, so an open task under
-a finished team task stays in view. It combines with --status, --text, --tree
-and --stale-over. Text is selected by the server after the team join, using a
-second paged read, so nonmatching ancestors do not hide matching descendants.
-Every other filter, and --limit/--offset, is refused with --team (exit 2);
---tree and --stale-over work only with --team.
+ASSIGNED or CREATED, plus every descendant of those, even where the
+descendant's parties sit outside the team; owner/assignee cells say "(outside)"
+for a worker in another reporting subtree and "(not on roster)" for one the
+roster does not list (a retired worker: their tasks join only as a descendant
+or through a current team member). A task a person created does not join
+through its creator, and other Apps are never read. It reads every page of the
+App's tasks (no truncation; a page that does not advance is refused, exit 1),
+then applies --status after the join, so an open task under a finished team
+task stays in view. It combines with --status, --text, --tree and
+--stale-over. Every other filter, and --limit/--offset, is refused with --team
+(exit 2); --tree and --stale-over work only with --team.
   --tree draws parent/child trees with status, idle time, owner, assignee,
     title and open alarms; a row whose parent is not shown is a root.
-The open-alarm counts are each task's alarms IN EFFECT (cor:agt:050:20), the
-server's answer — the same rows ` + "`team events --alarms-in-effect`" + ` returns,
-never worked out here — read by a complete oldest-first walk. An alarm whose
-escalation ended is not counted, even while no one has acknowledged it; the
-end can lag by up to one evaluator pass, and the alarm reads as in effect
-until it is recorded. If that walk
-stops early (the 100-page bound, or the server reports more events without
-advancing its cursor) the counts are lower bounds and say so:
-text prints one INCOMPLETE line, counts as ≥N, and ? (not —) for an uncounted
-task in the table; --json marks every task openAlarmsIncomplete:true (a missing
-openAlarms then means unknown, not none) and adds alarmCounts {complete:false,
-reason, lastEventId, pages}. Both markers are absent on a complete walk.
   --stale-over <duration> (e.g. 1h) keeps PENDING/STARTED tasks idle longer
     than that, where idle runs from the record's updatedAt, else startedAt,
     else createdAt. Records lag real progress (PR pushes, receipts); a stderr
     note says so.
---json is an object: {appId, coordinator, coordinatorSource, members,
+Open alarms: an alarm is the platform's stall warning (` + "`team task tree --help`" + `
+explains them). The count is each task's alarms still in
+effect, the server's answer (the rows ` + "`team events --alarms-in-effect`" + ` returns),
+read by a complete oldest-first walk; an alarm whose escalation ended is not
+counted, even unacknowledged, though the end can lag by up to one evaluator
+pass. If the walk stops early (the 100-page bound, or the server reports more
+events without advancing its cursor) the counts are lower bounds: text prints
+one INCOMPLETE line, counts as ≥N, and ? (not —) for an uncounted task;
+--json marks every task openAlarmsIncomplete:true (a missing openAlarms then
+means unknown, not none) and adds alarmCounts {complete:false, reason,
+lastEventId, pages}. Both markers are absent on a complete walk.
+--team --json is an object: {appId, coordinator, coordinatorSource, members,
 staleOverSeconds, tasks}, each task the plain task plus ownerTeam/assigneeTeam
 (team|outside|unknown|user|null), match (party|descendant), ageSeconds and
 ageFrom; --tree changes text only.`,
@@ -665,10 +671,9 @@ ageFrom; --tree changes text only.`,
 			return listTasks(ctx, f, scope, taskListQuery{
 				assignee: assigneeIn, owner: ownerIn, creator: creatorIn, parent: optStr(parent), queued: optBool(queued),
 				rootsOnly: optBool(rootsOnly), status: status, tag: optStr(tag), text: textArg, limit: limit, offset: offset,
-				limitExplicit: cmd.Flags().Changed("limit"),
-				matchFailed:   matchFailedIn,
-				unresolved:    unresolvedIn,
-				tagsAny:       nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), externalID: optStr(externalID), reference: refFilter, overdue: overdueIn,
+				matchFailed: matchFailedIn,
+				unresolved:  unresolvedIn,
+				tagsAny:     nilIfEmpty(tagsAny), tagsAll: nilIfEmpty(tagsAll), source: optStr(source), externalID: optStr(externalID), reference: refFilter, overdue: overdueIn,
 				createdAfter: bounds[0], createdBefore: bounds[1], startedAfter: bounds[2], startedBefore: bounds[3],
 				finishedAfter: bounds[4], finishedBefore: bounds[5],
 			})
@@ -695,7 +700,7 @@ ageFrom; --tree changes text only.`,
 	cmd.Flags().StringVar(&text, "text", "", "case-insensitive substring of title and description only (server validates 1–200 characters)")
 	cmd.Flags().BoolVar(&queued, "queued", false, "only queued tasks (pending, no assignee)")
 	cmd.Flags().BoolVar(&rootsOnly, "roots-only", false, "drop child tasks")
-	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (default 20, server cap 200)")
+	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (the server caps it at 200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "page offset")
 	cmd.Flags().StringVar(&team, "team", "", "a coordinator's team view: bare for the bound worker, or --team=worker:<ref>")
 	cmd.Flags().Lookup("team").NoOptDefVal = teamFlagBound
@@ -711,9 +716,6 @@ type taskListQuery struct {
 	queued, rootsOnly        *bool
 	status                   []gen.AgentTaskStatus
 	limit, offset            int
-	// limitExplicit is true when the user passed --limit: a full page of the
-	// default size is then their own page, not a silent truncation.
-	limitExplicit bool
 	// The #1250 filters; any one set routes the read through AgentTaskListFiltered.
 	tagsAny, tagsAll              []string
 	source                        *string
@@ -758,94 +760,150 @@ func checkTaskPage(limit, offset int) error {
 	return nil
 }
 
+// taskPageInfo is one agentTasksPage answer's metadata (server#4622): the
+// total the items were counted against in the same snapshot, whether rows
+// remain past this page, and Served — the row count of the page as the server
+// vouched for it. Walks and continuation lines advance by Served, never by a
+// DTO list's length, so a continuation offset cannot drift from the server's
+// offset even if the copy into taskDTOs ever changed shape (BLIND round 2,
+// cli#2734: listTasks printed offset+len(tasks), right only while taskPageOf
+// provably copies every row — the count is now carried, not re-derived).
+type taskPageInfo struct {
+	Total   int
+	HasMore bool
+	Served  int
+}
+
+// malformedTaskPage refuses an agentTasksPage answer that cannot be trusted:
+// no page object, or an items list that is missing or null (a decoded empty
+// array is non-nil, so that is never a legitimate empty page). The
+// dependencyPage precedent (cli#1135): exit 1, never an empty success that
+// would claim a quiet App (cli#2734).
+func malformedTaskPage(what string) error {
+	return exitcode.Newf(exitcode.Error, "server returned a malformed agentTasksPage answer: %s", what)
+}
+
+// taskPageOf validates one document's agentTasksPage answer and copies its
+// rows and metadata. A null item is refused, not skipped: a silent skip would
+// make the rows disagree with the page the server vouched for (cli#1182).
+// fields names the embedded AgentTaskFields so the five documents' distinct
+// generated item types share one copy.
+func taskPageOf[E any, I interface {
+	*E
+}](items []I, info taskPageInfo, fields func(I) gen.AgentTaskFields) ([]taskDTO, taskPageInfo, error) {
+	if items == nil {
+		return nil, taskPageInfo{}, malformedTaskPage("items is missing or null")
+	}
+	// An empty page that claims more remain can never advance a walk: the
+	// continuation is offset + rows served (cor:api:120:04), so offset + 0
+	// would re-ask the same page forever. Refused as untrustworthy, like any
+	// other malformed page, instead of looping to the page bound.
+	if len(items) == 0 && info.HasMore {
+		return nil, taskPageInfo{}, malformedTaskPage("an empty page claims more remain")
+	}
+	tasks := []taskDTO{}
+	for i, it := range items {
+		if it == nil {
+			return nil, taskPageInfo{}, exitcode.Newf(exitcode.Error, "server returned a malformed agentTasksPage answer: item %d of %d is empty", i+1, len(items))
+		}
+		task, err := taskDTOFrom(fields(it))
+		if err != nil {
+			return nil, taskPageInfo{}, err
+		}
+		tasks = append(tasks, task)
+	}
+	// The page's own row count, carried alongside the copy: every walk that
+	// advances by rows served reads this, so the offset it sends is the
+	// server's arithmetic on the server's count (len(items)), never a
+	// re-derivation from the DTO list.
+	info.Served = len(items)
+	return tasks, info, nil
+}
+
 // taskListPage preserves the original operation document when text is absent.
 // Omitting a JSON variable alone does not hide an argument from GraphQL validation.
-func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, int, error) {
-	tasks := []taskDTO{}
+// It returns the page's metadata so callers never guess completeness from a
+// full page (cli#2734).
+func taskListPage(ctx context.Context, client graphql.Client, appRef string, q taskListQuery) ([]taskDTO, taskPageInfo, error) {
 	if q.creator != nil {
 		r, err := gen.AgentTaskListCreator(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text, q.creator)
 		if err != nil {
-			return nil, 0, mapFindingError(err)
+			return nil, taskPageInfo{}, mapFindingError(err)
 		}
-		for _, t := range r.AgentTasks {
-			if t != nil {
-				task, err := taskDTOFrom(t.AgentTaskFields)
-				if err != nil {
-					return nil, 0, err
-				}
-				tasks = append(tasks, task)
-			}
+		if r.AgentTasksPage == nil {
+			return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 		}
-		return tasks, len(r.AgentTasks), nil
+		return taskPageOf(r.AgentTasksPage.Items, taskPageInfo{Total: r.AgentTasksPage.Total, HasMore: r.AgentTasksPage.HasMore},
+			func(t *gen.AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+				return t.AgentTaskFields
+			})
 	}
 	if q.unresolved != nil {
 		r, err := gen.AgentTaskListUnresolved(ctx, client, appRef, q.unresolved, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
 		if err != nil {
-			return nil, 0, mapFindingError(err)
+			return nil, taskPageInfo{}, mapFindingError(err)
 		}
-		for _, t := range r.AgentTasks {
-			if t != nil {
-				task, err := taskDTOFrom(t.AgentTaskFields)
-				if err != nil {
-					return nil, 0, err
-				}
-				tasks = append(tasks, task)
-			}
+		if r.AgentTasksPage == nil {
+			return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 		}
-		return tasks, len(r.AgentTasks), nil
+		return taskPageOf(r.AgentTasksPage.Items, taskPageInfo{Total: r.AgentTasksPage.Total, HasMore: r.AgentTasksPage.HasMore},
+			func(t *gen.AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+				return t.AgentTaskFields
+			})
 	}
 	if q.filtered() {
 		resp, err := gen.AgentTaskListFiltered(ctx, client, appRef, q.assignee, q.createdAfter, q.createdBefore, q.finishedAfter, q.finishedBefore,
 			q.matchFailed, &q.limit, &q.offset, q.overdue, q.owner, q.parent, q.queued, q.rootsOnly, q.reference, q.source, q.externalID, q.startedAfter, q.startedBefore,
 			q.status, q.tag, q.tagsAll, q.tagsAny, q.text)
 		if err != nil {
-			return nil, 0, mapTaskError(err)
+			return nil, taskPageInfo{}, mapTaskError(err)
 		}
-		for _, t := range resp.AgentTasks {
-			if t != nil {
-				task, err := taskDTOFrom(t.AgentTaskFields)
-				if err != nil {
-					return nil, 0, err
-				}
-				tasks = append(tasks, task)
-			}
+		if resp.AgentTasksPage == nil {
+			return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 		}
-		return tasks, len(resp.AgentTasks), nil
+		return taskPageOf(resp.AgentTasksPage.Items, taskPageInfo{Total: resp.AgentTasksPage.Total, HasMore: resp.AgentTasksPage.HasMore},
+			func(t *gen.AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+				return t.AgentTaskFields
+			})
 	}
 	if q.text != nil {
 		resp, err := gen.AgentTaskListText(ctx, client, appRef, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag, q.text)
 		if err != nil {
-			return nil, 0, mapTaskError(err)
+			return nil, taskPageInfo{}, mapTaskError(err)
 		}
-		for _, t := range resp.AgentTasks {
-			if t != nil {
-				task, err := taskDTOFrom(t.AgentTaskFields)
-				if err != nil {
-					return nil, 0, err
-				}
-				tasks = append(tasks, task)
-			}
+		if resp.AgentTasksPage == nil {
+			return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 		}
-		return tasks, len(resp.AgentTasks), nil
+		return taskPageOf(resp.AgentTasksPage.Items, taskPageInfo{Total: resp.AgentTasksPage.Total, HasMore: resp.AgentTasksPage.HasMore},
+			func(t *gen.AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+				return t.AgentTaskFields
+			})
 	}
 	resp, err := gen.AgentTaskList(ctx, client, appRef, q.assignee, &q.limit, &q.offset, q.owner, q.parent, q.queued, q.rootsOnly, q.status, q.tag)
 	if err != nil {
-		return nil, 0, mapTaskError(err)
+		return nil, taskPageInfo{}, mapTaskError(err)
 	}
-	for _, t := range resp.AgentTasks {
-		if t != nil {
-			task, err := taskDTOFrom(t.AgentTaskFields)
-			if err != nil {
-				return nil, 0, err
-			}
-			tasks = append(tasks, task)
-		}
+	if resp.AgentTasksPage == nil {
+		return nil, taskPageInfo{}, malformedTaskPage("the page object is missing or null")
 	}
-	return tasks, len(resp.AgentTasks), nil
+	return taskPageOf(resp.AgentTasksPage.Items, taskPageInfo{Total: resp.AgentTasksPage.Total, HasMore: resp.AgentTasksPage.HasMore},
+		func(t *gen.AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) gen.AgentTaskFields {
+			return t.AgentTaskFields
+		})
+}
+
+// taskListPageDTO is `task list` and `task mine` --json (cli#2734): the page
+// object — tasks (never null, [] when the page is empty), the total they were
+// counted against, and whether rows remain past this page. Breaking change
+// from the bare array, per the cli#1919 events precedent; release note added.
+type taskListPageDTO struct {
+	Tasks   []taskDTO `json:"tasks"`
+	Total   int       `json:"total"`
+	HasMore bool      `json:"hasMore"`
 }
 
 // listTasks is `task list`'s request and render, shared with `task mine`
@@ -856,16 +914,11 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 	if err != nil {
 		return err
 	}
-	tasks, count, err := taskListPage(ctx, client, scope.Ref, q)
+	tasks, info, err := taskListPage(ctx, client, scope.Ref, q)
 	if err != nil {
 		return err
 	}
-	// agentTasks returns no total, so a full DEFAULT page cannot show that the
-	// list ended: say so on stderr (the output shape stays a bare array).
-	if !q.limitExplicit && count >= q.limit {
-		_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "Showing a full page of %d tasks; there may be more: --offset %d\n", q.limit, q.offset+q.limit)
-	}
-	return output.Write(f.IOStreams, f.JSON, tasks, func(w io.Writer) error {
+	return output.Write(f.IOStreams, f.JSON, taskListPageDTO{Tasks: tasks, Total: info.Total, HasMore: info.HasMore}, func(w io.Writer) error {
 		// Unconditionally, and before the rows (#470): an empty list
 		// is the normal steady state of a quiet App, and without this
 		// line "no tasks" and "another team's App" look identical.
@@ -937,7 +990,25 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 			}
 			t.Row(cells...)
 		}
-		return t.Flush()
+		if err := t.Flush(); err != nil {
+			return err
+		}
+		// The page end is the server's (cor:api:120:04), the events precedent
+		// (cli#1919): a continuation is named only when hasMore — with the
+		// total and the exact --offset that continues the walk. A page that
+		// merely happens to be full is the last page when hasMore is false,
+		// and an explicit --limit does not suppress the server's truth.
+		if info.HasMore {
+			// The continuation is offset + the ROWS SERVED, not offset+limit
+			// (cor:api:120:04, the cli#1919 events precedent): a short page
+			// with hasMore has consumed only the rows it returned, and
+			// offset+limit would skip limit-len rows. Served is the page's own
+			// row count, so the offset sent is the server's. On stderr with
+			// the other continuation lines, so stdout stays the table alone.
+			_, err := fmt.Fprintf(f.IOStreams.ErrOut, "more tasks remain of %d total: continue with --offset %d\n", info.Total, q.offset+info.Served)
+			return err
+		}
+		return nil
 	})
 }
 
@@ -955,7 +1026,7 @@ func newCmdTeamTaskMine(f *cmdutil.Factory) *cobra.Command {
 		Long: `List the tasks assigned to this worktree's bound worker that are PENDING or
 STARTED — ` + "`task list --assignee worker:<bound worker> --status PENDING --status STARTED`" + `
 in the bound worker's App, with the same output. The filters are fixed.
---limit/--offset page (default 20, cap 200); a full default page says more may exist.
+--limit/--offset page (default 20, cap 200); the server's hasMore says whether rows remain past the page, and the continuation names the exact --offset.
 
 It needs a worker session binding: without one, start a session with
 ` + "`hadron team session start`" + ` (see its --help for resuming a session
@@ -1004,12 +1075,10 @@ binding's server must be the one this call targets.`,
 				status:   []gen.AgentTaskStatus{gen.AgentTaskStatusPending, gen.AgentTaskStatusStarted},
 				limit:    limit,
 				offset:   offset,
-
-				limitExplicit: cmd.Flags().Changed("limit"),
 			})
 		},
 	}
-	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (default 20, server cap 200)")
+	cmd.Flags().IntVar(&limit, "limit", taskListDefaultLimit, "page size (the server caps it at 200)")
 	cmd.Flags().IntVar(&offset, "offset", 0, "page offset")
 	return cmd
 }
@@ -1029,22 +1098,33 @@ func newCmdTeamTaskTree(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "tree <rootTaskId>",
 		Short: "Show a task's parent/child chain",
-		Long: `Render the task and every task below it — children, their children and so
-on, up to 1000 rows — as a tree, with status, owner, assignee and OPEN ALARMS
-per node. The count is the task's alarms IN EFFECT (cor:agt:050:20): the
-server's answer, the same rows ` + "`team events --alarms-in-effect`" + ` returns,
-joined onto the tree client-side — the join is presentation, the alarm facts
-are the server's, and nothing is worked out here. An alarm whose escalation
-ended is not counted though it may still be unacknowledged; the server can
-take up to one evaluator pass to record the end, and the alarm reads as in
-effect until then. To see an alarm in full use ` + "`team events --alarms`" + `; to
-acknowledge one, ` + "`team alarm ack`" + `. The root is an id or handle; a hidden
-or missing root exits 4. Text cells neutralise terminal controls and are bounded;
---json carries complete, original values.
-If the alarm walk stops early the counts are lower bounds: text prints one
-INCOMPLETE line and ≥N, and --json marks every task openAlarmsIncomplete:true
-(a missing openAlarms then means unknown, not none); both are absent when the
-walk is complete.`,
+		Long: `Show a task and every task below it — its children, their children and so
+on — as an indented tree. The root is an id or a handle (--app qualifies a bare
+handle); a hidden or missing root exits 4.
+
+Each line is:  • <handle> <id> [<status>] <owner> → <assignee>  and, when they apply,
+"waiting-on-children" (the task is held until its child tasks end) and
+"⏰ N open alarm(s)". An assignee of — means none yet. Sample:
+  • AT1 01a2…c3 [STARTED] Eden → Iris  waiting-on-children  ⏰ 1 open alarm
+    • AT1.1 01a2…d4 [FINISHED] Iris → Uma
+
+The server returns at most 1000 rows and gives no sign when a larger tree is
+cut: if the tree looks short, read the next level with ` + "`team task list --parent <task>`" + `
+(one level of children per call) instead.
+
+An alarm is the platform's stall warning (` + "`team stall-schedule get`" + ` shows the
+windows). The count is the alarms still in effect, the same rows
+` + "`team events --alarms-in-effect`" + ` returns: a stall warning that escalated and
+ended is not counted even if nobody acknowledged it, and the server can take
+up to one evaluator pass (its periodic check) to record the end, so a
+just-ended alarm can still show. To read an alarm in full use ` + "`team events --alarms`" + `; to
+acknowledge one, ` + "`team alarm ack`" + `. The counts come from the server and are
+joined onto the tree here. If that lookup stops early, the counts are lower
+bounds: text prints one INCOMPLETE line and "≥N", and --json marks each task
+openAlarmsIncomplete:true (a missing openAlarms then means unknown, not none).
+
+Text cells neutralise terminal controls and are bounded; --json carries
+complete, original values.`,
 		Example: "  hadron team task tree AT1",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

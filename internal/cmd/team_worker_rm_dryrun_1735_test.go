@@ -149,6 +149,7 @@ func TestWorkerRmDryRunRefusals1735(t *testing.T) {
 		{"WORKER_NOT_FOUND", exitcode.NotFound},
 		{"WORKER_REFERENCE_NOT_FOUND", exitcode.NotFound},
 		{"WORKER_IN_USE", exitcode.Conflict},
+		{"WORKER_CENSUS_INCOMPLETE", exitcode.Conflict}, // cli#2959: nothing deleted; references neither found nor ruled out
 		{"FORBIDDEN", exitcode.Forbidden},
 	} {
 		t.Run(tc.code, func(t *testing.T) {

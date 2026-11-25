@@ -135,7 +135,7 @@ Writes to stdout by default (so it composes in a pipe with node import);
 				return api.MapError(err)
 			}
 			if resp == nil || resp.NodeExport == nil {
-				return exitcode.Newf(exitcode.NotFound, "node %q is not readable", args[0])
+				return exitcode.Newf(exitcode.NotFound, "the node is not readable (the ref given is not shown)")
 			}
 
 			// The payload encoding is deterministic by format: md/json come back as
@@ -283,9 +283,21 @@ func isUnknownFieldErr(err error, field string) bool {
 	if !strings.Contains(msg, field) {
 		return false
 	}
-	return strings.Contains(msg, "Cannot query field") ||
-		strings.Contains(msg, "Unknown field") ||
-		strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED")
+	// A missing FIELD is the too-old signature even when the server batches an
+	// unknown-argument error into the same validation response (GraphQL reports
+	// every error of one document together): the field phrases decide first, or
+	// the argument exclusion below would mask them.
+	if strings.Contains(msg, "Cannot query field") ||
+		strings.Contains(msg, "Unknown field") {
+		return true
+	}
+	// An unknown ARGUMENT on a field the server has (nodeExport(ref:) against a server that
+	// still has nodeExport(id:), cli#2899) is a version mismatch, not a missing field: it
+	// falls through to the generic out-of-sync refusal.
+	if strings.Contains(msg, "Unknown argument") {
+		return false
+	}
+	return strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED")
 }
 
 // exportSections maps --section values onto NodeExportSection; nil when none

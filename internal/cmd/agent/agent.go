@@ -200,6 +200,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentSetBootPrompt(f))
 	cmd.AddCommand(newCmdAgentBootPrompt(f))
 	cmd.AddCommand(newCmdAgentModelGroup(f))
+	cmd.AddCommand(newCmdAgentSession(f))
 	cmd.AddCommand(bootcompile.NewAgent(f))
 	return cmd
 }
@@ -497,7 +498,7 @@ every other field still works. Any other read failure is an error.`,
 				return api.MapError(err)
 			}
 			if resp.Agent == nil {
-				return exitcode.Newf(exitcode.NotFound, "agent %q not found", args[0])
+				return exitcode.Newf(exitcode.NotFound, "agent not found (the ref given is not shown)")
 			}
 			dto := agentGetDTO{agentBaseDTO: agentDTOFromFields(resp.Agent.AgentFields).agentBaseDTO, ClonedFromAgentRef: resp.Agent.ClonedFromAgentRef, OfferReadiness: offerReadinessDTOFrom(resp.Agent.OfferReadiness)}
 			life, lifeErr := gen.GetAgentLifecycle(cmd.Context(), client, resp.Agent.Id)
@@ -1142,7 +1143,7 @@ Prints the result; --json is {"id": <ref>, "status": "deleted"}.`,
 				return api.MapError(err)
 			}
 			if !resp.DeleteAgent {
-				return exitcode.Newf(exitcode.Error, "agent %s was not deleted", args[0])
+				return exitcode.Newf(exitcode.Error, "the agent was not deleted (the ref given is not shown)")
 			}
 			dto := map[string]string{"id": args[0], "status": "deleted"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -1429,6 +1430,7 @@ func newCmdAgentTasks(f *cmdutil.Factory) *cobra.Command {
 		Short: "The tasks the Agent's workers see",
 	}
 	cmd.AddCommand(newCmdAgentTasksList(f))
+	cmd.AddCommand(newCmdAgentTasksCreate(f))
 	return cmd
 }
 

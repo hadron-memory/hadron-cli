@@ -82,24 +82,11 @@ func TestWorkerStartLaunchesThroughOrcaFromTheProfile2058(t *testing.T) {
 	}
 }
 
-// The exec path is untouched for a worker without launch_via: orca.
-func TestWorkerStartKeepsTheExecPathByDefault2058(t *testing.T) {
-	p, srv, host := testPoller(t)
-	rec := &recordedOrca{}
-	p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})
-	srv.notDone["s1"] = 1
-	srv.batches = [][]Operation{{startOp()}}
-	step(t, p)
-	if len(host.launches) != 1 || len(rec.specs) != 0 {
-		t.Fatalf("exec launches %d, orca launches %d", len(host.launches), len(rec.specs))
-	}
-}
-
 // A worker configured for Orca never falls back to the exec path: no
 // launcher wired, or an Orca failure, launches nothing and says why.
 func TestWorkerStartThroughOrcaNeverFallsBack2058(t *testing.T) {
 	for name, setup := range map[string]func(p *Poller){
-		"no launcher wired": func(p *Poller) {},
+		"no launcher wired": func(p *Poller) { p.orcaLaunch = nil }, // testPoller wires the fake launcher: unwire it
 		"orca refuses": func(p *Poller) {
 			rec := &recordedOrca{err: errors.New("orca did not create the terminal (invalid_argument)")}
 			p.EnableOrcaLaunch(rec.launch, ConfigProfiles{Cfg: p.startCfg})

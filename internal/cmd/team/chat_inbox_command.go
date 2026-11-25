@@ -13,18 +13,26 @@ func newCmdTeamChatInboxWithTransport(f *cmdutil.Factory, source inboxTransport,
 	var ackFile string
 	cmd := &cobra.Command{
 		Use: "inbox", Short: "Display your worker's delivery batches and acknowledge complete output",
-		Long: `Display delivery batches for this worktree's own live worker session.
-Acknowledgment follows complete output and records delivery marks only;
-it does not call chat mark-read.
-Read one bounded page; use --after with its pageInfo.endCursor for the next.
-Before acknowledgment, a failed run may redisplay a batch if repulled.
-Retain JSON output privately when you need proof ids for ack-only recovery.
-If acknowledgment is unconfirmed in human mode, run inbox again; batches not
-acknowledged may show again. With --json, retain the output privately and put
-its batches[].id values in a batchIds array. Retry only that proof list
-with --ack-file PATH (JSON: {"batchIds":["opaque-proof"]}); use - for piped stdin.
-Recovery acknowledges without reading or redisplaying batches. Proofs must
-belong to the same live session. This command creates no recovery file.`,
+		Long: `Show the delivery batches queued for this worktree's own live worker session,
+one page at a time. A batch is a group of messages the system has set aside for
+your worker to see. After the page has been printed in full, the command
+acknowledges those batches, which stops them being shown again. That records
+delivery only; it does not move your chat read position (use
+` + "`" + `team chat mark-read` + "`" + ` or ` + "`" + `team chat read` + "`" + ` for that).
+
+Paging: pass the page's pageInfo.endCursor as --after to get the next page.
+
+If the run fails before the acknowledgement, the same batch may show again the
+next time. If the acknowledgement is unconfirmed in text mode, simply run the
+command again; unacknowledged batches may show again.
+
+Recovering an acknowledgement without reading the batches again: run with
+--json and keep that output privately, because each batch has an id that is
+the proof of delivery. If the acknowledgement was lost, write those ids to a
+file as {"batchIds":["<id>", ...]} (the ids from batches[].id) and run again
+with --ack-file PATH (- for piped standard input). That acknowledges them
+without printing any batch. The ids must belong to the same live session. This
+command does not create the file for you.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			var ids []string

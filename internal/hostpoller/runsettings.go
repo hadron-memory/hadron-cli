@@ -128,18 +128,6 @@ func accountLaunches(fam, profileFam string, a AccountProfile) bool {
 // carrier (a)); the report has no field for a SUCCEEDED statement.
 const StartSettingsAppliedEnvVar = "HADRON_START_SETTINGS_APPLIED"
 
-// settingsNotApplied is the one place the "not applied" statement is made, so
-// it can move to wherever the carrier is placed (#110847): the environment
-// entry for the agent and the log line for the host's own record. ok is false
-// when the start asked for nothing.
-func settingsNotApplied(rs RunSettings) (env, note string, ok bool) {
-	if !rs.requested() {
-		return "", "", false
-	}
-	return StartSettingsAppliedEnvVar + "=false",
-		fmt.Sprintf("this worker launches from a fixed command: model %q, tier %q and effort %q are not applied", rs.Model, rs.Tier, rs.Effort), true
-}
-
 // ResolveRun applies a start's run settings over the worker's launcher
 // profile. A start that asks for nothing returns the profile unchanged and a
 // zero Bind, so its argv and first prompt are exactly what they were.

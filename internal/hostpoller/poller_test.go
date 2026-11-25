@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -135,7 +136,7 @@ type fakeHost struct {
 	trees    map[string]WorktreeState
 	created  []string
 	removed  []string
-	launches []LaunchSpec
+	launches []OrcaLaunchSpec
 	prompts  [][]string
 	agent    *fakeAgent
 	occupant string
@@ -243,7 +244,9 @@ func (h *fakeHost) RemoveWorktree(_ context.Context, path string) error {
 	return nil
 }
 
-func (h *fakeHost) Launch(_ context.Context, spec LaunchSpec) (Agent, error) {
+// orcaLaunch is the supervised launch as this fake sees it: the recording,
+// gating and failure injection the tests assert a launch with (cli#2914).
+func (h *fakeHost) orcaLaunch(_ context.Context, spec OrcaLaunchSpec) (Agent, error) {
 	if h.beforeLaunch != nil {
 		h.beforeLaunch()
 	}
@@ -286,10 +289,15 @@ func testPoller(t *testing.T) (*Poller, *fakeServer, *fakeHost) {
 		WorktreesRoot: root, StateFile: filepath.Join(root, "state.json"),
 		Repos: map[string]string{"acme/repo": "/src/repo"},
 		Workers: map[string]WorkerConfig{
-			"iris": {Family: "claude", Launch: []string{"claude-worker", "--model", "opus"},
-				End: []string{"orca-send", "iris", "end"}, EndWait: "20ms", Worktrees: []string{"repo/iris"},
+			// Every worker launches through the supervised (Orca) path (cli#2914): the profile below
+			// builds the argv ["claude-worker", "--dangerously-skip-permissions", "--model", "opus", PromptArg].
+			"iris": {Family: "claude", Profile: &LauncherProfile{Family: "claude", Mode: ModeLong, Model: "opus", Account: "a"},
+				DiskTmp: filepath.Join(root, "disk"),
+				End:     []string{"orca-send", "iris", "end"}, EndWait: "20ms", Worktrees: []string{"repo/iris"},
 				Recover: []string{"orca-send", "iris", "recover"}},
 		},
+		Accounts:   map[string]AccountProfile{"a": {Bin: "claude-worker"}},
+		OrcaLaunch: OrcaLaunchConfig{OrcaBin: "/usr/bin/orca"},
 	}
 	if err := cfg.validate(); err != nil {
 		t.Fatal(err)
@@ -303,6 +311,8 @@ func testPoller(t *testing.T) (*Poller, *fakeServer, *fakeHost) {
 		cfg.WorktreePath("repo/iris"): {Exists: true, IsWorktree: true, Branch: "iris/work", Upstream: "origin/iris/work"},
 	}}
 	p := New(cfg, srv, host, st, hostKey, nil)
+	// The supervised launch is the only launch (cli#2914): the fake host records it as a launch.
+	p.EnableOrcaLaunch(host.orcaLaunch, ConfigProfiles{Cfg: cfg, Get: p.Current})
 	// The fake host stands in for /proc, so the strict census (which reads the
 	// real one) proves nothing here unless a test installs its own (cli#2201).
 	p.agentCensus = func(context.Context, hostrelaunch.Target) (hostrelaunch.Observation, error) {
@@ -522,8 +532,9 @@ func TestWorkerStartHandsOnlyTheGrantToTheAgent(t *testing.T) {
 		t.Fatalf("launched %d times", len(host.launches))
 	}
 	spec := host.launches[0]
-	if strings.Join(spec.Argv, " ") != "claude-worker --model opus" {
-		t.Errorf("argv must be the configured one: %v", spec.Argv)
+	// The supervised launch's argv is the worker's profile built on its account (cli#2914).
+	if want := []string{"claude-worker", "--dangerously-skip-permissions", "--model", "opus", PromptArg}; !reflect.DeepEqual(spec.Argv, want) {
+		t.Errorf("argv must be the profile's: %q, want %q", spec.Argv, want)
 	}
 	if spec.Dir != p.startCfg.WorktreePath("repo/iris") {
 		t.Errorf("dir: %s", spec.Dir)
@@ -543,8 +554,10 @@ func TestWorkerStartHandsOnlyTheGrantToTheAgent(t *testing.T) {
 	if !grant {
 		t.Error("the agent must get HADRON_LAUNCH_GRANT")
 	}
-	if !envHas(spec.Env, "PATH_LIKE=/usr/bin") {
-		t.Error("the rest of the environment is passed through")
+	// The supervised launch's environment is explicit (cli#2914): nothing of the poller's own passes
+	// through, so no variable it carries (PATH_LIKE here) reaches the agent.
+	if envHas(spec.Env, "PATH_LIKE=/usr/bin") {
+		t.Error("the poller's own environment must not pass through to a supervised launch")
 	}
 	for _, a := range spec.Argv {
 		if strings.Contains(a, hostKey) || strings.Contains(a, "hlg_") {
@@ -910,12 +923,12 @@ func TestWorkerStartRedeliveredAfterStartStuckRefusesWithoutStoppingTheAgent(t *
 func TestWorkerStartRefusesAnOccupiedTreeBeforeLaunching(t *testing.T) {
 	t.Run("occupied", func(t *testing.T) {
 		p, srv, host := testPoller(t)
-		host.occupant = "pid 4242, worker-supervise --wrapper cedric"
+		host.occupant = "pid 4242, launcher --worker cedric"
 		srv.notDone["s1"] = 1
 		srv.batches = [][]Operation{{startOp()}}
 		step(t, p)
 		r := only(t, srv)
-		if r.outcome != Failed || !strings.Contains(r.reason, "4242") || !strings.Contains(r.reason, "worker-supervise --wrapper cedric") {
+		if r.outcome != Failed || !strings.Contains(r.reason, "4242") || !strings.Contains(r.reason, "launcher --worker cedric") {
 			t.Errorf("the refusal must name the pid and the argv: %+v", r)
 		}
 		if len(host.launches) != 0 {
@@ -1035,23 +1048,23 @@ func TestFailedWorkerEndKeepsTheWorktree(t *testing.T) {
 
 func TestConfigRefusesWhatTheServerWould(t *testing.T) {
 	base := func() Config {
-		return Config{App: "a", Label: "l", WorktreesRoot: "/w",
-			Workers: map[string]WorkerConfig{"iris": {Family: "claude", Launch: []string{"x"}}}}
+		return *withSupervisedAccounts(&Config{App: "a", Label: "l", WorktreesRoot: "/w",
+			Workers: map[string]WorkerConfig{"iris": supervisedWorker("iris", "claude")}})
+	}
+	// Each case changes ONE thing in a worker that is otherwise valid (cli#2914).
+	with := func(change func(w *WorkerConfig)) func(*Config) {
+		return func(c *Config) { w := c.Workers["iris"]; change(&w); c.Workers["iris"] = w }
 	}
 	cases := map[string]func(*Config){
-		"no app":        func(c *Config) { c.App = "" },
-		"relative root": func(c *Config) { c.WorktreesRoot = "w" },
-		"bad family":    func(c *Config) { c.Workers["iris"] = WorkerConfig{Family: "Claude Code", Launch: []string{"x"}} },
-		"no launch":     func(c *Config) { c.Workers["iris"] = WorkerConfig{Family: "claude"} },
-		"bad worktree": func(c *Config) {
-			c.Workers["iris"] = WorkerConfig{Family: "claude", Launch: []string{"x"}, Worktrees: []string{"../up"}}
-		},
-		"bad interval":  func(c *Config) { c.PollIntervalSeconds = 90000 },
-		"no workers":    func(c *Config) { c.Workers = nil },
-		"relative repo": func(c *Config) { c.Repos = map[string]string{"a/b": "rel"} },
-		"bad end_wait": func(c *Config) {
-			c.Workers["iris"] = WorkerConfig{Family: "claude", Launch: []string{"x"}, EndWait: "soon"}
-		},
+		"no app":              func(c *Config) { c.App = "" },
+		"relative root":       func(c *Config) { c.WorktreesRoot = "w" },
+		"bad family":          with(func(w *WorkerConfig) { w.Family = "Claude Code" }),
+		"no launcher profile": with(func(w *WorkerConfig) { w.Profile = nil }),
+		"bad worktree":        with(func(w *WorkerConfig) { w.Worktrees = []string{"../up"} }),
+		"bad interval":        func(c *Config) { c.PollIntervalSeconds = 90000 },
+		"no workers":          func(c *Config) { c.Workers = nil },
+		"relative repo":       func(c *Config) { c.Repos = map[string]string{"a/b": "rel"} },
+		"bad end_wait":        with(func(w *WorkerConfig) { w.EndWait = "soon" }),
 	}
 	for name, mut := range cases {
 		t.Run(name, func(t *testing.T) {

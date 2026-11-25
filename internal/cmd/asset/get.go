@@ -74,7 +74,7 @@ or unknown asset exits 4.`,
 			}
 			d := resp.AssetDownloadUrl
 			if d == nil {
-				return exitcode.Newf(exitcode.NotFound, "no asset found for %q", args[0])
+				return exitcode.Newf(exitcode.NotFound, "no asset found (the asset ref given is not shown)")
 			}
 
 			path := out

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -95,7 +96,7 @@ func hostConfig(t *testing.T, orcaBin string) string {
 		y += "delivery:\n  orca_bin: " + orcaBin + "\n"
 	}
 	p := filepath.Join(dir, "host.yaml")
-	if err := os.WriteFile(p, []byte(y), 0o600); err != nil {
+	if err := os.WriteFile(p, []byte(hostyaml.Supervised(y)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -355,7 +356,7 @@ func TestHealthInstallKeepsTheWrittenConfigPath2674(t *testing.T) {
 		t.Fatal(err)
 	}
 	y := "app: hrn:app:example.com:team\nkey_file: " + key + "\nworktrees_root: " + root + "\npoll_interval_seconds: 30\nworkers:\n  iris:\n    family: claude\n    launch: [claude-worker]\n"
-	if err := os.WriteFile(filepath.Join(root, "real", "host.yaml"), []byte(y), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "real", "host.yaml"), []byte(hostyaml.Supervised(y)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	written := root + "/link/../host.yaml"

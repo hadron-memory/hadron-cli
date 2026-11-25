@@ -238,7 +238,9 @@ right after the start; follow that flow with "hadron connection flow <flow-id>".
 			// A blank link means no link, and the CLI hands over the server's
 			// link verbatim — it never composes a replacement (cli#2845 F2,
 			// cor:api:230:01) — so a whitespace-only URL is refused, like the
-			// empty one, as the server's to fix.
+			// empty one, as the server's to fix. The trim only decides blankness:
+			// a padded but real authorize URL is handed over and shown as the
+			// server sent it (cli#2892).
 			if strings.TrimSpace(start.AuthorizeUrl) == "" {
 				return exitcode.Newf(exitcode.Unavailable, "server returned a connection start with no authorize link")
 			}
@@ -379,9 +381,11 @@ const (
 )
 
 // cause is the note's parenthetical: the one cause that applied. It is asked
-// only of a degraded result — a lookupListed outcome is not degraded and never
-// reaches here — so the default arm answers the one remaining outcome; the
-// switch makes that visible instead of a silent fallback (cli#2845 F1).
+// only of a degraded result (r.connection != nil && lookup != lookupListed), so
+// lookupListed never reaches the default arm: it is unreachable by construction,
+// and answers the one remaining outcome, lookupUnlisted. A new caller that asks
+// of a listed lookup would get that text, which is false for it, so ask only
+// after degraded() (cli#2845 F1, cli#2892).
 func (l detailsLookup) cause() string {
 	switch l {
 	case lookupFailed:

@@ -1,6 +1,7 @@
 # Node revision-history surface (hadron-server #617/#619/#620, renamed
 # NodeVersion → NodeRevision in #623). nodeRef accepts a node PK or a
-# fully-qualified URN; revisionId is a snapshot's opaque id.
+# fully-qualified URN; nodeRevRef (#4138, server#4766) names a snapshot by its id
+# or its revision URN (hrn:noderev:...), passed through as the user typed it.
 #
 # Editor identity (#620): editedBy is the User id when known; editedByInfo holds
 # identity strings (github:/email:/user:/app:) when no User id resolves;

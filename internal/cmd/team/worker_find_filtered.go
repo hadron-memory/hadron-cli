@@ -61,7 +61,10 @@ func newCmdWorkerFindFiltered(f *cmdutil.Factory) *cobra.Command {
 func newCmdWorkerFindFilteredWithSources(f *cmdutil.Factory, source filterSources) *cobra.Command {
 	return &cobra.Command{
 		Use: "find-filtered [worker]", Short: "Report provider filter notices on local worker terminals",
-		Long: `Read-only, operator-run, report-only inspection of this team's Orca terminals.
+		Long: `Find workers whose terminal is stuck on a model provider's content-filter
+notice, so an operator can spot workers that have silently stopped. Read-only,
+operator-run and report-only: it inspects this team's Orca terminals (the
+terminal app that hosts local workers) on this computer.
 A full idle provider notice is BLOCKED; incomplete evidence or a running turn
 is AMBIGUOUS. Other screens are NOT_BLOCKED; unreadable screens are UNREADABLE.
 Sign in with a credential that can read the selected team App first.

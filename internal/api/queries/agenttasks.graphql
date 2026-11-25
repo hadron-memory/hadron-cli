@@ -103,6 +103,7 @@ fragment AgentTaskFields on AgentTask {
 # must not be sent as null. Per-field omitempty on this one input field.
 # Schema-only optional fields must stay absent for older providers.
 # @genqlient(for: "CreateAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CreateAgentTaskInput.isProject", omitempty: true)
 # cli#1514: finishBy omitted unless --finish-by is given; never send null by default.
 # @genqlient(for: "CreateAgentTaskInput.finishBy", omitempty: true)
 # @genqlient(for: "CreateAgentTaskInput.priority", omitempty: true)
@@ -160,7 +161,7 @@ mutation AgentTaskAssign(
   # @genqlient(omitempty: true)
   $closeSessionWhenDone: Boolean
 ) {
-  assignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+  assignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
     ...AgentTaskFields
   }
 }
@@ -171,19 +172,19 @@ mutation AgentTaskReassign(
   # @genqlient(omitempty: true)
   $closeSessionWhenDone: Boolean
 ) {
-  reassignAgentTask(taskId: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
+  reassignAgentTask(taskRef: $taskId, assignee: $assignee, closeSessionWhenDone: $closeSessionWhenDone) {
     ...AgentTaskFields
   }
 }
 
 mutation AgentTaskStart($taskId: ID!) {
-  startAgentTask(taskId: $taskId) {
+  startAgentTask(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
 
 mutation AgentTaskProgress($taskId: ID!) {
-  recordAgentTaskProgress(taskId: $taskId) {
+  recordAgentTaskProgress(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
@@ -195,7 +196,7 @@ mutation AgentTaskFinish(
   $taskId: ID!
   $result: AgentTaskResultInput!
 ) {
-  finishAgentTask(taskId: $taskId, result: $result) {
+  finishAgentTask(taskRef: $taskId, result: $result) {
     ...AgentTaskFields
   }
 }
@@ -211,7 +212,7 @@ mutation AgentTaskHandBack(
 }
 
 mutation AgentTaskCancel($taskId: ID!) {
-  cancelAgentTask(taskId: $taskId) {
+  cancelAgentTask(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
@@ -221,7 +222,7 @@ mutation AgentTaskCancel($taskId: ID!) {
 # and raises no alarms. Whoever may assign a task may park it
 # (cor:agt:050:09). TASK_INVALID_TRANSITION when not pending or assigned.
 mutation AgentTaskPark($taskId: ID!) {
-  parkAgentTask(taskId: $taskId) {
+  parkAgentTask(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
@@ -230,7 +231,7 @@ mutation AgentTaskPark($taskId: ID!) {
 # Whoever may assign a task may make it ready. TASK_INVALID_TRANSITION when
 # not backlog.
 mutation AgentTaskReady($taskId: ID!) {
-  makeAgentTaskReady(taskId: $taskId) {
+  makeAgentTaskReady(taskRef: $taskId) {
     ...AgentTaskFields
   }
 }
@@ -240,7 +241,7 @@ mutation AgentTaskReady($taskId: ID!) {
 # not the shared AgentTaskFields projection, so only `get` needs a provider that
 # has them.
 query AgentTaskGet($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
-  agentTask(id: $id) {
+  agentTask(ref: $id) {
     ...AgentTaskFields
     clonedFrom { ...AgentTaskDependencyFields }
     clones(limit: $clonesLimit, offset: $clonesOffset) { total hasMore items { ...AgentTaskDependencyFields } }
@@ -264,6 +265,7 @@ query AgentTaskGet($id: ID!, $clonesLimit: Int!, $clonesOffset: Int!) {
 # @genqlient(for: "CloneAgentTaskInput.parentTaskId", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.priority", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.project", omitempty: true)
+# @genqlient(for: "CloneAgentTaskInput.isProject", omitempty: true)
 # @genqlient(for: "CloneAgentTaskInput.properties", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.references", omitempty: true, bind: "encoding/json.RawMessage")
 # @genqlient(for: "CloneAgentTaskInput.requirements", omitempty: true, bind: "encoding/json.RawMessage")
@@ -276,7 +278,7 @@ mutation AgentTaskClone(
   $taskId: ID!
   $input: CloneAgentTaskInput!
 ) {
-  cloneAgentTask(taskId: $taskId, input: $input) {
+  cloneAgentTask(taskRef: $taskId, input: $input) {
     ...AgentTaskFields
   }
 }
@@ -296,8 +298,9 @@ mutation AgentTaskCreateBatch(
   }
 }
 
-# Plain list read; paging is limit/offset against a bounded result. The
-# filters map 1:1 onto `team task list` flags.
+# Plain list read; paging is limit/offset against a bounded page (cli#2734,
+# server#4622): items is one page, total counts the whole filter, hasMore is
+# the server's page end. The filters map 1:1 onto `team task list` flags.
 query AgentTaskList(
   $appRef: ID!
   # @genqlient(omitempty: true)
@@ -319,19 +322,23 @@ query AgentTaskList(
   # @genqlient(omitempty: true)
   $tag: String
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     assignee: $assignee
     limit: $limit
     offset: $offset
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     rootsOnly: $rootsOnly
     status: $status
     tag: $tag
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -359,20 +366,24 @@ query AgentTaskListText(
   # @genqlient(omitempty: true)
   $text: String
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     assignee: $assignee
     limit: $limit
     offset: $offset
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     rootsOnly: $rootsOnly
     status: $status
     tag: $tag
     text: $text
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -456,7 +467,7 @@ query AgentTeamEventsPage(
     alarmsInEffect: $alarmsInEffect
     limit: $limit
     since: $since
-    taskId: $taskId
+    taskRef: $taskId
     types: $types
   ) {
     events {
@@ -674,7 +685,7 @@ mutation AgentTaskRemoveBlocker($taskRef: ID!, $blockerTaskRef: ID!) {
 # limit and offset for both (cli#1135, server#2726 at cf9bcfece). The task ref is
 # passed to the server as given.
 query AgentTaskDependencies($taskRef: ID!, $limit: Int!, $offset: Int!) {
-  agentTask(id: $taskRef) {
+  agentTask(ref: $taskRef) {
     id
     blockedBy(limit: $limit, offset: $offset) { total hasMore items { ...AgentTaskDependencyFields } }
     blocks(limit: $limit, offset: $offset) { total hasMore items { ...AgentTaskDependencyFields } }
@@ -736,7 +747,7 @@ query AgentTaskListFiltered(
   # @genqlient(omitempty: true)
   $text: String
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     assignee: $assignee
     createdAfter: $createdAfter
@@ -748,7 +759,7 @@ query AgentTaskListFiltered(
     offset: $offset
     overdue: $overdue
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     reference: $reference
     rootsOnly: $rootsOnly
@@ -762,7 +773,11 @@ query AgentTaskListFiltered(
     tagsAny: $tagsAny
     text: $text
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -793,179 +808,8 @@ mutation AgentTaskUpdate(
   $taskId: ID!
   $input: UpdateAgentTaskInput!
 ) {
-  updateAgentTask(taskId: $taskId, input: $input) {
+  updateAgentTask(taskRef: $taskId, input: $input) {
     ...AgentTaskFields
-  }
-}
-
-# cli#1524 C3 (hadron-server#3125 S3, cor:agt:120:03): one page of the open
-# outside items of a task integration that no task of the App claims. Every
-# optional argument is omitted unless its flag is given, so the server's
-# defaults and bounds apply (list limit 1-100, default 20).
-query UntrackedTaskItems(
-  $appRef: ID!
-  $integration: String!
-  # @genqlient(omitempty: true)
-  $team: ID
-  # @genqlient(omitempty: true)
-  $repository: String
-  # @genqlient(omitempty: true)
-  $ready: ReadyFilter
-  # @genqlient(omitempty: true)
-  $skip: Int
-  # @genqlient(omitempty: true)
-  $limit: Int
-) {
-  untrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, skip: $skip, limit: $limit) {
-    items {
-      externalId
-      repository
-      number
-      title
-      url
-      labels
-      createdAt
-      updatedAt
-      linkedPullRequestMerged
-    }
-    total
-    complete
-    incompleteReason
-  }
-}
-
-# cli#1524 C3: claim up to limit (1-10, server default 1) of those items as
-# STARTED root tasks assigned to the caller. No skip: a claim walks the list
-# from its start. A mid-walk refusal comes back beside the claims already made
-# (incompleteReason claim_refused, refusalCode), not thrown.
-mutation ClaimUntrackedTaskItems(
-  $appRef: ID!
-  $integration: String!
-  # @genqlient(omitempty: true)
-  $team: ID
-  # @genqlient(omitempty: true)
-  $repository: String
-  # @genqlient(omitempty: true)
-  $ready: ReadyFilter
-  # @genqlient(omitempty: true)
-  $limit: Int
-) {
-  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, limit: $limit) {
-    tasks { ...AgentTaskFields }
-    complete
-    incompleteReason
-    refusalCode
-  }
-}
-
-
-# cli#1596 (hadron-server#3132 S4, cor:agt:120:03): the same claim naming
-# its parties. A SEPARATE document so the no-flag claim above stays the old
-# document byte for byte and an older server keeps validating it; this one
-# needs a server with the assignee/owner arguments. Only an App's own key may
-# name parties (it must name both); a person or worker naming one gets the
-# server's BAD_USER_INPUT. Each party is sent as given, never resolved here.
-mutation ClaimUntrackedTaskItemsForParties(
-  $appRef: ID!
-  $integration: String!
-  # @genqlient(omitempty: true)
-  $team: ID
-  # @genqlient(omitempty: true)
-  $repository: String
-  # @genqlient(omitempty: true)
-  $ready: ReadyFilter
-  # @genqlient(omitempty: true)
-  $limit: Int
-  # @genqlient(omitempty: true)
-  $assignee: AgentTaskPartyInput
-  # @genqlient(omitempty: true)
-  $owner: AgentTaskPartyInput
-) {
-  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, team: $team, repository: $repository, ready: $ready, limit: $limit, assignee: $assignee, owner: $owner) {
-    tasks { ...AgentTaskFields }
-    complete
-    incompleteReason
-    refusalCode
-  }
-}
-
-# cli#1622 (hadron-server#3422, cor:agt:120:03): the three documents above
-# with the server's no-team filter. SEPARATE documents, as cli#1596 did, so the
-# three above stay byte for byte what they were (a server without noTeam keeps
-# validating them) and only --no-team needs a server that has the argument.
-# $noTeam is non-null: these documents exist only to send true, and never send
-# team (the server refuses the pair, BAD_USER_INPUT, and the CLI refuses it
-# first).
-query UntrackedTaskItemsNoTeam(
-  $appRef: ID!
-  $integration: String!
-  $noTeam: Boolean!
-  # @genqlient(omitempty: true)
-  $repository: String
-  # @genqlient(omitempty: true)
-  $ready: ReadyFilter
-  # @genqlient(omitempty: true)
-  $skip: Int
-  # @genqlient(omitempty: true)
-  $limit: Int
-) {
-  untrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, skip: $skip, limit: $limit) {
-    items {
-      externalId
-      repository
-      number
-      title
-      url
-      labels
-      createdAt
-      updatedAt
-      linkedPullRequestMerged
-    }
-    total
-    complete
-    incompleteReason
-  }
-}
-
-mutation ClaimUntrackedTaskItemsNoTeam(
-  $appRef: ID!
-  $integration: String!
-  $noTeam: Boolean!
-  # @genqlient(omitempty: true)
-  $repository: String
-  # @genqlient(omitempty: true)
-  $ready: ReadyFilter
-  # @genqlient(omitempty: true)
-  $limit: Int
-) {
-  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, limit: $limit) {
-    tasks { ...AgentTaskFields }
-    complete
-    incompleteReason
-    refusalCode
-  }
-}
-
-mutation ClaimUntrackedTaskItemsForPartiesNoTeam(
-  $appRef: ID!
-  $integration: String!
-  $noTeam: Boolean!
-  # @genqlient(omitempty: true)
-  $repository: String
-  # @genqlient(omitempty: true)
-  $ready: ReadyFilter
-  # @genqlient(omitempty: true)
-  $limit: Int
-  # @genqlient(omitempty: true)
-  $assignee: AgentTaskPartyInput
-  # @genqlient(omitempty: true)
-  $owner: AgentTaskPartyInput
-) {
-  claimUntrackedTaskItems(appRef: $appRef, integration: $integration, noTeam: $noTeam, repository: $repository, ready: $ready, limit: $limit, assignee: $assignee, owner: $owner) {
-    tasks { ...AgentTaskFields }
-    complete
-    incompleteReason
-    refusalCode
   }
 }
 
@@ -1022,7 +866,7 @@ query AgentTaskListUnresolved(
   # @genqlient(omitempty: true)
   $text: String
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     unresolvedFindings: $unresolvedFindings
     assignee: $assignee
@@ -1035,7 +879,7 @@ query AgentTaskListUnresolved(
     offset: $offset
     overdue: $overdue
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     reference: $reference
     rootsOnly: $rootsOnly
@@ -1049,7 +893,11 @@ query AgentTaskListUnresolved(
     tagsAny: $tagsAny
     text: $text
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -1059,7 +907,7 @@ fragment TaskFindingDispositionFields on AgentTaskFindingDisposition {
   reference { kind target label }
 }
 query AgentTaskFindingDispositions($taskRef: ID!, $limit: Int!, $offset: Int!) {
-  agentTask(id: $taskRef) {
+  agentTask(ref: $taskRef) {
     findingDispositions(limit: $limit, offset: $offset) {
       items { ...TaskFindingDispositionFields }
       total
@@ -1095,7 +943,7 @@ mutation AgentTaskFinishWithFindings(
   # @genqlient(bind: "encoding/json.RawMessage")
   $findings: [AgentTaskFindingInput!]!
 ) {
-  finishAgentTask(taskId: $taskId, result: {outcome: $outcome, summary: $summary, evidence: $evidence, findings: $findings, workedFromRoleTaskRefs: $workedFrom}) {
+  finishAgentTask(taskRef: $taskId, result: {outcome: $outcome, summary: $summary, evidence: $evidence, findings: $findings, workedFromRoleTaskRefs: $workedFrom}) {
     ...AgentTaskFields
     findingsResult: result { findings(limit: 20, offset: 0) { ...ImmutableTaskFindingPage } }
   }
@@ -1117,7 +965,7 @@ fragment ImmutableTaskFindingPage on AgentTaskFindingPage {
 }
 
 query AgentTaskResultFindings($id: ID!, $limit: Int!, $offset: Int!) {
-  agentTask(id: $id) {
+  agentTask(ref: $id) {
     id
     result { findings(limit: $limit, offset: $offset) { ...ImmutableTaskFindingPage } }
   }
@@ -1178,7 +1026,7 @@ query AgentTaskListCreator(
   # @genqlient(omitempty: true)
   $creator: AgentTaskPartyInput
 ) {
-  agentTasks(
+  agentTasksPage(
     appRef: $appRef
     creator: $creator
     unresolvedFindings: $unresolvedFindings
@@ -1192,7 +1040,7 @@ query AgentTaskListCreator(
     offset: $offset
     overdue: $overdue
     owner: $owner
-    parentTaskId: $parentTaskId
+    parentTaskRef: $parentTaskId
     queued: $queued
     reference: $reference
     rootsOnly: $rootsOnly
@@ -1206,7 +1054,11 @@ query AgentTaskListCreator(
     tagsAny: $tagsAny
     text: $text
   ) {
-    ...AgentTaskFields
+    items {
+      ...AgentTaskFields
+    }
+    total
+    hasMore
   }
 }
 
@@ -1236,6 +1088,107 @@ query TeamUtilization(
       busyWorkers
       utilization
       saturated
+      # cli#2896: the latest no-worker match outcome inside the window (null otherwise: a later
+      # match clears it); family is null when the failed task left the family open.
+      lastMatchFailure {
+        at
+        reason
+      }
     }
   }
+}
+
+# A team's computed task and worker flow (server teamMetrics, cli#1826): every count
+# is the server's, with the ids behind it. since and until carry omitempty so an
+# unset flag is OMITTED (the server's own 7-day default window), never sent as null.
+query TeamMetrics(
+  $appRef: ID!
+  # @genqlient(omitempty: true)
+  $since: DateTime
+  # @genqlient(omitempty: true)
+  $until: DateTime
+) {
+  teamMetrics(appRef: $appRef, since: $since, until: $until) {
+    appId
+    asOf
+    window {
+      since
+      until
+    }
+    startedOwned {
+      all {
+        ...TeamMetricsCountFields
+      }
+      byOwner {
+        owner {
+          id
+          kind
+          name
+          urn
+        }
+        tasks {
+          ...TeamMetricsCountFields
+        }
+        byProject {
+          project {
+            ...TeamMetricsProjectFields
+          }
+          tasks {
+            ...TeamMetricsCountFields
+          }
+        }
+        projectsTruncated
+      }
+      ownersTruncated
+    }
+    projects {
+      items {
+        project {
+          ...TeamMetricsProjectFields
+        }
+        children {
+          status
+          tasks {
+            ...TeamMetricsCountFields
+          }
+        }
+      }
+      truncated
+    }
+    workers {
+      active {
+        ...TeamMetricsCountFields
+      }
+      idle {
+        ...TeamMetricsCountFields
+      }
+      overdue {
+        ...TeamMetricsCountFields
+      }
+      inop {
+        ...TeamMetricsCountFields
+      }
+    }
+    flow {
+      completed {
+        ...TeamMetricsCountFields
+      }
+      started {
+        ...TeamMetricsCountFields
+      }
+    }
+  }
+}
+
+fragment TeamMetricsCountFields on TeamMetricsCount {
+  total
+  ids
+  truncated
+}
+
+fragment TeamMetricsProjectFields on TeamMetricsProject {
+  handle
+  noProject
+  taskId
+  title
 }

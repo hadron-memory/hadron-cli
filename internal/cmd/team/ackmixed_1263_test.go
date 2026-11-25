@@ -1,8 +1,10 @@
 package team
 
 import (
+	"github.com/hadron-memory/hadron-cli/internal/hostpoller/hostyaml"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -15,20 +17,26 @@ import (
 // these reach the source-node guard; the merge cases die if yamlField stops
 // following merge keys (#1258 review mutant M3).
 
-func loadAckMixed1263(t *testing.T, fragment string) error {
+// loadAckMixed1263 loads a host file ending in fragment and returns the label ("line N") the load
+// uses for the fragment's first line, read from the file as written, so no test hard-codes a number
+// that depends on the fixture helper's output shape (cli#3026).
+func loadAckMixed1263(t *testing.T, fragment string) (string, error) {
 	t.Helper()
 	dir := t.TempDir()
 	path := filepath.Join(dir, "host.yaml")
 	body := "app: app1\nworkers:\n  iris:\n    family: claude\n    launch: [claude]\nworktrees_root: " + dir + "\n" + fragment
-	if err := os.WriteFile(path, []byte(body), 0600); err != nil {
+	text := hostyaml.Supervised(body)
+	if err := os.WriteFile(path, []byte(text), 0600); err != nil {
 		t.Fatal(err)
 	}
+	at := strings.Index(text, fragment)
+	if at < 0 {
+		t.Fatalf("the fragment is not in the file:\n%s", text)
+	}
+	line := "line " + strconv.Itoa(1+strings.Count(text[:at], "\n"))
 	_, err := hostpoller.LoadConfig(path)
-	return err
+	return line, err
 }
-
-// The fragment starts on line 7 of the file (six header lines).
-const ackMixedLine1263 = "line 7"
 
 func TestAckMixed1263MergeAndAliasRefuseNonBoolean(t *testing.T) {
 	shapes := []struct{ name, fragment string }{
@@ -40,8 +48,8 @@ func TestAckMixed1263MergeAndAliasRefuseNonBoolean(t *testing.T) {
 	for _, v := range []string{"null", "~", "yes", "on"} {
 		for _, s := range shapes {
 			t.Run(s.name+"/"+v, func(t *testing.T) {
-				err := loadAckMixed1263(t, strings.Replace(s.fragment, "%s", v, 1))
-				want := "delivery.ack_mixed at " + ackMixedLine1263 + " must be a boolean"
+				line, err := loadAckMixed1263(t, strings.Replace(s.fragment, "%s", v, 1))
+				want := "delivery.ack_mixed at " + line + " must be a boolean"
 				if err == nil || !strings.Contains(err.Error(), want) {
 					t.Fatalf("want %q, got %v", want, err)
 				}
@@ -52,9 +60,9 @@ func TestAckMixed1263MergeAndAliasRefuseNonBoolean(t *testing.T) {
 	for _, v := range []string{`"true"`, "1", "maybe", "[]", "{}"} {
 		for _, s := range shapes {
 			t.Run(s.name+"/"+v, func(t *testing.T) {
-				err := loadAckMixed1263(t, strings.Replace(s.fragment, "%s", v, 1))
-				if err == nil || !strings.Contains(err.Error(), ackMixedLine1263) {
-					t.Fatalf("want a refusal naming %s, got %v", ackMixedLine1263, err)
+				line, err := loadAckMixed1263(t, strings.Replace(s.fragment, "%s", v, 1))
+				if err == nil || !strings.Contains(err.Error(), line) {
+					t.Fatalf("want a refusal naming %s, got %v", line, err)
 				}
 			})
 		}
@@ -67,8 +75,8 @@ func TestAckMixed1263MergeAndAliasRefuseNonBoolean(t *testing.T) {
 // own gate. Normal merge, alias and KnownFields behavior is pinned by the
 // #1229 tests beside this file.
 func TestAckMixed1263ShadowedMergeStaysRefused(t *testing.T) {
-	err := loadAckMixed1263(t, "delivery: {<<: {ack_mixed: \"yes\"}, ack_mixed: true, enabled: true, orca_bin: /bin/true}\n")
-	want := "delivery.ack_mixed at " + ackMixedLine1263 + " must be a boolean"
+	line, err := loadAckMixed1263(t, "delivery: {<<: {ack_mixed: \"yes\"}, ack_mixed: true, enabled: true, orca_bin: /bin/true}\n")
+	want := "delivery.ack_mixed at " + line + " must be a boolean"
 	if err == nil || !strings.Contains(err.Error(), want) {
 		t.Fatalf("a shadowed non-boolean merge must stay refused (%q), got %v", want, err)
 	}

@@ -57,11 +57,11 @@ func newApplyTemplates(f *cmdutil.Factory) *cobra.Command {
 		Use:   "apply-templates --worker <id-or-URN>",
 		Short: "Create the Agent's template tickers a worker is missing",
 		Long: `Create the tickers its Agent's ticker templates declare that one worker is
-missing: the repair for a worker cast before its Agent had templates
-(cor:agt:080:33, :34; hadron-server#2096). Each created ticker is owned by and
-subscribed to the worker. Nothing existing is edited or deleted: a template the
-worker already has a live ticker for is listed as already present
-(alreadyPresent in --json) and left as it is, so a second run creates nothing.
+missing: the repair for a worker cast before its Agent had templates. Each
+created ticker is owned by and subscribed to the worker. Nothing existing is
+edited or deleted: a template the worker already has a live ticker for is
+listed as already present (alreadyPresent in --json) and left as it is, so a
+second run creates nothing.
 
 Run it as whoever manages the App, acting as yourself. It applies to one worker
 per call, never across workers. Without --instruction it never sends a worker

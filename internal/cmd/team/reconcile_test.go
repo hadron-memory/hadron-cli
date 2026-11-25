@@ -55,7 +55,7 @@ func (c *feedClient) MakeRequest(_ context.Context, req *graphql.Request, resp *
 			rows = append(rows, fmt.Sprintf(`{"id":%q,"status":"FINISHED"}`, id))
 		}
 		body := "[" + strings.Join(rows, ",") + "]"
-		return json.Unmarshal([]byte(`{"agentTasks":`+body+`}`), resp.Data)
+		return json.Unmarshal([]byte(fmt.Sprintf(`{"agentTasksPage":{"items":%s,"total":%d,"hasMore":false}}`, body, len(rows))), resp.Data)
 	}
 	b, _ := json.Marshal(req.Variables)
 	var v struct {

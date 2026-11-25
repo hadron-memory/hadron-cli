@@ -17,7 +17,7 @@ query UsageEventsPage(
   # @genqlient(omitempty: true)
   $until: DateTime
 ) {
-  usageEventsPage(memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+  usageEventsPage(memoryRef: $memoryId, loc: $loc, nodeRef: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
     total
     hasMore
     items {
@@ -49,7 +49,7 @@ query UsageEventsPageByAppKey(
   # @genqlient(omitempty: true)
   $until: DateTime
 ) {
-  usageEventsPage(appKey: $appKey, memoryId: $memoryId, loc: $loc, nodeId: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
+  usageEventsPage(appKey: $appKey, memoryRef: $memoryId, loc: $loc, nodeRef: $nodeId, type: $eventType, limit: $limit, offset: $offset, since: $since, until: $until) {
     total
     hasMore
     items {

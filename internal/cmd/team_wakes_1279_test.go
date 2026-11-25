@@ -321,13 +321,13 @@ func TestC1279AckNeedsAProof(t *testing.T) {
 
 func TestC1279HelpPins(t *testing.T) {
 	due := c1279Flat(cmdHelpOut(t, "team", "wakes", "due"))
-	for _, want := range []string{"--accept-stop", "declares", "cor:agt:090:04", "WAKE_BUDGET_EXHAUSTED", "worker session"} {
+	for _, want := range []string{"--accept-stop", "declares", "WAKE_BUDGET_EXHAUSTED", "worker session"} {
 		if !strings.Contains(due, want) {
 			t.Errorf("due help lacks %q", want)
 		}
 	}
 	ack := c1279Flat(cmdHelpOut(t, "team", "wakes", "ack"))
-	for _, want := range []string{"never moves a read position", "cor:agt:080:16", "WAKE_PROOF_REQUESTER_MISMATCH"} {
+	for _, want := range []string{"never moves a read position", "WAKE_PROOF_REQUESTER_MISMATCH"} {
 		if !strings.Contains(ack, want) {
 			t.Errorf("ack help lacks %q", want)
 		}

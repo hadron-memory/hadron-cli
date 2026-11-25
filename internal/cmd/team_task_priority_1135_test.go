@@ -148,7 +148,7 @@ func TestTaskPriorityGetAndListRenderReturnedOrder1135(t *testing.T) {
 	if first == priorityTask1135() || second == priorityTask1135() {
 		t.Fatal("fixture priorities were not changed")
 	}
-	r["AgentTaskList"] = `{"data":{"agentTasks":[` + first + `,` + second + `]}}`
+	r["AgentTaskList"] = taskPage2734(first+","+second, 2, false)
 
 	// get, text: the priority, blocked state and both pages are printed exactly,
 	// as consecutive lines (cli#1182: not a substring that a timestamp or a
@@ -216,18 +216,26 @@ func TestTaskPriorityGetAndListRenderReturnedOrder1135(t *testing.T) {
 		}
 		wantPriority := 2
 		if cmd == "list" {
-			var tasks []json.RawMessage
-			if err := json.Unmarshal([]byte(out), &tasks); err != nil || len(tasks) != 2 {
+			// cli#2734: list --json is the page object {tasks,...}.
+			var page struct {
+				Tasks []json.RawMessage `json:"tasks"`
+			}
+			if err := json.Unmarshal([]byte(out), &page); err != nil || len(page.Tasks) != 2 {
 				t.Fatalf("list json: %v\n%s", err, out)
 			}
-			var ids []struct {
+			ids := []struct {
 				ID       string `json:"id"`
 				Priority int    `json:"priority"`
+			}{{}, {}}
+			for i, raw := range page.Tasks {
+				if err := json.Unmarshal(raw, &ids[i]); err != nil {
+					t.Fatalf("list json task %d: %v", i, err)
+				}
 			}
-			if err := json.Unmarshal([]byte(out), &ids); err != nil || ids[0].ID != "task1" || ids[0].Priority != 4 || ids[1].ID != "task2" || ids[1].Priority != 1 {
-				t.Fatalf("list json order/priorities changed: %+v (%v)", ids, err)
+			if ids[0].ID != "task1" || ids[0].Priority != 4 || ids[1].ID != "task2" || ids[1].Priority != 1 {
+				t.Fatalf("list json order/priorities changed: %+v", ids)
 			}
-			out, wantPriority = string(tasks[0]), 4
+			out, wantPriority = string(page.Tasks[0]), 4
 		}
 		if err := json.Unmarshal([]byte(out), &task); err != nil {
 			t.Fatal(err)
@@ -333,7 +341,7 @@ func TestTaskPriorityHelpReferenceScope1135(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatal(err)
 			}
-			if strings.Contains(out.String(), "active App") || !strings.Contains(out.String(), "--app does not") || !strings.Contains(out.String(), "hrn:agenttask:example.com:team:AT1.2") {
+			if strings.Contains(out.String(), "active App") || !strings.Contains(out.String(), "--app names the App") || !strings.Contains(out.String(), "hrn:agenttask:example.com:team:AT1.2") {
 				t.Fatalf("misleading task ref scope: %s", out.String())
 			}
 		})

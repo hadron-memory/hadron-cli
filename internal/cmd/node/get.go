@@ -37,7 +37,7 @@ which names the same node and is accepted anywhere a node URN is (it needs no -m
 A node URN is hrn:node:<root>:<memory>:<loc>. The hrn:node: prefix is required
 because a loc has colons of its own. The legacy <org>::<memory>::<loc> form is
 still accepted. A bare loc without -m (or --install) is refused, since the
-same loc can exist in several memories.
+same loc can exist in several memories. -m takes a memory ID or URN.
 
 To edit a node's content, read it with --body-only, edit the file, and write
 it back with node update --content-file:
@@ -138,6 +138,15 @@ asks for that memory's passphrase for this one invocation.
 			if target != nil {
 				memory, err = cmdutil.InstallMemoryRef(cmd.Context(), client, target)
 				if err != nil {
+					return err
+				}
+			}
+
+			// A memory ID on -m is read once for the whole set (cli#3000), so every ref
+			// below composes against the same URN. A single ref resolves it inside
+			// ResolveNodeRef.
+			if !prefixMode && len(args) > 1 {
+				if memory, err = cmdutil.ResolveMemoryRefForNodes(cmd, client, memory); err != nil {
 					return err
 				}
 			}
@@ -276,7 +285,7 @@ asks for that memory's passphrase for this one invocation.
 		},
 	}
 	cmd.Flags().StringVar(&install, "install", "", installFlagHelp)
-	cmd.Flags().StringVarP(&memory, "memory", "m", "", "memory (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
+	cmd.Flags().StringVarP(&memory, "memory", "m", "", "a memory ID or URN (hrn:mem:<root>:<slug>) to resolve a bare <loc> against")
 	cmd.Flags().StringVar(&locPrefix, "prefix", "", "read every node under this loc prefix in one call (needs -m; empty means the whole memory)")
 	cmd.Flags().BoolVar(&raw, "raw", false, "return the stored body with {{…}} placeholders intact, not the rendered one (to edit content, use --body-only)")
 	cmd.Flags().BoolVar(&bodyOnly, "body-only", false, "print only the stored body of one node, byte for byte — the read to edit from (implies --raw; alias: --content-only)")

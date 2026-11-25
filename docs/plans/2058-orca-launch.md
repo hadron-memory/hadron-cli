@@ -91,7 +91,10 @@ An Orca terminal does not restart a crashed agent. Restarts come from the sweep 
 
 ## Not in this slice
 - The S1b server source (it waits on hadron-server#4230).
-- A context reset relaunch of an Orca worker: `worker.reset-context` still relaunches through `launch`. C2c is fail-closed today (#2074), so it never gets that far.
+- A context reset relaunch of an Orca worker: out of scope permanently — the
+  host-side `worker.reset-context` handler (which relaunches through `launch`)
+  was removed by [#3017](https://github.com/hadron-memory/hadron-cli/issues/3017);
+  a collected reset op is answered FAILED.
 - C2c's terminal-aware idle proof, which can now bind to `OrcaAgent.Terminal()`.
 - Activation on orca1, which needs its own recorded authorization.
 

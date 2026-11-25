@@ -53,7 +53,7 @@ func TestTreeStateOrderIndependentPrecedence2483(t *testing.T) {
 			}
 			uid := os.Getuid()
 			// pid 9: wrapper strictly below the worktree root (cwd anomaly).
-			proc(t, root, 9, 1, uid, below, "bash", "/bin/worker-supervise")
+			proc(t, root, 9, 1, uid, below, "-bash")
 			// pid 5: foreign-uid process inside the worktree.
 			proc(t, root, 5, 1, uid+1, wt, "sleep", "1000")
 			all, err := readProcesses(root, uid)
@@ -94,7 +94,7 @@ func TestTreeStateSymlinkedWorktree2483(t *testing.T) {
 	}
 	procRoot := t.TempDir()
 	uid := os.Getuid()
-	proc(t, procRoot, 10, 1, uid, linked, "bash", "/bin/worker-supervise")
+	proc(t, procRoot, 10, 1, uid, linked, "-bash")
 	proc(t, procRoot, 11, 10, uid, linked, "node", "/opt/bin/codex")
 	all, err := readProcesses(procRoot, uid)
 	if err != nil {

@@ -54,7 +54,7 @@ successful Channel result, with no extra memory lookup.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.UpdateChannel == nil {
-				return exitcode.Newf(exitcode.Unavailable, "the server returned no Channel for %q", args[0])
+				return exitcode.Newf(exitcode.Unavailable, "the server returned no Channel (the id or address given is not shown)")
 			}
 			return writeChannel(f, dtoFrom(resp.UpdateChannel.ChannelFields, resp.UpdateChannel.ChannelMemory))
 		},

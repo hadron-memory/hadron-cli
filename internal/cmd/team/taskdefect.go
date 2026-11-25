@@ -41,11 +41,14 @@ func newCmdTaskLinkDefect(f *cmdutil.Factory) *cobra.Command {
 		Use:   "link-defect <pr-build-task> --defect <issue URL> [--introduced-at-head <sha>] [--instruction <kind>:<ref>]",
 		Short: "Link a defect found after merge to the PR build task it escaped from",
 		Long: `Record that a defect found after a pull request merged traces back to that PR
-(server #4280/#4284). <pr-build-task> is the PR's build task: a task with
-a pull_request reference. --defect is the defect's issue URL, stored as given.
---introduced-at-head names the full 40-hex head, frozen on that PR, that
-introduced the defect; the review-quality report counts the defect against
-approving reviews at that head or a later one.
+(a server released on or after 2026-11-16). <pr-build-task> is the PR's build
+task: the task that builds the PR and carries its pull_request reference. Find
+it with ` + "`team task list --ref <PR URL> --ref-kind pull-request`" + `. --defect is the defect's
+issue URL, stored as given. --introduced-at-head names the full 40-hex head
+that introduced the defect. It must be a head the team froze for review on
+that PR; read the frozen heads with
+` + "`team events --task <pr-build-task> --type pr.frozen`" + `. The review-quality report counts
+the defect against approving reviews at that head or a later one.
 
 The link is one review.defect-linked event on the build task. It never changes
 a verdict, a seat, readiness or the task. Linking the same defect and task
@@ -64,11 +67,13 @@ Refusals, each sent once and never retried:
   exit 2  BAD_USER_INPUT: a defect URL or head in the wrong form. An empty
           --defect or --introduced-at-head is refused before any request.
   exit 1  the server answered with no link: it may have been recorded, so
-          read the task's events (the message names the task) before retrying.
+          read the task's events with
+          ` + "`team events --task <task> --type review.defect-linked`" + ` before
+          retrying.
 
 --json is {taskId, defect, introducedAtHead, eventId, linkedAt, created};
 introducedAtHead is null when the link names no head, and created is false
-for an existing link.` + "\n\n" + taskInstructionHelpFor(linkDefectInstructionFloor) + "\nAn unavailable or changed worktree binding sends as the signed-in person,\nwith the instruction checked but not recorded; it borrows no worker session.",
+for an existing link.` + "\n\n" + taskInstructionHelpShort(linkDefectInstructionFloor) + "\nAn unavailable or changed worktree binding sends as the signed-in person,\nwith the instruction checked but not recorded; it borrows no worker session.",
 		Example: "  hadron team task link-defect AT0.7850 --defect https://github.com/acme/app/issues/77 --introduced-at-head 0123456789abcdef0123456789abcdef01234567",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

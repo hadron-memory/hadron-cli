@@ -39,7 +39,7 @@ ID with "hadron ha list" and ask an organization admin if it should be yours.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.HomeAssistantInstance == nil {
-				return exitcode.Newf(exitcode.NotFound, "Home Assistant instance %q not found or not visible to you", args[0])
+				return exitcode.Newf(exitcode.NotFound, "Home Assistant instance not found or not visible to you (the id given is not shown)")
 			}
 			dto := dtoFromFields(resp.HomeAssistantInstance.HomeAssistantInstanceFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

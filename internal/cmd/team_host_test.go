@@ -37,6 +37,10 @@ const appKeyScopesJSON = `{"id":"key1","appId":"capp100000000000000000000","labe
 func hostResponses() map[string]string {
 	r := taskResponses()
 	r["HostRegistrations"] = `{"data":{"hostRegistrations":[` + hostRegJSON + `]}}`
+	// `team host list` reads the paged field (cli#2824), draining it 20 at a
+	// time by default; the whole-set callers (onboarding, host up) still stub
+	// the unpaged field above, so the map carries both.
+	r["HostRegistrationsPage"] = `{"data":{"hostRegistrationsPage":{"items":[` + hostRegJSON + `],"total":1,"hasMore":false}}}`
 	r["HostOperations"] = `{"data":{"hostOperations":{"items":[` + hostOpJSON + `],"hasNextPage":true,"endCursor":"hop1"}}}`
 	r["HostOperationsWithReason"] = r["HostOperations"]
 	r["IssueHostOperation"] = `{"data":{"issueHostOperation":` + issuedHostOpJSON + `}}`
@@ -68,7 +72,7 @@ func TestTeamHostLsRenders(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := findCall(t, calls, "HostRegistrations")
+	c := findCall(t, calls, "HostRegistrationsPage")
 	if c.Vars["appRef"] != "capp100000000000000000000" || c.Session != "" {
 		t.Fatalf("appRef %v session %q", c.Vars["appRef"], c.Session)
 	}
@@ -110,7 +114,7 @@ func TestTeamHostLsJSON(t *testing.T) {
 // An App with no hosts renders [] in JSON, never null.
 func TestTeamHostLsEmptyJSONIsArray(t *testing.T) {
 	r := hostResponses()
-	r["HostRegistrations"] = `{"data":{"hostRegistrations":[]}}`
+	r["HostRegistrationsPage"] = `{"data":{"hostRegistrationsPage":{"items":[],"total":0,"hasMore":false}}}`
 	_, out, err := runTeamTask(t, r, "team", "host", "list", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -474,8 +478,8 @@ func TestTeamHostEmptyListsRenderAsArrays(t *testing.T) {
 		t.Fatalf("empty page must render items as []:\n%s", out)
 	}
 	r = hostResponses()
-	r["HostRegistrations"] = `{"data":{"hostRegistrations":[{"hostId":"orca2","label":"idle","pollIntervalSeconds":60,
-		"registeredAt":"2026-10-14T00:00:00Z","refreshedAt":"2026-10-14T00:00:00Z","live":false,"workers":[]}]}}`
+	r["HostRegistrationsPage"] = `{"data":{"hostRegistrationsPage":{"items":[{"hostId":"orca2","label":"idle","pollIntervalSeconds":60,
+		"registeredAt":"2026-10-14T00:00:00Z","refreshedAt":"2026-10-14T00:00:00Z","live":false,"workers":[]}],"total":1,"hasMore":false}}}`
 	_, out, err = runTeamTask(t, r, "team", "host", "list", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -488,9 +492,9 @@ func TestTeamHostEmptyListsRenderAsArrays(t *testing.T) {
 // A worker the host lists with no worktrees renders worktrees as [].
 func TestTeamHostWorkerWithoutWorktreesJSON(t *testing.T) {
 	r := hostResponses()
-	r["HostRegistrations"] = `{"data":{"hostRegistrations":[{"hostId":"orca1","label":"x","pollIntervalSeconds":30,
+	r["HostRegistrationsPage"] = `{"data":{"hostRegistrationsPage":{"items":[{"hostId":"orca1","label":"x","pollIntervalSeconds":30,
 		"registeredAt":"2026-10-14T00:00:00Z","refreshedAt":"2026-10-14T00:00:00Z","live":true,
-		"workers":[{"workerId":"wkr1","worker":null,"family":"codex","worktrees":[]}]}]}}`
+		"workers":[{"workerId":"wkr1","worker":null,"family":"codex","worktrees":[]}]}],"total":1,"hasMore":false}}}`
 	_, out, err := runTeamTask(t, r, "team", "host", "list", "--json")
 	if err != nil {
 		t.Fatal(err)
@@ -545,6 +549,92 @@ func TestTeamHostIssueNoOperationInReply(t *testing.T) {
 			}
 			if got := exitCodeFor(err); got != exitcode.Error {
 				t.Fatalf("exit %d, want %d", got, exitcode.Error)
+			}
+		})
+	}
+}
+
+// cli#3077: a reply to `team host ops` that carries no hostOperations (data
+// null, {} or an explicit null field) must end in a named exit-1 error, as
+// `team host issue` does (#2572), never a nil dereference. The read has two
+// shapes: the one that selects issuedReason, and the plain one it falls back to
+// on a server older than hadron-server#4257.
+func TestTeamHostOpsNoDataInReply(t *testing.T) {
+	const oldServer = `{"errors":[{"message":"Cannot query field \"issuedReason\" on type \"HostOperation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	type readShape struct {
+		name      string
+		stage     func(r map[string]string, reply string)
+		wantCalls []string // the operations the command must send, in order
+	}
+	reads := []readShape{
+		{"with reason", func(r map[string]string, reply string) { r["HostOperationsWithReason"] = reply },
+			[]string{"HostOperationsWithReason"}},
+		{"plain fallback", func(r map[string]string, reply string) {
+			r["HostOperationsWithReason"] = oldServer
+			r["HostOperations"] = reply
+		}, []string{"HostOperationsWithReason", "HostOperations"}},
+	}
+	replies := []struct{ name, body string }{
+		{"null data", `{"data":null}`},
+		{"empty data", `{"data":{}}`},
+		{"explicit null", `{"data":{"hostOperations":null}}`},
+	}
+	for _, read := range reads {
+		for _, reply := range replies {
+			t.Run(read.name+"/"+reply.name, func(t *testing.T) {
+				r := hostResponses()
+				read.stage(r, reply.body)
+				for _, argv := range [][]string{{"team", "host", "ops"}, {"team", "host", "ops", "--json"}} {
+					calls, out, err := runTeamTask(t, r, argv...)
+					if err == nil {
+						t.Fatalf("want an error for a reply with no host operations, got output %q", out)
+					}
+					if !strings.Contains(err.Error(), "server returned no host operations") {
+						t.Fatalf("error %q does not name the empty reply", err)
+					}
+					if got := exitCodeFor(err); got != exitcode.Error {
+						t.Fatalf("exit %d, want %d", got, exitcode.Error)
+					}
+					if out != "" {
+						t.Fatalf("a refused read printed %q", out)
+					}
+					// Which read ran is part of the claim: the fallback case must have sent the plain
+					// query after the rejected one, and the other case must not have fallen back.
+					var sent []string
+					for _, c := range *calls {
+						if c.Op == "HostOperationsWithReason" || c.Op == "HostOperations" {
+							sent = append(sent, c.Op)
+						}
+					}
+					if strings.Join(sent, ",") != strings.Join(read.wantCalls, ",") {
+						t.Fatalf("operations sent %v, want %v", sent, read.wantCalls)
+					}
+				}
+			})
+		}
+	}
+}
+
+// A hostOperations field that is present but holds no items, or a null items
+// list, is an empty page, not a refusal (cli#3077 draws the line at the field).
+func TestTeamHostOpsPresentFieldWithNoItemsIsAnEmptyPage(t *testing.T) {
+	for name, body := range map[string]string{
+		"empty items": `{"data":{"hostOperations":{"items":[],"hasNextPage":false,"endCursor":null}}}`,
+		"null items":  `{"data":{"hostOperations":{"items":null,"hasNextPage":false,"endCursor":null}}}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			r := hostResponses()
+			r["HostOperationsWithReason"] = body
+			_, out, err := runTeamTask(t, r, "team", "host", "ops", "--json")
+			if err != nil {
+				t.Fatalf("a present field with no items must not be refused: %v", err)
+			}
+			var page struct {
+				Items       []any `json:"items"`
+				HasNextPage bool  `json:"hasNextPage"`
+			}
+			if err := json.Unmarshal([]byte(out), &page); err != nil || page.Items == nil || len(page.Items) != 0 {
+				t.Fatalf("want an empty items list ([]), got %q (%v)", out, err)
 			}
 		})
 	}

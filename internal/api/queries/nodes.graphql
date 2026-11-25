@@ -692,6 +692,36 @@ mutation UpdateTaskNode(
   }
 }
 
+# cli#2826: the kind of a node, and nothing else: `node set-properties` reads it once to choose
+# the write door (a runnable node is a task). Not GetNode: the command needs no body, edges or
+# properties, and the properties it would return must never become part of what is written.
+query NodeKind($ref: ID!) {
+  node(ref: $ref) {
+    id
+    isRunnable
+  }
+}
+
+# cli#2826: `node set-properties` on a TASK node. The generic merge mutations refuse a governed
+# task node (governedMerge), so the merge goes through the task door: mergeExports makes the whole
+# `input.properties` a patch under the node's lock (named keys replaced, `exports` merged per host
+# and field), the semantics node set-properties documents. The answer carries the merged
+# properties so the output is the same as the generic route's. The input's omitempty annotations
+# are declared once, on UpdateTaskNode above.
+mutation MergeTaskNodeProperties(
+  $input: UpdateNodeInput!
+  $mergeExports: Boolean!
+) {
+  updateTaskNode(input: $input, mergeExports: $mergeExports) {
+    id
+    memoryId
+    loc
+    name
+    properties
+    updatedAt
+  }
+}
+
 mutation CreateReviewNode(
   $input: CreateNodeInput!
 ) {
@@ -1124,8 +1154,10 @@ mutation SearchReplaceInNodes($input: SearchReplaceInNodesInput!) {
 # renderer (#106) — so `hadron node export` emits byte-for-byte what the portal
 # and every other API client get from the one shared renderer. full: true is the
 # canonical form (all sections, importable); format selects MD or JSON.
-query NodeExport($id: ID!, $format: NodeExportFormat!) {
-  nodeExport(id: $id, format: $format, full: true) {
+# cli#2899 (hadron-server#4763, #4139): the node is passed as `ref` (a PK or a node URN);
+# a missing, soft-deleted, unreadable or concealed node refuses as NODE_NOT_FOUND.
+query NodeExport($ref: ID!, $format: NodeExportFormat!) {
+  nodeExport(ref: $ref, format: $format, full: true) {
     format
     mimeType
     filename
@@ -1137,8 +1169,8 @@ query NodeExport($id: ID!, $format: NodeExportFormat!) {
 # cli#1341 — the PRESENTATION render: full: false with the chosen sections.
 # Not round-trippable through node import (the server says so), which is why
 # it is a separate document rather than a variable on the canonical one.
-query NodeExportSections($id: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
-  nodeExport(id: $id, format: $format, full: false, sections: $sections) {
+query NodeExportSections($ref: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
+  nodeExport(ref: $ref, format: $format, full: false, sections: $sections) {
     format
     mimeType
     filename

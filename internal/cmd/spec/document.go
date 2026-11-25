@@ -47,8 +47,8 @@ func newCmdDocument(f *cmdutil.Factory) *cobra.Command {
 		Short: "Print a feature's specs as one server-assembled document",
 		Long: `Print the specs of one feature as ONE document, exactly as the server
 assembles it: type groups, state lines and rewritten links, the same document
-the portal renders (cor:spc:030:02). The <citation> names the feature; the
-document covers it and its live descendants.
+the portal renders. The <citation> names the feature; the document covers
+it and its live descendants.
 
 This differs from ` + "`spec get --prefix`" + `, which dumps the stored specs node by node
 with no assembly. ` + "`spec document`" + ` is read-only and does no rendering of its own:
@@ -67,9 +67,9 @@ The bytes depend on the caller's access (a spec you cannot read is not included)
 and on the server's portal origin, so two callers can get different documents.
 A feature over the server's spec cap is refused, never returned in part. A server
 without the assembled document answers exit 7.`,
-		Example: `  hadron spec document cor:spc:030 -m hrn:mem:hadronmemory.com:specs
-  hadron spec document cor:spc:030 -o feature.md
-  hadron spec document cor:spc:030 --json`,
+		Example: `  hadron spec document msg:010 -m hrn:mem:micromentor.org:platform-specs
+  hadron spec document msg:010 -m hrn:mem:micromentor.org:platform-specs -o feature.md
+  hadron spec document msg:010 -m hrn:mem:micromentor.org:platform-specs --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			loc, err := validateSpecLoc(args[0])

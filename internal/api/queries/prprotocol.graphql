@@ -22,6 +22,14 @@ mutation PRVerdict($taskRef: ID!, $head: String!, $verdict: ReviewVerdict!,
   $receipt: String) {
   recordReviewVerdict(taskRef: $taskRef, head: $head, verdict: $verdict, node: $node, receipt: $receipt) { ...PRProtocolReceipt }
 }
+# cli#3006 (hadron-server#4869, #4441): withdraw a finished seat's negative verdict at the same head. $receipt
+# is omitted when unset; this command never sends an instruction (the gate's ruling): the manager arm for a
+# worker session is a follow-up.
+mutation PRWithdraw($taskRef: ID!, $head: String!,
+  # @genqlient(omitempty: true)
+  $receipt: String) {
+  withdrawReviewVerdict(taskRef: $taskRef, head: $head, receipt: $receipt) { ...PRProtocolReceipt }
+}
 mutation PRReady($taskRef: ID!, $head: String!) {
   recordReadyCall(taskRef: $taskRef, head: $head) { ...PRProtocolReceipt }
 }

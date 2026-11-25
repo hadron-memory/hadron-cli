@@ -1,0 +1,16 @@
+# hadron-cli#3050 over hadron-server#4930 (hrn:node:hadronmemory.com:specs:cor:agt:070:08
+# S4a, cor:acl:140:02): end a DARK open session of a worker and start the worker
+# again, in one transaction, with no person in the loop. The caller is a worker,
+# through its own bound session, holding a live worker.session.restart grant that
+# names the target worker (no wildcard); dark is the caller's judgement, stated in
+# the required reason (at most 500 characters), never the platform's. Every
+# documented refusal is the server's answer; this operation renders it, it does
+# not re-implement any of it.
+mutation TeamSessionRestart($input: RestartWorkerSessionInput!) {
+  restartWorkerSession(input: $input) {
+    endedSessionIds
+    hostId
+    operationId
+    taskId
+  }
+}

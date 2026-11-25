@@ -1,0 +1,27 @@
+# cli#2894 (hadron-server#4777): the roles an App's saturation alarms wake. A participant
+# reads it through the roster's gate; whoever manages the App replaces the whole list.
+# roles is non-null both ways: an empty list is sent as [] (it clears), never omitted.
+fragment SaturationWakeRolesFields on SaturationAlarmWakeRoles {
+  appId
+  roles
+}
+
+query TeamSaturationWakeRoles($appRef: ID!) {
+  saturationAlarmWakeRoles(appRef: $appRef) {
+    ...SaturationWakeRolesFields
+  }
+}
+
+mutation TeamSaturationWakeRolesSet($appRef: ID!, $roles: [String!]!) {
+  setSaturationAlarmWakeRoles(appRef: $appRef, roles: $roles) {
+    ...SaturationWakeRolesFields
+  }
+}
+
+# The instructed manager write (cor:dmo:050:12, "Acting on an instruction"), in its own
+# document like every instructed write, so a request without the flag is the plain one.
+mutation TeamSaturationWakeRolesSetInstructed($appRef: ID!, $roles: [String!]!, $instruction: ActInstructionInput!) {
+  setSaturationAlarmWakeRoles(appRef: $appRef, roles: $roles, instruction: $instruction) {
+    ...SaturationWakeRolesFields
+  }
+}

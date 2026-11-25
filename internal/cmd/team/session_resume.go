@@ -293,11 +293,10 @@ func newCmdSessionResumeClaim(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "resume-claim [--session <id>]",
 		Short: "Write a resume claim before a context reset that keeps the session (a shed)",
-		Long: `Write a RESUME CLAIM for this worktree's worker session (hadron-cli#842,
-cor:agt:020:03), before a deliberate context reset that keeps the session
-open: a shed. The fresh context then recovers the worker by running
-` + "`hadron team session start`" + ` with no worker named, within 60 seconds of
-this write.
+		Long: `Write a RESUME CLAIM for this worktree's worker session, before a deliberate
+context reset that keeps the session open: a shed. The fresh context then
+recovers the worker by running ` + "`hadron team session start`" + ` with no worker
+named, within 60 seconds of this write.
 
 The claim is for a context that has NO binding: another directory, a fresh
 checkout, a host whose worktree went away. A fresh context in THIS worktree
@@ -317,7 +316,8 @@ handoff, before the end.
 when the binding is gone). Someone else's session answers as an absent one;
 an ended session refuses SESSION_ENDED, and a session with no worker refuses
 SESSION_NOT_WORKER_BOUND.`,
-		Example: `  hadron team session resume-claim   # then reset; in the new context, with no binding:
+		Example: `  # write the claim, reset, then in the new context (no binding) resume
+  hadron team session resume-claim
   hadron team session start --tool claude-code`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -14,7 +14,7 @@ import (
 // A plain-directory worker (no checkout; the session from #1968) is never
 // reported by Orca as a terminal's worktreePath, so it cannot be found by
 // path. Its terminal records its own handle instead (cli#1989): the host's
-// worker-supervise writes <dir>/.hadron-team/terminal.json at every launch,
+// the worker's launcher writes <dir>/.hadron-team/terminal.json at every launch,
 // and the deliverer only READS it and verifies it. That file sits in a
 // directory the worker can write and selects the terminal that receives
 // typed input, so it is never trusted alone: three checks (a)-(c) stand

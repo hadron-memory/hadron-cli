@@ -145,7 +145,7 @@ command alone classifies terminals; this binary runs its own status command.
 Screen text is read only to classify, never kept: it reaches no report, log or
 API payload, and the sweep never types into any terminal.
 
-After the reports are stored, the sweep also detects duplicates (#2027): more
+After the reports are stored, the sweep also detects duplicates: more
 than one agent process in a bound worker's worktree, and more than one terminal
 tab for it. A manual run is DRY (--dry-run, the default): it lists what it
 found and changes nothing. --dry-run=false stops the unsupervised duplicates —
@@ -392,7 +392,7 @@ phase; never screen text. A report in this list is not a storage receipt.`,
 				dto.OrcaVersion = healthOrcaVersion(c.Context(), run)
 			}
 			dto.Renames = append(dto.Renames, renames...)
-			dupes := runHealthDupes(c.Context(), f, cfg, state, server, dupesWorkers, !dryRun, f.IOStreams.ErrOut)
+			dupes := runHealthDupes(c.Context(), f, cfg, server, dupesWorkers, !dryRun, f.IOStreams.ErrOut)
 			dto.Fixes, dto.Alerts, dto.Skips = dupes.Fixes, dupes.Alerts, dupes.Skips
 			if err := output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				refused := map[string]string{}

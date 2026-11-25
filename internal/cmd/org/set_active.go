@@ -111,7 +111,7 @@ Pass an empty string ("") to clear it.`,
 					// Same shape as every other read gate: a ref you may not
 					// read and one that does not exist are not distinguished.
 					return exitcode.Newf(exitcode.NotFound,
-						"no organization %q is readable by you (--no-verify stores it anyway)", args[0])
+						"no organization is readable by you (the ref given is not shown; --no-verify stores it anyway)")
 				}
 				name = resp.Organization.Name
 
@@ -134,7 +134,7 @@ Pass an empty string ("") to clear it.`,
 				}
 				if !member {
 					return exitcode.Newf(exitcode.Usage,
-						"you can read %q but you are not a member of it — `--scope global` would silently return nothing, because a non-member gets an empty page rather than a refusal (--no-verify stores it anyway)", args[0])
+						"you can read that organization but you are not a member of it (the ref given is not shown) — `--scope global` would silently return nothing, because a non-member gets an empty page rather than a refusal (--no-verify stores it anyway)")
 				}
 			}
 

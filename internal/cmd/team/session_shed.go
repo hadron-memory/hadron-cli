@@ -418,7 +418,15 @@ func gather(ctx context.Context, client graphql.Client, b *binding, now time.Tim
 		k := c.Worker.Continuity
 		s.Continuity = shedField{Text: "none (" + string(k.Status) + ")", OK: true}
 		if k.Handoff != nil {
-			s.Continuity.Text = k.Handoff.Urn + " (" + string(k.Status) + ")"
+			// A status in parentheses after an existing URN reads as a missing
+			// node; MISSING names the gap in words first and labels the URN as
+			// history, the way the bind renders it (cli#3010,
+			// conventions:worker-handoff-canonical-placement, cor:agt:020:03).
+			if k.Status == gen.WorkerContinuityStatusMissing {
+				s.Continuity.Text = "none current (the previous stint ended without one); older handoff (history, not the current state): " + k.Handoff.Urn
+			} else {
+				s.Continuity.Text = k.Handoff.Urn + " (" + string(k.Status) + ")"
+			}
 		}
 		s.Previous = shedField{Text: "none", OK: true}
 		if k.PreviousSession != nil {
@@ -551,7 +559,7 @@ func newCmdSessionShed(f *cmdutil.Factory) *cobra.Command {
 		Use:   "shed [--auto] [--print-prompt] [--offline] [--cooldown <d>] [--transcript <path>] [--note-file <path>]",
 		Short: "Write the shed checkpoint node, recovery prompt and resume claim in one step",
 		Long: `Checkpoint this worktree's worker session before a deliberate context reset
-that keeps it open (hadron-cli#952): read the session, chat head and read
+that keeps it open: read the session, chat head and read
 cursor, open work and briefing pointers, write one ` + "`sheds:`" + ` node into the
 worker's own memory, read it back, and only then write the resume claim.
 
@@ -595,8 +603,9 @@ lasts 60 seconds, so reset immediately afterwards.
 
 THE EXIT CODE DOES NOT PROVE THE SHED. Failures still exit 0 (above), so read
 the status: "written" with claim "written" is a complete shed. Then reset the
-context with your HOST's own command (Claude Code: /clear; this CLI has none),
-and in the fresh context follow the recovery prompt: ` + "`session whoami --check`" + `
+context with your HOST's own command (Claude Code: /clear), or let
+` + "`session reset-context`" + ` do the checkpoint and the relaunch in one step on an
+Orca host, and in the fresh context follow the recovery prompt: ` + "`session whoami --check`" + `
 first, then ` + "`session start`" + ` with no --as if the binding is gone. A failed
 claim is not fatal: the binding usually survives the reset, and the node
 still holds the handoff.`,

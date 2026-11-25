@@ -72,7 +72,7 @@ exit 2. --json keeps the server's code in the error's serverCode.`,
 			}
 			outcome, err := strconv.ParseFloat(strings.TrimSpace(args[1]), 64)
 			if err != nil || math.IsNaN(outcome) || math.IsInf(outcome, 0) {
-				return exitcode.Newf(exitcode.Usage, "the outcome must be a number from 0 to 1, got %q", args[1])
+				return exitcode.Newf(exitcode.Usage, "the outcome must be a number from 0 to 1 (the value given is not shown)")
 			}
 			var refArg *string
 			if cmd.Flags().Changed("ref") {

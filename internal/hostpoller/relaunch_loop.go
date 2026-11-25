@@ -317,13 +317,16 @@ func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapsho
 		Current: func(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Desired, error) {
 			// The discovery snapshot is already a current read for the first
 			// guard. Healthy workers need no repeated host-wide fetch. Every
-			// guard after admission and before/after launch still reads fresh.
+			// guard after admission and before/after launch still reads fresh,
+			// and about the one worker it guards (cli#2816): the targeted read,
+			// so a fresh answer naming no row is the selector's own definite
+			// answer, not the host's whole state.
 			snap := initial
 			var e error
 			if firstSnapshot {
 				firstSnapshot = false
 			} else {
-				snap, e = d.Source.RelaunchSnapshot(ctx, t.HostID)
+				snap, e = d.Source.RelaunchWorker(ctx, t.HostID, t.WorkerID)
 			}
 			if e != nil {
 				return hostrelaunch.Desired{}, e
@@ -337,7 +340,7 @@ func (p *Poller) relaunchRunner(d *RelaunchDependencies, initial RelaunchSnapsho
 					return hostrelaunch.Desired{Target: next, SweepMode: snap.SweepMode, State: fresh.Desired, Reason: fresh.Reason}, nil
 				}
 			}
-			return hostrelaunch.Desired{}, errors.New("worker is no longer in desired state")
+			return hostrelaunch.Desired{}, fmt.Errorf("%w: the host key's read names no desired row for the worker on this host", hostrelaunch.ErrNotDesired)
 		}, Binding: func(_ context.Context, t hostrelaunch.Target) (hostrelaunch.Binding, error) { return d.Binding(t) },
 		Probe: func(ctx context.Context, t hostrelaunch.Target) (hostrelaunch.Observation, error) {
 			p.mu.Lock()
