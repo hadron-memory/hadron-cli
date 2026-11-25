@@ -127,6 +127,17 @@ func asPerson(ctx context.Context) bool {
 	return v
 }
 
+// parseQuery parses a request's document for the write guards. A seam so a test
+// can count parses (cli#3135).
+var parseQuery = parser.ParseQuery
+
+// SetQueryParser wraps the guards' query parser for a test. Tests only.
+func SetQueryParser(wrap func(func(*ast.Source) (*ast.QueryDocument, error)) func(*ast.Source) (*ast.QueryDocument, error)) (restore func()) {
+	prev := parseQuery
+	parseQuery = wrap(prev)
+	return func() { parseQuery = prev }
+}
+
 // Inspect the selected mutation structurally, not its operation label or
 // arbitrary input text. #1606's published fields support #807 regardless of
 // its generated operation names. Every root field must be authored; mixed
@@ -135,7 +146,7 @@ func authoredWriteRequest(req *graphql.Request) bool {
 	if req == nil {
 		return false
 	}
-	doc, err := parser.ParseQuery(&ast.Source{Input: req.Query})
+	doc, err := parseQuery(&ast.Source{Input: req.Query})
 	if err != nil {
 		return false
 	}

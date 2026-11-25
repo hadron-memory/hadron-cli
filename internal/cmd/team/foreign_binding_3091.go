@@ -11,7 +11,6 @@ import (
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/vektah/gqlparser/v2/ast"
-	"github.com/vektah/gqlparser/v2/parser"
 )
 
 // Every worker on a host shares one OS user, so the cwd's binding says whose
@@ -106,7 +105,7 @@ func foreignBindingRefusalIf(ctx context.Context, uses func(b *binding) bool) er
 
 // mutationRequest reports whether the request is a GraphQL mutation.
 func mutationRequest(req *graphql.Request) bool {
-	doc, err := parser.ParseQuery(&ast.Source{Input: req.Query})
+	doc, err := parseQuery(&ast.Source{Input: req.Query})
 	if err != nil {
 		return false
 	}
