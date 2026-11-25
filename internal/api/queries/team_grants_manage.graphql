@@ -1,0 +1,32 @@
+# cli#1846: a person who manages an App reads, creates, revokes and withdraws
+# its grants (hadron-server#3711 / #3876, cor:acl:140:05). One selection for all
+# four, so the fields are pinned in one place. revokedByUserId and
+# holderDepartedAt come back only through the manager's read; every other read
+# answers null. state is the server's word, printed as sent and never derived.
+fragment GrantManagerFields on Grant {
+  id appId action values holderKind holderId issuerUserId
+  requestedByUserId requestedByWorkerId requestedBySessionId
+  startsAt expiresAt maxUses useCount reason createdAt activatedAt revokedAt
+  revokedByUserId holderDepartedAt allows state
+}
+
+query TeamAppGrants($appRef: String!, $limit: Int!, $offset: Int!) {
+  appGrants(appRef: $appRef, limit: $limit, offset: $offset) {
+    total
+    items { ...GrantManagerFields }
+  }
+}
+
+mutation TeamRevokeGrant($ref: ID!) {
+  revokeGrant(ref: $ref) { ...GrantManagerFields }
+}
+
+# Only the explicit instructed path carries the claim: the instruction variable
+# is required here, so an unset flag can never send an explicit null.
+mutation TeamRevokeGrantInstructed($ref: ID!, $instruction: ActInstructionInput!) {
+  revokeGrant(ref: $ref, instruction: $instruction) { ...GrantManagerFields }
+}
+
+mutation TeamWithdrawGrant($ref: ID!) {
+  withdrawGrant(ref: $ref) { ...GrantManagerFields }
+}

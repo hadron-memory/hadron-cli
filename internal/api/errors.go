@@ -1936,7 +1936,9 @@ func codeForExtension(code string) int {
 	//     caller's own input, which it fixes: 2.
 	//   - GRANT_NOT_PENDING, GRANT_EXPIRED, GRANT_TERMS_UNREPRESENTABLE: the
 	//     grant's (or its stored terms') state, which no retry changes: 5.
-	case code == "GRANT_REQUESTER_NOT_WORKER" || code == "GRANT_HOLDER_NOT_ALLOWED" || code == "GRANT_NOT_MANAGER":
+	//   - GRANT_NOT_REQUESTER (withdrawGrant, cli#1846): only the recorded
+	//     requester may withdraw a grant: 8.
+	case code == "GRANT_REQUESTER_NOT_WORKER" || code == "GRANT_HOLDER_NOT_ALLOWED" || code == "GRANT_NOT_MANAGER" || code == "GRANT_NOT_REQUESTER":
 		return exitcode.Forbidden
 	case code == "GRANT_ACTION_UNKNOWN" || code == "GRANT_VALUES_INVALID" || code == "GRANT_TERMS_INVALID":
 		return exitcode.Usage

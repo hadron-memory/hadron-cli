@@ -26,17 +26,25 @@ login: any other caller gets null or an empty page, with no error. An empty
 result is therefore not proof that you have no grants. --app cannot switch the
 bound App.`
 
-const workerGrantFieldsHelp = `Each grant has fourteen fields: id, action, values (the action's parameters, a
+const workerGrantFieldsHelp = `Each grant has fifteen fields: id, action, values (the action's parameters, a
 JSON object), holderKind and holderId (who holds it), startsAt and expiresAt
 (the window it allows in), maxUses and useCount, reason, createdAt, activatedAt
-(empty until a person signs it), revokedAt, and allows. allows is yes only
+(empty until a person signs it), revokedAt, allows and state. allows is yes only
 while the grant can be used right now: signed, not revoked, inside its window
-and not used up. A pending (unsigned) grant allows nothing. No state label is
-printed, only these facts; a dash means the value is unset. --json keeps the
-server values and nulls. list and get only read; to ask for a grant see 'hadron
-team grant request'. Organization action grants are a different thing: see
+and not used up. A pending (unsigned) grant allows nothing. state is the
+server's own word, printed as sent (PENDING, ACTIVE, SPENT, EXPIRED, REVOKED,
+WITHDRAWN or HOLDER_GONE), never worked out here; it can disagree with allows (a
+grant whose issuer can no longer issue stops allowing without changing state),
+and both are shown as returned. A dash means the value is unset. --json keeps the
+server values and nulls. list, get and request need a server released on or
+after 2026-11-17 (the state field; every other field they select shipped
+earlier, on 2026-11-10); an older server refuses the read. list and
+get only read; to ask for a grant see 'hadron team grant request'. Organization
+action grants are a different thing: see
 'hadron grant' ('hadron grant list'); 'hadron auth grants' reads the grants held
 by you personally across Apps.`
+
+var workerGrantNames = []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows", "state"}
 
 func newCmdTeamGrant(f *cmdutil.Factory) *cobra.Command {
 	group := &cobra.Command{Use: "grant <command>", Short: "Worker action grants and named App grants", Long: `Grants let a worker (or its role agent) do something a platform rule otherwise
@@ -49,6 +57,9 @@ withholds. Three groups of commands live here:
   worker action grants  request, request-signature, signing-request, list, get:
                         a worker asks for a grant of one action, a PERSON signs
                         it, and the worker reads the result.
+  manager verbs         create, app-list, revoke, withdraw: a person who manages
+                        an App creates, lists and revokes its grants, and the
+                        requester withdraws a pending one.
   the action catalog    actions, action: the actions an App registers for
                         grants and the parameters each one needs.
 
@@ -68,14 +79,16 @@ personally across Apps.`}
 	list := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one page of worker grants", Long: "List this worker's own grants: what it holds, and its requests still waiting\nto be signed.\n\n" + workerGrantAccess + `
 
 The list includes grants naming this worker directly as holder (any timestamps),
-plus this worker's own requests that are neither activated nor revoked. Grants
-held by a role agent, another worker, a person or an App are not listed.
+plus this worker's own requests that are neither activated nor revoked, and the
+grants held by this worker's role agent in its own App while it is installed and
+licensed (every state). Grants held by another worker's, a person's or an App's
+are not listed.
 
 ` + workerGrantFieldsHelp + `
 
 Text mode prints a table with one column per field (ID, ACTION, VALUES, HOLDER
 KIND, HOLDER ID, STARTS, EXPIRES, MAX USES, USE COUNT, REASON, CREATED,
-ACTIVATED, REVOKED, ALLOWS) and a "total/offset/limit" line. --limit 0 prints
+ACTIVATED, REVOKED, ALLOWS, STATE) and a "total/offset/limit" line. --limit 0 prints
 only the total count; --offset selects the page start. The default page limit is
 20. --json returns {items:[],total:N}, or {total:N} for count-only. No page is
 fetched automatically. If the page is empty and you expected rows, check that
@@ -112,7 +125,7 @@ page (an unbound worktree is refused instead, see above).`, Example: "  hadron t
 				_, e := fmt.Fprintln(w, "No rows returned on this worker-bound page; other caller kinds also receive an empty result.")
 				return e
 			}
-			table := output.NewTable(w, "ID", "ACTION", "VALUES", "HOLDER KIND", "HOLDER ID", "STARTS", "EXPIRES", "MAX USES", "USE COUNT", "REASON", "CREATED", "ACTIVATED", "REVOKED", "ALLOWS")
+			table := output.NewTable(w, "ID", "ACTION", "VALUES", "HOLDER KIND", "HOLDER ID", "STARTS", "EXPIRES", "MAX USES", "USE COUNT", "REASON", "CREATED", "ACTIVATED", "REVOKED", "ALLOWS", "STATE")
 			for _, g := range dto.Items {
 				cells := g.cells()
 				for i := range cells {
@@ -131,11 +144,12 @@ page (an unbound worktree is refused instead, see above).`, Example: "  hadron t
 	list.Flags().IntVar(&offset, "offset", 0, "page offset, 0..2147483647")
 	get := &cobra.Command{Use: "get <id>", Short: "Read one worker grant by ID", Long: `Read one worker grant by its id: the ID column of 'hadron team grant list', or
 the id printed when you ran 'hadron team grant request'. Text mode prints one
-"field: value" line per field; --json prints the same fourteen fields as a list
+"field: value" line per field; --json prints the same fifteen fields as a list
 item. A missing or hidden row returns the same not-found line and exit 4: get
 sees the grants naming this worker as holder, plus this worker's own requests
-that are neither activated nor revoked; a grant held by a role agent, another
-worker, a person or an App is not visible here.
+that are neither activated nor revoked, and the grants held by this worker's
+role agent in its own App; another worker's, a person's or an App's grants are
+not visible here.
 
 ` + workerGrantAccess + `
 
@@ -153,7 +167,7 @@ worker, a person or an App is not visible here.
 		}
 		dto := workerGrantFrom(resp.Grant)
 		return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-			names := []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows"}
+			names := workerGrantNames
 			for i, v := range dto.cells() {
 				if _, e := fmt.Fprintf(w, "%s: %s\n", names[i], output.SafeCell(v)); e != nil {
 					return e
@@ -162,7 +176,7 @@ worker, a person or an App is not visible here.
 			return nil
 		})
 	}}
-	group.AddCommand(newCmdAppGrant(f, false), newCmdAppGrant(f, true), list, get, newCmdTeamGrantRequest(f), newCmdTeamGrantRequestSignature(f), newCmdTeamGrantSigningRequest(f), newCmdTeamGrantActions(f), newCmdTeamGrantAction(f))
+	group.AddCommand(newCmdAppGrant(f, false), newCmdAppGrant(f, true), list, get, newCmdTeamGrantRequest(f), newCmdTeamGrantCreate(f), newCmdTeamGrantAppList(f), newCmdTeamGrantRevoke(f), newCmdTeamGrantWithdraw(f), newCmdTeamGrantRequestSignature(f), newCmdTeamGrantSigningRequest(f), newCmdTeamGrantActions(f), newCmdTeamGrantAction(f))
 	return group
 }
 
@@ -207,6 +221,7 @@ type workerGrantDTO struct {
 	ActivatedAt *string          `json:"activatedAt"`
 	RevokedAt   *string          `json:"revokedAt"`
 	Allows      bool             `json:"allows"`
+	State       string           `json:"state"`
 }
 type workerGrantPage struct {
 	Items []workerGrantDTO `json:"items"`
@@ -227,10 +242,11 @@ type workerGrantFields interface {
 	GetActivatedAt() *string
 	GetRevokedAt() *string
 	GetAllows() bool
+	GetState() gen.GrantState
 }
 
 func workerGrantFrom(g workerGrantFields) workerGrantDTO {
-	return workerGrantDTO{g.GetId(), g.GetAction(), g.GetValues(), string(g.GetHolderKind()), g.GetHolderId(), g.GetStartsAt(), g.GetExpiresAt(), g.GetMaxUses(), g.GetUseCount(), g.GetReason(), g.GetCreatedAt(), g.GetActivatedAt(), g.GetRevokedAt(), g.GetAllows()}
+	return workerGrantDTO{g.GetId(), g.GetAction(), g.GetValues(), string(g.GetHolderKind()), g.GetHolderId(), g.GetStartsAt(), g.GetExpiresAt(), g.GetMaxUses(), g.GetUseCount(), g.GetReason(), g.GetCreatedAt(), g.GetActivatedAt(), g.GetRevokedAt(), g.GetAllows(), string(g.GetState())}
 }
 func (g workerGrantDTO) cells() []string {
 	value := "null"
@@ -245,9 +261,9 @@ func (g workerGrantDTO) cells() []string {
 	if g.Allows {
 		allows = "yes"
 	}
-	return []string{g.ID, g.Action, value, g.HolderKind, g.HolderID, grantTime(g.StartsAt), grantTime(g.ExpiresAt), max, strconv.Itoa(g.UseCount), g.Reason, g.CreatedAt, grantTime(g.ActivatedAt), grantTime(g.RevokedAt), allows}
+	return []string{g.ID, g.Action, value, g.HolderKind, g.HolderID, dashIfNil(g.StartsAt), dashIfNil(g.ExpiresAt), max, strconv.Itoa(g.UseCount), g.Reason, g.CreatedAt, dashIfNil(g.ActivatedAt), dashIfNil(g.RevokedAt), allows, g.State}
 }
-func grantTime(v *string) string {
+func dashIfNil(v *string) string {
 	if v == nil {
 		return "—"
 	}
