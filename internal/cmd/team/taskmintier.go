@@ -8,6 +8,6 @@ func validateTaskMinTier(tier string) error {
 	case "low", "mid", "high":
 		return nil
 	default:
-		return exitcode.Newf(exitcode.Usage, "--min-tier takes low, mid or high, got %q", tier)
+		return exitcode.Newf(exitcode.Usage, "--min-tier takes low, mid or high")
 	}
 }

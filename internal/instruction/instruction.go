@@ -76,11 +76,11 @@ var kinds = map[string]gen.ActInstructionKind{
 func Parse(raw string) (*gen.ActInstructionInput, error) {
 	kind, ref, ok := strings.Cut(raw, ":")
 	if !ok {
-		return nil, exitcode.Newf(exitcode.Usage, "--instruction takes <kind>:<ref> (kind team-chat-message, task or live-chat), got %q", raw)
+		return nil, exitcode.Newf(exitcode.Usage, "--instruction takes <kind>:<ref> (kind team-chat-message, task or live-chat); the value given is not shown")
 	}
 	k, known := kinds[kind]
 	if !known {
-		return nil, exitcode.Newf(exitcode.Usage, "--instruction kind %q is not one of team-chat-message, task, live-chat", kind)
+		return nil, exitcode.Newf(exitcode.Usage, "--instruction kind (the value given is not shown) is not one of team-chat-message, task, live-chat")
 	}
 	if strings.TrimSpace(ref) == "" {
 		return nil, exitcode.Newf(exitcode.Usage, "--instruction %s: needs a reference after the colon", kind)

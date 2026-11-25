@@ -443,7 +443,7 @@ func TestBatchCompileOnlyFiltersAndRefusesUnknownNamesBeforeWriting(t *testing.T
 	}
 
 	fake, _, _, err = runBatch(t, batchTeam(), "--only", "Ann,Zed,Fay", "--apply")
-	if exitCodeFor(err) != exitcode.NotFound || !strings.Contains(err.Error(), "Zed") || !strings.Contains(err.Error(), "Fay") {
+	if exitCodeFor(err) != exitcode.NotFound || !strings.Contains(err.Error(), "--only value(s) 2, 3,") || strings.Contains(err.Error(), "Zed") {
 		t.Fatalf("unknown or retired --only names must be reported: %v", err)
 	}
 	if n := len(fake.ops("CompileWorkerBootPrompt")); n != 0 {

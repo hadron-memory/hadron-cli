@@ -73,7 +73,7 @@ func selectAdapter(cmd *cobra.Command, adapterFlag string, u adapterFlagUse) (st
 		return "", exitcode.Newf(exitcode.Usage, "--for needs a worker name")
 	}
 	if fl.Changed("limit") && (u.limit < 1 || u.limit > adapterMaxLimit) {
-		return "", exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d with an intake adapter, got %d", adapterMaxLimit, u.limit)
+		return "", exitcode.Newf(exitcode.Usage, "--limit takes 1 to %d with an intake adapter", adapterMaxLimit)
 	}
 	return path, nil
 }

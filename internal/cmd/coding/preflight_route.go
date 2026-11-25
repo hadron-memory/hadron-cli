@@ -316,7 +316,7 @@ router body that was not updated. The message says which part is missing.`,
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, link)
 				if err != nil {
 					return partialRoute(f, dto, false, err,
-						"routed the node reported above, but the router's body was not updated — the route is invisible to anyone READING it; add it with `hadron coding preflight route <loc> -m <memory> --route <label>` and this run's other flags (an existing route is kept, only the missing line is written)")
+						"routed the node reported above, but the router's body was not updated — the route is invisible to anyone READING it; add it with `hadron coding preflight route <loc> -m <memory> --route <label>`, adding --section, --symptom, --description, --root, --attach-to, --route-model, --no-back-edge and --cross-memory as you gave them (the route that exists is kept and only the missing line is written)")
 				}
 				if !written.Skipped {
 					dto.BodyLine, dto.Section = line, written.Section

@@ -1854,7 +1854,7 @@ func offerInformedRelease(
 					"the current state",
 				w.Name, holderPhrase(ctx, client, staleHolderPtr(again)))
 		}
-		return zero, nameHolderOnForbidden(ctx, client, w.Name, stale.HolderID, err)
+		return zero, nameHolderOnForbidden(ctx, client, stale.HolderID, err)
 	}
 	// No classification carried back. This used to compute `forced` — true when
 	// the identity read worked, honestly nil when it did not — and that nil was
@@ -1868,21 +1868,21 @@ func offerInformedRelease(
 // releaseRemedy is the sentence a refused force-release ends on: whose hold it
 // is and who can lift it. Wording matches heldRefusal's ("the holder — or an
 // App/org admin"); in a user-owned App the App's owner is that admin.
-func releaseRemedy(name, holder string) string {
-	return fmt.Sprintf("%s is held by %s; only the holder, or an App or org admin, can release it", name, holder)
+func releaseRemedy(holder string) string {
+	return fmt.Sprintf("the worker (the ref given is not shown) is held by %s; only the holder, or an App or org admin, can release it", holder)
 }
 
 // nameHolderOnForbidden maps a release error through api.MapError and, when it
 // is the server's not-authorized refusal (exit Forbidden), adds the holder and
 // the remedy BEFORE the server's own sentence, which stays in the message and
 // keeps its exit code. Any other error maps exactly as it did.
-func nameHolderOnForbidden(ctx context.Context, client graphql.Client, name, holderID string, err error) error {
+func nameHolderOnForbidden(ctx context.Context, client graphql.Client, holderID string, err error) error {
 	mapped := api.MapError(err)
 	code := exitcode.FromError(mapped)
 	if code != exitcode.Forbidden {
 		return mapped
 	}
-	return exitcode.New(code, fmt.Errorf("%s: %w", releaseRemedy(name, describeHolder(ctx, client, holderID)), mapped))
+	return exitcode.New(code, fmt.Errorf("%s: %w", releaseRemedy(describeHolder(ctx, client, holderID)), mapped))
 }
 
 // staleHolderPtr renders a HoldStaleDetail's holder for holderPhrase, which
@@ -2044,7 +2044,7 @@ then to their id.`,
 					// code (Usage) and the same leading phrase as before.
 					holder := describeHolder(ctx, client, *priorHolder)
 					return exitcode.Newf(exitcode.Usage, "%v: %s",
-						cmdutil.Confirm(f.IOStreams, false, ""), releaseRemedy(w.Name, holder))
+						cmdutil.Confirm(f.IOStreams, false, ""), releaseRemedy(holder))
 				}
 				prompt := releasePrompt(w.Name, describeHolder(ctx, client, *priorHolder),
 					w.RetiredAt, forced != nil)
@@ -2099,7 +2099,7 @@ then to their id.`,
 					// the holder and who can release it; a self-release is never
 					// decorated (#1859).
 					if priorHolder != nil && (forced == nil || *forced) {
-						return nameHolderOnForbidden(ctx, client, w.Name, *priorHolder, err)
+						return nameHolderOnForbidden(ctx, client, *priorHolder, err)
 					}
 					return api.MapError(err)
 				}

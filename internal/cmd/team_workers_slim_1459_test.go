@@ -282,7 +282,7 @@ func TestWorkerGetUnknownNameIsNotFound1459(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "worker", "get", "Nobody", "--app", "hrn:app:acme.com:eng-team", "--server", s.URL})
 	err := root.Execute()
-	if exitCodeFor(err) != 4 || err == nil || !strings.Contains(err.Error(), `no worker "Nobody" in this App`) {
+	if exitCodeFor(err) != 4 || err == nil || !strings.Contains(err.Error(), "no worker in this App has that name or ref") || strings.Contains(err.Error(), "Nobody") {
 		t.Fatalf("want exit 4 with the in-App not-found, got %d: %v", exitCodeFor(err), err)
 	}
 	s.assertOneNameRead(t, "GetWorkerInApp")
