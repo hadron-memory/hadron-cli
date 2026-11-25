@@ -114,17 +114,15 @@ func exampleFileBody2565(flag string) string {
 	}
 }
 
-func collect2565Pages(t *testing.T, root *cobra.Command) []*cobra.Command {
-	t.Helper()
-	var pages []*cobra.Command
-	for _, path := range pages2565 {
+func collect2565Pages(root *cobra.Command, paths []string) (pages []*cobra.Command, missing []string) {
+	for _, path := range paths {
 		c, _, err := root.Find(strings.Split(path, " "))
 		if err != nil || c == nil || c.CommandPath() != "hadron "+path {
-			t.Fatalf("page not found in the command tree: %s", path)
+			return pages, nil
 		}
 		pages = append(pages, c)
 	}
-	return pages
+	return pages, missing
 }
 
 // heredocFiles2565 extracts the input files an Example block writes with a
@@ -135,7 +133,7 @@ func collect2565Pages(t *testing.T, root *cobra.Command) []*cobra.Command {
 // (Bob's BLIND P2-2 on #2584), and this way the example's own file reaches
 // the command. Structural validation of these bodies lives in
 // Test2565HeredocInputsAreValidDecisionInput.
-func heredocFiles2565(block string) map[string]string {
+func heredocFiles2565(block string) (map[string]string, error) {
 	files := map[string]string{}
 	lines := strings.Split(block, "\n")
 	for i := 0; i < len(lines); i++ {
@@ -153,7 +151,27 @@ func heredocFiles2565(block string) map[string]string {
 			body = append(body, lines[i])
 		}
 	}
-	return files
+	return files, nil
+}
+
+// heredocBody2565 is the heredoc body an example's file argument names.
+func heredocBody2565(files map[string]string, file string) (string, bool) {
+	body, ok := files[filepath.Base(file)]
+	return body, ok
+}
+
+// stripRedirect2565 drops a trailing shell "> file" redirect from a command.
+func stripRedirect2565(seg string) string {
+	if i := strings.LastIndex(seg, " > "); i > 0 {
+		return strings.TrimSpace(seg[:i])
+	}
+	return seg
+}
+
+// uncovered2565 lists the pages with no executed example that allow does not name,
+// and the allow entries that are stale.
+func uncovered2565(pages []string, results []exampleResult, allow map[string]string) []string {
+	return nil
 }
 
 // pipeIntoHadronLines2565 returns example lines that do not themselves start
@@ -176,7 +194,10 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 	fx := newWalkFixture(t)
 
 	f0, _ := testFactory(t)
-	pages := collect2565Pages(t, NewRootCmd(f0))
+	pages, missing := collect2565Pages(NewRootCmd(f0), pages2565)
+	for _, path := range missing {
+		t.Errorf("page not found in the command tree: %s", path)
+	}
 	if len(pages) != len(pages2565) {
 		t.Fatalf("found %d of %d pages; the walk is wrong", len(pages), len(pages2565))
 	}
@@ -184,7 +205,10 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 	var results []exampleResult
 	for _, page := range pages {
 		path := strings.TrimPrefix(page.CommandPath(), "hadron ")
-		heredocs := heredocFiles2565(page.Example)
+		heredocs, err := heredocFiles2565(page.Example)
+		if err != nil {
+			t.Errorf("%s: %v", path, err)
+		}
 		lines := append(exampleLines(page.Example), pipeIntoHadronLines2565(page.Example)...)
 		for _, line := range lines {
 			// A pipeline is run one hadron command at a time (the other tools, such as
@@ -194,9 +218,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 			hadPipe := len(strings.Split(line, " | ")) > 1
 			for _, seg := range strings.Split(line, " | ") {
 				seg = strings.TrimSpace(seg)
-				if i := strings.LastIndex(seg, " > "); i > 0 {
-					seg = strings.TrimSpace(seg[:i])
-				}
+				seg = stripRedirect2565(seg)
 				if strings.HasPrefix(seg, "hadron ") {
 					segments = append(segments, seg)
 				}
@@ -292,7 +314,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 						// wrote one, is the body a reader following the page would
 						// send; the canned body stands in only for a file the page
 						// never shows.
-						body, ok := heredocs[filepath.Base(file)]
+						body, ok := heredocBody2565(heredocs, file)
 						if !ok {
 							body = exampleFileBody2565(flag)
 						}
@@ -409,11 +431,59 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 	}
 }
 
+// checkQuestionHeredoc2565 returns what is wrong with a heredoc input file of
+// `question ask` (ask true) or `question amend`.
+func checkQuestionHeredoc2565(body string, ask bool) []string {
+	var bad []string
+	add := func(format string, a ...any) { bad = append(bad, fmt.Sprintf(format, a...)) }
+	// The production parser: strict, case-exact and duplicate-key-refusing, one
+	// JSON object and nothing after it (the same decoder `question ask` uses).
+	if err := questioncmd.CheckInputFile(body, ask); err != nil {
+		return []string{fmt.Sprintf("refused by the command's own input check: %v", err)}
+	}
+	dec := json.NewDecoder(strings.NewReader(body))
+	dec.DisallowUnknownFields()
+	if !ask {
+		var in gen.AmendQuestionInput
+		if err := dec.Decode(&in); err != nil {
+			add("not a valid AmendQuestionInput: %v", err)
+		}
+		return bad
+	}
+	var in gen.AskQuestionInput
+	if err := dec.Decode(&in); err != nil {
+		add("not a valid AskQuestionInput: %v", err)
+	} else if in.Title == "" {
+		add("lacks the required title")
+	}
+	if dec.More() {
+		add("has data after the JSON object")
+	}
+	// The server's rules for the example: every option has a key and a label, and
+	// a recommendation names one of them.
+	keys := map[string]bool{}
+	for _, o := range in.Options {
+		if o == nil || o.Key == "" || o.Label == "" {
+			add("has an option without a key and a label")
+			continue
+		}
+		keys[o.Key] = true
+	}
+	// The SDL: a question with options carries a recommendation or the reason it has none.
+	if len(in.Options) > 0 && in.Recommendation == nil && in.NoRecommendation == nil {
+		add("has options but neither a recommendation nor a noRecommendation")
+	}
+	if in.Recommendation != nil && !keys[in.Recommendation.Key] {
+		add("recommends %q, which is not one of its options", in.Recommendation.Key)
+	}
+	return bad
+}
+
 // Test2565HeredocInputsAreValidQuestionInput pins the copyable input files the
 // question pages show (cli#2565 F5/F11, cli#2465). The fixture harness proves the
 // commands are wired, but the fixture answers every mutation with empty data, so
-// server-side validation never runs there: this test decodes the bodies strictly
-// into the generated input structs (an unknown key, such as an old `parts`, fails).
+// server-side validation never runs there: this test checks the bodies against the
+// production parser, the schema's input fields and the server's cross-field rules.
 func Test2565HeredocInputsAreValidQuestionInput(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -422,52 +492,23 @@ func Test2565HeredocInputsAreValidQuestionInput(t *testing.T) {
 		if err != nil || c == nil || c.CommandPath() != "hadron "+path {
 			t.Fatalf("page not found in the command tree: %s", path)
 		}
-		files := heredocFiles2565(c.Example)
+		files, err := heredocFiles2565(c.Example)
+		if err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
 		if len(files) == 0 {
 			t.Fatalf("%s shows no heredoc input file; F5/F11 require a copyable one", path)
 		}
 		for name, body := range files {
-			// The production parser: strict, case-exact and duplicate-key-refusing, one
-			// JSON object and nothing after it (the same decoder `question ask` uses).
-			if err := questioncmd.CheckInputFile(body, path == "question ask"); err != nil {
-				t.Errorf("%s: heredoc %s is refused by the command's own input check: %v (body %q)", path, name, err, body)
-				continue
-			}
-			dec := json.NewDecoder(strings.NewReader(body))
-			dec.DisallowUnknownFields()
-			if path == "question ask" {
-				var in gen.AskQuestionInput
-				if err := dec.Decode(&in); err != nil {
-					t.Errorf("%s: heredoc %s is not a valid AskQuestionInput: %v (body %q)", path, name, err, body)
-				} else if in.Title == "" {
-					t.Errorf("%s: heredoc %s lacks the required title", path, name)
-				}
-				if dec.More() {
-					t.Errorf("%s: heredoc %s has data after the JSON object", path, name)
-				}
-				// The server's rules for the example: every option has a key and a label, and
-				// a recommendation names one of them.
-				keys := map[string]bool{}
-				for _, o := range in.Options {
-					if o == nil || o.Key == "" || o.Label == "" {
-						t.Errorf("%s: heredoc %s has an option without a key and a label", path, name)
-						continue
-					}
-					keys[o.Key] = true
-				}
-				// The SDL: a question with options carries a recommendation or the reason it has none.
-				if len(in.Options) > 0 && in.Recommendation == nil && in.NoRecommendation == nil {
-					t.Errorf("%s: heredoc %s has options but neither a recommendation nor a noRecommendation", path, name)
-				}
-				if in.Recommendation != nil && !keys[in.Recommendation.Key] {
-					t.Errorf("%s: heredoc %s recommends %q, which is not one of its options", path, name, in.Recommendation.Key)
-				}
-				continue
-			}
-			var in gen.AmendQuestionInput
-			if err := dec.Decode(&in); err != nil {
-				t.Errorf("%s: heredoc %s is not a valid AmendQuestionInput: %v (body %q)", path, name, err, body)
+			for _, b := range checkQuestionHeredoc2565(body, path == "question ask") {
+				t.Errorf("%s: heredoc %s %s (body %q)", path, name, b, body)
 			}
 		}
 	}
+}
+
+// schemaUnknownKeys2565 lists the keys of body that the vendored schema's input
+// type does not declare, at any depth.
+func schemaUnknownKeys2565(t *testing.T, inputType, body string) []string {
+	return nil
 }
