@@ -28,7 +28,6 @@ import (
 // each slice deletes its group, and the last one deletes this list.
 // Each carries its hit count, so a new echo there fails the guard.
 var noEchoPendingDirs = map[string]int{
-	"internal/cmd/team/": 20,
 }
 
 type echoFlow struct {
