@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -27,6 +28,9 @@ type fakeAS struct {
 	registeredRedirect string
 	seenVerifier       string
 	seenResource       string
+	seenRedirect       string
+	seenCode           string
+	discoveryCalls     atomic.Int32
 	// scopesSupported is advertised in discovery; nil omits the key.
 	scopesSupported []string
 	// tokenScope is the raw JSON `scope` of the token response; nil omits it.
@@ -47,6 +51,7 @@ func newFakeAS(t *testing.T) *fakeAS {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		as.discoveryCalls.Add(1)
 		meta := map[string]any{
 			"authorization_endpoint": as.server.URL + "/oauth/authorize",
 			"token_endpoint":         as.server.URL + "/oauth/token",
@@ -83,6 +88,8 @@ func newFakeAS(t *testing.T) *fakeAS {
 		_ = r.ParseForm()
 		as.seenVerifier = r.Form.Get("code_verifier")
 		as.seenResource = r.Form.Get("resource")
+		as.seenRedirect = r.Form.Get("redirect_uri")
+		as.seenCode = r.Form.Get("code")
 		// The real server requires a resource indicator (RFC 8707)
 		// bound from /authorize through /token.
 		if as.seenResource != as.server.URL+"/mcp" {
