@@ -411,7 +411,7 @@ func TestTeamMetricsHelpSaysWhatTheReportsCount1826(t *testing.T) {
 		"only started tasks that track external work",
 		"every task",
 		"window applies to the flow",
-		"does not serve teamMetrics",
+		"does not serve what the query selects — teamMetrics itself",
 	} {
 		if !strings.Contains(help, want) {
 			t.Errorf("help lacks %q:\n%s", want, help)

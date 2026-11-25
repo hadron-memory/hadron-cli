@@ -432,7 +432,7 @@ section between the markers.
 | `run cancel` |  |  | y | #1053 | 9e1ebf19ca9b |  | unread |  |
 | `run get` |  |  | y | #1053 | d268f2d5c422 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run latest` |  |  | y | #1053 | f3fae5389764 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
-| `run list` | ls |  | y | #1053 | d7807fe474bd |  | unread |  |
+| `run list` | ls |  | y | #1053 | 2058c67ec643 |  | unread |  |
 | `run served-prompt` |  |  | y | #1053 | 64d3b7b56365 |  | unread |  |
 | `run trigger` |  |  | y | #1053 | 75e6d9928870 |  | unread |  |
 | `schedule` |  |  | n | #1053 | e659cb6453d5 |  | unread |  |
@@ -555,7 +555,7 @@ section between the markers.
 | `team host unassign` |  |  | y | #1054 | 27a1042772ef |  | unread |  |
 | `team host up` |  |  | y | #1054 | a0cb59cf71f9 |  | unread |  |
 | `team init` |  |  | y | #1054 | 28b798b2fe94 |  | unread |  |
-| `team metrics` |  |  | y | #1054 | 7f09e96866c8 |  | unread |  |
+| `team metrics` |  |  | y | #1054 | 94b74d7eb7d0 |  | unread |  |
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
 | `team pr` |  |  | y | #1054 | 28eb77314660 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | db75d8f4345a |  | unread |  |

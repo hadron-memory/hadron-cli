@@ -154,8 +154,9 @@ missing App (exit 4).
 a hidden report is null.
 
 Exit codes: 0 read; 2 a bad flag, a window the server refuses, or a server
-that does not serve teamMetrics (one from before 2026-11-22); 4 no such App
-or not readable; 1 a server fault.`
+that does not serve what the query selects — teamMetrics itself (one from
+before 2026-11-22) or the counts' named field (one from before
+2026-11-24); 4 no such App or not readable; 1 a server fault.`
 
 func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 	var since, until string
@@ -206,6 +207,10 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 				if api.IsFrameworkValidationOnlyFor(err, "teamMetrics") {
 					return api.WithServerCode(exitcode.Newf(exitcode.Usage,
 						"this server does not serve teamMetrics (it predates 2026-11-22); nothing was read"), err)
+				}
+				if api.IsFrameworkValidationOnlyFor(err, "named") {
+					return api.WithServerCode(exitcode.Newf(exitcode.Usage,
+						"this server does not serve the counts' named field (it predates 2026-11-24, server#4992); nothing was read"), err)
 				}
 				return api.MapErrorKeepingCode(err)
 			}

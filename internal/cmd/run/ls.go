@@ -30,7 +30,8 @@ CANCELLED, TIMED_OUT), or --statuses (comma-separated; not with --status).
 finishedAt, duration or status. duration is finishedAt minus startedAt: a
 run missing either timestamp (a PENDING run has neither) has none, and a
 sort field a run lacks sorts last in both directions. --dir is asc or
-desc. Omitted sort flags use the server defaults.
+desc. Omitted sort flags use the server defaults. --sort duration needs a
+server from 2026-11-24 or later; an older server refuses the value.
 The list pages to exhaustion. COST is the run's priced
 cost ("unknown" = no figure, not zero); REASON is the failure kind of a failed,
 timed-out or cancelled run ("unknown" if the server gave none; "run get" has

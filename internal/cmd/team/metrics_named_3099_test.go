@@ -8,6 +8,7 @@ package team
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -38,6 +40,12 @@ const metricsNamedFixture3099 = `{"data":{"teamMetrics":{
 // runMetrics3099 runs the real metrics command against a one-operation fake
 // server that answers TeamMetrics with counts carrying `named`.
 func runMetrics3099(t *testing.T, args ...string) (string, error) {
+	return runMetrics3099With(t, metricsNamedFixture3099, args...)
+}
+
+// runMetrics3099With is runMetrics3099 with the body the fake server answers
+// with, so the floor tests can serve a stale-server rejection.
+func runMetrics3099With(t *testing.T, response string, args ...string) (string, error) {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("HADRON_TOKEN", "hdr_user_test")
@@ -57,7 +65,7 @@ func runMetrics3099(t *testing.T, args ...string) (string, error) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(metricsNamedFixture3099))
+		_, _ = w.Write([]byte(response))
 	}))
 	t.Cleanup(srv.Close)
 	io, out, _ := output.Test()
@@ -132,5 +140,29 @@ func TestTeamMetricsJSONNamesAdditive_3099(t *testing.T) {
 	}
 	if strings.Contains(out, `"named": null`) {
 		t.Errorf("named must never render as null:\n%s", out)
+	}
+}
+
+// Jerry (cli#3099 BLIND P2): a server too old for the counts' named field —
+// one from before 2026-11-24, server#4992 — must say so in the command's own
+// words at exit 2 (Usage), the same house answer as the teamMetrics floor,
+// not fall through as a raw GraphQL validation error. Floors do not coincide:
+// a 2026-11-22..24 server serves teamMetrics but rejects `named`.
+func TestTeamMetricsNamedFloorSaidNotRaw_3099(t *testing.T) {
+	stale := `{"errors":[{"message":"Cannot query field \"named\" on type \"TeamMetricsCount\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	out, err := runMetrics3099With(t, stale, "--ids")
+	if err == nil {
+		t.Fatalf("a server without the counts' named field must be an error, got output:\n%s", out)
+	}
+	var coded *exitcode.CodedError
+	if !errors.As(err, &coded) || coded.Code != exitcode.Usage {
+		t.Fatalf("the named-field floor must be exit 2 (Usage), got %v", err)
+	}
+	msg := coded.Error()
+	if !strings.Contains(msg, "server#4992") || !strings.Contains(msg, "2026-11-24") {
+		t.Fatalf("the floor message must name server#4992 and 2026-11-24:\n%s", msg)
+	}
+	if strings.Contains(msg, "Cannot query field") {
+		t.Fatalf("the raw GraphQL error must not leak:\n%s", msg)
 	}
 }
