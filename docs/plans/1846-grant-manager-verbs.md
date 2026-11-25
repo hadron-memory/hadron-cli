@@ -42,8 +42,10 @@ reads the grant the way the manager does. `team grant list` and `get` gain
 ## Compatibility
 
 `state` is a server field from 2026-11-17 (hadron-server#4207); `list`, `get`
-and `request` now select it, so an older server refuses those reads. The help
-says so. `secret client revoke` already selected `state` on the same field.
+and `request` now select it, so an older server refuses those reads. `request`
+(through the shared `TeamCreateGrant` selection) also reads the manager's fields,
+which shipped earlier (hadron-server#3876, 2026-11-10), so 2026-11-17 is the
+floor for all three. The help says so. `secret client revoke` already selected `state` on the same field.
 
 ## Tests
 

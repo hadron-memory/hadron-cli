@@ -36,9 +36,11 @@ server's own word, printed as sent (PENDING, ACTIVE, SPENT, EXPIRED, REVOKED,
 WITHDRAWN or HOLDER_GONE), never worked out here; it can disagree with allows (a
 grant whose issuer can no longer issue stops allowing without changing state),
 and both are shown as returned. A dash means the value is unset. --json keeps the
-server values and nulls. state needs a server released on or after 2026-11-17;
-an older server refuses the read. list and get only read; to ask for a grant see 'hadron
-team grant request'. Organization action grants are a different thing: see
+server values and nulls. list, get and request need a server released on or
+after 2026-11-17 (the state field; every other field they select shipped
+earlier, on 2026-11-10); an older server refuses the read. list and
+get only read; to ask for a grant see 'hadron team grant request'. Organization
+action grants are a different thing: see
 'hadron grant' ('hadron grant list'); 'hadron auth grants' reads the grants held
 by you personally across Apps.`
 
@@ -259,9 +261,9 @@ func (g workerGrantDTO) cells() []string {
 	if g.Allows {
 		allows = "yes"
 	}
-	return []string{g.ID, g.Action, value, g.HolderKind, g.HolderID, grantTime(g.StartsAt), grantTime(g.ExpiresAt), max, strconv.Itoa(g.UseCount), g.Reason, g.CreatedAt, grantTime(g.ActivatedAt), grantTime(g.RevokedAt), allows, g.State}
+	return []string{g.ID, g.Action, value, g.HolderKind, g.HolderID, dashIfNil(g.StartsAt), dashIfNil(g.ExpiresAt), max, strconv.Itoa(g.UseCount), g.Reason, g.CreatedAt, dashIfNil(g.ActivatedAt), dashIfNil(g.RevokedAt), allows, g.State}
 }
-func grantTime(v *string) string {
+func dashIfNil(v *string) string {
 	if v == nil {
 		return "—"
 	}

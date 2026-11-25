@@ -104,9 +104,9 @@ func (g managerGrantDTO) cells() []string {
 	if g.MaxUses != nil {
 		max = strconv.Itoa(*g.MaxUses)
 	}
-	return []string{g.ID, g.AppID, g.Action, value, g.HolderKind, g.HolderID, grantTime(g.IssuerUserID), grantTime(g.RequestedByUserID), grantTime(g.RequestedByWorkerID),
-		grantTime(g.RequestedBySessionID), grantTime(g.StartsAt), grantTime(g.ExpiresAt), max, strconv.Itoa(g.UseCount), g.Reason, g.CreatedAt, grantTime(g.ActivatedAt),
-		grantTime(g.RevokedAt), grantTime(g.RevokedByUserID), grantTime(g.HolderDepartedAt), strconv.FormatBool(g.Allows), g.State}
+	return []string{g.ID, g.AppID, g.Action, value, g.HolderKind, g.HolderID, dashIfNil(g.IssuerUserID), dashIfNil(g.RequestedByUserID), dashIfNil(g.RequestedByWorkerID),
+		dashIfNil(g.RequestedBySessionID), dashIfNil(g.StartsAt), dashIfNil(g.ExpiresAt), max, strconv.Itoa(g.UseCount), g.Reason, g.CreatedAt, dashIfNil(g.ActivatedAt),
+		dashIfNil(g.RevokedAt), dashIfNil(g.RevokedByUserID), dashIfNil(g.HolderDepartedAt), strconv.FormatBool(g.Allows), g.State}
 }
 
 // writeManagerGrant prints one grant as "field: value" lines, exactly the
@@ -285,6 +285,12 @@ an App that does not exist. Text mode says so; --json stays the bare page.
 				}
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				if len(dto.Items) == 0 && dto.Total > 0 {
+					// The server counted grants but this page holds none: the offset is
+					// past the end. That is not the empty answer of an unauthorised caller.
+					_, e := fmt.Fprintf(w, "No rows on this page: offset %d is past the end of %d grants.\n", offset, dto.Total)
+					return e
+				}
 				if len(dto.Items) == 0 {
 					_, e := fmt.Fprintln(w, "No rows on this page. You may not be authorised to list this App's grants, or the App does not exist: the server answers the same empty page either way.")
 					return e
@@ -315,18 +321,18 @@ an App that does not exist. Text mode says so; --json stays the bare page.
 // instructionApp names the App an instructed revoke acts in: --app, else the
 // worktree binding's App. A revoke names a grant, not an App, so this is the
 // App the worker's session is checked against (the shared helper's input).
-func instructionApp(ctx context.Context, f *cmdutil.Factory) string {
+func instructionApp(ctx context.Context, f *cmdutil.Factory) (string, error) {
 	if f.AppFlag != "" {
-		return f.AppFlag
+		return f.AppFlag, nil
 	}
 	b, _, err := readBinding(ctx)
 	if err != nil && !errors.Is(err, errNoWorktree) {
-		return ""
+		return "", err
 	}
 	if b == nil {
-		return ""
+		return "", nil
 	}
-	return b.AppID
+	return b.AppID, nil
 }
 
 func newCmdTeamGrantRevoke(f *cmdutil.Factory) *cobra.Command {
@@ -373,11 +379,15 @@ rules are in 'hadron agentic-usage'.
 				if e != nil {
 					return api.MapError(e)
 				}
-				if resp != nil {
+				if resp != nil && resp.RevokeGrant != nil {
 					g = &resp.RevokeGrant.GrantManagerFields
 				}
 			} else {
-				ctx, e := managerWriteContext(cmd, instructionApp(cmd.Context(), f), claim, instructed)
+				app, e := instructionApp(cmd.Context(), f)
+				if e != nil {
+					return e
+				}
+				ctx, e := managerWriteContext(cmd, app, claim, instructed)
 				if e != nil {
 					return e
 				}
@@ -385,7 +395,7 @@ rules are in 'hadron agentic-usage'.
 				if e != nil {
 					return api.MapError(e)
 				}
-				if resp != nil {
+				if resp != nil && resp.RevokeGrant != nil {
 					g = &resp.RevokeGrant.GrantManagerFields
 				}
 			}
@@ -440,7 +450,7 @@ grant keeps its first end.
 
 func withdrawGrant(ctx context.Context, client graphql.Client, id string) (*gen.GrantManagerFields, error) {
 	resp, err := gen.TeamWithdrawGrant(ctx, client, id)
-	if err != nil || resp == nil {
+	if err != nil || resp == nil || resp.WithdrawGrant == nil {
 		return nil, err
 	}
 	return &resp.WithdrawGrant.GrantManagerFields, nil

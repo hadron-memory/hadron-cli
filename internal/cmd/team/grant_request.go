@@ -155,6 +155,8 @@ timestamp such as 2026-12-01T09:00:00Z (the server parses it); --max-uses is a
 count; leave them out to let the server apply its defaults.
 
 Prints the pending grant in its fifteen fields (see 'hadron team grant get').
+It needs a server released on or after 2026-11-17: the request reads the grant
+as an App manager does, and every field it selects shipped by then.
 Next step: 'hadron team grant request-signature <id>', then give the URL to a
 person.
 
