@@ -127,7 +127,7 @@ func TestBillingRefusesNegativePaging(t *testing.T) {
 
 func TestBillingBalance(t *testing.T) {
 	resp := map[string]string{
-		"CreditBalance": `{"data":{"creditBalance":{"organizationId":"org1","balanceMicroCents":"-` + bigMicroCents + `"}}}`,
+		"CreditBalance": `{"data":{"creditBalance":{"organizationId":"org1","balanceMicroCents":"-` + bigMicroCents + `","expiring":[{"amountMicroCents":"9","expiresAt":"2027-01-01T00:00:00.000Z"}]}}}`,
 	}
 	out, captured, err := runBilling(t, resp, "billing", "balance", "hrn:org:acme.com", "--json")
 	if err != nil {
@@ -142,6 +142,9 @@ func TestBillingBalance(t *testing.T) {
 	}
 	if got, ok := dto["balanceMicroCents"].(string); !ok || got != "-"+bigMicroCents {
 		t.Errorf("a negative balance past 2^53 must survive as a string, got %#v", dto["balanceMicroCents"])
+	}
+	if parts, ok := dto["expiring"].([]any); !ok || len(parts) != 1 {
+		t.Errorf("expiring: %v", dto["expiring"])
 	}
 	if dto["organizationId"] != "org1" {
 		t.Errorf("organizationId: %v", dto)

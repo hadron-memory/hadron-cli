@@ -74,7 +74,7 @@ func TestBillingPricesSetForwardsOptionals(t *testing.T) {
 func TestBillingWritesRefuseWithoutYesAndSendNothing(t *testing.T) {
 	for _, args := range [][]string{
 		{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "1", "--output", "2"},
-		{"billing", "grant", "hrn:org:acme.com", "--amount", "5"},
+		{"billing", "grant", "hrn:org:acme.com", "--amount", "5", "--source-type", "t", "--source-id", "i"},
 	} {
 		_, captured, err := runBilling(t, map[string]string{"SetAiModelPrice": setPriceResponse, "GrantCredits": grantResponse}, args...)
 		if got := exitCodeFor(err); got != exitcode.Usage {
@@ -127,7 +127,7 @@ func TestBillingPricesSetRequiresItsFlags(t *testing.T) {
 func TestBillingGrantSendsOpaqueAmountAndOmitsUnsetOptionals(t *testing.T) {
 	for _, amount := range []string{bigMicroCents, "0000042", "0", "-5", "1.5"} {
 		_, captured, err := runBilling(t, map[string]string{"GrantCredits": grantResponse},
-			"billing", "grant", "hrn:org:acme.com", "--amount", amount, "--yes")
+			"billing", "grant", "hrn:org:acme.com", "--amount", amount, "--source-type", "t", "--source-id", "i", "--yes")
 		if err != nil {
 			t.Fatalf("%q: execute: %v", amount, err)
 		}
@@ -138,7 +138,10 @@ func TestBillingGrantSendsOpaqueAmountAndOmitsUnsetOptionals(t *testing.T) {
 		if in["orgRef"] != "hrn:org:acme.com" {
 			t.Errorf("orgRef: %v", in["orgRef"])
 		}
-		for _, k := range []string{"sourceType", "sourceId", "expiresAt", "note"} {
+		if in["sourceType"] != "t" || in["sourceId"] != "i" {
+			t.Errorf("the required pair must be sent: %v", in)
+		}
+		for _, k := range []string{"expiresAt", "note"} {
 			if _, present := in[k]; present {
 				t.Errorf("unset %s must be omitted: %v", k, in)
 			}
@@ -166,6 +169,9 @@ func TestBillingGrantRefusesHalfAnIdempotencyPairBeforeAnyRequest(t *testing.T) 
 		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("%v: want usage exit, got %d (%v)", extra, got, err)
 		}
+		if err != nil && !strings.Contains(err.Error(), "--source-") {
+			t.Errorf("%v: the refusal must name the missing half: %v", extra, err)
+		}
 		if len(captured) != 0 {
 			t.Errorf("%v: nothing may be sent", extra)
 		}
@@ -173,7 +179,7 @@ func TestBillingGrantRefusesHalfAnIdempotencyPairBeforeAnyRequest(t *testing.T) 
 }
 
 func TestBillingGrantRequiresAmountAndOrg(t *testing.T) {
-	for _, args := range [][]string{{"billing", "grant", "acme", "--yes"}, {"billing", "grant", "--amount", "5", "--yes"}, {"billing", "grant", "acme", "--amount", "", "--yes"}} {
+	for _, args := range [][]string{{"billing", "grant", "acme", "--source-type", "t", "--source-id", "i", "--yes"}, {"billing", "grant", "--amount", "5", "--source-type", "t", "--source-id", "i", "--yes"}, {"billing", "grant", "acme", "--amount", "", "--source-type", "t", "--source-id", "i", "--yes"}} {
 		_, captured, err := runBilling(t, map[string]string{"GrantCredits": grantResponse}, args...)
 		if got := exitCodeFor(err); got != exitcode.Usage {
 			t.Errorf("%v: want usage exit, got %d (%v)", args, got, err)
@@ -204,7 +210,7 @@ func TestBillingGrantWordingIsNeutral(t *testing.T) {
 
 func TestBillingGrantJSONKeepsMoneyAString(t *testing.T) {
 	out, _, err := runBilling(t, map[string]string{"GrantCredits": grantResponse},
-		"billing", "grant", "acme", "--amount", "5", "--yes", "--json")
+		"billing", "grant", "acme", "--amount", "5", "--source-type", "t", "--source-id", "i", "--yes", "--json")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -224,7 +230,7 @@ func TestBillingWritesPlatformAdminRefusalPassesThroughWithoutRetry(t *testing.T
 		args []string
 	}{
 		{"SetAiModelPrice", []string{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "1", "--output", "2", "--yes"}},
-		{"GrantCredits", []string{"billing", "grant", "acme", "--amount", "5", "--yes"}},
+		{"GrantCredits", []string{"billing", "grant", "acme", "--amount", "5", "--source-type", "t", "--source-id", "i", "--yes"}},
 	} {
 		calls := 0
 		gql, _ := captureGraphQLFunc(t, func(op string) string {
@@ -262,9 +268,9 @@ func TestBillingWritesSendOnceOnServerFailureAndZeroAmountRefusal(t *testing.T) 
 		resp string
 		code int
 	}{
-		{"grant zero amount refused", "GrantCredits", []string{"billing", "grant", "acme", "--amount", "0", "--yes"}, badInput, exitcode.Usage},
+		{"grant zero amount refused", "GrantCredits", []string{"billing", "grant", "acme", "--amount", "0", "--source-type", "t", "--source-id", "i", "--yes"}, badInput, exitcode.Usage},
 		{"prices zero input refused", "SetAiModelPrice", []string{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "0", "--output", "0", "--yes"}, badInput, exitcode.Usage},
-		{"grant 5xx", "GrantCredits", []string{"billing", "grant", "acme", "--amount", "5", "--yes"}, "5xx", -1},
+		{"grant 5xx", "GrantCredits", []string{"billing", "grant", "acme", "--amount", "5", "--source-type", "t", "--source-id", "i", "--yes"}, "5xx", -1},
 		{"prices 5xx", "SetAiModelPrice", []string{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "1", "--output", "2", "--yes"}, "5xx", -1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -317,7 +323,7 @@ func TestBillingWritePromptsShowLongValuesWholeAndDeclineSendsNothing(t *testing
 		args []string
 		want []string
 	}{
-		{"grant", []string{"billing", "grant", org, "--amount", long}, []string{org, long}},
+		{"grant", []string{"billing", "grant", org, "--amount", long, "--source-type", "t", "--source-id", "i"}, []string{org, long}},
 		{"prices set", []string{"billing", "prices", "set", "--provider", "p" + org, "--model", "m", "--input", long, "--output", long}, []string{"p" + org, long}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -360,7 +366,7 @@ func TestBillingWritesSendOnceOnDroppedConnection(t *testing.T) {
 		op   string
 		args []string
 	}{
-		{"GrantCredits", []string{"billing", "grant", "acme", "--amount", "5", "--yes"}},
+		{"GrantCredits", []string{"billing", "grant", "acme", "--amount", "5", "--source-type", "t", "--source-id", "i", "--yes"}},
 		{"SetAiModelPrice", []string{"billing", "prices", "set", "--provider", "p", "--model", "m", "--input", "1", "--output", "2", "--yes"}},
 	} {
 		t.Run(tc.op, func(t *testing.T) {
