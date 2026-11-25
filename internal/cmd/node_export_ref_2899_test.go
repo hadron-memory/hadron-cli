@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -25,6 +27,13 @@ func exportCalls2899(calls *[]attnCall) []attnCall {
 	}
 	return out
 }
+
+// What an old server that still has nodeExport(id: ID!) answers to the new document: GraphQL
+// validation reports EVERY error of one document in one response, so the unknown `ref`
+// argument arrives with the required-`id` error (F4, #3147). Neither is a missing FIELD.
+const oldServerBothErrors2899 = `{"errors":[` +
+	`{"message":"Unknown argument \"ref\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},` +
+	`{"message":"Field \"nodeExport\" argument \"id\" of type \"ID!\" is required, but it was not provided.","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
 
 // Both the canonical and the presentation (sectioned) export send nodeExport(ref:) and a
 // ref variable, never nodeExport(id:).
@@ -98,22 +107,41 @@ func TestNodeExportNodeNotFoundIsOneAnswer2899(t *testing.T) {
 		"to a file (-o)": {[]string{"node", "export", nodeURN, "-o", "OUT"}, "NodeExport"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			run := func(resp string) (*[]attnCall, error) {
+			// existing: the -o target already holds a file the refusal must leave alone (F5).
+			run := func(resp string, existing bool) (*[]attnCall, error) {
 				srv, calls := attnServer(t, map[string]string{"ResolveUrn": resolveNodeJSON, "NodeExport": resp, "NodeExportSections": resp})
 				f, _ := testFactory(t)
 				root := NewRootCmd(f)
 				args := append([]string{}, tc.args...)
+				var outPath string
 				for i, a := range args {
 					if a == "OUT" {
-						args[i] = filepath.Join(t.TempDir(), "out.md")
+						outPath = filepath.Join(t.TempDir(), "out.md")
+						args[i] = outPath
+					}
+				}
+				if outPath != "" && existing {
+					if err := os.WriteFile(outPath, []byte("keep me\n"), 0o600); err != nil {
+						t.Fatal(err)
 					}
 				}
 				root.SetArgs(append(args, "--server", srv.URL))
 				err := root.Execute()
+				if outPath != "" {
+					got, rerr := os.ReadFile(outPath)
+					switch {
+					case existing && (rerr != nil || string(got) != "keep me\n"):
+						t.Errorf("a refusal must leave an existing -o file as it was: %q, %v", got, rerr)
+					case !existing && rerr == nil:
+						t.Errorf("a refusal must leave no -o file behind, found %q", got)
+					}
+				}
 				return calls, err
 			}
-			_, oldErr := run(refusal("NOT_FOUND"))
-			calls, newErr := run(refusal("NODE_NOT_FOUND"))
+			// The old code runs against an existing target, the new one against none: both
+			// halves of the F5 claim (preserved / not created) ride along on the one pair.
+			_, oldErr := run(refusal("NOT_FOUND"), true)
+			calls, newErr := run(refusal("NODE_NOT_FOUND"), false)
 			if oldErr == nil || newErr == nil {
 				t.Fatalf("a missing node refuses: old=%v new=%v", oldErr, newErr)
 			}
@@ -123,8 +151,14 @@ func TestNodeExportNodeNotFoundIsOneAnswer2899(t *testing.T) {
 			if newErr.Error() != oldErr.Error() {
 				t.Errorf("one message: NODE_NOT_FOUND %q vs NOT_FOUND %q", newErr, oldErr)
 			}
-			if !strings.Contains(newErr.Error(), "node not found") || strings.Contains(newErr.Error(), "soft-deleted") || strings.Contains(newErr.Error(), "unreadable") {
-				t.Errorf("the server's one message, and no cause the CLI invents: %v", newErr)
+			// The same negative set as the resolve-step test, `concealed` included (F7).
+			for _, cause := range []string{"soft-deleted", "unreadable", "concealed"} {
+				if strings.Contains(newErr.Error(), cause) {
+					t.Errorf("no cause the CLI invents (%s): %v", cause, newErr)
+				}
+			}
+			if !strings.Contains(newErr.Error(), "node not found") {
+				t.Errorf("the server's one message: %v", newErr)
 			}
 			var ops []string
 			for _, c := range *calls {
@@ -145,9 +179,10 @@ func TestNodeExportNodeNotFoundIsOneAnswer2899(t *testing.T) {
 }
 
 // A node the resolve step cannot find (the node is missing, soft-deleted or concealed before
-// nodeExport is ever sent) ends the same way: exit 4, no export request, no cause named. The CLI
-// still resolves the ref first (cmdutil.ResolveNodeRef); passing a URN straight to nodeExport(ref:)
-// is a possible follow-up, not this companion.
+// nodeExport is ever sent) ends the same way: exit 4, no export request, no cause named, and
+// the same lead message as the export refusal, so "one answer" holds in words and not only in
+// the exit code (F7, #3147). The CLI still resolves the ref first (cmdutil.ResolveNodeRef);
+// passing a URN straight to nodeExport(ref:) is a possible follow-up, not this companion.
 func TestNodeExportANodeTheResolveStepCannotFindIsTheSameExit2899(t *testing.T) {
 	srv, calls := attnServer(t, map[string]string{"ResolveUrn": resolveNullJSON, "NodeExport": nodeExportResp("MD", "text/markdown", "f.md", "# x\n")})
 	f, _ := testFactory(t)
@@ -163,6 +198,25 @@ func TestNodeExportANodeTheResolveStepCannotFindIsTheSameExit2899(t *testing.T) 
 	if len(exportCalls2899(calls)) != 0 {
 		t.Errorf("no export request is sent for a node that does not resolve")
 	}
+
+	// The export step's refusal for the same node, on a server that does resolve it.
+	srv2, _ := attnServer(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"NodeExport": `{"errors":[{"message":"node not found","extensions":{"code":"NODE_NOT_FOUND"}}]}`,
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"node", "export", nodeURN, "--server", srv2.URL})
+	refusal := root2.Execute()
+	if refusal == nil || exitCodeFor(refusal) != exitcode.NotFound {
+		t.Fatalf("the export refusal exits %d, want %d: %v", exitCodeFor(refusal), exitcode.NotFound, refusal)
+	}
+	// The resolve miss is the CLI's own answer and adds a how-to-verify hint after the
+	// same lead ("node not found"); the export refusal is the server's bare message. One
+	// answer in words: the same lead text, and neither names a cause.
+	if !strings.HasPrefix(err.Error(), refusal.Error()) {
+		t.Errorf("one answer in text too: resolve miss %q must lead with the export refusal %q", err, refusal)
+	}
 }
 
 // Against a server that still has nodeExport(id:), the new CLI fails loud: the server
@@ -173,13 +227,15 @@ func TestNodeExportANodeTheResolveStepCannotFindIsTheSameExit2899(t *testing.T) 
 func TestNodeExportOnAServerThatStillHasIDFailsLoudWithoutAFallback2899(t *testing.T) {
 	srv, calls := attnServer(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
-		"NodeExport": `{"errors":[{"message":"Unknown argument \"ref\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		"NodeExport": oldServerBothErrors2899,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
 	err := root.Execute()
-	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "out of sync") {
+	// The response carries BOTH the unknown `ref` argument and the required-`id` error; the
+	// answer is the one out-of-sync refusal, never "too old" (the field exists, F4 #3147).
+	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "out of sync") || strings.Contains(err.Error(), "too old") {
 		t.Fatalf("an old server fails loud as a version mismatch (exit 2): exit=%d err=%v", exitCodeFor(err), err)
 	}
 	sent := exportCalls2899(calls)
@@ -191,61 +247,102 @@ func TestNodeExportOnAServerThatStillHasIDFailsLoudWithoutAFallback2899(t *testi
 	}
 }
 
-// Apollo answers a validation error with HTTP 400. An old server's "Unknown argument ref on
-// field Query.nodeExport" is then NOT "the server has no nodeExport field" (it has one, under
-// the old argument name): the CLI must say the two are out of sync, not that the server is too
-// old to render exports and needs hadron-server #386 (Cooper's P3 on #2918).
-func TestNodeExportUnknownRefArgumentOverHTTP400IsOutOfSyncNotTooOld2899(t *testing.T) {
-	var exportAttempts int
+// exportOverHTTP400Server2899 serves validation failures the way Apollo does, HTTP 400 with the
+// error envelope, for the NodeExport and NodeExportSections operations ONLY (it counts the
+// attempts atomically: the handler runs on the server's goroutines). ResolveUrn gets the
+// resolve response; any OTHER operation is refused, so a request the test did not plan for
+// cannot be quietly answered with a resolve response (F6, #3147).
+func exportOverHTTP400Server2899(t *testing.T, body string) (*httptest.Server, *atomic.Int32) {
+	t.Helper()
+	var exportAttempts atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
+		var req struct {
 			OperationName string `json:"operationName"`
 		}
-		_ = json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&req)
 		w.Header().Set("Content-Type", "application/json")
-		switch body.OperationName {
+		switch req.OperationName {
 		case "NodeExport", "NodeExportSections":
-			exportAttempts++
+			exportAttempts.Add(1)
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(`{"errors":[{"message":"Unknown argument \"ref\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`))
-		default:
+			_, _ = w.Write([]byte(body))
+		case "ResolveUrn":
 			_, _ = w.Write([]byte(resolveNodeJSON))
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(`{"errors":[{"message":"unplanned operation","extensions":{"code":"BAD_USER_INPUT"}}]}`))
 		}
 	}))
 	t.Cleanup(srv.Close)
-	for name, args := range map[string][]string{
-		"canonical": {"node", "export", nodeURN},
-		"sectioned": {"node", "export", nodeURN, "--section", "content"},
+	return srv, &exportAttempts
+}
+
+// The catch-all above answers only its planned operations: an operation it was not given is
+// refused, not answered with the resolve response (F6, #3147).
+func TestExportOverHTTP400ServerRefusesAnUnplannedOperation2899(t *testing.T) {
+	srv, attempts := exportOverHTTP400Server2899(t, oldServerBothErrors2899)
+	resp, err := http.Post(srv.URL, "application/json", strings.NewReader(`{"operationName":"SomethingElse","query":"{ x }"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("an unplanned operation is refused (400), got %d", resp.StatusCode)
+	}
+	if attempts.Load() != 0 {
+		t.Errorf("an unplanned operation is not an export attempt: %d", attempts.Load())
+	}
+}
+
+// Apollo answers a validation error with HTTP 400. An old server's "Unknown argument ref on
+// field Query.nodeExport" is then NOT "the server has no nodeExport field" (it has one, under
+// the old argument name): the CLI must say the two are out of sync, not that the server is too
+// old to render exports and needs hadron-server #386 (Cooper's P3 on #2918). The server also
+// reports the required `id` it was not given (F4), and a lone unknown `sections` argument on
+// the sectioned document takes the same generic answer (F2 remainder, #3147).
+func TestNodeExportUnknownRefArgumentOverHTTP400IsOutOfSyncNotTooOld2899(t *testing.T) {
+	loneSections := `{"errors":[{"message":"Unknown argument \"sections\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	for name, tc := range map[string]struct {
+		args []string
+		body string
+	}{
+		"canonical":                    {[]string{"node", "export", nodeURN}, oldServerBothErrors2899},
+		"sectioned":                    {[]string{"node", "export", nodeURN, "--section", "content"}, oldServerBothErrors2899},
+		"sectioned, lone sections arg": {[]string{"node", "export", nodeURN, "--section", "content"}, loneSections},
 	} {
-		exportAttempts = 0
-		f, _ := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs(append(args, "--server", srv.URL))
-		err := root.Execute()
-		if err == nil || exitCodeFor(err) != exitcode.Usage {
-			t.Fatalf("%s: an old server fails loud (exit 2): exit=%d err=%v", name, exitCodeFor(err), err)
-		}
-		if !strings.Contains(err.Error(), "out of sync") {
-			t.Errorf("%s: an unknown ARGUMENT is a version mismatch: %v", name, err)
-		}
-		if strings.Contains(err.Error(), "too old") || strings.Contains(err.Error(), "#386") || strings.Contains(err.Error(), "no nodeExport field") {
-			t.Errorf("%s: the server HAS nodeExport; it must not be called too old to have it: %v", name, err)
-		}
-		if exportAttempts != 1 {
-			t.Errorf("%s: one attempt, no retry with the old name: %d", name, exportAttempts)
-		}
+		t.Run(name, func(t *testing.T) {
+			srv, exportAttempts := exportOverHTTP400Server2899(t, tc.body)
+			f, _ := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(tc.args, "--server", srv.URL))
+			err := root.Execute()
+			if err == nil || exitCodeFor(err) != exitcode.Usage {
+				t.Fatalf("an old server fails loud (exit 2): exit=%d err=%v", exitCodeFor(err), err)
+			}
+			if !strings.Contains(err.Error(), "out of sync") {
+				t.Errorf("an unknown ARGUMENT is a version mismatch: %v", err)
+			}
+			if strings.Contains(err.Error(), "too old") || strings.Contains(err.Error(), "#386") || strings.Contains(err.Error(), "no nodeExport field") {
+				t.Errorf("the server HAS nodeExport; it must not be called too old to have it: %v", err)
+			}
+			if got := exportAttempts.Load(); got != 1 {
+				t.Errorf("one attempt, no retry with the old name: %d", got)
+			}
+		})
 	}
 }
 
 // A validation response that batches the unknown `ref` argument WITH a real "Cannot query
 // field" (GraphQL validation reports every error of one document in a single response —
-// here an intermediate server that has nodeExport(id:) and lacks a field the document
-// selects) still takes the too-old branch: a missing FIELD is the discriminator, and the
-// unknown-argument exclusion must not mask it (Jonas's F2 on #2918).
+// here an intermediate server that has nodeExport(id:) and lacks the nodeExport field the
+// document selects) still takes the too-old branch: a missing FIELD is the discriminator, and
+// the unknown-argument exclusion must not mask it (Jonas's F2 on #2918). The fixture's missing
+// field is nodeExport itself, so the match is keyed to the field error, not to the
+// unknown-argument message that also names Query.nodeExport (Delta F1, #3147).
 func TestNodeExportBatchedValidationKeepsTheTooOldAnswer2899(t *testing.T) {
 	srv, calls := attnServer(t, map[string]string{
 		"ResolveUrn": resolveNodeJSON,
-		"NodeExport": `{"errors":[{"message":"Unknown argument \"ref\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"Cannot query field \"bytes\" on type \"NodeExportResult\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+		"NodeExport": `{"errors":[{"message":"Unknown argument \"ref\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"Cannot query field \"nodeExport\" on type \"Query\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
