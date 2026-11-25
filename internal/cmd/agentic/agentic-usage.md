@@ -6513,9 +6513,11 @@ usual exit codes (FORBIDDEN 8, not found 4, BAD_USER_INPUT 2) with no retry or
 follow-up call. A blank ref is exit 2 with nothing sent. These are an App's
 sessions with its installed Agents for its end users, NOT worker sessions
 (`team session`). They need an App key as the credential (e.g.
-`HADRON_TOKEN`). The server looks the Agent up by ID, so a URN is resolved
-first with one `agent` read (an unreadable URN is exit 4, nothing started: pass
-the ID). `--external-user` and `--timeout-seconds` unset are omitted; a blank
+`HADRON_TOKEN`). `<agent>` is an ID or a fully-qualified `hrn:agent:` URN, sent
+as typed (cli#2665; no read in front: the server resolves it). A ref naming no
+live Agent in the App, including an unknown URN, is the server's one FORBIDDEN
+(exit 8); a shorthand `<root>:<slug>` is URN_NOT_QUALIFIED (exit 2); both were
+exit 4 before. `--external-user` and `--timeout-seconds` unset are omitted; a blank
 `--external-user` or a non-positive `--timeout-seconds` is refused locally
 (exit 2, nothing sent). `--json`
 is `{id, agentId, appId, memoryId, userId, type, state, isLive, startedAt,

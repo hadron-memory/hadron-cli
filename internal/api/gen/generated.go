@@ -3005,34 +3005,6 @@ func (v *AgentServedBootPromptResponse) GetAgentServedBootPrompt() *AgentServedB
 	return v.AgentServedBootPrompt
 }
 
-// AgentSessionAgentIDAgent includes the requested fields of the GraphQL type Agent.
-// The GraphQL type's documentation follows.
-//
-// The reusable definition a Builder creates and the marketplace can list.
-// Agents are installed into runtime Apps through the AppAgent N:M join: an App
-// may install many Agents, and an Agent may be installed in many Apps. The App,
-// not the Agent, is the org- or user-owned caller identity and deployment.
-type AgentSessionAgentIDAgent struct {
-	Id string `json:"id"`
-}
-
-// GetId returns AgentSessionAgentIDAgent.Id, and is useful for accessing the field via an interface.
-func (v *AgentSessionAgentIDAgent) GetId() string { return v.Id }
-
-// AgentSessionAgentIDResponse is returned by AgentSessionAgentID on success.
-type AgentSessionAgentIDResponse struct {
-	// The uniform single-agent read. Uses the shared Agent read gate, including
-	// PUBLIC visibility and owner-aware access to user-owned Agents. An absent
-	// or unreadable Agent returns null; malformed or under-qualified refs remain
-	// input errors. Nested fields keep their own exposure gates.
-	//
-	// 'ref' accepts the entity's ID or URN.
-	Agent *AgentSessionAgentIDAgent `json:"agent"`
-}
-
-// GetAgent returns AgentSessionAgentIDResponse.Agent, and is useful for accessing the field via an interface.
-func (v *AgentSessionAgentIDResponse) GetAgent() *AgentSessionAgentIDAgent { return v.Agent }
-
 // AgentSubscriptionsPageAgentSubscriptionsPageAgentSubscriptionPage includes the requested fields of the GraphQL type AgentSubscriptionPage.
 // The GraphQL type's documentation follows.
 //
@@ -134650,14 +134622,6 @@ func (v *__AgentServedBootPromptInput) GetAppRef() *string { return v.AppRef }
 // GetLlmModel returns __AgentServedBootPromptInput.LlmModel, and is useful for accessing the field via an interface.
 func (v *__AgentServedBootPromptInput) GetLlmModel() *string { return v.LlmModel }
 
-// __AgentSessionAgentIDInput is used internally by genqlient
-type __AgentSessionAgentIDInput struct {
-	Ref string `json:"ref"`
-}
-
-// GetRef returns __AgentSessionAgentIDInput.Ref, and is useful for accessing the field via an interface.
-func (v *__AgentSessionAgentIDInput) GetRef() string { return v.Ref }
-
 // __AgentSubscriptionsPageInput is used internally by genqlient
 type __AgentSubscriptionsPageInput struct {
 	AgentRef string `json:"agentRef"`
@@ -149635,45 +149599,6 @@ func AgentServedBootPrompt(
 	}
 
 	data_ = &AgentServedBootPromptResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by AgentSessionAgentID.
-const AgentSessionAgentID_Operation = `
-query AgentSessionAgentID ($ref: ID!) {
-	agent(ref: $ref) {
-		id
-	}
-}
-`
-
-// cli#2935: startAgentSession's argument is `agentRef` (hadron-server#4141 S5,
-// #4789; no alias). The server before S5 looked its agentId up by ID only (a
-// URN was answered as "App is not allowed to operate this agent"), so `agent
-// session start` resolves a URN to the ID with this read first; an ID is
-// still what it sends, which agentRef accepts.
-func AgentSessionAgentID(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	ref string,
-) (data_ *AgentSessionAgentIDResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "AgentSessionAgentID",
-		Query:  AgentSessionAgentID_Operation,
-		Variables: &__AgentSessionAgentIDInput{
-			Ref: ref,
-		},
-	}
-
-	data_ = &AgentSessionAgentIDResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
