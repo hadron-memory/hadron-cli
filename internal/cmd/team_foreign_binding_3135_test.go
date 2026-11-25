@@ -103,7 +103,7 @@ func TestForeignBindingSessionMatch3135(t *testing.T) {
 		"prose":                       {map[string]any{"body": "session s-new ended"}, false},
 		"prose ending in the id":      {map[string]any{"body": "see session: s-new"}, false},
 		"prose ending in a reference": {map[string]any{"body": "see session:s-new"}, false},
-		"lines ending in a reference": {map[string]any{"body": "handing over\nsession:s-new"}, false},
+		"lines ending in a reference": {map[string]any{"body": "handover\nsession:s-new"}, false},
 		"quoted prose":                {map[string]any{"body": `it is "s-new" here`}, false},
 		"json in a string":            {map[string]any{"body": `{"sessionRef":"s-new"}`}, false},
 		"longer id":                   {map[string]any{"sessionRef": "s-new2"}, false},

@@ -131,7 +131,8 @@ func asPerson(ctx context.Context) bool {
 // can count parses (cli#3135).
 var parseQuery = parser.ParseQuery
 
-// SetQueryParser wraps the guards' query parser for a test. Tests only.
+// SetQueryParser wraps the guards' query parser for a test. Tests only, and never
+// in a parallel test: it is package state.
 func SetQueryParser(wrap func(func(*ast.Source) (*ast.QueryDocument, error)) func(*ast.Source) (*ast.QueryDocument, error)) (restore func()) {
 	prev := parseQuery
 	parseQuery = wrap(prev)

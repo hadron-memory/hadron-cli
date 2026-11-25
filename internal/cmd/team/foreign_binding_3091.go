@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -142,11 +143,12 @@ func carriesSession(req *graphql.Request, b *binding) bool {
 }
 
 // namesSession reports whether v is the session id or a reference ending in
-// ":<id>", ignoring case and surrounding space. Prose or embedded JSON that
-// mentions the id is not a reference.
+// ":<id>", ignoring case and surrounding space. A reference is one word: prose
+// that mentions or ends in one, or embedded JSON, is not. Ignoring case cannot
+// confuse two sessions: newSessionID mints lower-case UUIDs.
 func namesSession(v, sessionID string) bool {
 	v, sessionID = strings.ToLower(strings.TrimSpace(v)), strings.ToLower(sessionID)
-	return v == sessionID || strings.HasSuffix(v, ":"+sessionID)
+	return v == sessionID || strings.HasSuffix(v, ":"+sessionID) && !strings.ContainsFunc(v, unicode.IsSpace)
 }
 
 // Ordering invariant: this guard runs BEFORE AuthoredWriteContext decorates the
