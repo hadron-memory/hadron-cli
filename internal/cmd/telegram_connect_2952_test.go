@@ -769,12 +769,11 @@ func TestTelegramDisconnectAsksOnATerminal(t *testing.T) {
 	}
 }
 
-// The disconnect outcome-unknown message carries the shell-quoted id with the
-// terminator, alone on the last line; an id this CLI will not print falls back
-// to the paged listing, never an angle-bracket placeholder.
+// The disconnect outcome-unknown message never repeats the id (cli#3114): it ends in
+// the paged listing, alone on the last line, never an angle-bracket placeholder.
 func TestTelegramDisconnectSuggestionsEndWithTheCommandAloneOnTheLastLine(t *testing.T) {
 	_, _, n, e := runTelegramWrite(t, "DeleteTelegramConnection", `{"errors":[{"message":"boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, "", "disconnect", "--yes", "a b$(x)")
-	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "Check whether it still exists with:\n  hadron telegram get -- 'a b$(x)'") {
+	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "by listing connections with:\n  hadron telegram status") || strings.Contains(e.Error(), "a b$(x)") {
 		t.Fatalf("err=%v requests=%d", e, n)
 	}
 	for name, id := range map[string]string{
@@ -829,8 +828,8 @@ func TestTelegramSuggestedIDCommandsSurviveADashPrefixedID(t *testing.T) {
 		if deleted == "true" && e != nil {
 			t.Fatalf("must succeed: %v", e)
 		}
-		if deleted == "false" && (e == nil || !strings.Contains(e.Error(), "hadron telegram get -- -x")) {
-			t.Fatalf("disconnect's pointer carries the terminator too: %v", e)
+		if deleted == "false" && (e == nil || !strings.HasSuffix(e.Error(), "hadron telegram status")) {
+			t.Fatalf("disconnect's pointer is the runnable listing: %v", e)
 		}
 	}
 }

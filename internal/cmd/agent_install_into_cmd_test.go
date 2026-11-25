@@ -161,7 +161,7 @@ func TestAgentCreateInstallIntoFailureKeepsTheAgentAndSaysSo(t *testing.T) {
 	for _, want := range []string{
 		"CREATED but NOT installed",
 		"do not re-run",
-		"hadron app agent add hrn:app:acme.com:eng-team agt1",
+		"hadron app agent add <app-ref> agt1",
 	} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("error must contain %q, got: %s", want, msg)

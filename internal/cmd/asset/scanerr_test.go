@@ -124,8 +124,8 @@ func TestDownloadScanErrorRewritesBothGates(t *testing.T) {
 				t.Fatal("a refusal must stay an error")
 			}
 			msg := got.Error()
-			if !strings.Contains(msg, "a1") {
-				t.Errorf("name the asset: %q", msg)
+			if !strings.Contains(msg, "the asset (the ref given is not shown)") {
+				t.Errorf("name the kind, not the ref: %q", msg)
 			}
 			for _, want := range tc.wantSubstr {
 				if !strings.Contains(msg, want) {

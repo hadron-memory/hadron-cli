@@ -483,8 +483,8 @@ func TestChannelReadStateNullIsNotFound(t *testing.T) {
 			t.Errorf("json=%v: nothing may reach stdout, got:\n%s", jsonMode, out.String())
 		}
 		msg := err.Error()
-		if !strings.Contains(msg, `"Jnoas"`) {
-			t.Errorf("name the ref that failed, got: %s", msg)
+		if strings.Contains(msg, "Jnoas") || !strings.Contains(msg, "attendee") {
+			t.Errorf("name the kind, not the ref that failed (cli#3114), got: %s", msg)
 		}
 		low := strings.ToLower(msg)
 		for _, oracle := range []string{"seen nothing", "does not exist", "not registered", "no such", "unknown"} {

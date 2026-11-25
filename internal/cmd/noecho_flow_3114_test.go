@@ -98,7 +98,7 @@ func passThrough(fn *types.Func) bool {
 	// A text-to-text helper (ShellQuote, SafeCell, CanonicalMemoryRef) is judged by the value
 	// it is given here, not by what some other caller gives it.
 	sig := fn.Type().(*types.Signature)
-	return sig.Params().Len() == 1 && sig.Results().Len() == 1 &&
+	return strings.HasPrefix(fn.Pkg().Path(), "github.com/hadron-memory/hadron-cli/") && sig.Params().Len() == 1 && sig.Results().Len() == 1 &&
 		textual(sig.Params().At(0).Type()) && textual(sig.Results().At(0).Type())
 }
 
@@ -408,5 +408,80 @@ func TestNoRefusalEchoesATypedValueThroughACopyOrHelper3114(t *testing.T) {
 	if len(found) > 0 {
 		t.Errorf("%d refusal(s) echo a positional argument through a copy or a helper; name its kind and say the value is not shown (#2898 policy, cli#3114):\n  %s",
 			len(found), strings.Join(found, "\n  "))
+	}
+}
+
+// The guard itself is pinned: every shape the issue names is seen, and the safe ones are not.
+func TestNoEchoFlowGuardSeesEveryShape3114(t *testing.T) {
+	root, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := `package version
+
+import (
+	"fmt"
+	"os"
+	"strings"
+
+	"github.com/spf13/cobra"
+
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+)
+
+type shape struct{ ref string }
+
+func run(cmd *cobra.Command, args []string) error {
+	ref := strings.TrimSpace(args[0])
+	_ = exitcode.Newf(2, "x %q", ref) // HIT copy
+	rest := cmd.Flags().Args()
+	_ = exitcode.Newf(2, "x %q", rest[0]) // HIT renamed
+	for _, p := range args {
+		_ = fmt.Errorf("x %s", p) // HIT range
+	}
+	s := shape{ref: ref}
+	_ = exitcode.Newf(2, "x %q", s.ref) // HIT field
+	hint := fmt.Sprintf("run get %s", ref)
+	_ = exitcode.Newf(2, "x %s", hint) // HIT suggestion text
+	usage := func(format string, a ...any) error { return exitcode.Newf(2, format, a...) } // HIT closure
+	_ = usage("x %q", ref)
+	got, _ := parse(ref)
+	_ = exitcode.Newf(2, "x %q", got) // HIT result
+	_ = exitcode.Newf(2, "x %q", quote("constant"))
+	_ = exitcode.Newf(2, "x %d arguments", len(args))
+	file := args[1]
+	if _, err := os.Stat(file); err != nil {
+		return exitcode.Newf(2, "cannot read %s", file)
+	}
+	return helper(ref)
+}
+
+func helper(ref string) error { return exitcode.Newf(4, "no %q", ref) } // HIT parameter
+
+func parse(ref string) (string, error) { return quote(ref), nil }
+
+func quote(s string) string { return "'" + s + "'" }
+
+func safe(name string) error { return exitcode.Newf(4, "no %q", name) }
+
+var _ = []any{run, safe}
+`
+	pkgs := loadForEcho(t, root, map[string][]byte{filepath.Join(root, "internal/cmd/version/zz_shapes_3114.go"): []byte(src)}, "./internal/cmd/version")
+	var got []int
+	for _, h := range refusalEchoes(pkgs) {
+		if i := strings.LastIndex(h, "zz_shapes_3114.go:"); i >= 0 {
+			n, _ := strconv.Atoi(h[i+len("zz_shapes_3114.go:"):])
+			got = append(got, n)
+		}
+	}
+	sort.Ints(got)
+	var want []int
+	for i, l := range strings.Split(src, "\n") {
+		if strings.Contains(l, "// HIT") {
+			want = append(want, i+1)
+		}
+	}
+	if fmt.Sprint(got) != fmt.Sprint(want) {
+		t.Fatalf("flagged lines %v, want %v", got, want)
 	}
 }

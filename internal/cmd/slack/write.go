@@ -57,14 +57,10 @@ func hasControlOrFormatCharacter(s string) bool {
 	}) >= 0
 }
 
-// getConnectionSuggestion is the closing sentence of a disconnect message: how to
-// check whether the connection still exists. The command sits ALONE on the last
-// line (an indented line of its own, so copying a whole line is the command) and
-// is runnable as printed: shell-quoted, with the -- terminator (a leading
-// dash is a flag to cobra), and no outer prose quotes (single quotes are literal
-// inside double quotes, so $( ) would expand again when pasted). An id with
-// control characters is never named; the runnable listing command stands in.
-const getConnectionSuggestion = "Check whether it still exists with:\n  hadron slack get -- <connection-id>"
+// getConnectionSuggestion is the closing sentence of a disconnect message: how to check the
+// outcome. The id the operator typed is never repeated (#2898 policy), so it names the listing,
+// which runs as printed; a command in a message is always its last line.
+const getConnectionSuggestion = "The listing is paged, so follow its --offset hint before concluding it is gone. Check whether it still exists by listing connections with:\n  hadron slack status"
 
 // readToken reads one token from its file flag. "-" is stdin and is refused on
 // a terminal (the token would be typed in the clear); the file reader itself
