@@ -89,8 +89,10 @@ Hadron.
     **15** at once: nothing else is asked of the adapter and Hadron is not
     touched. Upgrade the adapter or the CLI.
   - `calls`: every call you answer. A run needs `list-untracked`, and `--track`
-    needs `mark-tracked`; without them the CLI exits 2 and claims nothing. A
-    call you leave out is simply never made.
+    needs `mark-tracked`; without them the CLI exits 2 and claims nothing (the
+    message says which call the adapter does not answer). A call you leave out
+    is simply never made. `--track` with no one to hold the claim also exits 2,
+    with a different message that asks you to pass `--for` or `--assignee`.
   - `filters`, `order`: optional metadata. The CLI reads them but does not use
     them yet.
   - `notMine` (optional, default `false`): see `mark-tracked` below.
@@ -102,9 +104,12 @@ One page of the items you do not (yet) know to be tracked.
 - Request: `{"contractVersion": 1, "limit": 20, "cursor": "…", "for": "Marco"}`.
   `cursor` is absent on the first page. `for` is present only when the user
   passed `--for <worker>`; return that worker's items, as your tracker
-  understands it. `limit` is the page size the CLI asks for (at least 20, at
-  most 100), not the user's `--limit`: the CLI stops reading once it has enough,
-  so answer up to `limit` items a page and let it stop.
+  understands it. `limit` is the page size the CLI asks for: the user's `--limit`
+  raised to 20 if it is lower, so a `--limit 1` run, or a run with no `--limit`
+  at all, asks for 20, and `--limit 50` asks for 50. The CLI refuses a
+  `--limit` above 100 before it calls your adapter, and a page never holds
+  more than 100 items. The CLI stops reading once it has enough, so answer up
+  to `limit` items a page and let it stop.
 - Answer:
 
   ```json
@@ -348,6 +353,10 @@ func fail(msg string) {
 	os.Exit(2)
 }
 ```
+
+The sample's `fail` exits 2 because it chose to: the contract gives an adapter's
+refusal no code of its own (any non-zero status is one), and the CLI's own exit 2
+above is a different thing.
 
 Build it and look before you claim. A run without `--track` changes nothing in
 Hadron (only the reconcile pass may tell the adapter about earlier changes), so

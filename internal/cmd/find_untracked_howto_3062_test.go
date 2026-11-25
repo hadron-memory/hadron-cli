@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/intake"
 	"github.com/hadron-memory/hadron-cli/pkg/intakecontract"
 )
@@ -188,6 +190,16 @@ func TestHowToSampleAdapterPages3062(t *testing.T) {
 	}
 }
 
+// The behavioural claims the page makes about the runner (exit 15 on a wrong
+// describe version, exit 2 for a describe missing a call, exit 1 with
+// marked:false on a mark-tracked refusal, the 60 s timeout, the HADRON_*
+// environment scrub, the repeated-cursor refusal, the reconcile cursor) are
+// not pinned here: they are pinned where the runner lives, in
+// internal/intake/intake_test.go, find_untracked_adapter_1961_test.go and
+// find_untracked_reconcile_1962_test.go. TestRunnerEnforcesTheExportedRules
+// ties the runner to pkg/intakecontract. This file pins the page: that its
+// sample builds and runs, and that its stated numbers are the contract's.
+
 // The page states the runner's bounds and exit codes as numbers. They are
 // the published package's constants (pkg/intakecontract, which the page
 // names for Go adapter authors): if a constant changes, the page must too.
@@ -204,10 +216,11 @@ func TestHowToPageNumbersAreThePublishedContract3062(t *testing.T) {
 		"with exit status **20**":                                intakecontract.ExitNotMine == 20,
 		"github.com/hadron-memory/hadron-cli/pkg/intakecontract": true,
 	} {
-		if !strings.Contains(page, want) {
+		stated := strings.Contains(page, want)
+		if !stated {
 			t.Errorf("the page must state %q", want)
 		}
-		if !ok {
+		if stated && !ok {
 			t.Errorf("the page states %q but pkg/intakecontract disagrees", want)
 		}
 	}
@@ -239,5 +252,90 @@ func TestHowToSampleAdapterTracks3062(t *testing.T) {
 	}
 	if n := len(opsOf1961(calls, "IntakeClaimTask")); n != 1 {
 		t.Fatalf("one create is the claim: %d", n)
+	}
+}
+
+// The sample refuses a request that speaks another contract version, on every
+// call: exit 2 and the reason on stderr. Deleting that check from the page must
+// fail here.
+func TestHowToSampleAdapterRefusesOtherContractVersion3062(t *testing.T) {
+	bin := buildSample3062(t)
+	for _, call := range []string{"describe", "list-untracked", "mark-tracked"} {
+		t.Run(call, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			cmd := exec.CommandContext(ctx, bin, call)
+			cmd.Stdin = strings.NewReader(`{"contractVersion": 2, "externalId": "x"}`)
+			var stderr strings.Builder
+			cmd.Stderr = &stderr
+			err := cmd.Run()
+			var ee *exec.ExitError
+			if !errors.As(err, &ee) || ee.ExitCode() != 2 {
+				t.Fatalf("a contractVersion 2 request must exit 2, got %v", err)
+			}
+			if !strings.Contains(stderr.String(), "speaks contract version 1") {
+				t.Fatalf("stderr must say the adapter speaks contract version 1: %q", stderr.String())
+			}
+		})
+	}
+}
+
+// The page says what `limit` the CLI sends to list-untracked: the user's
+// --limit raised to 20, so --limit 1 and no --limit both send 20 and --limit 50
+// sends 50 (above 100 the flag is refused before any call, pinned in
+// TestAdapterUsageRefusalsSendNothing1961's --limit 101 row).
+func TestHowToPageLimitWordingMatchesWhatTheCLISends3062(t *testing.T) {
+	for argv, want := range map[string]float64{"": 20, "--limit 1": 20, "--limit 20": 20, "--limit 50": 50, "--limit 100": 100} {
+		path, log := fakeAdapter1961(t, "", `echo '{"items":[]}'`, "")
+		args := []string{"--json"}
+		if argv != "" {
+			args = append(args, strings.Fields(argv)...)
+		}
+		if _, _, stderr, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, args...); err != nil {
+			t.Fatalf("%q: %v\n%s", argv, err, stderr)
+		}
+		reqs := adapterLog1961(t, log, "list-untracked")
+		if len(reqs) != 1 {
+			t.Fatalf("%q: one list-untracked call, got %d", argv, len(reqs))
+		}
+		var req struct{ Limit float64 }
+		if err := json.Unmarshal([]byte(reqs[0]), &req); err != nil || req.Limit != want {
+			t.Errorf("%q must send limit %v, got %v (%v)", argv, want, req.Limit, err)
+		}
+	}
+	page := strings.Join(strings.Fields(readHowTo3062(t)), " ")
+	for _, want := range []string{"raised to 20 if it is lower", "or a run with no `--limit` at all, asks for 20", "refuses a `--limit` above 100"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page must say %q", want)
+		}
+	}
+}
+
+// The page's two exit-2 messages: an adapter that does not answer a call this
+// run needs, and --track with no one to hold the claim.
+func TestHowToPageExitTwoMessages3062(t *testing.T) {
+	describe := `{"name":"fake","contractVersion":1,"calls":["describe","list-untracked"],"filters":[],"order":"x"}`
+	path, _ := fakeAdapter1961(t, describe, `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+	_, _, _, err := run1961(t, path, map[string]string{"IntakeTasksByExternalIds": held1961()}, "--track")
+	if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "does not answer mark-tracked") {
+		t.Fatalf("a describe without mark-tracked, on --track: exit 2 naming the call, got %d %v", exitCodeFor(err), err)
+	}
+
+	// No worktree binding and no --for/--assignee: nobody to hold the claim.
+	path, _ = fakeAdapter1961(t, "", `echo '{"items":[`+item1961(itemA1961, "a")+`]}'`, "")
+	t.Setenv(adapterEnvForTest, "")
+	srv, _ := attnServer(t, withEmptyChanges1962(map[string]string{"IntakeTasksByExternalIds": held1961()}))
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"--server", srv.URL, "team", "task", "find-untracked", "--adapter", path, "--track"})
+	err = root.Execute()
+	if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "pass --for <worker> or --assignee <party>") {
+		t.Fatalf("--track with no one to hold the claim: exit 2 asking for --for or --assignee, got %d %v", exitCodeFor(err), err)
+	}
+	page := strings.Join(strings.Fields(readHowTo3062(t)), " ")
+	for _, want := range []string{"says which call the adapter does not answer", "asks you to pass `--for` or `--assignee`"} {
+		if !strings.Contains(page, want) {
+			t.Errorf("the page must say %q", want)
+		}
 	}
 }
