@@ -167,12 +167,26 @@ func heredocFiles2565(block string) (map[string]string, error) {
 	return files, nil
 }
 
-// redirected2565 is the name a file argument runs under: a path under /etc,
-// /home or /var becomes its base name (see the redirect in the walk); any other
-// is only cleaned.
+// walkRedirect2565 is the walk's one redirect rule: an argument under /etc,
+// /home or /var runs as its base name, inside the example's test directory.
+func walkRedirect2565(word string) (string, bool) {
+	for _, prefix := range []string{"/etc/", "/home/", "/var/"} {
+		if strings.HasPrefix(word, prefix) {
+			return filepath.Base(word), true
+		}
+	}
+	return word, false
+}
+
+func isWalkRedirected2565(word string) bool {
+	_, ok := walkRedirect2565(word)
+	return ok
+}
+
+// redirected2565 is the name a file argument runs under.
 func redirected2565(path string) string {
-	if strings.HasPrefix(path, "/etc/") || strings.HasPrefix(path, "/home/") || strings.HasPrefix(path, "/var/") {
-		return filepath.Base(path)
+	if base, ok := walkRedirect2565(path); ok {
+		return base
 	}
 	return filepath.Clean(path)
 }
@@ -184,8 +198,16 @@ func heredocBody2565(files map[string]string, file string) (string, bool) {
 }
 
 // unconsumedHeredocs2565 lists the heredoc files no example's file argument read.
+// Such a body never reached its command, which ran on a canned one or not at all.
 func unconsumedHeredocs2565(files map[string]string, used map[string]bool) []string {
-	return nil
+	var out []string
+	for name := range files {
+		if !used[name] {
+			out = append(out, name)
+		}
+	}
+	sort.Strings(out)
+	return out
 }
 
 // stripRedirect2565 drops a trailing shell "> file" redirect from a command: the
@@ -225,7 +247,11 @@ func uncovered2565(pages []string, results []exampleResult, allow map[string]str
 	var out []string
 	for _, p := range pages {
 		listed[p] = true
-		if !executed[p] && allow[p] == "" {
+		reason, allowed := allow[p]
+		switch {
+		case allowed && strings.TrimSpace(reason) == "":
+			out = append(out, p+": allowlisted without a reason")
+		case !allowed && !executed[p]:
 			out = append(out, p+": no executed example")
 		}
 	}
@@ -278,6 +304,7 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 			t.Errorf("%s: %v", path, err)
 		}
 		lines := append(exampleLines(page.Example), pipeIntoHadronLines2565(page.Example)...)
+		usedHeredocs := map[string]bool{}
 		for _, line := range lines {
 			// A pipeline is run one hadron command at a time (the other tools, such as
 			// jq or echo, are not ours); a trailing "> file" redirect is the shell's,
@@ -336,8 +363,11 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 				args := make([]string, 0, len(words)+2)
 				for _, w := range words[1:] {
 					switch {
-					case strings.HasPrefix(w, "/etc/") || strings.HasPrefix(w, "/home/") || strings.HasPrefix(w, "/var/"):
-						w = filepath.Base(w) // redirected into the test directory: the command runs with cwd there, so the bare name lands inside it (and the file-providing loop below writes dir/NAME without doubling the prefix)
+					case isWalkRedirected2565(w):
+						// Redirected into the test directory: the command runs with cwd there, so
+						// the bare name lands inside it (and the file-providing loop below writes
+						// dir/NAME without doubling the prefix).
+						w, _ = walkRedirect2565(w)
 					case strings.HasPrefix(w, "<") && strings.HasSuffix(w, ">"):
 						w = "fixture-" + strings.Trim(w, "<>") // a placeholder the reader fills in
 					case strings.HasPrefix(w, "$") && len(w) > 1 && strings.Trim(w[1:], "ABCDEFGHIJKLMNOPQRSTUVWXYZ_") == "":
@@ -383,7 +413,9 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 						// send; the canned body stands in only for a file the page
 						// never shows.
 						body, ok := heredocBody2565(heredocs, file)
-						if !ok {
+						if ok {
+							usedHeredocs[redirected2565(file)] = true
+						} else {
 							body = exampleFileBody2565(flag)
 						}
 						if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, file)), 0o755); err != nil {
@@ -475,6 +507,9 @@ func Test2565HelpExamplesAreWired(t *testing.T) {
 				})
 			}
 		}
+		for _, name := range unconsumedHeredocs2565(heredocs, usedHeredocs) {
+			t.Errorf("%s: no example's file argument read the heredoc writing %s", path, name)
+		}
 	}
 
 	if path := os.Getenv("HELP_EXAMPLES_REPORT_2565"); path != "" {
@@ -508,7 +543,7 @@ func checkQuestionHeredoc2565(body string, ask bool) []string {
 	if !ask {
 		var in gen.AmendQuestionInput
 		if err := dec.Decode(&in); err != nil {
-			add("not a valid AmendQuestionInput: %v", err)
+			return []string{fmt.Sprintf("not a valid AmendQuestionInput: %v", err)}
 		}
 		// An amend is partial, so only what the file itself gives can be judged.
 		if in.Yesno != nil && *in.Yesno && in.Options != nil {
@@ -521,15 +556,16 @@ func checkQuestionHeredoc2565(body string, ask bool) []string {
 	}
 	var in gen.AskQuestionInput
 	if err := dec.Decode(&in); err != nil {
-		add("not a valid AskQuestionInput: %v", err)
-	} else if in.Title == "" {
+		return []string{fmt.Sprintf("not a valid AskQuestionInput: %v", err)}
+	}
+	if in.Title == "" {
 		add("lacks the required title")
 	}
 	if dec.More() {
 		add("has data after the JSON object")
 	}
 	// The server's rules for the example: options or yesno, never both; every
-	// option has a key and a label; a question with options carries exactly one
+	// option has a key of its own and a label; a question with options carries exactly one
 	// of a recommendation (naming an option) and a noRecommendation, and one
 	// without options carries neither.
 	yesno := in.Yesno != nil && *in.Yesno
@@ -544,6 +580,9 @@ func checkQuestionHeredoc2565(body string, ask bool) []string {
 		if o == nil || o.Key == "" || o.Label == "" {
 			add("has an option without a key and a label")
 			continue
+		}
+		if keys[o.Key] && !yesno {
+			add("gives the option key %q twice", o.Key)
 		}
 		keys[o.Key] = true
 	}
@@ -573,7 +612,8 @@ func Test2565HeredocInputsAreValidQuestionInput(t *testing.T) {
 	for _, path := range []string{"question ask", "question amend"} {
 		c, _, err := root.Find(strings.Split(path, " "))
 		if err != nil || c == nil || c.CommandPath() != "hadron "+path {
-			t.Fatalf("page not found in the command tree: %s", path)
+			t.Errorf("page not found in the command tree: %s", path)
+			continue
 		}
 		files, err := heredocFiles2565(c.Example)
 		if err != nil {
@@ -613,7 +653,7 @@ func schemaUnknownKeys2565(t *testing.T, inputType, body string) []string {
 	}
 	var value any
 	if err := json.Unmarshal([]byte(body), &value); err != nil {
-		t.Fatalf("not JSON: %v", err)
+		return nil // checkQuestionHeredoc2565 reports a body that is not JSON
 	}
 	if doc.Definitions.ForName(inputType) == nil {
 		t.Fatalf("the schema declares no input %s", inputType)
