@@ -429,7 +429,7 @@ section between the markers.
 | `mcp-server tools` |  |  | y | #1053 | 7f7f8e13e619 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `mcp-server update` |  |  | y | #1053 | 609743691dda | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `run` |  |  | n | #1053 | ed4433b2e90b |  | unread |  |
-| `run cancel` |  |  | y | #1053 | 77f99dfea3db |  | unread |  |
+| `run cancel` |  |  | y | #1053 | 9e1ebf19ca9b |  | unread |  |
 | `run get` |  |  | y | #1053 | d268f2d5c422 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run latest` |  |  | y | #1053 | f3fae5389764 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run list` | ls |  | y | #1053 | 19d8047a2030 |  | unread |  |

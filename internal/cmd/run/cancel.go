@@ -21,10 +21,17 @@ func newCmdCancel(f *cmdutil.Factory) *cobra.Command {
 		Long: `Cancel a live run — transitions it to CANCELLED. Prompts on a
 TTY; a non-interactive caller must pass --yes.
 
-Cancelling is idempotent: a run that had already ended is left as it is, the
-command says "run <id> is already <STATUS>; nothing to cancel" (--json carries
-the run's real status), and the exit code stays 0 (the run is not live, which
-is what a caller asked for).`,
+Cancelling is idempotent: a run that had
+already ended in any state other than CANCELLED is left as it is, the command
+says "run <id> is already <STATUS>; nothing to cancel" (--json carries the
+run's real status), and the exit code stays 0 (the run is not live, which is
+what a caller asked for). A run that was already CANCELLED cannot be told from
+a fresh cancel without a read first, so it prints "✓ cancelled run <id>
+(CANCELLED)" again, exit 0.
+
+If a live status ever came back, the command would exit 1 with "run <id> is
+still <STATUS>; the cancel did not take effect" and print no JSON under --json;
+cancelAppRun is synchronous, so a real server never returns that.`,
 		Example: `  hadron run cancel run_123 --yes`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
