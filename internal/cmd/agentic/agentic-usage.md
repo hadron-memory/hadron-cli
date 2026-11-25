@@ -2377,7 +2377,16 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   exempt from structure checks only; corpus link checks still apply. Invalid
   type names are per-node findings and do not abort checks of the other nodes.
   This checks mechanics, not factual
-  correctness or approval. `spec lint` also
+  correctness or approval. Two content checks come from the SERVER
+  (`Node.specLint`, hadron-cli#3127), not the CLI: a Rule spec with no, or an
+  empty, `## Why We Need This Rule` section is an error (rules
+  `rule-why-missing`, `rule-why-empty`, exit 5), and a sentence that restricts
+  something with no reason in its paragraph is a warning (rule
+  `limit-without-reason`; `--json` findings then also carry `line` and
+  `sentence`). Warnings never fail a run unless `--strict`. A server without
+  the field gets one info finding, rule `spec-lint-unavailable`, saying the two
+  checks did NOT run; a spec whose text the server did not load gets
+  `spec-lint-not-read`. Neither is a clean answer and neither fails `--strict`. `spec lint` also
   warns (rule `vector-index`) when the memory has no
   vector index so spec abstracts aren't embedded for semantic `find`
   (`--strict` promotes warnings to errors, exit 5). A corpus-scope lint also
@@ -3607,16 +3616,20 @@ server error fails the command).
   be read (a binding without a worker, no team chat, a failed read, no cursor row,
   or a legacy / previous-incarnation cursor, the same rule as `chat check` and
   `session shed`) the note says it cannot read your server-side position and
-  states no count and no `--since` remedy; caught up prints nothing. The note omits the mentions clause when that query fails —
-  or returns a count EXCEEDING the total, which two round trips against an
-  append-only sequence can produce and which is impossible rather than merely
-  stale — rather than reporting the unknown as "none". Best-effort: the milestone is
-  already recorded when it runs, so a failed or unreadable chat never fails the
-  log, and `session log --json` is untouched. `chat read` still records its progress on the binding
-  (`whoami --json` carries the optional `chatSeenSeq`, absent on a binding that has never read or that predates the field, `0` on one that read an empty chat). It is a per-worktree rendering cache:
-  only `chat read` acts on it, to decide whether a read counts as read through (it starts at or
-  before the cache, or at 0 when there is none), which is when the server-side mark counts; it is
-  never an unread position and never the attendee's read state
+  states no count and no `--since` remedy; caught up prints nothing. The note
+  omits the mentions clause when that query fails — or returns a count EXCEEDING
+  the total, which two round trips against an append-only sequence can produce
+  and which is impossible rather than merely stale — rather than reporting the
+  unknown as "none". Best-effort: the milestone is already recorded when it
+  runs, so a failed or unreadable chat never fails the log, and
+  `session log --json` is untouched. `chat read` still records its progress on
+  the binding
+  (`whoami --json` carries the optional `chatSeenSeq`, absent on a binding that has never read or that
+  predates the field, `0` on one that read an empty chat). It is a per-worktree rendering cache: only
+  `chat read` consults it, and `chat mark-read` on the team chat also writes it. A read can only advance it
+  when `--since` is at or below the cache, or is `0` when there is none. Then the cache advances and the
+  server-side read mark is sent. That is necessary, not sufficient: a read with no cursor, `--before`, a
+  filter or `--thread` never qualifies. It is never an unread position and never the attendee's read state
   (cor:dmo:090:06: unread derives from the server read cursor, and one worker bound in two
   worktrees holds two caches). `session log` does not read it.
   `session end` ends the bound worker session — the SESSION, never the name
@@ -3958,7 +3971,7 @@ server error fails the command).
   **A bound worker's `chat read` now marks its messages read on the server**.
   It happens only
   AFTER the messages were printed, for exactly the reads that record the
-  binding's watermark (unfiltered, contiguous, not `--before`, own App, and a
+  binding's rendering cache (unfiltered, contiguous, not `--before`, own App, and a
   binding that records this server — a `--limit` page included), through the
   highest seq shown: the read itself carries no session, so a read that fails
   partway marks nothing (a
@@ -3972,8 +3985,8 @@ server error fails the command).
   changes nothing and says so — and a seq past the Channel's head exits 2
   (`SEQ_BEYOND_WATERMARK`). It needs a binding that records this server (exit 2
   without one), and the server accepts only your own live session. On the App's
-  team chat (no `--channel`) a successful mark also moves the binding's local
-  read hint, the watermark `session log` compares against, up to `--through`
+  team chat (no `--channel`) a successful mark also moves the binding's rendering
+  cache (the local record only `chat read` consults) up to `--through`
   (cli#1854): never backwards, never for `--through 0`, and not when the server
   refuses the mark; a named `--channel` leaves it alone. `--json`: `{workerId, channelId,
   through, lastSeenSeq}` (unchanged).
@@ -4395,6 +4408,7 @@ hadron node rm hrn:node:acme.com:kb:findings --recursive --yes    # the branch +
 # restore is undoable by default; --truncate discards newer history (needs --yes).
 # Pass a bare node id to reach a soft-deleted node's history for cleanup.
 hadron node revision list hrn:node:acme.com:kb:findings:flaky-ci --json
+# <revision-id> is a revision id or an hrn:noderev:... URN, sent to the server as nodeRevRef (cli#2904); a server older than hadron-server#4766 refuses it at validation.
 hadron node revision get <revision-id>
 hadron node revision label <revision-id> --label "before the auth refactor"
 hadron node revision restore <revision-id>

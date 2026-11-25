@@ -9852,7 +9852,7 @@ type Mutation {
     is per node, and every new node starts unminted, with draft rights, in
     any memory.
     """
-    draftCorpus: Boolean
+    draftCorpus: Boolean @deprecated(reason: "Accepted and ignored since #1591: a memory's draft or minted state is derived from its nodes.")
     embeddingSource: EmbeddingSource
     heroUrl: String
     homeUrl: String
@@ -13631,6 +13631,11 @@ type Node {
   The node's signing requests with the same reader gate; effective-state filtering precedes paging. Newest first (createdAt, id descending). Default 20, clamp 1–100; after is an authenticated filter-scoped keyset (createdAt, id), valid after deletion of the boundary row. offset is an alternative, never combined with after. total counts the full current filtered set. hrn:node:hadronmemory.com:specs:cor:api:120:04; hrn:node:hadronmemory.com:specs:cor:api:120:05.
   """
   signingRequestsPage(after: String, first: Int = 20, offset: Int, state: SigningRequestState): SigningRequestsPage!
+
+  """
+  #5109 (server half of hadron-cli#3127) — spec content lint, computed on read from this node's stored text and never stored: a Rule spec with no Why We Need This Rule section, or an empty one, is an ERROR; a sentence above the divider line that restricts something and gives no reason (no because, so that, since or why in its paragraph, and no link to a ruling or a Why section) is a WARNING that names the sentence. A node that is not a spec, and a retired one, have no findings; an empty list is a real answer. Null means the node's text was not loaded for this read. Read under the node's own read gate; at most 200 findings.
+  """
+  specLint: [SpecLintFinding!]
   tags: [String!]!
   tokens: Int
   updatedAt: DateTime!
@@ -15861,8 +15866,12 @@ type Query {
   
   sortBy / sortDir (#833) order the whole result set server-side, so a client
   table is no longer limited to sorting the page it happens to hold.
+  
+  appRef, orgRef and parentRunRef share one scalar, ID (#5050,
+  hrn:node:hadronmemory.com:specs:cor:api:140:01). appRef and orgRef were String until #5050, so a
+  document that declares either variable as String no longer validates; declare it ID.
   """
-  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, parentRunRef: ID, sortBy: AppRunSortField, sortDir: SortDirection, status: AppRunStatus @deprecated(reason: "Use statuses (#836) - a single value cannot express PENDING-or-RUNNING."), statuses: [AppRunStatus!]): AppRunsPage!
+  appRuns(appRef: ID, limit: Int, offset: Int, orgRef: ID, parentRunRef: ID, sortBy: AppRunSortField, sortDir: SortDirection, status: AppRunStatus @deprecated(reason: "Use statuses (#836) - a single value cannot express PENDING-or-RUNNING."), statuses: [AppRunStatus!]): AppRunsPage!
 
   """
   #1747 — an App's ticker settings: the cadence floor, the default self-subscription cadence, the live-ticker cap and the daily wake budget (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
@@ -21274,6 +21283,47 @@ type SpecDocumentEntry {
   name: String!
   revision: Int!
   urn: String!
+}
+
+"""#5109 — one spec lint finding."""
+type SpecLintFinding {
+  """The spec's citation (its loc)."""
+  citation: String!
+
+  """
+  1-based line of the sentence's paragraph or of the Why heading; null when there is none.
+  """
+  line: Int
+  message: String!
+  rule: SpecLintRule!
+
+  """
+  The offending sentence, for LIMIT_WITHOUT_REASON; null for a structural finding.
+  """
+  sentence: String
+  severity: SpecLintSeverity!
+}
+
+"""#5109 — which spec lint check a finding comes from."""
+enum SpecLintRule {
+  """
+  A sentence restricts something and gives no reason in its paragraph or through a link to a ruling or a Why section.
+  """
+  LIMIT_WITHOUT_REASON
+
+  """A Rule spec has the section, but it is empty or only whitespace."""
+  RULE_WHY_EMPTY
+
+  """A Rule spec has no Why We Need This Rule section."""
+  RULE_WHY_MISSING
+}
+
+"""
+#5109 — how serious a spec lint finding is. The sentence check is a WARNING for now (it has false positives).
+"""
+enum SpecLintSeverity {
+  ERROR
+  WARNING
 }
 
 """

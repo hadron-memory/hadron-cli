@@ -3106,6 +3106,33 @@ func TestTeamChatReadWatermarkOnlyRecordsWhatItCanClaim(t *testing.T) {
 		}
 	})
 
+	// cli#3146 boundary controls for the wording in `chat read --help`: the start
+	// condition is "--since at or below the cache, or --since 0 when there is none".
+	// "At" is the edge (--since 90 from a cache of 90 renders 91 onward, no gap), and
+	// a cursor above 0 with no cache has nothing to be contiguous with.
+	t.Run("a --since exactly at the watermark advances", func(t *testing.T) {
+		dir := teamGitDir(t)
+		path := filepath.Join(dir, "hadron-team-session.json")
+		if err := os.WriteFile(path, []byte(bindingChatSeenFixture), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		read(t, map[string]string{
+			"TeamChatMessages": `{"data":{"teamChatMessages":{"total":1,"items":[` +
+				strings.Replace(teamChatMsgJSON, `"seq":8`, `"seq":91`, 1) + `]}}}`,
+			"TeamAppIdentity": teamAppIdentityJSON,
+		}, "--since", "90")
+		if got := watermark(t, path); got != 91 {
+			t.Errorf("--since 90 from a watermark of 90 leaves no gap, so 91 was seen — got %d", got)
+		}
+	})
+	t.Run("a --since above 0 with no watermark records nothing", func(t *testing.T) {
+		path := bind(t) // bindingWithTeamFixture has no chatSeenSeq
+		read(t, oneMessage, "--since", "1")
+		if got := watermark(t, path); got != -1 {
+			t.Errorf("with no cache only --since 0 is a prefix; --since 1 must record nothing, got %d", got)
+		}
+	})
+
 	// App ids are unique WITHIN a deployment, not across them — a clone or a
 	// restore carries them over — so the id check alone lets a second server's
 	// seq into this binding. Reading another deployment is legitimate (`chat

@@ -45,7 +45,7 @@ func runReferenceWire1554(t *testing.T, verb string, jsonMode bool, handler func
 			fmt.Fprint(w, `{"data":{"findNodes":{"hits":[]},"nodes":[]}}`)
 			return
 		}
-		data := map[string]string{"Memories": memListMicromentorJSON, "GetMemory": memGetVectorEnabledJSON, "SpecCorpusState": draftStateJSON, "SpecPlaceholderScan": placeholderScanJSON(map[string]bool{"msg:010:02": false}), "FindNodes": `{"data":{"findNodes":{"hits":[{"node":` + specNodeList("msg:010:02", `["spec"]`) + `}],"total":1}}}`, "NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + specBatchNode("msg:010:02") + `]}}}`}
+		data := map[string]string{"Memories": memListMicromentorJSON, "GetMemory": memGetVectorEnabledJSON, "SpecCorpusState": draftStateJSON, "SpecPlaceholderScan": placeholderScanJSON(map[string]bool{"msg:010:02": false}), "FindNodes": `{"data":{"findNodes":{"hits":[{"node":` + specNodeList("msg:010:02", `["spec"]`) + `}],"total":1}}}`, "NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` + specBatchNode("msg:010:02") + `]}}}`, "SpecLintBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[]}}}`}
 		body, ok := data[q.OperationName]
 		if !ok {
 			t.Error("unexpected", q.OperationName)

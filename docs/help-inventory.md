@@ -149,7 +149,7 @@ section between the markers.
 | `node revision delete` | rm |  | y | #1051 | 8e7b78330a64 |  | unread |  |
 | `node revision get` | show |  | y | #1051 | 1b6743721073 |  | unread |  |
 | `node revision label` |  |  | y | #1051 | 4d6d61c86748 |  | unread |  |
-| `node revision list` | ls |  | y | #1051 | c1850041b82b | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508480770), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1233#issuecomment-6511469743) |
+| `node revision list` | ls |  | y | #1051 | ad0540a955bd |  | unread |  |
 | `node revision restore` |  |  | y | #1051 | 16f3308fc24e |  | unread |  |
 | `node set-properties` |  |  | y | #1051 | f84e08665ddc |  | unread |  |
 | `node sign` |  |  | y | #1051 | 1b7cde5ce156 |  | unread |  |
@@ -429,7 +429,7 @@ section between the markers.
 | `mcp-server tools` |  |  | y | #1053 | 7f7f8e13e619 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `mcp-server update` |  |  | y | #1053 | 609743691dda | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `run` |  |  | n | #1053 | ed4433b2e90b |  | unread |  |
-| `run cancel` |  |  | y | #1053 | 77f99dfea3db |  | unread |  |
+| `run cancel` |  |  | y | #1053 | 9e1ebf19ca9b |  | unread |  |
 | `run get` |  |  | y | #1053 | d268f2d5c422 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run latest` |  |  | y | #1053 | f3fae5389764 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6997007249) |
 | `run list` | ls |  | y | #1053 | 19d8047a2030 |  | unread |  |
@@ -510,9 +510,9 @@ section between the markers.
 | `team chat` |  |  | n | #1054 | fe0007157afc |  | unread |  |
 | `team chat check` |  |  | n | #1054 | 5fce1fb88b41 |  | unread |  |
 | `team chat inbox` |  |  | n | #1054 | 098ce787ca9f |  | unread |  |
-| `team chat mark-read` |  |  | y | #1054 | 32128682f35a |  | unread |  |
+| `team chat mark-read` |  |  | y | #1054 | 0d30e7f837ba |  | unread |  |
 | `team chat post` |  |  | y | #1054 | 78b985ffef96 |  | unread |  |
-| `team chat read` | pull |  | y | #1054 | 99f61b8dfc39 |  | unread |  |
+| `team chat read` | pull |  | y | #1054 | 7e78a3c9b9df |  | unread |  |
 | `team chat search` |  |  | y | #1054 | 761bf8adfcb1 |  | unread |  |
 | `team composition` |  |  | n | #1054 | 56db72727109 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |
 | `team delivery-settings` |  |  | n | #1054 | b93ae59855e1 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
@@ -603,7 +603,7 @@ section between the markers.
 | `team session shed` |  |  | y | #1054 | 3a98d6ff8a57 |  | unread |  |
 | `team session start` |  |  | y | #1054 | 31d7523691c8 |  | unread |  |
 | `team session sync-model` |  |  | y | #1054 | 28bc63be5c00 |  | unread |  |
-| `team session whoami` |  |  | y | #1054 | b51ff972ba7a |  | unread |  |
+| `team session whoami` |  |  | y | #1054 | 20b80a78bd7f |  | unread |  |
 | `team session work-items` |  |  | y | #1054 | aa707c9c9f95 |  | unread |  |
 | `team stall-schedule` |  |  | n | #1054 | aa1c65ef79dc |  | unread |  |
 | `team stall-schedule get` |  |  | n | #1054 | 5675e42ad09e | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
@@ -725,7 +725,7 @@ section between the markers.
 | `spec label-report` |  |  | y | #1055 | f68672457ff8 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass3 |
 | `spec ledger` |  |  | y | #1055 | 2b9a2948d456 |  | unread |  |
 | `spec link` |  |  | y | #1055 | 64d9652ebaae |  | unread |  |
-| `spec lint` | check, validate |  | y | #1055 | cc74076aad72 |  | unread |  |
+| `spec lint` | check, validate |  | y | #1055 | b601151d2dbe |  | unread |  |
 | `spec list` | ls |  | y | #1055 | f482dd92b9bc |  | unread |  |
 | `spec mint` |  |  | y | #1055 | 176744cc0f39 |  | unread |  |
 | `spec new` | scaffold |  | y | #1055 | 77286154345b |  | unread |  |

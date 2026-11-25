@@ -2137,10 +2137,13 @@ that would leave a session open with its only local handle gone.
 the fallback did. A binding answer also carries the optional "chatSeenSeq": how
 far this worktree has rendered the team chat (absent when it never read or the
 binding predates the field, 0 when it read an empty chat). It is a per-worktree
-rendering cache, never an unread position and never your read state: it only
-decides whether a chat read counts as read through (the read starts at or before
-the cache, or at 0 when there is none), which is when the server-side mark counts,
-and every unread count comes from the server read cursor.
+rendering cache, never an unread position and never your read state; only
+` + "`" + `chat read` + "`" + ` consults it, and ` + "`" + `chat mark-read` + "`" + ` on the team chat also writes it.
+A read can only advance it when ` + "`" + `--since` + "`" + ` is at or below the cache, or is ` + "`" + `0` + "`" + `
+when there is none. Then the cache advances and the server-side read mark is
+sent. That is necessary, not sufficient: a read with no cursor, ` + "`" + `--before` + "`" + `, a
+filter or ` + "`" + `--thread` + "`" + ` never qualifies. Every unread count comes from the
+server read cursor.
 
 --check ASKS THE SERVER about the bound session. The
 binding identity remains available locally for compaction recovery. The default

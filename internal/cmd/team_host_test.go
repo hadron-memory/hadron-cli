@@ -617,25 +617,62 @@ func TestTeamHostOpsNoDataInReply(t *testing.T) {
 
 // A hostOperations field that is present but holds no items, or a null items
 // list, is an empty page, not a refusal (cli#3077 draws the line at the field).
+// Pinned on both read shapes and in both output modes (cli#3128). hasNextPage is
+// true in the replies so a read that drops it cannot pass on the zero value.
 func TestTeamHostOpsPresentFieldWithNoItemsIsAnEmptyPage(t *testing.T) {
+	const oldServer = `{"errors":[{"message":"Cannot query field \"issuedReason\" on type \"HostOperation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
+	const noReason = "issuedReason is not shown: this server predates hadron-server#4257"
 	for name, body := range map[string]string{
-		"empty items": `{"data":{"hostOperations":{"items":[],"hasNextPage":false,"endCursor":null}}}`,
-		"null items":  `{"data":{"hostOperations":{"items":null,"hasNextPage":false,"endCursor":null}}}`,
+		"empty items": `{"data":{"hostOperations":{"items":[],"hasNextPage":true,"endCursor":"cur-3128"}}}`,
+		"null items":  `{"data":{"hostOperations":{"items":null,"hasNextPage":true,"endCursor":"cur-3128"}}}`,
 	} {
-		t.Run(name, func(t *testing.T) {
-			r := hostResponses()
-			r["HostOperationsWithReason"] = body
-			_, out, err := runTeamTask(t, r, "team", "host", "ops", "--json")
-			if err != nil {
-				t.Fatalf("a present field with no items must not be refused: %v", err)
+		for _, fallback := range []bool{false, true} {
+			stage := func() map[string]string {
+				r := hostResponses()
+				r["HostOperationsWithReason"] = body
+				if fallback {
+					r["HostOperationsWithReason"] = oldServer
+					r["HostOperations"] = body
+				}
+				return r
 			}
-			var page struct {
-				Items       []any `json:"items"`
-				HasNextPage bool  `json:"hasNextPage"`
-			}
-			if err := json.Unmarshal([]byte(out), &page); err != nil || page.Items == nil || len(page.Items) != 0 {
-				t.Fatalf("want an empty items list ([]), got %q (%v)", out, err)
-			}
-		})
+			read := map[bool]string{false: "with reason", true: "plain fallback"}[fallback]
+			t.Run(read+"/"+name+"/json", func(t *testing.T) {
+				out, _, err := runTeamTaskStreams(t, stage(), "team", "host", "ops", "--json")
+				if err != nil {
+					t.Fatalf("a present field with no items must not be refused: %v", err)
+				}
+				var page struct {
+					Items       []any    `json:"items"`
+					HasNextPage bool     `json:"hasNextPage"`
+					EndCursor   *string  `json:"endCursor"`
+					Warnings    []string `json:"warnings"`
+				}
+				if err := json.Unmarshal([]byte(out), &page); err != nil || page.Items == nil || len(page.Items) != 0 {
+					t.Fatalf("want an empty items list ([]), got %q (%v)", out, err)
+				}
+				if !page.HasNextPage || page.EndCursor == nil || *page.EndCursor != "cur-3128" {
+					t.Errorf("the server's hasNextPage and endCursor must come through: %q", out)
+				}
+				// The warning also says the fallback read is the one that answered.
+				if got := strings.Contains(strings.Join(page.Warnings, "\n"), noReason); got != fallback {
+					t.Errorf("no-reason warning present = %v, want %v: %q", got, fallback, out)
+				}
+			})
+			t.Run(read+"/"+name+"/text", func(t *testing.T) {
+				out, errOut, err := runTeamTaskStreams(t, stage(), "team", "host", "ops")
+				if err != nil {
+					t.Fatalf("a present field with no items must not be refused: %v", err)
+				}
+				// app line, table header, next-page hint: no operation rows.
+				lines := strings.Split(strings.TrimSpace(out), "\n")
+				if len(lines) != 3 || !strings.HasPrefix(lines[0], "app: ") || !strings.HasPrefix(lines[1], "ID") || !strings.Contains(lines[2], "cur-3128") {
+					t.Errorf("want the app line, an empty table and the next-page hint, got %q", out)
+				}
+				if got := strings.Contains(errOut, "note: "+noReason); got != fallback {
+					t.Errorf("no-reason note on stderr = %v, want %v: %q", got, fallback, errOut)
+				}
+			})
+		}
 	}
 }
