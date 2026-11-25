@@ -105,11 +105,12 @@ func TestUtilizationHelpLinesFollowTheColumnHabit2964(t *testing.T) {
 	}
 }
 
-// utilization2964 holds the cell cases. Every row is a state the server can serve (cor:agt:060:13):
-// a row with a lastMatchFailure had no worker at its latest match, so it is saturated.
+// utilization2964 holds the cell cases. Saturation and utilization agree with cor:agt:060:13: a row
+// whose latest match answered no worker is saturated, and a saturated row's utilization is 1. The
+// first row's empty reason is not a value the spec names: it is the defensive case of cli#2986.
 const utilization2964 = `{"data":{"teamUtilization":{"appId":"capp100000000000000000000","windowHours":24,"computedAt":"2026-11-22T06:00:00Z","combinations":[
- {"family":"","tier":"high","role":"qa","eligibleWorkers":1,"busyWorkers":0,"utilization":0,"saturated":true,"lastMatchFailure":{"at":"2026-11-22T05:59:00Z","reason":""}},
- {"family":"claude","tier":"mid","role":"cli-engineer","eligibleWorkers":4,"busyWorkers":1,"utilization":0.25,"saturated":true,"lastMatchFailure":{"at":"2026-11-22T05:30:00Z","reason":null}}]}}}`
+ {"family":"","tier":"high","role":"qa","eligibleWorkers":1,"busyWorkers":0,"utilization":1,"saturated":true,"lastMatchFailure":{"at":"2026-11-22T05:59:00Z","reason":""}},
+ {"family":"claude","tier":"mid","role":"cli-engineer","eligibleWorkers":4,"busyWorkers":1,"utilization":1,"saturated":true,"lastMatchFailure":{"at":"2026-11-22T05:30:00Z","reason":null}}]}}}`
 
 // utilizationUnsaturated2964 has no saturated row, so no row carries a lastMatchFailure.
 const utilizationUnsaturated2964 = `{"data":{"teamUtilization":{"appId":"capp100000000000000000000","windowHours":24,"computedAt":"2026-11-22T06:00:00Z","combinations":[
