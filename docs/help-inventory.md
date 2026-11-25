@@ -564,7 +564,7 @@ section between the markers.
 | `team pr schedule` |  |  | y | #1054 | dfed9683957e |  | unread |  |
 | `team pr seat` |  |  | y | #1054 | cc740b365b95 |  | unread |  |
 | `team pr verdict` |  |  | y | #1054 | 6bb4951deda6 |  | unread |  |
-| `team pr withdraw` |  |  | y | #1054 | 8a1ad8863158 |  | unread |  |
+| `team pr withdraw` |  |  | y | #1054 | 2aa70501e562 |  | unread |  |
 | `team push` |  |  | y | #1054 | 1576000c023d | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team register` |  |  | y | #1054 | 98946c24fa29 |  | unread |  |
 | `team register attendee` |  |  | y | #1054 | 5adac6a995b6 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7005203564) |

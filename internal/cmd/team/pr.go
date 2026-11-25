@@ -55,9 +55,9 @@ func validPRSlot(slot string) bool {
 func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 	parent := &cobra.Command{Use: "pr <command>", Short: "Record PR review facts and read readiness at an explicit head", Long: prGroupLong, Example: prGroupExample}
 	for _, verb := range []string{"schedule", "freeze", "seat", "verdict", "withdraw", "readiness", "ready"} {
-		var head, slot, supersedes, verdict, node, receiptURL string
+		var head, slot, supersedes, verdict, node, receiptURL, rawInstruction string
 		var slots []string
-		uses := map[string]string{"schedule": "schedule <build-task> --slot <id> [--slot <id>...]", "freeze": "freeze <build-task> <40-hex-sha>", "seat": "seat <seat-task> --slot <id> --head <sha>", "verdict": "verdict <seat-task> --head <sha> --verdict <verdict>", "withdraw": "withdraw <seat-task> --head <sha> [--receipt <url>]", "readiness": "readiness <build-task> --head <sha>", "ready": "ready <build-task> --head <sha>"}
+		uses := map[string]string{"schedule": "schedule <build-task> --slot <id> [--slot <id>...]", "freeze": "freeze <build-task> <40-hex-sha>", "seat": "seat <seat-task> --slot <id> --head <sha>", "verdict": "verdict <seat-task> --head <sha> --verdict <verdict>", "withdraw": "withdraw <seat-task> --head <sha> [--receipt <url>] [--instruction <kind>:<ref>]", "readiness": "readiness <build-task> --head <sha>", "ready": "ready <build-task> --head <sha>"}
 		shorts := map[string]string{"schedule": "Replace the review slots a PR needs (owner chain only)", "freeze": "Fix the head under review (build assignee only)", "seat": "Bind a seat task to a scheduled slot (the seat task's owner chain only)", "verdict": "Record a seat's verdict without finishing it (seat assignee only)", "withdraw": "Withdraw a finished seat's negative verdict at the same head (its reviewer or a coordinator)", "readiness": "Show whether every scheduled review counts at a head", "ready": "Record the ready call once every review counts (build assignee only)"}
 		c := &cobra.Command{Use: uses[verb], Short: shorts[verb], Long: prLeafLong[verb], Example: prLeafExample[verb], Args: cobra.ExactArgs(1)}
 		if verb == "freeze" {
@@ -114,6 +114,10 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 				return err
 			}
 			url, err := optional("receipt", receiptURL)
+			if err != nil {
+				return err
+			}
+			claim, err := taskClaim(cmd, rawInstruction)
 			if err != nil {
 				return err
 			}
@@ -199,10 +203,20 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 					result = &r.RecordReviewVerdict.PRProtocolReceipt
 				}
 			case "withdraw":
-				r, e := gen.PRWithdraw(cmd.Context(), client, task, head, url)
-				err = e
-				if r != nil && r.WithdrawReviewVerdict != nil {
-					result = &r.WithdrawReviewVerdict.PRProtocolReceipt
+				// The claim rides only this write and the server judges it; a refusal is shown once and the
+				// call is never resent without it.
+				if claim != nil {
+					r, e := gen.PRWithdrawInstructed(cmd.Context(), client, task, head, url, claim)
+					err = e
+					if r != nil && r.WithdrawReviewVerdict != nil {
+						result = &r.WithdrawReviewVerdict.PRProtocolReceipt
+					}
+				} else {
+					r, e := gen.PRWithdraw(cmd.Context(), client, task, head, url)
+					err = e
+					if r != nil && r.WithdrawReviewVerdict != nil {
+						result = &r.WithdrawReviewVerdict.PRProtocolReceipt
+					}
 				}
 			case "ready":
 				r, e := gen.PRReady(cmd.Context(), client, task, head)
@@ -242,6 +256,7 @@ func newCmdTeamPR(f *cmdutil.Factory) *cobra.Command {
 		}
 		if verb == "withdraw" {
 			c.Flags().StringVar(&receiptURL, "receipt", "", "optional: the URL of a signed PR comment saying why (recorded as text, not fetched)")
+			addTaskInstructionFlag(c, &rawInstruction)
 		}
 		parent.AddCommand(c)
 	}
@@ -463,8 +478,12 @@ text and never fetched. The seat must have been bound and its latest verdict at
 that head must be negative and not already withdrawn
 (REVIEW_VERDICT_NOT_NEGATIVE, REVIEW_VERDICT_ALREADY_WITHDRAWN). Anyone else is
 refused (REVIEW_WITHDRAW_FORBIDDEN): a worker session that manages the App only
-through the person holding it cannot withdraw from here; ask the reviewer or
-a coordinator.
+through the person holding it is refused with no instruction; pass --instruction
+(below), or ask the reviewer or a coordinator.
+
+` + taskInstructionHelpShort(taskInstructionFloor) + `
+The claim rides this one write and the server decides; the CLI infers nothing
+about the worker's authority and never resends the withdraw without the flag.
 
 A withdrawal is never an approval. The verdict stays in the record and the seat
 is not changed; the negative only stops blocking these: readiness, freezing
