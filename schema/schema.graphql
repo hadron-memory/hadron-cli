@@ -15861,8 +15861,12 @@ type Query {
   
   sortBy / sortDir (#833) order the whole result set server-side, so a client
   table is no longer limited to sorting the page it happens to hold.
+  
+  appRef, orgRef and parentRunRef share one scalar, ID (#5050,
+  hrn:node:hadronmemory.com:specs:cor:api:140:01). appRef and orgRef were String until #5050, so a
+  document that declares either variable as String no longer validates; declare it ID.
   """
-  appRuns(appRef: String, limit: Int, offset: Int, orgRef: String, parentRunRef: ID, sortBy: AppRunSortField, sortDir: SortDirection, status: AppRunStatus @deprecated(reason: "Use statuses (#836) - a single value cannot express PENDING-or-RUNNING."), statuses: [AppRunStatus!]): AppRunsPage!
+  appRuns(appRef: ID, limit: Int, offset: Int, orgRef: ID, parentRunRef: ID, sortBy: AppRunSortField, sortDir: SortDirection, status: AppRunStatus @deprecated(reason: "Use statuses (#836) - a single value cannot express PENDING-or-RUNNING."), statuses: [AppRunStatus!]): AppRunsPage!
 
   """
   #1747 — an App's ticker settings: the cadence floor, the default self-subscription cadence, the live-ticker cap and the daily wake budget (hrn:node:hadronmemory.com:specs:cor:agt:080:05).
@@ -19893,6 +19897,11 @@ type Secret {
 Requester-only state, never the value or ciphertext. hrn:node:hadronmemory.com:specs:cor:sec:070:02
 """
 type SecretChangeRequest {
+  """
+  The server-hosted ceremony page where the requester completes or declines this change with a passkey (hrn:node:hadronmemory.com:specs:cor:sec:070:02): the server origin plus /secret-changes/<id>, with no token. The same link SECRET_PROTECTED_NEEDS_PASSKEY carries in its ceremonyUrl extension. Copy it verbatim; never compose it. Served on every state, because it is a stable address: an ended request's page only explains that it ended. Read through the same requester-only gate as the rest of this type.
+  """
+  ceremonyUrl: String!
+
   """Creation time."""
   createdAt: DateTime!
 
