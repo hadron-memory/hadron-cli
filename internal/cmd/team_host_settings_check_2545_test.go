@@ -266,6 +266,18 @@ func TestTeamHostSettingsCheckReadsOnlyTheKey2545(t *testing.T) {
 	}
 }
 
+// An empty directory would read managed settings from the current one.
+func TestTeamHostSettingsCheckRefusesEmptyManagedDir2545(t *testing.T) {
+	x := newSettingsFixture(t, "2.1.330", "")
+	x.put(t, filepath.Join(x.home, ".claude", "settings.json"), `{"idleCompaction":false}`)
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "settings-check", "--config", x.cfg, "--claude-bin", x.bin, "--managed-dir", ""})
+	if code := exitCodeFor(root.Execute()); code != exitcode.Usage || strings.Contains(out.String(), "ACCOUNT FILE") {
+		t.Errorf("exit %d: %s", code, out.String())
+	}
+}
+
 func TestTeamHostSettingsCheckNeedsConfig2545(t *testing.T) {
 	for _, args := range [][]string{nil, {"--config", "/nowhere-2545.yaml"}} {
 		f, _ := testFactory(t)

@@ -102,13 +102,16 @@ It checks this key only. A worker whose idle compaction is off another way
 see a --settings argument, server-managed or MDM settings, or the version of
 an agent that is already running.
 
-Exit codes: 0 no drift; 5 drift; 2 --config missing or unreadable; 1 the host
-state file or the home directory is unreadable. With 5 the full report, --json
+Exit codes: 0 no drift; 5 drift; 2 --config missing or unreadable, or
+--managed-dir empty; 1 the host state file or the home directory is unreadable. With 5 the full report, --json
 included, is still printed.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if configPath == "" {
 				return exitcode.Newf(exitcode.Usage, "--config is required")
+			}
+			if managedDir == "" {
+				return exitcode.Newf(exitcode.Usage, "--managed-dir is empty; leave it out for %s", settingscheck.ManagedDir)
 			}
 			cfg, err := hostpoller.LoadConfig(configPath)
 			if err != nil {
