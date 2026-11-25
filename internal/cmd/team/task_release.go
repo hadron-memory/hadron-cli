@@ -35,7 +35,8 @@ Refusals come from the server as they are: an unknown or unreadable task exits
 release included) is TASK_EXTERNAL_ID_NONE (exit 5). A server released before
 2026-11-13 has no release call, and the call fails with its own error. The
 next `+"`find-untracked`"+` reconcile pass tells the team's tracker adapter
-(`+"`untrack`"+`) that the item was released.
+(`+"`untrack`"+`) that the item was released only when no other task of the App,
+finished or cancelled included, still holds it.
 
 Success prints the task and the item released; --json returns the task with a
 `+"`releasedExternalId`"+` field and a warnings list ([] when none).`,
