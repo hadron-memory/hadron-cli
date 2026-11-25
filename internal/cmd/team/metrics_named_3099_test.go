@@ -123,4 +123,14 @@ func TestTeamMetricsJSONNamesAdditive_3099(t *testing.T) {
 	if act.Named[1].Name != nil {
 		t.Fatalf("an unreadable name must be null, got %v", *act.Named[1].Name)
 	}
+	// The []T{} rule, asserted on the raw text: an EMPTY named list must
+	// render as [], never null — a typed decode cannot tell them apart, so a
+	// nil-init mutant would stay green without this (the fixture's idle,
+	// overdue, inop and flow.completed counts are all empty).
+	if !strings.Contains(out, `"named": []`) {
+		t.Errorf("an empty named list must render as [] (the []T{} rule):\n%s", out)
+	}
+	if strings.Contains(out, `"named": null`) {
+		t.Errorf("named must never render as null:\n%s", out)
+	}
 }
