@@ -332,3 +332,29 @@ func TestRunCancelLiveStatusIsAnError(t *testing.T) {
 		})
 	}
 }
+
+// #3136: the Long help must describe what the code does. An already-CANCELLED
+// run is indistinguishable from a fresh cancel (no read before the write,
+// #3080) so it prints the cancelled line again; every other ended state prints
+// "already <STATUS>". The defensive live-status error is named too.
+func TestRunCancelHelpMatchesBehavior(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"run", "cancel", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	help := strings.Join(strings.Fields(out.String()), " ")
+	for _, want := range []string{
+		"already ended in any state other than CANCELLED",
+		"✓ cancelled run <id> (CANCELLED)",
+		"run <id> is still <STATUS>; the cancel did not take effect",
+	} {
+		if !strings.Contains(help, want) {
+			t.Errorf("run cancel --help missing %q\n%s", want, help)
+		}
+	}
+	if strings.Contains(help, "a run that had already ended is left as it is, the command says") {
+		t.Errorf("help still overstates 'already <STATUS>' for every ended run")
+	}
+}
