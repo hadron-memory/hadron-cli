@@ -197,9 +197,10 @@ Every run (`find-untracked --adapter …`, with or without `--track`):
    reassignment calls `mark-tracked` again, a release calls `untrack` only when
    no task of the App, finished or cancelled included, still holds the released
    id, and a cancel calls `report` if you list it. A finish, a hand-back or a
-   first assignment calls nothing. Its position is kept in `intake-cursors.json` beside the CLI's
-   config, per server, App and adapter, so nothing is told twice. A refusal
-   holds the position there, and the next run retries that change.
+   first assignment calls nothing. Its position is kept in
+   `intake-cursors.json` beside the CLI's config, per server, App and adapter,
+   so nothing is told twice. A refusal holds the position there, and the next
+   run retries that change.
 3. `list-untracked`, page by page, until the list ends or `--limit` is reached.
 4. With `--track`: one create per unheld item; the create is the claim. If
    another caller won the item first, it is reported as lost and the next item
