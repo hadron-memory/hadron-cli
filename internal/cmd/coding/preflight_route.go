@@ -137,7 +137,7 @@ router body that was not updated. The message says which part is missing.`,
 			}
 			if router.Node == nil {
 				return exitcode.Newf(exitcode.NotFound,
-					"no %q node in %s — create the router first, or pass --root", attachLoc, mem.raw)
+					"no such router node in the memory (the loc and memory given are not shown) — create the router first, or pass --root")
 			}
 
 			// A qualified ref resolves WITHOUT a memory: ResolveNodeRef reads
@@ -173,7 +173,7 @@ router body that was not updated. The message says which part is missing.`,
 
 			if crossMemory && target.Node.MemoryId == router.Node.MemoryId {
 				return exitcode.Newf(exitcode.Usage,
-					"%s is in the router's own memory, so there is no cross-memory route to mark — drop --cross-memory", target.Node.Loc)
+					"the node (the ref given is not shown) is in the router's own memory, so there is no cross-memory route to mark — drop --cross-memory")
 			}
 
 			text := strings.TrimSpace(description)
@@ -182,7 +182,7 @@ router body that was not updated. The message says which part is missing.`,
 			}
 			if text == "" {
 				return exitcode.Newf(exitcode.Usage,
-					"%s has no description, so the routing line would have no text — pass --description", target.Node.Loc)
+					"the node (the ref given is not shown) has no description, so the routing line would have no text — pass --description")
 			}
 
 			// Cross-memory targets cannot use a bare wikilink (cor:urn:020:01).
@@ -305,13 +305,11 @@ router body that was not updated. The message says which part is missing.`,
 					if errors.As(err, &markerErr) {
 						// The back-edge exists; only its marker is unconfirmed.
 						return partialRoute(f, dto, false, err,
-							"routed %s and the back-edge to %q exists, but its cross-memory marker was not confirmed: %v",
-							dto.Loc, root, err)
+							"routed the node reported above and the back-edge to the router exists, but its cross-memory marker was not confirmed")
 					}
 					dto.BackEdge = false
 					return partialRoute(f, dto, false, err,
-						"routed %s, but its back-edge to %q may not have landed (a refusal, or an answer that was lost) — without it the route only works from the index; check with `hadron coding preflight list -m %s`, and if it is missing add it with `hadron edge create -m %s --from %s --to %s --name %s`",
-						dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label))
+						"routed the node reported above, but its back-edge to the router may not have landed (a refusal, or an answer that was lost) — without it the route only works from the index; check with `hadron coding preflight list -m <memory>`, and if it is missing add it with `hadron edge create -m <memory> --from <loc> --to <router-loc> --name <label>`")
 				}
 				_ = backMarked
 			}
@@ -320,8 +318,7 @@ router body that was not updated. The message says which part is missing.`,
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, link)
 				if err != nil {
 					return partialRoute(f, dto, false, err,
-						"routed %s, but the router's body was not updated — the route is invisible to anyone READING %q; add this line yourself:\n  %s",
-						dto.Loc, attachLoc, line)
+						"routed the node reported above, but the router's body was not updated — the route is invisible to anyone READING it; add its routing line to the body yourself (a list item that wikilinks the node and carries its description)")
 				}
 				if !written.Skipped {
 					dto.BodyLine, dto.Section = line, written.Section
@@ -417,7 +414,7 @@ func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (st
 		if edgeCrossMemory(e.Existing.Data) {
 			return e.Existing.ID, true, nil
 		}
-		confirmed, err := updateCrossMemoryMarker(ctx, client, e, e.Existing.ID, e.Existing.Data)
+		confirmed, err := updateCrossMemoryMarker(ctx, client, e.Existing.ID, e.Existing.Data)
 		return e.Existing.ID, confirmed, err
 	}
 	var data *json.RawMessage
@@ -438,23 +435,21 @@ func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (st
 			return "", false, mapped // the caller words the back-edge failure
 		}
 		return "", false, exitcode.Newf(exitcode.FromError(mapped),
-			"the route from %q to %s may not have been written — check with `hadron coding preflight list -m %s`: %v",
-			e.FromLoc, e.ToLoc, e.Memory, mapped)
+			"the route (the locs given are not shown) may not have been written — check with `hadron coding preflight list -m <memory>`: %v", mapped)
 	}
 	if resp == nil || resp.CreateEdge == nil {
 		// An edge the server did not return may still have been written: an unknown
 		// outcome with or without the marker, never exit 0 with no edge (cli#2736
 		// LOCAL delta P3, cli#2844).
 		return "", false, exitcode.Newf(exitcode.Unavailable,
-			"the route from %q to %s may not have been written (the server returned no edge) — check with `hadron coding preflight list -m %s`; nothing was retried",
-			e.FromLoc, e.ToLoc, e.Memory)
+			"the route (the locs given are not shown) may not have been written (the server returned no edge) — check with `hadron coding preflight list -m <memory>`; nothing was retried")
 	}
 	if !e.Mark || edgeCrossMemory(resp.CreateEdge.Data) {
 		return resp.CreateEdge.Id, e.Mark, nil
 	}
 	// createEdge answered an edge without the marker (an edge that already
 	// existed on a server that returns it): add it through updateEdge.
-	confirmed, err := updateCrossMemoryMarker(ctx, client, e, resp.CreateEdge.Id, resp.CreateEdge.Data)
+	confirmed, err := updateCrossMemoryMarker(ctx, client, resp.CreateEdge.Id, resp.CreateEdge.Data)
 	return resp.CreateEdge.Id, confirmed, err
 }
 
@@ -462,7 +457,7 @@ func writeRouteEdge(ctx context.Context, client graphql.Client, e routeEdge) (st
 // keeping its other data exactly, and CONFIRMS it from the answer: a null result
 // or data without the marker is an unknown outcome (the write may have
 // committed), reported with a read-back instruction and never retried.
-func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, e routeEdge, edgeID string, current *json.RawMessage) (bool, error) {
+func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, edgeID string, current *json.RawMessage) (bool, error) {
 	merged, err := withCrossMemoryMarker(current)
 	if err != nil {
 		return false, err
@@ -471,13 +466,11 @@ func updateCrossMemoryMarker(ctx context.Context, client graphql.Client, e route
 	if err != nil {
 		mapped := api.MapError(err)
 		return false, newMarkerNotConfirmed(exitcode.FromError(mapped),
-			"the route %s → %s exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m %s`; a re-run with --cross-memory only sets the marker: %v",
-			e.FromLoc, e.ToLoc, e.Memory, mapped)
+			"the route (the locs given are not shown) exists, but its cross-memory marker may not have been written — check with `hadron coding preflight list -m <memory>`; a re-run with --cross-memory only sets the marker: %v", mapped)
 	}
 	if resp == nil || resp.UpdateEdge == nil || !edgeCrossMemory(resp.UpdateEdge.Data) {
 		return false, newMarkerNotConfirmed(exitcode.Unavailable,
-			"the route %s → %s exists, but the server did not confirm its cross-memory marker, so it may not have been written — check with `hadron coding preflight list -m %s`; nothing was retried",
-			e.FromLoc, e.ToLoc, e.Memory)
+			"the route (the locs given are not shown) exists, but the server did not confirm its cross-memory marker, so it may not have been written — check with `hadron coding preflight list -m <memory>`; nothing was retried")
 	}
 	return true, nil
 }

@@ -1127,7 +1127,7 @@ func TestQuestionAnswerAndRetractErrorsBelowTheMutationAreUnknown(t *testing.T) 
 			}
 			if r.exit == exitcode.Unavailable {
 				m := err.Error()
-				if !strings.Contains(m, "not confirmed") || !strings.Contains(m, "not resent") || !strings.Contains(m, "hadron question get QA") || out != "" {
+				if !strings.Contains(m, "not confirmed") || !strings.Contains(m, "not resent") || !strings.Contains(m, "hadron question get <question>") || out != "" {
 					t.Errorf("%s %s: an unknown outcome says so, is not resent and names question get: %v out=%q", c.args[0], name, err, out)
 				}
 			}

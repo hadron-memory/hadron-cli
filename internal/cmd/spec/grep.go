@@ -1,9 +1,11 @@
 package spec
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"regexp"
+	"regexp/syntax"
 	"sort"
 	"strings"
 
@@ -177,7 +179,7 @@ func parseGrepFields(field string) (content, abstract bool, err error) {
 	case "abstract":
 		return false, true, nil
 	default:
-		return false, false, exitcode.Newf(exitcode.Usage, "unknown --field %q (valid: content, abstract, or omit for both)", field)
+		return false, false, exitcode.Newf(exitcode.Usage, "unknown --field (valid: content, abstract, or omit for both)")
 	}
 }
 
@@ -194,7 +196,13 @@ func compileMatcher(pattern string, useRegex, ignoreCase bool) (*regexp.Regexp, 
 	}
 	re, err := regexp.Compile(src)
 	if err != nil {
-		return nil, exitcode.Newf(exitcode.Usage, "invalid --regex pattern %q: %v", pattern, err)
+		// The parse error quotes the pattern: keep only its class.
+		why := "not RE2 syntax"
+		var se *syntax.Error
+		if errors.As(err, &se) {
+			why = string(se.Code)
+		}
+		return nil, exitcode.Newf(exitcode.Usage, "invalid --regex pattern (the pattern given is not shown): %s", why)
 	}
 	return re, nil
 }

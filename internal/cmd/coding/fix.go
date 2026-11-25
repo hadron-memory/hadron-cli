@@ -181,7 +181,7 @@ func applyReviewFix(ctx context.Context, client graphql.Client, f *cmdutil.Facto
 	for _, p := range plan {
 		label := p.NewLabel
 		if _, err := gen.UpdateEdge(ctx, client, p.EdgeID, &label, nil, nil, nil, nil, nil, nil); err != nil {
-			return applied, fmt.Errorf("relabelling %s: %w", p.Loc, api.MapError(err))
+			return applied, fmt.Errorf("relabelling an edge: %w", api.MapError(err))
 		}
 		applied++
 	}

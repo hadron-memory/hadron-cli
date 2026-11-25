@@ -957,8 +957,8 @@ func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
 	if got := exitCodeFor(err); got != exitcode.Error {
 		t.Errorf("a missing body line is a partial write (exit 1), got %d", got)
 	}
-	if !strings.Contains(err.Error(), "[[findings:flaky-otp-timer]]") {
-		t.Errorf("the error must carry the line to add by hand, got %q", err.Error())
+	if !strings.Contains(err.Error(), "add its routing line to the body yourself") || strings.Contains(err.Error(), "flaky-otp-timer") {
+		t.Errorf("the error must say to add the line by hand, without the loc typed, got %q", err.Error())
 	}
 }
 

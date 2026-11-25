@@ -106,10 +106,10 @@ func foldRank(name string) int {
 func runImportTree(cmd *cobra.Command, f *cmdutil.Factory, o treeImportOpts) error {
 	info, err := os.Stat(o.dir)
 	if err != nil {
-		return exitcode.Newf(exitcode.Usage, "reading %s: %v", o.dir, err)
+		return exitcode.Newf(exitcode.Usage, "reading the directory given: %v", err)
 	}
 	if !info.IsDir() {
-		return exitcode.Newf(exitcode.Usage, "%s is not a directory — recursive import (-r) expects a directory", o.dir)
+		return exitcode.Newf(exitcode.Usage, "the path given (not shown) is not a directory — recursive import (-r) expects a directory")
 	}
 	if o.memory == "" {
 		return exitcode.Newf(exitcode.Usage, "-m/--memory is required")
@@ -120,19 +120,19 @@ func runImportTree(cmd *cobra.Command, f *cmdutil.Factory, o treeImportOpts) err
 		}
 	}
 	if o.onConflict != "error" && o.onConflict != "skip" {
-		return exitcode.Newf(exitcode.Usage, "--on-conflict must be error or skip (got %q)", o.onConflict)
+		return exitcode.Newf(exitcode.Usage, "--on-conflict must be error or skip")
 	}
 	// Validate globs up front — a malformed pattern that Match() silently treats
 	// as "no match" would make a filter appear to work while dropping everything.
 	for _, pat := range append(append([]string{}, o.include...), o.exclude...) {
 		if !doublestar.ValidatePattern(pat) {
-			return exitcode.Newf(exitcode.Usage, "invalid glob pattern %q", pat)
+			return exitcode.Newf(exitcode.Usage, "invalid glob pattern in --include or --exclude (the pattern given is not shown)")
 		}
 	}
 
 	abs, err := filepath.Abs(o.dir)
 	if err != nil {
-		return exitcode.Newf(exitcode.Usage, "resolving %s: %v", o.dir, err)
+		return exitcode.Newf(exitcode.Usage, "resolving the directory given: %v", err)
 	}
 	origBase := filepath.Base(abs)
 	base := slugifyAtom(origBase)
@@ -216,7 +216,7 @@ func (p *planner) planDir(absDir, relPath, loc, displayName string) (*planNode, 
 
 	entries, err := os.ReadDir(absDir)
 	if err != nil {
-		return nil, exitcode.Newf(exitcode.Usage, "reading %s: %v", absDir, err)
+		return nil, exitcode.Newf(exitcode.Usage, "reading a directory of the tree: %v", err)
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
 

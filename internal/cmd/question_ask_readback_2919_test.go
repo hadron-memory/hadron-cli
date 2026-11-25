@@ -19,7 +19,7 @@ import (
 // The one recovery sentence (hadron-cli#2995): the error and the help are both
 // built from question.AskReadBack, so each test asserts against it, not against
 // a second copy of the words.
-var askReadBack2919 = question.AskReadBack("LOG")
+var askReadBack2919 = question.AskReadBack("<log>")
 
 // The sentence itself says what to look for and how: the log listing, the title
 // plus the asker and creation time (titles repeat), and the paging hint.

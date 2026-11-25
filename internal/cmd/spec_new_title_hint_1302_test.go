@@ -6,11 +6,11 @@ import (
 	"testing"
 )
 
-// #1302 item 2: a refused copied-prefix --title names the offending prefix and
-// shows the corrected title to retry with, on the ordinary binary path (stderr)
+// #1302 item 2: a refused copied-prefix --title says which part to drop, without
+// showing the title or the citation (cli#3114), on the ordinary binary path (stderr)
 // and in the --json envelope, with exit 2 and no write.
 func TestSpecNewDuplicatedTitleCorrectedHint(t *testing.T) {
-	const wantHint = `--title 'Burst allowance'`
+	const wantHint = "drop it (every leading copy) from the value"
 	for _, tc := range []struct {
 		name, title, prefix string
 		args                []string
@@ -62,8 +62,8 @@ func TestSpecNewDuplicatedTitleCorrectedHint(t *testing.T) {
 				} else if out.String() != "" {
 					t.Errorf("refusal printed to stdout: %s", out.String())
 				}
-				if !strings.Contains(msg, `"`+tc.prefix+`"`) || !strings.Contains(msg, "drop it") || !strings.Contains(msg, wantHint) {
-					t.Errorf("refusal %q must name %q and suggest %s", msg, tc.prefix, wantHint)
+				if !strings.Contains(msg, wantHint) || !strings.Contains(msg, "not shown") || strings.Contains(msg, "Burst") || strings.Contains(msg, tc.prefix) {
+					t.Errorf("refusal %q must say %q and show neither the title nor %q", msg, wantHint, tc.prefix)
 				}
 			})
 		}

@@ -236,7 +236,7 @@ remains authoritative for other refusals.`,
 			// cross-ref travels by that id rather than being resolved again.
 			var edges []*gen.NodeEdgeInput
 			if !noEdges {
-				edges, err = resolveSpecEdges(cmd, client, memURN, target.Format(), result.Edges,
+				edges, err = resolveSpecEdges(cmd, client, memURN, result.Edges,
 					map[string]string{source.Format(): srcNode.Id})
 				if err != nil {
 					return err
@@ -319,10 +319,10 @@ remains authoritative for other refusals.`,
 // are byte-for-byte identical to `spec new`.
 func planExtract(source Citation, toFeature, rule string, locs map[string]bool, allLocs []string) (target Citation, parentLoc, inheritLoc string, err error) {
 	if !reFeature.MatchString(toFeature) {
-		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--to-feature %q must be 3 digits", toFeature)
+		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--to-feature must be 3 digits")
 	}
 	if rule != "" && !re2digit.MatchString(rule) {
-		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--rule %q must be 2 digits", rule)
+		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--rule must be 2 digits")
 	}
 	return planTarget(planInput{
 		product: source.Product,

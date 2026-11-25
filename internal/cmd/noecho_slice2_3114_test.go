@@ -13,7 +13,10 @@ func TestSlice2RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 	p := pastedUpper3029()
 	low := strings.ToLower(p)
 	q := "acme.com::specs"
-	router := map[string]string{"GetNodeRaw": codingRouterWithBody(flatRouterBody)}
+	staged := func(op, field string) map[string]string {
+		return map[string]string{op: `{"data":null,"errors":[{"message":"m","path":["` + field + `"],"extensions":{"code":"SECRET_PROTECTED_NEEDS_PASSKEY","requestId":"r1","ceremonyUrl":"https://x.test/c"}}]}`}
+	}
+	router := map[string]string{"GetNodeRaw": codingRouterWithBody(flatRouterBody), "GetMemory": `{"data":{"memory":null}}`}
 	for _, tc := range []struct {
 		name      string
 		responses map[string]string
@@ -34,6 +37,10 @@ func TestSlice2RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 		{"coding review --link", nil, []string{"coding", "review", "create", "abc", "-m", codingMem, "--trigger", "x", "--description", "x", "--link", "=" + p}, "--link", exitcode.Usage},
 		{"question get", map[string]string{"Question": `{"data":{"question":null}}`}, []string{"question", "get", p}, "question not found", exitcode.NotFound},
 		{"secret rm", map[string]string{"DeleteSecret": `{"data":{"deleteSecret":false}}`}, []string{"secret", "rm", p, "--yes"}, "secret not found", exitcode.NotFound},
+		{"secret exec command", nil, []string{"secret", "exec", "--client", "c1", "--env", "T", "--", p}, "cannot run the command", exitcode.Usage},
+		{"secret exec path", nil, []string{"secret", "exec", "--client", "c1", "--env", "T", "--", "./" + p}, "cannot run the command", exitcode.Usage},
+		{"secret rm staged", staged("DeleteSecret", "deleteSecret"), []string{"secret", "rm", p, "--yes"}, "staged, not applied", exitcode.Conflict},
+		{"secret protect staged", staged("SetSecretProtected", "setSecretProtected"), []string{"secret", "protect", p, "--off"}, "staged, not applied", exitcode.Conflict},
 		{"secret change get", map[string]string{"SecretChangeRequest": `{"data":{"secretChangeRequest":null}}`}, []string{"secret", "change", "get", p}, "change request not found", exitcode.NotFound},
 		{"secret change withdraw", map[string]string{"WithdrawSecretChangeRequest": `{"data":{"withdrawSecretChangeRequest":false}}`}, []string{"secret", "change", "withdraw", p}, "not open", exitcode.Conflict},
 		{"memory template", map[string]string{"MemoryConfigTemplate": `{"data":{"memoryConfigTemplate":null}}`}, []string{"memory", "config", "template", "get", p}, "no template", exitcode.NotFound},
@@ -75,7 +82,7 @@ func TestSlice2EnumRefusalsNameTheFormNotTheValue3114(t *testing.T) {
 		{[]string{"coding", "preflight", "list", "-m", codingMem, "--route-model"}, "leaf or mirrored"},
 	} {
 		t.Run(strings.Join(tc.argv, " "), func(t *testing.T) {
-			seen, code := renderedNoEcho3029(t, nil, append(append([]string{}, tc.argv...), low)...)
+			seen, code := renderedNoEcho3029(t, map[string]string{"GetMemory": memoryResolves3029}, append(append([]string{}, tc.argv...), low)...)
 			if code != exitcode.Usage || !strings.Contains(seen, tc.form) {
 				t.Errorf("exit %d, want the accepted form %q: %s", code, tc.form, seen)
 			}

@@ -147,7 +147,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 				return err
 			}
 			if loc == attachLoc {
-				return exitcode.Newf(exitcode.Usage, "<loc> %q is the node it would attach to — a route must lead somewhere else", loc)
+				return exitcode.Newf(exitcode.Usage, "<loc> (the loc given is not shown) is the node it would attach to — a route must lead somewhere else")
 			}
 			label, err := normalizeRoute(route)
 			if err != nil {
@@ -200,7 +200,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 			}
 			if router.Node == nil {
 				return exitcode.Newf(exitcode.NotFound,
-					"no %q node in %s — create the router first, or pass --root", attachLoc, mem.raw)
+					"no such router node in the memory (the loc and memory given are not shown) — create the router first, or pass --root")
 			}
 			wantLine := bodyLineWanted(leaf, noBodyLine, cmd.Flags().Changed("section"))
 			plan := routingPlan{Skipped: true}
@@ -323,23 +323,19 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 			}
 			if err != nil {
 				return partialRoute(f, dto, true, err,
-					"created %s but could not read it back to confirm its edges — check it with `hadron node get %s -m %s`",
-					dto.Loc, dto.Loc, mem.raw)
+					"created the node reported above but could not read it back to confirm its edges — check it with `hadron node get <loc> -m <memory>`")
 			}
 			if leaf {
 				if !landed[router.Node.Id] {
 					return partialRoute(f, dto, true, errors.New("the embedded edge is not on the node"),
-						"created %s but its edge to %q did not land — nothing leads to it; add it with `hadron edge create -m %s --from %s --to %s --name %s`",
-						dto.Loc, attachLoc, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(attachLoc), cmdutil.ShellQuote(label))
+						"created the node reported above but its edge to the --attach-to node did not land — nothing leads to it; add it with `hadron edge create -m <memory> --from <loc> --to <attach-loc> --name <label>`")
 				}
 				dto.EdgeID = landedIDs[router.Node.Id]
 			}
 			var missing []string
 			if dto.BackEdge && !landed[router.Node.Id] {
 				dto.BackEdge = false
-				missing = append(missing, fmt.Sprintf(
-					"the back-edge to %q (`hadron edge create -m %s --from %s --to %s --name %s`)",
-					root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(root), cmdutil.ShellQuote(label)))
+				missing = append(missing, "the back-edge to the router (`hadron edge create -m <memory> --from <loc> --to <router-loc> --name <label>`)")
 			}
 			kept := []linkDTO{}
 			for i, l := range outLinks {
@@ -347,9 +343,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 					kept = append(kept, l)
 					continue
 				}
-				missing = append(missing, fmt.Sprintf(
-					"the --link to %q (`hadron edge create -m %s --from %s --to %s --name %s`)",
-					l.Target, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(l.Target), cmdutil.ShellQuote(l.Label)))
+				missing = append(missing, fmt.Sprintf("--link number %d (`hadron edge create -m <memory> --from <loc> --to <link-target> --name <label>`)", i+1))
 			}
 			dto.Links = kept
 
@@ -363,8 +357,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 				// which exits 1 by contract so a caller branching on the exit
 				// code never reads an unreachable node as done.
 				return partialRoute(f, dto, true, err,
-					"created %s but the route from %q was not written — nothing leads to it; wire it with `hadron edge create -m %s --from %s --to %s --name %s`",
-					dto.Loc, root, cmdutil.ShellQuote(mem.raw), cmdutil.ShellQuote(root), cmdutil.ShellQuote(dto.Loc), cmdutil.ShellQuote(label))
+					"created the node reported above but the route from the router was not written — nothing leads to it; wire it with `hadron edge create -m <memory> --from <router-loc> --to <loc> --name <label>`")
 			}
 			if edgeResp != nil && edgeResp.CreateEdge != nil {
 				dto.EdgeID = edgeResp.CreateEdge.Id
@@ -374,8 +367,7 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 				written, err := appendRoutingLine(ctx, client, routerRef, section, line, wikiLink(loc))
 				if err != nil {
 					return partialRoute(f, dto, true, err,
-						"created and routed %s, but the router's body was not updated — the route is invisible to anyone READING %q; add this line yourself:\n  %s",
-						dto.Loc, attachLoc, line)
+						"created and routed the node reported above, but the router's body was not updated — the route is invisible to anyone READING it; add its routing line to the body yourself (a list item that wikilinks the node and carries its description)")
 				}
 				if !written.Skipped {
 					dto.BodyLine, dto.Section = line, written.Section
@@ -393,8 +385,8 @@ Add --dry-run first to see the edges and the routing line without writing.`,
 				// exits 1 so a caller branching on the code never reads it as
 				// complete.
 				return exitcode.Newf(exitcode.Error,
-					"created and routed %s, but %s did not land; add %s",
-					dto.Loc, plural(len(missing), "one edge", "some edges"), strings.Join(missing, ", "))
+					"created and routed the node reported above (the loc given is not shown), but %s did not land; add %s",
+					plural(len(missing), "one edge", "some edges"), strings.Join(missing, ", "))
 			}
 			return nil
 		},
@@ -484,11 +476,11 @@ func renderRoutePlan(w io.Writer, dto newRouteDTO, created bool) error {
 // output cannot drift from the success output. It previously printed a
 // hardcoded "✓ created", which `route` — a command that never creates
 // anything — inherited as a false claim on every partial write.
-func partialRoute(f *cmdutil.Factory, dto newRouteDTO, created bool, cause error, format string, a ...any) error {
+func partialRoute(f *cmdutil.Factory, dto newRouteDTO, created bool, cause error, msg string) error {
 	_ = output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 		return renderRoutePlan(w, dto, created)
 	})
-	return exitcode.Newf(exitcode.Error, "%s\n  (%v)", fmt.Sprintf(format, a...), cause)
+	return exitcode.Newf(exitcode.Error, "%s\n  (%v)", msg, cause)
 }
 
 func plural(n int, one, many string) string {
@@ -562,7 +554,7 @@ func routeTargetLoc(root, loc string) (string, error) {
 		return "", exitcode.Newf(exitcode.Usage, "<loc> is empty")
 	}
 	if l == strings.TrimSpace(root) {
-		return "", exitcode.Newf(exitcode.Usage, "<loc> %q is the router itself — a route must lead somewhere else", l)
+		return "", exitcode.Newf(exitcode.Usage, "<loc> (the loc given is not shown) is the router itself — a route must lead somewhere else")
 	}
 	if err := cmdutil.ValidateURNPath("<loc>", l); err != nil {
 		return "", err
@@ -580,14 +572,14 @@ func normalizeRoute(route string) (string, error) {
 	lower := strings.ToLower(t)
 	if lower == strings.TrimSpace(routePrefix) {
 		return "", exitcode.Newf(exitcode.Usage,
-			"--route %q is the bare stem — say what the reader is about to DO (e.g. \"fix a flaky test\")", route)
+			"--route (the value given is not shown) is the bare stem — say what the reader is about to DO (e.g. \"fix a flaky test\")")
 	}
 	if !strings.HasPrefix(lower, routePrefix) {
 		return routePrefix + t, nil
 	}
 	if strings.TrimSpace(t[len(routePrefix):]) == "" {
 		return "", exitcode.Newf(exitcode.Usage,
-			"--route %q is the bare stem — say what the reader is about to DO (e.g. \"fix a flaky test\")", route)
+			"--route (the value given is not shown) is the bare stem — say what the reader is about to DO (e.g. \"fix a flaky test\")")
 	}
 	// Keep the caller's spelling of the stem; the rule is case-insensitive.
 	return t, nil

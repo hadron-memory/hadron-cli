@@ -166,7 +166,7 @@ func labelOrDefault(label string) string {
 	if label == "" {
 		return "the default label"
 	}
-	return "the --label given (not shown)"
+	return "the --label you passed (value not shown)"
 }
 
 // createFailure classifies a failed createAppKey. A transport-class failure or

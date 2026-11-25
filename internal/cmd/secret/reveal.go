@@ -316,7 +316,7 @@ number. If the child cannot start after the read was spent, exit 1 says so.`,
 			argv := args
 			path, err := osexec.LookPath(argv[0])
 			if err != nil {
-				return exitcode.Newf(exitcode.Usage, "cannot run %q: %v; nothing was sent, so no read was spent", argv[0], errors.Unwrap(err))
+				return exitcode.Newf(exitcode.Usage, "cannot run the command given (it is not shown): %s; nothing was sent, so no read was spent", lookPathFailure(err))
 			}
 
 			rv, err := revealOnce(cmd, f, clientID)
@@ -374,6 +374,19 @@ func runChild(f *cmdutil.Factory, path string, argv []string, envEntry string) e
 		return exitcode.Silent(ee.ExitCode())
 	}
 	return exitcode.Newf(exitcode.Error, "the command's input or output failed after it ran")
+}
+
+// lookPathFailure is why a command was not found, without the command: for one with a slash,
+// LookPath's cause is a PathError that quotes it.
+func lookPathFailure(err error) string {
+	var pe *os.PathError
+	if errors.As(err, &pe) {
+		return pe.Err.Error()
+	}
+	if errors.Is(err, osexec.ErrNotFound) {
+		return osexec.ErrNotFound.Error()
+	}
+	return "the operating system refused it"
 }
 
 // startFailure names a failed start without anything but the OS reason.

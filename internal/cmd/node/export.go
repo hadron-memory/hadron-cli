@@ -231,7 +231,7 @@ func resolveDocFormat(format, outFile string, explicit bool) (string, error) {
 	case "pdf":
 		return "pdf", nil
 	default:
-		return "", exitcode.Newf(exitcode.Usage, "unsupported --format %q (want md, json, or pdf)", format)
+		return "", exitcode.Newf(exitcode.Usage, "unsupported --format (want md, json, or pdf)")
 	}
 }
 
@@ -310,7 +310,7 @@ func exportSections(names []string) ([]gen.NodeExportSection, error) {
 	for _, n := range names {
 		v := gen.NodeExportSection(strings.ToUpper(strings.TrimSpace(n)))
 		if !slices.Contains(gen.AllNodeExportSection, v) {
-			return nil, exitcode.Newf(exitcode.Usage, "invalid --section %q (want abstract, content, data, edges, metadata or properties). Nothing was sent", n)
+			return nil, exitcode.Newf(exitcode.Usage, "invalid --section (want abstract, content, data, edges, metadata or properties). Nothing was sent")
 		}
 		out = append(out, v)
 	}

@@ -249,7 +249,7 @@ func newCmdLogGet(f *cmdutil.Factory) *cobra.Command {
 				return api.MapError(err)
 			}
 			if resp.QuestionLog == nil {
-				return exitcode.Newf(exitcode.NotFound, "question log %s not found (or not visible to you)", logRef)
+				return exitcode.Newf(exitcode.NotFound, "question log not found, or not visible to you (the ref given is not shown)")
 			}
 			return writeLog(f, questionLogFrom(&resp.QuestionLog.QuestionLogFields), "")
 		},
@@ -447,7 +447,7 @@ EOF
 			if err != nil {
 				return err
 			}
-			readBack := AskReadBack(cmdutil.ShellQuote(logRef))
+			readBack := AskReadBack("<log>")
 			resp, err := gen.AskQuestion(cmd.Context(), client, logRef, &input)
 			if err != nil {
 				return questionWriteError(err, "askQuestion", "ask", readBack, resp != nil && resp.AskQuestion != nil)
@@ -567,7 +567,7 @@ EOF
 			if err != nil {
 				return err
 			}
-			readBack := readBackQuestion(ref)
+			readBack := readBackQuestion()
 			resp, err := gen.AmendQuestion(cmd.Context(), client, ref, &input, expected, reason)
 			if err != nil {
 				return questionWriteError(err, "amendQuestion", "amend", readBack, resp != nil && resp.AmendQuestion != nil)
@@ -701,10 +701,10 @@ may have been recorded.`,
 			}
 			resp, err := gen.AnswerQuestion(cmd.Context(), client, ref, &input, expected)
 			if err != nil {
-				return questionWriteError(err, "answerQuestion", "answer", readBackQuestion(ref), resp != nil && resp.AnswerQuestion != nil)
+				return questionWriteError(err, "answerQuestion", "answer", readBackQuestion(), resp != nil && resp.AnswerQuestion != nil)
 			}
 			if resp == nil || resp.AnswerQuestion == nil {
-				return questionWriteNotConfirmed("answer", readBackQuestion(ref), "the server returned no question", nil)
+				return questionWriteNotConfirmed("answer", readBackQuestion(), "the server returned no question", nil)
 			}
 			q := questionFrom(&resp.AnswerQuestion.QuestionFields)
 			// Success is only claimed when the returned question carries a standing
@@ -712,7 +712,7 @@ may have been recorded.`,
 			// outcome is unconfirmed (in either output mode) and must be read back
 			// before retrying.
 			if !answerConfirmed(q, input, expected) {
-				return exitcode.Newf(exitcode.Error, "the server's reply does not show the answer you gave as the standing answer, so the outcome of this answer is unconfirmed; read it with `hadron question get %s` before retrying", cmdutil.ShellQuote(ref))
+				return exitcode.Newf(exitcode.Error, "the server's reply does not show the answer you gave as the standing answer, so the outcome of this answer is unconfirmed; read it with `hadron question get <question>` before retrying (the ref given is not shown)")
 			}
 			// The heading names the standing answer the server RETURNED, not what was
 			// requested.
@@ -786,16 +786,16 @@ about the retraction. In the unknown cases the retraction may have been recorded
 			}
 			resp, err := gen.RetractQuestionAnswer(cmd.Context(), client, ref, expected, optString(cmd, "reason", reason), &via)
 			if err != nil {
-				return questionWriteError(err, "retractQuestionAnswer", "retraction", readBackQuestion(ref), resp != nil && resp.RetractQuestionAnswer != nil)
+				return questionWriteError(err, "retractQuestionAnswer", "retraction", readBackQuestion(), resp != nil && resp.RetractQuestionAnswer != nil)
 			}
 			if resp == nil || resp.RetractQuestionAnswer == nil {
-				return questionWriteNotConfirmed("retraction", readBackQuestion(ref), "the server returned no question", nil)
+				return questionWriteNotConfirmed("retraction", readBackQuestion(), "the server returned no question", nil)
 			}
 			q := questionFrom(&resp.RetractQuestionAnswer.QuestionFields)
 			// "Pending again" is only claimed when the returned question has no
 			// standing answer; otherwise the outcome is unconfirmed.
 			if !retractionConfirmed(q, expected) {
-				return exitcode.Newf(exitcode.Error, "the server's reply does not show the retraction (no standing answer, a retraction entry last, a newer revision), so the outcome is unconfirmed; read it with `hadron question get %s` before retrying", cmdutil.ShellQuote(ref))
+				return exitcode.Newf(exitcode.Error, "the server's reply does not show the retraction (no standing answer, a retraction entry last, a newer revision), so the outcome is unconfirmed; read it with `hadron question get <question>` before retrying (the ref given is not shown)")
 			}
 			return output.Write(f.IOStreams, f.JSON, q, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "✓ answer taken back; %s is pending again\n", output.SafeCell(q.Code)); err != nil {
@@ -845,7 +845,7 @@ prints is the --expected-revision of the next amend, answer, retract or withdraw
 				return api.MapError(err)
 			}
 			if resp.Question == nil {
-				return exitcode.Newf(exitcode.NotFound, "question %s not found (or not visible to you)", arg)
+				return exitcode.Newf(exitcode.NotFound, "question not found, or not visible to you (the ref given is not shown)")
 			}
 			return writeQuestion(f, questionFrom(&resp.Question.QuestionFields), "")
 		},
@@ -1105,7 +1105,7 @@ the withdrawal.`,
 			if err := cmdutil.Confirm(f.IOStreams, yes, "Withdraw question "+output.SafeCell(ref)+"? Withdrawal is final and its code is never reused."); err != nil {
 				return err
 			}
-			readBack := readBackQuestion(ref)
+			readBack := readBackQuestion()
 			resp, err := gen.WithdrawQuestion(cmd.Context(), client, ref, reason, expected)
 			if err != nil {
 				return questionWriteError(err, "withdrawQuestion", "withdrawal", readBack, resp != nil && resp.WithdrawQuestion != nil)
@@ -1162,7 +1162,7 @@ server" (also exit 7) with no claim about the purge.`,
 			}
 			// A purged question no longer exists, so reading it back is how the outcome shows:
 			// "not found" means the purge happened.
-			readBack := "read it with `hadron question get " + cmdutil.ShellQuote(ref) + "`: a question that is not found most likely means the purge happened (check that the ref is the one you meant), one that is still there means it did not"
+			readBack := "read it with `hadron question get <question>` (the ref given is not shown): a question that is not found most likely means the purge happened (check that the ref is the one you meant), one that is still there means it did not"
 			resp, err := gen.PurgeUnansweredQuestion(cmd.Context(), client, ref, reason)
 			if err != nil {
 				return questionWriteError(err, "purgeUnansweredQuestion", "purge", readBack, resp != nil && resp.PurgeUnansweredQuestion != nil && *resp.PurgeUnansweredQuestion)
@@ -1172,7 +1172,7 @@ server" (also exit 7) with no claim about the purge.`,
 				return questionWriteNotConfirmed("purge", readBack, "the server returned no answer", nil)
 			}
 			if !*resp.PurgeUnansweredQuestion {
-				return exitcode.Newf(exitcode.Error, "the server did not confirm the purge of %s", ref)
+				return exitcode.Newf(exitcode.Error, "the server did not confirm the purge (the ref given is not shown)")
 			}
 			dto := purgeDTO{Ref: ref, Purged: true}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
@@ -1332,8 +1332,8 @@ func helpWords(text string) []string {
 // AskReadBack (exported so the cmd tests can assert against the same sentence the help and
 // the error carry) is the one recovery sentence for an unknown `question ask` outcome. The ask
 // help and the exit-7 error are both built from it, so they cannot word the advice
-// differently. logRef is the log as it should appear in the command: the caller's ref,
-// shell-quoted, in the error; the placeholder <log> in the help.
+// differently. logRef is the log as it should appear in the command: the placeholder <log>, in the
+// error and in the help, never the ref typed (#2898 policy).
 func AskReadBack(logRef string) string {
 	return "list the log with `hadron question list --log " + logRef + " --json` and look for the title you sent, matching askedBy and askedAt when titles repeat (the listing is paged: use --limit and --offset) before asking again"
 }
@@ -1374,9 +1374,8 @@ func questionWriteNotConfirmed(what, readBack, why string, cause error) error {
 	return e
 }
 
-// readBackQuestion is the read-back sentence for a write on an existing question. The command is
-// a copy-paste line, so the ref is shell-quoted (cmdutil.ShellQuote), not just made inert for the
-// terminal (output.SafeCell): a ref with a space or a quote must still paste as one word.
-func readBackQuestion(ref string) string {
-	return "read the question with `hadron question get " + cmdutil.ShellQuote(ref) + "` before trying again"
+// readBackQuestion is the read-back sentence for a write on an existing question. It names the
+// form of the ref, never the ref typed (#2898 policy).
+func readBackQuestion() string {
+	return "read the question with `hadron question get <question>` before trying again (the ref given is not shown)"
 }

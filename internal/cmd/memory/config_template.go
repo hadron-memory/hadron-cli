@@ -325,7 +325,7 @@ func fetchTemplate(cmd *cobra.Command, client graphql.Client, ref string) (*gen.
 	}
 	if resp.MemoryConfigTemplate == nil {
 		return nil, exitcode.Newf(exitcode.NotFound,
-			"no template %q that you manage — templates are addressed by id; `hadron memory config template list` shows yours", ref)
+			"no template that you manage has that id (the id given is not shown) — templates are addressed by id; `hadron memory config template list` shows yours")
 	}
 	return &resp.MemoryConfigTemplate.MemoryConfigTemplateFields, nil
 }
@@ -767,7 +767,7 @@ reference is readable to the organization as well as to you.`,
 				var fileID string
 				if err := json.Unmarshal(raw, &fileID); err != nil || fileID != id {
 					return exitcode.Newf(exitcode.Usage,
-						"--file describes template %s, not %s — refusing to apply one template's file to another", string(raw), id)
+						"--file describes another template than the one given (neither id is shown) — refusing to apply one template's file to another")
 				}
 			}
 			revision, err := expectedRevision(cmd, tf, expected)
@@ -810,7 +810,7 @@ func expectedRevision(cmd *cobra.Command, tf *templateFile, flag int) (int, erro
 	switch {
 	case tf.Revision != nil && fromFlag && *tf.Revision != flag:
 		return 0, exitcode.Newf(exitcode.Usage,
-			`--expected-revision %d disagrees with the file's "revision": %d — pass one, or make them match`, flag, *tf.Revision)
+			`--expected-revision disagrees with the file's "revision" — pass one, or make them match`)
 	case tf.Revision != nil:
 		return *tf.Revision, nil
 	case fromFlag:
