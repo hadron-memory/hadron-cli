@@ -10,12 +10,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"syscall"
 )
 
 const (
@@ -48,7 +50,7 @@ func ReadFile(path string) string {
 	if err != nil || !st.Mode().IsRegular() || st.Size() > maxFile {
 		return StateUnreadable
 	}
-	raw, err := os.ReadFile(path)
+	raw, err := readRegular(path)
 	if err != nil {
 		return StateUnreadable
 	}
@@ -70,6 +72,25 @@ func ReadFile(path string) string {
 		return StateOff
 	}
 	return StateInvalid
+}
+
+// readRegular reads a regular file of at most maxFile bytes. The file is
+// judged again once open, and opened without blocking: one replaced by a FIFO
+// after the caller looked must not hang the check.
+func readRegular(path string) ([]byte, error) {
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+	if st, err := f.Stat(); err != nil || !st.Mode().IsRegular() {
+		return nil, errors.New("not a regular file")
+	}
+	raw, err := io.ReadAll(io.LimitReader(f, maxFile+1))
+	if err == nil && len(raw) > maxFile {
+		err = errors.New("too large")
+	}
+	return raw, err
 }
 
 // Result is the effective state and the file it came from ("" when no file
@@ -124,7 +145,7 @@ func Effective(managedDir, worktree, account, home string) Result {
 	paths := []string{}
 	root, err := localRoot(worktree, home)
 	if err != nil {
-		return Result{State: StateUnreadable, Source: filepath.Join(worktree, ".git")}
+		return Result{State: StateUnreadable} // no settings file decided it
 	}
 	if root != "" {
 		paths = append(paths, filepath.Join(root, ".claude", "settings.local.json"))
@@ -257,8 +278,12 @@ func InstalledVersion(bin string) string {
 	return ""
 }
 
-// AtLeast compares two versions that match versionRE.
+// AtLeast reports whether version v is floor or later; false when either is
+// not three numbers.
 func AtLeast(v, floor string) bool {
+	if !versionRE.MatchString(v) || !versionRE.MatchString(floor) {
+		return false
+	}
 	a, b := strings.Split(v, "."), strings.Split(floor, ".")
 	for i := range b {
 		x, _ := strconv.Atoi(a[i])

@@ -189,19 +189,55 @@ func TestTeamHostSettingsCheckNamedConfigDir2545(t *testing.T) {
 	}
 }
 
+// The named directory is off while another account is on.
+func TestTeamHostSettingsCheckNamedConfigDirOff2545(t *testing.T) {
+	dir, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	x := newSettingsFixture(t, "2.1.330", "    claude_config_dir: "+dir+"\n")
+	x.put(t, filepath.Join(dir, "settings.json"), `{"idleCompaction":false}`)
+	x.put(t, filepath.Join(x.home, ".claude", "settings.json"), `{"idleCompaction":true}`)
+	if o, raw, code := x.run(t); code != 0 || o.Worktrees[0].Status != "OFF" {
+		t.Errorf("exit %d\n%s", code, raw)
+	}
+}
+
+// Exit 1: what the check needs to list workers or accounts is unreadable.
+func TestTeamHostSettingsCheckExitOne2545(t *testing.T) {
+	for name, breakIt := range map[string]func(settingsFixture){
+		"state": func(x settingsFixture) { x.put(t, filepath.Join(x.root, "hadron-host-state.json"), "{") },
+		"home":  func(x settingsFixture) { x.put(t, x.home, "a file") },
+	} {
+		x := newSettingsFixture(t, "2.1.330", "")
+		breakIt(x)
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"team", "host", "settings-check", "--config", x.cfg, "--claude-bin", x.bin, "--managed-dir", x.managed})
+		if code := exitCodeFor(root.Execute()); code != exitcode.Error || strings.Contains(out.String(), "ACCOUNT FILE") {
+			t.Errorf("%s: exit %d: %s", name, code, out.String())
+		}
+	}
+}
+
 // Nothing is verified for a tree that is not there, a worker with no tree or
 // a file that is not a regular one; a Codex worker has no such setting.
 func TestTeamHostSettingsCheckUnverifiable2545(t *testing.T) {
-	x := newSettingsFixture(t, "2.1.330", "  ada:\n    family: claude\n    launch: [x]\n  bo:\n    family: claude\n    launch: [x]\n    worktrees: [repo/gone]\n  cy:\n    family: codex\n    launch: [x]\n    worktrees: [repo/cy]\n")
+	x := newSettingsFixture(t, "2.1.330", "  ada:\n    family: claude\n    launch: [x]\n  bo:\n    family: claude\n    launch: [x]\n    worktrees: [repo/gone]\n  di:\n    family: glm\n    launch: [x]\n    worktrees: [repo/di]\n  ed:\n    family: kimi\n    launch: [x]\n    worktrees: [repo/ed]\n  cy:\n    family: codex\n    launch: [x]\n    worktrees: [repo/cy]\n")
 	if err := os.MkdirAll(filepath.Join(x.home, ".claude", "settings.json"), 0o755); err != nil {
 		t.Fatal(err)
+	}
+	for _, d := range []string{"di", "ed"} {
+		if err := os.MkdirAll(filepath.Join(x.trees, "repo", d), 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	o, raw, code := x.run(t)
 	got := map[string]string{}
 	for _, w := range o.Worktrees {
 		got[w.Worker] = w.Status + " " + strings.Join(w.Reasons, " ")
 	}
-	want := map[string]string{"ada": "DRIFT NO_WORKTREE", "bo": "DRIFT WORKTREE_MISSING", "cy": "NOT_APPLICABLE ", "iris": "DRIFT UNREADABLE"}
+	want := map[string]string{"ada": "DRIFT NO_WORKTREE", "bo": "DRIFT WORKTREE_MISSING", "cy": "NOT_APPLICABLE ", "di": "DRIFT UNREADABLE", "ed": "DRIFT UNREADABLE", "iris": "DRIFT UNREADABLE"}
 	for k, v := range want {
 		if got[k] != v {
 			t.Errorf("%s: %q, want %q", k, got[k], v)

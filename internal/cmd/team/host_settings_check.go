@@ -41,7 +41,7 @@ type settingsWorktreeDTO struct {
 
 type settingsCheckDTO struct {
 	Key           string                `json:"key"`
-	Required      bool                  `json:"required"`
+	RequiredValue bool                  `json:"requiredValue"`
 	Default       bool                  `json:"default"`
 	MinVersion    string                `json:"minVersion"`
 	ClaudeBin     string                `json:"claudeBin"`
@@ -77,6 +77,9 @@ WHICH FILE WINS, highest first:
   3. .claude/settings.local.json in the worktree
   4. .claude/settings.json in the worktree
   5. settings.json in the account directory
+Levels 2 to 5 were measured in a linked worktree on Claude Code 2.1.328 and
+2.1.332. Level 1, a worktree inside a repository subdirectory, and skipping a
+root another user owns follow its documentation.
 
 Account directories are ~/.claude and every ~/.claude* directory. A worker with
 claude_config_dir in host.yaml is judged by that one. For any other worker the
@@ -84,18 +87,21 @@ launcher picks the account, which this command cannot see, so it is off only
 when it is off whichever account is used.
 
 REASONS for drift (a worktree may have several):
-  UNSET             no file sets the key, so the default (on) applies
+  UNSET             no file that applies sets the key, so the default (on)
+                    applies; with ACCOUNT_UNKNOWN, for one of the accounts
   ON                the deciding file sets true
   MANAGED_ON        managed settings set true; no other file can change that
   INVALID           the deciding file is not valid JSON, or the key in it is
                     not true or false
-  UNREADABLE        the deciding file or directory could not be read
+  UNREADABLE        the deciding file or directory, or the worktree's .git,
+                    could not be read
   ACCOUNT_UNKNOWN   the account is not known and the accounts disagree
   VERSION_TOO_OLD   the installed Claude Code is older than 2.1.290
   VERSION_UNKNOWN   --claude-bin is not a link to a versions/<version> file
   WORKTREE_MISSING  the worktree directory is not there
   NO_WORKTREE       the worker has no worktree, so nothing could be checked
-A worker whose terminal runs Codex is NOT_APPLICABLE.
+GLM and Kimi workers run Claude Code against another model, so they are checked
+like Claude workers. A worker whose terminal runs Codex is NOT_APPLICABLE.
 
 It checks this key only. A worker whose idle compaction is off another way
 (autoCompactEnabled false, DISABLE_AUTO_COMPACT) is still drift, and it cannot
@@ -136,7 +142,7 @@ included, is still printed.`,
 				accounts = []string{filepath.Join(home, ".claude")}
 			}
 			dto := settingsCheckDTO{
-				Key: settingscheck.Key, Required: false, Default: settingscheck.Default,
+				Key: settingscheck.Key, RequiredValue: false, Default: settingscheck.Default,
 				MinVersion: settingscheck.MinVersion, ClaudeBin: claudeBin,
 				Accounts: []settingsAccountDTO{}, Worktrees: []settingsWorktreeDTO{},
 			}

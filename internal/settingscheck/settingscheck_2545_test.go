@@ -74,8 +74,26 @@ func TestLocalRootIsSkipped2545(t *testing.T) {
 		t.Errorf("a bare repository has no main checkout: %+v", got)
 	}
 	write(t, filepath.Join(wt, ".git"), "nonsense")
-	if got := Effective(r, wt, acct, r); got.State != StateUnreadable {
+	if got := Effective(r, wt, acct, r); got.State != StateUnreadable || got.Source != "" {
 		t.Errorf("an unreadable .git file: %+v", got)
+	}
+}
+
+func TestReadRegularRefusesAFIFO2545(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "f")
+	if err := syscall.Mkfifo(p, 0o600); err != nil {
+		t.Skip(err)
+	}
+	if _, err := readRegular(p); err == nil {
+		t.Error("a FIFO was read")
+	}
+}
+
+func TestAtLeastMalformed2545(t *testing.T) {
+	for _, v := range []string{"", "2.1", "2.1.x", "2.1.290.1"} {
+		if AtLeast(v, MinVersion) {
+			t.Errorf("%q", v)
+		}
 	}
 }
 

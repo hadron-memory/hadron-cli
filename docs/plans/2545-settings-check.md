@@ -43,6 +43,11 @@ ownership exception (documented).
   not record, and parsing shell scripts is not proof. Without `claude_config_dir` a
   worker is off only if it is off under every `~/.claude*` directory. A stray directory
   of that name therefore makes workers drift until they name `claude_config_dir`.
+- **GLM and Kimi workers are checked.** They run the Claude Code binary against another
+  backend (`internal/hostpoller/launchprofile.go`: "GLM and Kimi run Claude Code against
+  another backend through their launcher scripts", and one launch template for all three).
+  Read on the host, 2026-11-25: the GLM and Kimi launchers set `CLAUDE_CONFIG_DIR` and
+  exec the same `~/.local/bin/claude`. So the same settings files and version apply.
 - **Version** comes from the native installer's symlink. Running `claude --version` would
   start a program that can write to an account directory. An agent already running may be
   an older version; not checked.
@@ -51,6 +56,6 @@ ownership exception (documented).
 
 ## JSON
 
-`{key, required, default, minVersion, claudeBin, claudeVersion, drift, accounts[{dir, file,
+`{key, requiredValue, default, minVersion, claudeBin, claudeVersion, drift, accounts[{dir, file,
 status}], worktrees[{worker, worktree, path, status, effective, source, reasons[]}]}`.
 `claudeVersion`, `effective` and `source` may be null.
