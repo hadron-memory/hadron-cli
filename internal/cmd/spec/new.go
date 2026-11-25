@@ -77,7 +77,7 @@ is the base spec role, a citation-prefixed name, and the legacy spec tag.
 When the name is prefixed automatically, --title must be the human text after
 "<loc> — ". A title already starting with that exact prefix is refused (exit 2)
 before any write, including --dry-run; remove the prefix and run again (the
-refusal ends with the corrected --title). An explicit --role keeps its
+refusal does not show the title given). An explicit --role keeps its
 literal-title behavior.
 Roles use lower-case letter/digit/dash segments joined by dots, up to
 64 characters; a valid dotted subrole may still be refused by the memory's
@@ -110,7 +110,8 @@ strictly above n). There is no retry and no local fallback: a server without
 the operation refuses. If the fill fails, the number stays reserved (the output
 names it, says allocated: true and fillStatus: refused or unknown, and lists
 the recovery commands that restore the title, abstract, body, tags, role and
-edges, and the feature's contract); read the node first, and do not rerun spec
+edges, and the feature's contract; the text shows placeholders for what you
+typed, --json carries the commands in full); read the node first, and do not rerun spec
 new, which would allocate another number. A blank body is refused before any
 number is reserved. If a feature is filled but its contract fails, the output
 says so and names the contract loc to inspect. If the allocation answer is lost
