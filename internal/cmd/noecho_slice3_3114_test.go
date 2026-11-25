@@ -211,6 +211,7 @@ func TestSlice3ServerMismatchHidesTheServerGiven3114(t *testing.T) {
 		{"team", "task", "mine"},
 		{"team", "worker", "compile", "--apply", "--as-worker", "--app", "hrn:app:acme.com:eng-team"},
 		{"team", "worker", "update", "hrn:worker:acme.com:eng-team:iris", "--signature", "x", "--app", "hrn:app:acme.com:eng-team"},
+		{"team", "worker", "update", "hrn:worker:acme.com:eng-team:iris", "--signature", "x", "--instruction", "live-chat:x"},
 	} {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
