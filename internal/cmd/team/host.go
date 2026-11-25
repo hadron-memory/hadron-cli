@@ -360,7 +360,8 @@ for it, carries them out and reports the outcome. A host has an id (shown
 by ` + "`list`" + `) and a configuration file, host.yaml, kept on that machine.
 
 By goal: see which hosts exist (` + "`list`" + `) and who runs what (` + "`setup`" + `); check
-one host's configuration and registration (` + "`status`" + `); read or issue queued
+one host's configuration and registration (` + "`status`" + `); check that its workers'
+idle compaction is off (` + "`settings-check`" + `); read or issue queued
 operations (` + "`ops`" + `, ` + "`issue`" + `); record who runs what
 (` + "`assign`" + `, ` + "`unassign`" + `, ` + "`setup`" + `, ` + "`import`" + `); reconcile workers to that
 record (` + "`up`" + `, ` + "`sweep`" + `, and the recorded outcomes in ` + "`sweep-runs`" + `); keep one
@@ -373,7 +374,8 @@ host's registered id and host.yaml — the form its installed timer runs.
 
 Prerequisites: sign in (` + "`hadron auth login`" + `), a team App context (pass ` + "`--app`" + `
 or run from a bound worktree), and for the host-local commands (` + "`run`" + `,
-` + "`sweep`" + `, ` + "`availability`" + `, ` + "`report-stops`" + `) a host.yaml — its shape is
+` + "`sweep`" + `, ` + "`availability`" + `, ` + "`report-stops`" + `,
+` + "`settings-check`" + `, which needs no sign-in) a host.yaml — its shape is
 documented by ` + "`hadron team host run --help`" + `. ` + "`up`" + ` needs none: its --config is
 only an optional reporting key. A host's server key is granted
 with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" + `.`,
@@ -384,6 +386,7 @@ with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" +
 	cmd.AddCommand(newCmdTeamHostRun(f))
 	cmd.AddCommand(newCmdTeamHostAvailability(f))
 	cmd.AddCommand(newCmdTeamHostStatus(f))
+	cmd.AddCommand(newCmdTeamHostSettingsCheck(f))
 	cmd.AddCommand(newCmdTeamHostReportStops(f))
 	cmd.AddCommand(newCmdTeamHostUp(f))
 	cmd.AddCommand(newCmdTeamHostSweepRuns(f))
