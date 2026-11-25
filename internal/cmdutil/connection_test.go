@@ -2,10 +2,17 @@ package cmdutil
 
 import (
 	"errors"
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/vektah/gqlparser/v2/gqlerror"
+
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // cli#2968: the shared connection helpers. The suggestion text is pinned
@@ -23,6 +30,10 @@ func TestConnectionStatusSuggestionIsByteIdenticalPerCommand(t *testing.T) {
 func TestHasControlOrFormatCharacter(t *testing.T) {
 	for s, want := range map[string]bool{
 		"plain-id": false, "a\x1b[31m": true, "a\nb": true, "a\u200bb": true, "a\u2028b": true, "a\u2029b": true,
+		// cli#3195: DEL, a C1 control (NEL) and a bidi override.
+		"a\x7fb": true, "a\u0085b": true, "a\u202eb": true,
+		// Nothing to refuse: the empty string and ordinary non-ASCII text.
+		"": false, "Zürich-café-Ωμέγα-日本": false,
 	} {
 		if got := HasControlOrFormatCharacter(s); got != want {
 			t.Errorf("%q: got %v, want %v", s, got, want)
@@ -44,5 +55,84 @@ func TestFinishConnectErrorWithholdsEverySecret(t *testing.T) {
 	}
 	if exitcode.FromError(got) != exitcode.Error {
 		t.Errorf("exit class lost: %v", exitcode.FromError(got))
+	}
+}
+
+// cli#3195: the finished error is cut from its raw chain, so no later layer can
+// reach the server's unredacted text through it, and a clean server code
+// survives the cut. The base wraps the raw error on purpose: the precondition
+// shows the chain assertions can fail.
+func TestFinishConnectErrorCutsTheRawChainAndKeepsTheServerCode3195(t *testing.T) {
+	const secret, code = "xoxb-SECRET-ONE", "CONNECTION_REFUSED"
+	raw := fmt.Errorf("request failed: %w", gqlerror.List{{
+		Message:    "server said " + secret,
+		Extensions: map[string]any{"code": code},
+	}})
+	base := exitcode.Newf(exitcode.Conflict, "connect refused: %w", raw)
+	if !errors.Is(base, raw) {
+		t.Fatal("precondition: the base must carry the raw error")
+	}
+	got := FinishConnectError(raw, base, []string{secret})
+	if errors.Is(got, raw) {
+		t.Error("the raw error is still in the chain")
+	}
+	var list gqlerror.List
+	if errors.As(got, &list) {
+		t.Errorf("the server's error list is still reachable: %v", list)
+	}
+	if strings.Contains(got.Error(), secret) {
+		t.Errorf("secret leaked: %v", got)
+	}
+	var coded interface{ ServerCode() string }
+	if !errors.As(got, &coded) || coded.ServerCode() != code {
+		t.Errorf("server code lost: %#v", got)
+	}
+	if exitcode.FromError(got) != exitcode.Conflict {
+		t.Errorf("exit class lost: %v", exitcode.FromError(got))
+	}
+}
+
+// cli#3195: "-" on a terminal is refused by this helper, in its own words,
+// before stdin is read.
+func TestReadConnectionTokenRefusesATerminalStdin3195(t *testing.T) {
+	const typed = "xoxb-TYPED-SECRET"
+	ios, _, stderr := output.TestTTY(typed + "\n")
+	got, err := ReadConnectionToken(&Factory{IOStreams: ios}, "-", "bot-token-file", "Slack bot token", "bot token")
+	if err == nil || got != "" {
+		t.Fatalf("got %q, %v; want a refusal and no value", got, err)
+	}
+	if exitcode.FromError(err) != exitcode.Usage {
+		t.Errorf("want a usage error, got %v", err)
+	}
+	for _, want := range []string{"--bot-token-file", "which is a terminal", "Nothing was sent"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("refusal lacks %q: %q", want, err.Error())
+		}
+	}
+	if strings.Contains(err.Error(), typed) || strings.Contains(stderr.String(), typed) {
+		t.Errorf("the secret must not appear: %q / %q", err.Error(), stderr.String())
+	}
+	if rest, _ := io.ReadAll(ios.In); string(rest) != typed+"\n" {
+		t.Errorf("stdin was read before the refusal; left %q", rest)
+	}
+}
+
+// The refusal is only for "-" on a terminal: piped stdin and a file still read.
+func TestReadConnectionTokenReadsPipedStdinAndFiles3195(t *testing.T) {
+	file := filepath.Join(t.TempDir(), "token")
+	if err := os.WriteFile(file, []byte("from-file\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	piped, _, _ := output.Test()
+	piped.In = strings.NewReader("from-pipe\n")
+	terminal, _, _ := output.TestTTY("")
+	for _, tc := range []struct {
+		ios          *output.IOStreams
+		source, want string
+	}{{piped, "-", "from-pipe"}, {terminal, file, "from-file"}} {
+		got, err := ReadConnectionToken(&Factory{IOStreams: tc.ios}, tc.source, "bot-token-file", "Slack bot token", "bot token")
+		if err != nil || got != tc.want {
+			t.Errorf("%s: got %q, %v", tc.want, got, err)
+		}
 	}
 }
