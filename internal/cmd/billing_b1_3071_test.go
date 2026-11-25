@@ -323,19 +323,13 @@ func TestBillingLedgerWriteRefusalsAreSentOnce(t *testing.T) {
 
 func TestBillingConflictJSONNamesTheServerCode(t *testing.T) {
 	gql, _ := captureGraphQL(t, map[string]string{"AdjustCredits": `{"errors":[{"message":"m","extensions":{"code":"IDEMPOTENCY_CONFLICT"}}]}`})
-	f, _, errOut := testFactoryTTY(t, "")
+	f, stdout, errOut := testFactoryTTY(t, "")
 	f.JSON = true
 	root := NewRootCmd(f)
 	root.SetArgs(adjustArgs("--yes", "--json", "--server", gql.URL))
-	err := root.Execute()
-	renderError(f, err)
-	var out strings.Builder
-	out.WriteString(errOut.String())
-	if tracked, ok := f.IOStreams.Out.(interface{ String() string }); ok {
-		out.WriteString(tracked.String())
-	}
-	if !strings.Contains(out.String(), `"IDEMPOTENCY_CONFLICT"`) {
-		t.Errorf("the failure envelope must carry serverCode: %q", out.String())
+	renderError(f, root.Execute())
+	if out := stdout.String() + errOut.String(); !strings.Contains(out, `"IDEMPOTENCY_CONFLICT"`) {
+		t.Errorf("the failure envelope must carry serverCode: %q", out)
 	}
 }
 

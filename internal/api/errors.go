@@ -1578,6 +1578,12 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "TEAM_CHAT_SEARCH_ENCRYPTED":
 		return exitcode.Conflict
+	// A ledger source pair already recorded with a different account, amount or
+	// kind (hadron-server#5007, cli#3071): no retry of the same call can succeed.
+	// A literal row: there is no _CONFLICT suffix rule, because some _CONFLICT
+	// codes are the caller's own arguments (exit 2, above).
+	case code == "IDEMPOTENCY_CONFLICT":
+		return exitcode.Conflict
 	// Transfer state refusals require a fresh preview or a change to the
 	// source/destination state; retrying the same apply cannot help.
 	case code == "CONFLICT" || strings.HasPrefix(code, "DUPLICATE_") ||

@@ -469,8 +469,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 			}
 		}
 		// #1327/#936: chat-search and team-tag refusals span exits, so they are keyed
-		// on the code itself rather than the exit.
-		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED", "TEAM_CHAT_TEAM_HEAD_INVALID", "TEAM_CHAT_TEAM_METADATA_FORBIDDEN"} {
+		// on the code itself rather than the exit; a ledger replay conflict (#3071)
+		// is told apart from other conflicts the same way.
+		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED", "TEAM_CHAT_TEAM_HEAD_INVALID", "TEAM_CHAT_TEAM_METADATA_FORBIDDEN", "IDEMPOTENCY_CONFLICT"} {
 			if api.HasErrorCode(err, serverCode) {
 				failure["serverCode"] = serverCode
 				break
