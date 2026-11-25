@@ -122,11 +122,14 @@ func TestMemorySyncPush2513Confirm(t *testing.T) {
 	}
 	// Accepted on a terminal: one push.
 	s = newPushStub(t, 200, `{"data":{"pushMemoryToGit":true}}`)
-	f, _, _ = testFactoryTTY(t, "y\n")
+	f, out3, _ := testFactoryTTY(t, "y\n")
 	root = NewRootCmd(f)
 	root.SetArgs([]string{"memory", "sync", "push", "acme.com:kb", "--server", s.srv.URL})
 	if err := root.Execute(); err != nil || len(s.opsSeen()) != 1 {
 		t.Fatalf("err %v ops %v", err, s.opsSeen())
+	}
+	if !strings.Contains(out3.String(), "pushed memory hrn:mem:acme.com:kb") {
+		t.Fatalf("no success line: %s", out3)
 	}
 }
 
@@ -229,13 +232,78 @@ func TestMemorySyncPush2513Sentinels(t *testing.T) {
 			if err == nil {
 				t.Fatal("want error")
 			}
-			// Mirror main's error rendering for the full surface.
 			rendered := err.Error()
 			for _, got := range []string{out, errOut, rendered} {
-				if strings.Contains(got, "SENTINEL@") || strings.Contains(got, "x:ghp_") {
+				if strings.Contains(got, "SENTINEL@") || strings.Contains(got, "x:ghp_") || strings.Contains(got, "ghp_SENTINELTOKEN") {
 					t.Fatalf("credential leak (%s, json=%v): %q", code, asJSON, got)
 				}
 			}
 		}
+	}
+}
+
+func TestMemorySyncPush2513BareTokenShapes(t *testing.T) {
+	// The well-known prefixed token shapes are masked wherever they sit in
+	// server text; the redaction marker replaces them.
+	for _, tok := range []string{"ghp_abcdefgh12345678", "gho_abcdefgh12345678", "ghs_abcdefgh12345678", "github_pat_11AAAAAAA_bbbbbbbbbbbb", "glpat-abcdefgh_12345678"} {
+		s := newPushStub(t, 200, `{"errors":[{"message":"push rejected, credential `+tok+` was refused","extensions":{"code":"FORBIDDEN"}}]}`)
+		out, errOut, err := runPush(t, s, "--yes", "--json")
+		if err == nil || exitCodeFor(err) != 8 {
+			t.Fatalf("err %v", err)
+		}
+		for _, got := range []string{out, errOut, err.Error()} {
+			if strings.Contains(got, tok) {
+				t.Fatalf("%s leaked: %q", tok, got)
+			}
+		}
+		if !strings.Contains(err.Error(), "[redacted]") {
+			t.Fatalf("no marker: %v", err)
+		}
+	}
+}
+
+func TestMemorySyncPush2513InternalErrorWording(t *testing.T) {
+	s := newPushStub(t, 200, `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`)
+	_, _, err := runPush(t, s, "--yes")
+	if err == nil || !strings.Contains(err.Error(), "internal error") || strings.Contains(err.Error(), "no refusal code") {
+		t.Fatalf("err %v", err)
+	}
+	s = newPushStub(t, 200, `{"errors":[{"message":"boom"}]}`)
+	_, _, err = runPush(t, s, "--yes")
+	if err == nil || !strings.Contains(err.Error(), "no refusal code") {
+		t.Fatalf("err %v", err)
+	}
+}
+
+func TestMemorySyncPush2513RefForms(t *testing.T) {
+	// An invalid ref is refused locally with no request; every accepted
+	// spelling is sent canonicalized.
+	s := newPushStub(t, 200, `{"data":{"pushMemoryToGit":true}}`)
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "sync", "push", "not a ref", "--yes", "--server", s.srv.URL})
+	if err := root.Execute(); exitCodeFor(err) != 2 || len(s.opsSeen()) != 0 {
+		t.Fatalf("err %v ops %v", err, s.opsSeen())
+	}
+	for _, in := range []string{"hrn:mem:acme.com:kb", "acme.com::kb", "hrn:memory:acme.com::kb"} {
+		s := newPushStub(t, 200, `{"data":{"pushMemoryToGit":true}}`)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs([]string{"memory", "sync", "push", in, "--yes", "--server", s.srv.URL})
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%s: %v", in, err)
+		}
+		var vars map[string]any
+		if e := json.Unmarshal(s.vars, &vars); e != nil || vars["ref"] != "hrn:mem:acme.com:kb" {
+			t.Fatalf("%s: variables %s", in, s.vars)
+		}
+	}
+}
+
+func TestMemorySyncPush2513JSONErrorShape(t *testing.T) {
+	s := newPushStub(t, 200, `{"errors":[{"message":"nope","extensions":{"code":"FORBIDDEN"}}]}`)
+	out, _, err := runPush(t, s, "--yes", "--json")
+	if err == nil || strings.Contains(out, `"pushed":true`) || strings.Contains(out, `"pushed": true`) {
+		t.Fatalf("err %v out %s", err, out)
 	}
 }

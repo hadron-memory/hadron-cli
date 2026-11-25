@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
@@ -583,7 +584,8 @@ the branch are not reported, so check the repository for what landed. One
 request is sent and it is never retried. Exit 7 means the push may have
 happened: check the repository before pushing again. A "no" or empty answer
 exits 7 too and never prints "pushed". Server error text is masked for URL
-credentials. Success prints "pushed memory <ref>". --json:
+credentials and well-known token formats (ghp_, github_pat_, glpat-); a token
+of another shape is not recognised. Success prints "pushed memory <ref>". --json:
 {memory,operation:"push",pushed:true}.`,
 		Example: "  hadron memory sync push acme.com:kb --yes\n  hadron memory sync push hrn:mem:acme.com:kb --yes --json",
 		Args:    cobra.ExactArgs(1),
@@ -630,13 +632,28 @@ func syncPushError(err error) error {
 		message = "this memory is encrypted and cannot be synced with git"
 	case code == exitcode.Unavailable:
 		message = "no answer; the push may have happened; check the repository before retrying"
-	case api.ServerCodeOf(err) == "" || api.HasErrorCode(err, "INTERNAL_SERVER_ERROR"):
+	case api.HasErrorCode(err, "INTERNAL_SERVER_ERROR"):
+		message += "; the server reported an internal error, so check the repository before pushing again"
+	case api.ServerCodeOf(err) == "":
 		message += "; the server gave no refusal code, so check the repository before pushing again"
 	}
-	message = *maskSyncError(&message)
+	message = maskPushText(message)
 	safe := output.SafeLine(message, 2000)
 	if fault, ok := api.InternalFaultOf(mapped); ok {
 		return &syncPullFailure{message: safe, cause: api.NewInternalFaultError(fault.RequestID, nil)}
 	}
 	return api.WithServerCode(exitcode.Newf(code, "%s", safe), err)
+}
+
+// bareTokenShapes covers the well-known prefixed token formats a git or
+// provider failure can quote outside a URL: GitHub ghp_/gho_/ghu_/ghs_/ghr_ and
+// github_pat_, GitLab glpat-. maskSyncError only strips URL userinfo, and a
+// token of an unknown shape cannot be recognised at all, so this is a floor,
+// not a guarantee (cli#2513 blind P2).
+var bareTokenShapes = regexp.MustCompile(`\b(?:gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|glpat-[A-Za-z0-9_-]{8,})`)
+
+// maskPushText masks URL credentials and the well-known bare token shapes in
+// server text for a push failure.
+func maskPushText(s string) string {
+	return bareTokenShapes.ReplaceAllString(*maskSyncError(&s), "[redacted]")
 }

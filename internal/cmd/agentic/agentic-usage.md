@@ -7201,7 +7201,8 @@ reported: check the repository. Success prints `pushed memory <ref>`; JSON is
 answer, exits 7 ("may have happened; check the repository before retrying")
 and never prints "pushed". Encrypted memories exit 2; not found 4; no manage
 access 8; other server refusals keep their mapped code. Server text is masked
-for URL credentials and made one safe line. Work the remote refused stays held
+for URL credentials and the well-known token formats (ghp_, github_pat_, glpat-;
+an unrecognised token shape is not caught) and made one safe line. Work the remote refused stays held
 on the server and is never pushed or shown by the CLI.
 
 ### Worker terminal display label
