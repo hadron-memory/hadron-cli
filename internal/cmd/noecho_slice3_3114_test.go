@@ -52,6 +52,9 @@ func TestSlice3RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 		{"role list name", nil, append([]string{"team", "role-lists", "set", "defect-link", p + ":x"}, app...), "':' or whitespace", exitcode.Usage},
 		{"availability name", nil, []string{"team", "availability", "set", "--worker", p, "--state", "available"}, "needs the App", exitcode.Usage},
 		{"alarms party", nil, append([]string{"team", "alarms", "--team=user:" + p}, app...), "--team names a worker", exitcode.Usage},
+		{"instruction form", nil, append([]string{"team", "task", "cancel", "AT1.2", "--instruction", p}, app...), "--instruction takes", exitcode.Usage},
+		{"instruction kind", nil, append([]string{"team", "task", "cancel", "AT1.2", "--instruction", p + ":x"}, app...), "--instruction kind", exitcode.Usage},
+		{"task outcome", nil, append([]string{"team", "task", "finish", "AT1.2", "--outcome", p + " x"}, app...), "--outcome is one word", exitcode.Usage},
 		{"init memory", map[string]string{"GetMemory": `{"data":{"memory":null}}`}, []string{"team", "init", "-m", "acme.com::" + low}, "memory", exitcode.NotFound},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -100,6 +103,10 @@ func TestSlice3EnumRefusalsNameTheFormNotTheValue3114(t *testing.T) {
 		{[]string{"team", "wake-settings", "set", "--worker", "hrn:worker:acme.com:ops:iris", "--mentions"}, "immediate or off"},
 		{[]string{"team", "health", "install", "--config", "c", "--interval"}, "duration like"},
 		{[]string{"team", "chat", "post", "x", "--reply-to"}, "--reply-to takes"},
+		{[]string{"team", "task", "list", "--team", "--stale-over"}, "positive duration"},
+		{[]string{"team", "stop", "set", "--scope", "team", "--worker", "w1", "--level", "pause", "--until"}, "RFC 3339"},
+		{[]string{"team", "wake-settings", "set", "--worker", "hrn:worker:acme.com:ops:iris", "--paused-until"}, "RFC 3339"},
+		{[]string{"team", "host", "setup", "--source"}, "HOST or SERVER"},
 		{[]string{"team", "host", "ops", "--status"}, "issued, collected"},
 	} {
 		t.Run(strings.Join(tc.argv, " "), func(t *testing.T) {
