@@ -414,6 +414,78 @@ func TestSessionLogToolConcurrentDifferentFillNotes(t *testing.T) {
 	}
 }
 
+// The same-token arm of the concurrent-fill pin above (cli#2973): a concurrent
+// log that filled the SAME token while this row was in flight is a
+// restatement, not a divergence — no note (the EqualFold same-tool rule; the
+// note's condition made always true — mutant M6 on PR #2966 — dies here), and
+// fill-never-change keeps the concurrent value. The token's other case and
+// spacing appears on both sides, one per scenario:
+//
+//   - the concurrent fill holds the server's spelling "claude-code" while
+//     this invocation passes --tool "  Claude-Code  ": the binding's stored
+//     spelling and the milestone's (the response's echo) agree — asserted as
+//     a consistency check only, for the spellings coincide by construction
+//     and a fill that overwrote would print the same value;
+//   - the concurrent fill holds "Claude-Code", as a pre-#2940 binding spells
+//     it: the binding must KEEP that spelling (an overwriting fill would
+//     store the row's "claude-code" instead — this assertion discriminates),
+//     and dropping the EqualFold (comparing case-sensitively) must not turn
+//     the restatement into a raced divergence either.
+func TestSessionLogToolConcurrentSameTokenFillStaysSilent(t *testing.T) {
+	path := bindFixture2940(t, bindingNoToolFixture)
+	stubs := logStubs2940()
+	gql, captured := captureGraphQLFunc(t, func(op string) string {
+		if op == "RecordTeamWork" {
+			rewritten := strings.Replace(bindingNoToolFixture, `"tool":""`, `"tool":"claude-code"`, 1)
+			if err := os.WriteFile(path, []byte(rewritten), 0o600); err != nil {
+				t.Errorf("rewrite binding mid-flight: %v", err)
+			}
+		}
+		return stubs[op]
+	})
+
+	out, errOut, err := runLog2940(t, gql.URL, "--pr", "371", "--tool", "  Claude-Code  ")
+	if err != nil {
+		t.Fatalf("a same-token concurrent fill must not fail the log: %v", err)
+	}
+	if !strings.Contains(out, "✓ logged") {
+		t.Errorf("missing success line: %q", out)
+	}
+	if strings.Contains(errOut, "concurrent log") || strings.Contains(errOut, "filling this binding's tool locally failed") {
+		t.Errorf("a restatement is not a divergence: no fill note may print, got %q", errOut)
+	}
+	if got := recordedTool2940(t, captured, "hadron-memory/hadron-cli#371"); got != "Claude-Code" {
+		t.Errorf("the CLI sends the trimmed flag value (the server normalizes), got %q", got)
+	}
+	if got := boundTool2940(t, path); got != "claude-code" {
+		t.Errorf("the binding keeps the concurrent fill's stored spelling, got %q", got)
+	}
+
+	// The same race with the concurrent value spelled as a pre-#2940 binding
+	// holds it: still the same token, so still silent, and still kept.
+	path = bindFixture2940(t, bindingNoToolFixture)
+	gql, _ = captureGraphQLFunc(t, func(op string) string {
+		if op == "RecordTeamWork" {
+			rewritten := strings.Replace(bindingNoToolFixture, `"tool":""`, `"tool":"Claude-Code"`, 1)
+			if err := os.WriteFile(path, []byte(rewritten), 0o600); err != nil {
+				t.Errorf("rewrite binding mid-flight: %v", err)
+			}
+		}
+		return stubs[op]
+	})
+
+	_, errOut, err = runLog2940(t, gql.URL, "--pr", "371", "--tool", "claude-code")
+	if err != nil {
+		t.Fatalf("a same-token concurrent fill in another spelling must not fail the log: %v", err)
+	}
+	if strings.Contains(errOut, "concurrent log") || strings.Contains(errOut, "filling this binding's tool locally failed") {
+		t.Errorf("a restatement in another spelling is not a divergence: no fill note may print, got %q", errOut)
+	}
+	if got := boundTool2940(t, path); got != "Claude-Code" {
+		t.Errorf("fill-never-change keeps the concurrent spelling it found, got %q", got)
+	}
+}
+
 // An old server without per-milestone model attribution answers the modern
 // record with a validation refusal for "model" and the CLI falls back to the
 // legacy operation; the fill there must use the LEGACY response's spelling
