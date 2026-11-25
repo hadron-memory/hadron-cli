@@ -64,6 +64,16 @@ func TestNodeExportSendsRefNotID2899(t *testing.T) {
 			if got, ok := sent[0].Vars["ref"].(string); !ok || got != "n1" {
 				t.Errorf("the ref variable carries the resolved node id n1, got %v", sent[0].Vars["ref"])
 			}
+			// The sectioned document carries the mapped section values; the
+			// canonical one sends none (the canonical render is full: true).
+			if name == "sectioned" {
+				got, _ := sent[0].Vars["sections"].([]any)
+				if len(got) != 1 || got[0] != "CONTENT" {
+					t.Errorf("the sections variable carries the mapped values, got %v", sent[0].Vars["sections"])
+				}
+			} else if _, has := sent[0].Vars["sections"]; has {
+				t.Errorf("the canonical document sends no sections: %v", sent[0].Vars)
+			}
 		})
 	}
 }
