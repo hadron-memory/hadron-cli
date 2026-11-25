@@ -180,11 +180,11 @@ asks for that memory's passphrase for this one invocation.
 					return err
 				}
 				if bodyOnly {
-					return writeBodyOnly(cmd, f, client, id, args[0])
+					return writeBodyOnly(cmd, f, client, id)
 				}
 				var dto nodeDetailDTO
 				err = readConsistentlyEarly(cmd, client, revisionSelector{refs: []string{id}}, early, func() ([]*nodeDetailDTO, error) {
-					node, err := fetchNodeByID(cmd, client, id, args[0], raw)
+					node, err := fetchNodeByID(cmd, client, id, raw)
 					if err != nil {
 						return nil, err
 					}
@@ -310,8 +310,8 @@ type nodeBodyDTO struct {
 // bytes are the body's own: a newline is added only for a terminal, where
 // the prompt would otherwise land on the last line, never into a pipe or
 // file, so a round trip through `node update --content-file` is exact.
-func writeBodyOnly(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, id, ref string) error {
-	node, err := fetchNodeByID(cmd, client, id, ref, true)
+func writeBodyOnly(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, id string) error {
+	node, err := fetchNodeByID(cmd, client, id, true)
 	if err != nil {
 		return err
 	}
@@ -960,7 +960,7 @@ func liveRevisions(cmd *cobra.Command, client graphql.Client, sel revisionSelect
 //
 // "not found or not readable by you": since cor:api:140:03 a node in a memory
 // the caller cannot open answers exactly like a missing one.
-func fetchNodeByID(cmd *cobra.Command, client graphql.Client, id, ref string, raw bool) (*gen.GetNodeNode, error) {
+func fetchNodeByID(cmd *cobra.Command, client graphql.Client, id string, raw bool) (*gen.GetNodeNode, error) {
 	var node *gen.GetNodeNode
 	if raw {
 		resp, err := gen.GetNodeRaw(cmd.Context(), client, id)
@@ -976,7 +976,7 @@ func fetchNodeByID(cmd *cobra.Command, client graphql.Client, id, ref string, ra
 		node = resp.Node
 	}
 	if node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "node %q not found, or not readable by you", ref)
+		return nil, exitcode.Newf(exitcode.NotFound, "node not found, or not readable by you (the ref given is not shown)")
 	}
 	return node, nil
 }
@@ -993,7 +993,7 @@ func fetchNode(cmd *cobra.Command, client graphql.Client, memory, ref string) (*
 		return nil, api.MapError(err)
 	}
 	if resp.Node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "node %q not found", ref)
+		return nil, exitcode.Newf(exitcode.NotFound, "node not found (the ref given is not shown)")
 	}
 	return resp.Node, nil
 }

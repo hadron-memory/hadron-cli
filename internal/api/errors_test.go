@@ -65,6 +65,12 @@ func TestMapError(t *testing.T) {
 		{"SECRET_PROTECTED_NEEDS_PASSKEY 2738", gqlErr("SECRET_PROTECTED_NEEDS_PASSKEY"), exitcode.Conflict},
 		{"SECRET_CHANGE_REQUEST_LIMIT 2738", gqlErr("SECRET_CHANGE_REQUEST_LIMIT"), exitcode.Conflict},
 
+		// cli#1846: the manager grant verbs. A person who does not manage the App
+		// (or an unknown App or grant: one answer) and a withdrawal by someone who
+		// is not the recorded requester are permission refusals: 8.
+		{"GRANT_NOT_MANAGER 1846", gqlErr("GRANT_NOT_MANAGER"), exitcode.Forbidden},
+		{"GRANT_NOT_REQUESTER 1846", gqlErr("GRANT_NOT_REQUESTER"), exitcode.Forbidden},
+
 		// #2308: a worker without a signed schedule.create grant.
 		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
 
@@ -390,6 +396,11 @@ func TestMapError(t *testing.T) {
 		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
 		{"worked-from refs invalid (cli#2514)", gqlErr("TASK_ROLE_TASK_REFS_INVALID"), exitcode.Usage},
 		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
+		// cli#3099 (server#4531, cor:agt:050:34): a team.dark alarm has no
+		// chain and is never acknowledged — the eventId names an event whose
+		// kind no acknowledgement fits, like NOT_AN_ALARM below, so the caller
+		// fixes it by acking a different alarm, not by waiting or escalating.
+		{"alarm not acknowledgeable (cli#3099)", gqlErr("ALARM_NOT_ACKNOWLEDGEABLE"), exitcode.Usage},
 		{"worker leave alone not permitted", gqlErr("WORKER_LEAVE_ALONE_NOT_PERMITTED"), exitcode.Forbidden},
 		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
 		// #871: host operations and the host:operate grant.

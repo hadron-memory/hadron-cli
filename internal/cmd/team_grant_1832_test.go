@@ -14,9 +14,9 @@ import (
 	"github.com/vektah/gqlparser/v2/parser"
 )
 
-const workerGrant1832 = `{"id":"g1","action":"node.read","values":["one","two"],"holderKind":"WORKER","holderId":"wkr1","startsAt":"start","expiresAt":null,"maxUses":3,"useCount":1,"reason":"because\u001b[31m","createdAt":"created","activatedAt":"activated-time","revokedAt":null,"allows":true,"futureServerField":"must not leak"}`
+const workerGrant1832 = `{"id":"g1","action":"node.read","values":["one","two"],"holderKind":"WORKER","holderId":"wkr1","startsAt":"start","expiresAt":null,"maxUses":3,"useCount":1,"reason":"because\u001b[31m","createdAt":"created","activatedAt":"activated-time","revokedAt":null,"allows":true,"state":"ACTIVE","futureServerField":"must not leak"}`
 
-var grantFields1832 = []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows"}
+var grantFields1832 = []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows", "state"}
 
 func TestTeamGrant1832List(t *testing.T) {
 	for _, jsonMode := range []bool{false, true} {

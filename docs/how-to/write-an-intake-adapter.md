@@ -153,7 +153,7 @@ whether an item is tracked; Hadron does.
   worker; for a claim made for someone else (`--assignee`, `--for`) the
   adapter gets only `id` and `name`, so treat both as optional. After a
   reassignment the CLI calls `mark-tracked` again for the new worker, with only
-  its `id` and `name`.
+  its `id` and `name`, unless a different active task holds the item now.
 - Answer: `{}`.
 
 If your answer is a refusal on a `--track` claim, the claim still stands: the
@@ -176,7 +176,8 @@ of the App holds it any more, so you can remove your mark.
 ### `report` (optional)
 
 Called after a task holding the item was cancelled, and only if `describe`
-lists `report`. What you do with it on the tracker is your choice.
+lists `report`, unless a different active task holds the item now. What you do
+with it on the tracker is your choice.
 
 - Request: `{"contractVersion": 1, "externalId": "https://…", "task": {"id": "…", "handle": "…", "portalUrl": "…"}, "state": "CANCELLED"}`
 - Answer: `{}`.
@@ -194,8 +195,11 @@ Every run (`find-untracked --adapter …`, with or without `--track`):
 1. `describe`, and the version check.
 2. **Reconcile.** The CLI reads from the server what changed on the App's tasks
    that hold an outside item since its last run, and tells the adapter: a
-   reassignment calls `mark-tracked` again, a release calls `untrack`, a cancel
-   calls `report` if you list it. A finish, a hand-back or a first assignment
+   reassignment calls `mark-tracked` again and a cancel calls `report` if you
+   list it, each only when no different active task holds the item now (the CLI
+   skips the call otherwise and tells you nothing), and a release calls
+   `untrack` only when no task of the App, finished or cancelled included, still
+   holds the released id, while a finish, a hand-back or a first assignment
    calls nothing. Its position is kept in `intake-cursors.json` beside the CLI's
    config, per server, App and adapter, so nothing is told twice. A refusal
    holds the position there, and the next run retries that change.

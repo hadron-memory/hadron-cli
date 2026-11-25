@@ -47,10 +47,10 @@ refuses with exit 2.`,
 			}
 			resp, err := gen.DeleteSecret(cmd.Context(), client, ref)
 			if err != nil {
-				return mapChange(err, "the deletion of secret "+output.SafeCell(ref))
+				return mapChange(err, "the deletion of the secret (the ref given is not shown)")
 			}
 			if resp == nil || !resp.DeleteSecret {
-				return exitcode.Newf(exitcode.NotFound, "secret %q not found", ref)
+				return exitcode.Newf(exitcode.NotFound, "secret not found (the ref given is not shown)")
 			}
 			dto := map[string]string{"id": ref, "status": "deleted"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

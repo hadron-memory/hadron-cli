@@ -34,7 +34,7 @@ func parseRouteModel(v, source string) (routeModel, error) {
 	case modelMirrored, modelLeaf:
 		return m, nil
 	}
-	return "", exitcode.Newf(exitcode.Usage, "%s takes leaf or mirrored, got %q", source, v)
+	return "", exitcode.Newf(exitcode.Usage, "%s takes leaf or mirrored", source)
 }
 
 // addRouteModelFlag registers --route-model on a preflight subcommand.

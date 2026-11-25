@@ -84,7 +84,7 @@ func parseMemberRole(s string) (gen.MemoryMemberRole, error) {
 	case "reader":
 		return gen.MemoryMemberRoleReader, nil
 	default:
-		return "", exitcode.Newf(exitcode.Usage, "invalid --role %q (want owner, writer, or reader)", s)
+		return "", exitcode.Newf(exitcode.Usage, "invalid --role (want owner, writer, or reader)")
 	}
 }
 
@@ -95,7 +95,7 @@ func parseShareRole(s string) (gen.MemoryShareRole, error) {
 	case "reader":
 		return gen.MemoryShareRoleReader, nil
 	default:
-		return "", exitcode.Newf(exitcode.Usage, "invalid --role %q (want writer or reader)", s)
+		return "", exitcode.Newf(exitcode.Usage, "invalid --role (want writer or reader)")
 	}
 }
 
@@ -112,7 +112,7 @@ func parseSubscriptionRole(s string) (gen.Role, error) {
 	case "READER":
 		return gen.RoleReader, nil
 	default:
-		return "", exitcode.Newf(exitcode.Usage, "invalid --role %q (want admin, contributor, owner, or reader)", s)
+		return "", exitcode.Newf(exitcode.Usage, "invalid --role (want admin, contributor, owner, or reader)")
 	}
 }
 

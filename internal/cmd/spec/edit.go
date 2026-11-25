@@ -482,13 +482,13 @@ replacement over the cap is rejected.`,
 			if changed("expected-revision") {
 				if node.Id != expectedID {
 					return exitcode.Newf(exitcode.Conflict,
-						"the citation now names node %s, not the previewed node %s — nothing was written (the citation given is not shown). Re-read the spec and get the proposal approved again before saving",
-						node.Id, expectedID)
+						"the citation now names node %s, not the node of --expected-node-id — nothing was written (the citation and id given are not shown). Re-read the spec and get the proposal approved again before saving",
+						node.Id)
 				}
 				if node.Revision != expectedRev {
 					return exitcode.Newf(exitcode.Conflict,
-						"%s changed since revision %d (it is at revision %d now) — nothing was written. Re-read it (`spec edit --dry-run` shows the stored text), reconcile your proposal with the change, and get it approved again before saving",
-						node.Loc, expectedRev, node.Revision)
+						"the spec (the citation given is not shown) changed since revision %d (it is at revision %d now) — nothing was written. Re-read it (`spec edit --dry-run` shows the stored text), reconcile your proposal with the change, and get it approved again before saving",
+						expectedRev, node.Revision)
 				}
 				base = expectedRev
 			}
@@ -584,7 +584,7 @@ replacement over the cap is rejected.`,
 			}
 			if changed("expected-proposal-hash") && proposalHash != expectedHash {
 				return exitcode.Newf(exitcode.Conflict,
-					"%s has a different proposed write than the approved dry run — nothing was written. Re-run `spec edit --dry-run` and get this proposal approved again", node.Loc)
+					"the spec (the citation given is not shown) has a different proposed write than the approved dry run — nothing was written. Re-run `spec edit --dry-run` and get this proposal approved again")
 			}
 			result := editResultDTO{
 				Citation:           node.Loc,
@@ -620,8 +620,8 @@ replacement over the cap is rejected.`,
 			// anyway, and `--abstract-file` re-fingerprints it in the same call.
 			if result.AbstractReaffirmed && abstractLength(&curAbstract) > abstractHardMax {
 				return exitcode.Newf(exitcode.Usage,
-					"%s has a %d-char abstract, past the %d-char cap — re-affirming REPLACES it and the server rejects a replacement over the cap (omitting it, which is what preserves it today, is what armed the marker). Shorten it with --abstract/--abstract-file, which re-fingerprints it in the same write",
-					node.Loc, abstractLength(&curAbstract), abstractHardMax)
+					"the spec (the citation given is not shown) has a %d-char abstract, past the %d-char cap — re-affirming REPLACES it and the server rejects a replacement over the cap (omitting it, which is what preserves it today, is what armed the marker). Shorten it with --abstract/--abstract-file, which re-fingerprints it in the same write",
+					abstractLength(&curAbstract), abstractHardMax)
 			}
 			if result.AbstractReaffirmed && strings.TrimSpace(curAbstract) == "" {
 				// REFUSE rather than send "". The server normalizes an empty
@@ -629,7 +629,7 @@ replacement over the cap is rejected.`,
 				// claims to be vouching for — a destructive read of a flag whose
 				// whole point is "leave it as it is".
 				return exitcode.Newf(exitcode.Usage,
-					"%s has no abstract, so there is nothing to re-affirm — --abstract-still-accurate would clear the field rather than re-fingerprint it; write one with --abstract/--abstract-file instead", node.Loc)
+					"the spec (the citation given is not shown) has no abstract, so there is nothing to re-affirm — --abstract-still-accurate would clear the field rather than re-fingerprint it; write one with --abstract/--abstract-file instead")
 			}
 			result.Changed = result.BodyChanged || result.AbstractChanged || result.DescriptionChanged || result.TitleChanged || result.AbstractReaffirmed
 
@@ -671,12 +671,11 @@ replacement over the cap is rejected.`,
 					if proposal.nameChanged() {
 						proposalText = "Proposed title: " + strings.TrimSpace(title) + "\n\n" + proposalText
 					}
-					return conflictRefusal(node.Loc, base, proposalText)
+					return conflictRefusal(base, proposalText)
 				}
 				if unsupportedGuard(err) {
 					return exitcode.Newf(exitcode.Usage,
-						"this server does not support guarded saves (UpdateNodeInput.expectedRevision, hadron-server#1352), so %s cannot be saved without risking a silent overwrite of a concurrent change — nothing was written; spec edit needs a server with #1352",
-						node.Loc)
+						"this server does not support guarded saves (UpdateNodeInput.expectedRevision, hadron-server#1352), so the spec (the citation given is not shown) cannot be saved without risking a silent overwrite of a concurrent change — nothing was written; spec edit needs a server with #1352")
 				}
 				return api.MapError(err)
 			}
@@ -684,15 +683,15 @@ replacement over the cap is rejected.`,
 			// can vouch for — the check api.UpdateSpecNode made, kept now that
 			// the edit reads the payload itself (@codex on #781).
 			if resp == nil || resp.UpdateSpecNode == nil {
-				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node for %s — the write can't be confirmed; check with `hadron spec get %s -m %s`", node.Loc, node.Loc, checkMemory)
+				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node (the citation given is not shown) — the write can't be confirmed; check with `hadron spec get <citation> -m <memory>`")
 			}
 			if proposal.nameChanged() {
 				// Report the name the server STORED, not the one asked for: a
 				// response that disagrees is not a write this command can vouch
 				// for (cli#810).
 				if resp.UpdateSpecNode.Name != newName {
-					return exitcode.Newf(exitcode.Error, "%s was written, but the server returned the name %q, not the requested %q — the retitle can't be confirmed; check with `hadron spec get %s -m %s`",
-						node.Loc, resp.UpdateSpecNode.Name, newName, node.Loc, checkMemory)
+					return exitcode.Newf(exitcode.Error, "the spec was written, but the server returned the name %q, not the requested one (the citation and title given are not shown) — the retitle can't be confirmed; check with `hadron spec get <citation> -m <memory>`",
+						resp.UpdateSpecNode.Name)
 				}
 				result.Name = resp.UpdateSpecNode.Name
 				result.ApprovalStatus = approvalAfterRetitle(cmd, client, node.Id, f.IOStreams.ErrOut)
@@ -718,8 +717,7 @@ replacement over the cap is rejected.`,
 			}
 			if outcome == reaffirmNotRefreshed {
 				return exitcode.Newf(exitcode.Error,
-					"%s was written, but the server left its abstract fingerprint stale — the re-affirmation did not persist (hadron-server#1408). Check with `hadron spec lint %s -m %s`",
-					node.Loc, node.Loc, checkMemory)
+					"the spec (the citation given is not shown) was written, but the server left its abstract fingerprint stale — the re-affirmation did not persist (hadron-server#1408). Check with `hadron spec lint <citation> -m <memory>`")
 			}
 			return nil
 		},
@@ -813,10 +811,10 @@ func fetchRawSpec(cmd *cobra.Command, client graphql.Client, memoryURN, loc stri
 		return nil, api.MapError(err)
 	}
 	if resp.Node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "spec %q not found", loc)
+		return nil, exitcode.Newf(exitcode.NotFound, "spec not found (the citation given is not shown)")
 	}
 	if !isSpec(resp.Node.Tags, resp.Node.Role) {
-		return nil, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag or spec role)", resp.Node.Loc)
+		return nil, exitcode.Newf(exitcode.Usage, "the node (the citation given is not shown) is not a spec (no \"spec\" tag or spec role)")
 	}
 	return resp.Node, nil
 }
@@ -845,10 +843,10 @@ func fetchSpecForEdit(cmd *cobra.Command, client graphql.Client, memoryURN, loc 
 		return nil, api.MapError(err)
 	}
 	if resp.Node == nil {
-		return nil, exitcode.Newf(exitcode.NotFound, "spec %q not found", loc)
+		return nil, exitcode.Newf(exitcode.NotFound, "spec not found (the citation given is not shown)")
 	}
 	if !isSpec(resp.Node.Tags, resp.Node.Role) {
-		return nil, exitcode.Newf(exitcode.Usage, "%s is not a spec (no \"spec\" tag or spec role)", resp.Node.Loc)
+		return nil, exitcode.Newf(exitcode.Usage, "the node (the citation given is not shown) is not a spec (no \"spec\" tag or spec role)")
 	}
 	return resp.Node, nil
 }
@@ -867,7 +865,7 @@ func withRawBody(cmd *cobra.Command, client graphql.Client, n *gen.GetNodeNode) 
 		return api.MapError(err)
 	}
 	if resp.Node == nil {
-		return exitcode.Newf(exitcode.NotFound, "spec %q not found", n.Loc)
+		return exitcode.Newf(exitcode.NotFound, "spec not found (the citation given is not shown)")
 	}
 	n.Content = resp.Node.Content
 	n.Abstract = resp.Node.Abstract
@@ -957,16 +955,16 @@ func revisionLine(rev int, id, hash string) string {
 // proposal to a file when possible, since it may exist only in an editor buffer
 // or piped stdin. A failed spill is reported plainly; the message must not
 // promise a copy that does not exist.
-func conflictRefusal(loc string, base int, proposal string) error {
+func conflictRefusal(base int, proposal string) error {
 	path, err := spillEditProposal(proposal)
 	if err != nil {
 		return exitcode.Newf(exitcode.Conflict,
-			"%s changed since revision %d — your proposed edit was not applied, but the server may have recorded out-of-band drift as a revision. The proposed text could not be saved to a file (%v). Do not assume it was kept; recover it from its original input, then re-read the spec, reconcile your proposal, and get it approved again before saving",
-			loc, base, err)
+			"the spec (the citation given is not shown) changed since revision %d — your proposed edit was not applied, but the server may have recorded out-of-band drift as a revision. The proposed text could not be saved to a file (%v). Do not assume it was kept; recover it from its original input, then re-read the spec, reconcile your proposal, and get it approved again before saving",
+			base, err)
 	}
 	return exitcode.Newf(exitcode.Conflict,
-		"%s changed since revision %d, which this edit was based on — your proposed edit was not applied, but the server may have recorded out-of-band drift as a revision. Your proposed text is kept (saved at %s). Re-read the spec, reconcile your proposal with the change, and get it approved again before saving",
-		loc, base, path)
+		"the spec (the citation given is not shown) changed since revision %d, which this edit was based on — your proposed edit was not applied, but the server may have recorded out-of-band drift as a revision. Your proposed text is kept (saved at %s). Re-read the spec, reconcile your proposal with the change, and get it approved again before saving",
+		base, path)
 }
 
 func spillEditProposal(proposal string) (string, error) {

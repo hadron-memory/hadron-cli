@@ -113,7 +113,7 @@ func checkTeamListFlags(cmd *cobra.Command, args []string, team, staleOver strin
 			return 0, err
 		}
 		if p.Worker == nil {
-			return 0, exitcode.Newf(exitcode.Usage, "--team names a worker (worker:<id, URN or name>), got %q", team)
+			return 0, exitcode.Newf(exitcode.Usage, "--team names a worker (worker:<id, URN or name>); the value given is not shown")
 		}
 	}
 	if !cmd.Flags().Changed("stale-over") {
@@ -121,7 +121,7 @@ func checkTeamListFlags(cmd *cobra.Command, args []string, team, staleOver strin
 	}
 	d, err := time.ParseDuration(staleOver)
 	if err != nil || d <= 0 {
-		return 0, exitcode.Newf(exitcode.Usage, "--stale-over takes a positive duration such as 30m or 1h, got %q", staleOver)
+		return 0, exitcode.Newf(exitcode.Usage, "--stale-over takes a positive duration such as 30m or 1h")
 	}
 	return d, nil
 }
@@ -255,7 +255,7 @@ func listTeamTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, b *b
 	}
 	coordinator, members, ok := resolveTeam(workers, coordinatorRef)
 	if !ok {
-		return exitcode.Newf(exitcode.NotFound, "worker %s is not on the roster of %s (the roster lists active workers; a retired worker leads no team here)", coordinatorRef, appLabel())
+		return exitcode.Newf(exitcode.NotFound, "the worker (the ref given is not shown) is not on the roster of the App (the roster lists active workers; a retired worker leads no team here)")
 	}
 	// Keep the ancestry read unfiltered. Ask the server for matching IDs in a
 	// separate paged read before scanning ancestry, so invalid text fails fast.

@@ -122,7 +122,7 @@ relintStatus (complete|incomplete) and relintError when incomplete.`,
 				return err
 			}
 			if maxSpecs < 0 {
-				return exitcode.Newf(exitcode.Usage, "--max-specs must be zero (no limit) or a positive integer, got %d", maxSpecs)
+				return exitcode.Newf(exitcode.Usage, "--max-specs must be zero (no limit) or a positive integer")
 			}
 			// Fail fast for agents: a real write without --yes is only allowed
 			// interactively (where we prompt). Mirrors the destructive-flow rule.
@@ -321,7 +321,7 @@ func parseReplaceFields(field string) ([]gen.NodeTextField, error) {
 	case "abstract":
 		return []gen.NodeTextField{gen.NodeTextFieldAbstract}, nil
 	default:
-		return nil, exitcode.Newf(exitcode.Usage, "unknown --field %q (valid: content, abstract, or omit for both)", field)
+		return nil, exitcode.Newf(exitcode.Usage, "unknown --field (valid: content, abstract, or omit for both)")
 	}
 }
 

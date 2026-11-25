@@ -60227,6 +60227,110 @@ var AllGrantHolderKind = []GrantHolderKind{
 	GrantHolderKindWorker,
 }
 
+// cli#1846: a person who manages an App reads, creates, revokes and withdraws
+// its grants (hadron-server#3711 / #3876, cor:acl:140:05). One selection for all
+// four, so the fields are pinned in one place. revokedByUserId and
+// holderDepartedAt come back only through the manager's read; every other read
+// answers null. state is the server's word, printed as sent and never derived.
+type GrantManagerFields struct {
+	Id    string `json:"id"`
+	AppId string `json:"appId"`
+	// The registered action this grant allows.
+	Action string `json:"action"`
+	// The values it allows (a single value, a list or a wildcard); never a secret.
+	Values     *json.RawMessage `json:"values"`
+	HolderKind GrantHolderKind  `json:"holderKind"`
+	HolderId   string           `json:"holderId"`
+	// The person who issued it: its signer (hrn:node:hadronmemory.com:specs:cor:acl:140:04). Null while it is pending. Null on an activated grant means the issuer's account was erased: it reads as issued by a deleted user, and stays as it was (hrn:node:hadronmemory.com:specs:cor:acl:140:08).
+	IssuerUserId         *string `json:"issuerUserId"`
+	RequestedByUserId    *string `json:"requestedByUserId"`
+	RequestedByWorkerId  *string `json:"requestedByWorkerId"`
+	RequestedBySessionId *string `json:"requestedBySessionId"`
+	StartsAt             *string `json:"startsAt"`
+	ExpiresAt            *string `json:"expiresAt"`
+	MaxUses              *int    `json:"maxUses"`
+	UseCount             int     `json:"useCount"`
+	Reason               string  `json:"reason"`
+	CreatedAt            string  `json:"createdAt"`
+	// Null while the grant is pending (a pending grant allows nothing).
+	ActivatedAt *string `json:"activatedAt"`
+	RevokedAt   *string `json:"revokedAt"`
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, V56): who revoked or withdrew it, as a user id. Only the App's manager reads it (appGrants); every other read of the grant answers null. A worker requester's withdrawal records the person driving it. #4767: an agent's own withdrawal through a run records no person — null with the row withdrawn, the WITHDRAW event naming the run. Null once that account is erased.
+	RevokedByUserId *string `json:"revokedByUserId"`
+	// #3711 (V56): when the holder went (a person erased, a worker retired, an agent or App deleted); a fact, not a state. Only the App's manager reads it (appGrants); every other read answers null.
+	HolderDepartedAt *string `json:"holderDepartedAt"`
+	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
+	Allows bool `json:"allows"`
+	// #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
+	State GrantState `json:"state"`
+}
+
+// GetId returns GrantManagerFields.Id, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetId() string { return v.Id }
+
+// GetAppId returns GrantManagerFields.AppId, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetAppId() string { return v.AppId }
+
+// GetAction returns GrantManagerFields.Action, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetAction() string { return v.Action }
+
+// GetValues returns GrantManagerFields.Values, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetValues() *json.RawMessage { return v.Values }
+
+// GetHolderKind returns GrantManagerFields.HolderKind, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetHolderKind() GrantHolderKind { return v.HolderKind }
+
+// GetHolderId returns GrantManagerFields.HolderId, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetHolderId() string { return v.HolderId }
+
+// GetIssuerUserId returns GrantManagerFields.IssuerUserId, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetIssuerUserId() *string { return v.IssuerUserId }
+
+// GetRequestedByUserId returns GrantManagerFields.RequestedByUserId, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetRequestedByUserId() *string { return v.RequestedByUserId }
+
+// GetRequestedByWorkerId returns GrantManagerFields.RequestedByWorkerId, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetRequestedByWorkerId() *string { return v.RequestedByWorkerId }
+
+// GetRequestedBySessionId returns GrantManagerFields.RequestedBySessionId, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetRequestedBySessionId() *string { return v.RequestedBySessionId }
+
+// GetStartsAt returns GrantManagerFields.StartsAt, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetStartsAt() *string { return v.StartsAt }
+
+// GetExpiresAt returns GrantManagerFields.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetExpiresAt() *string { return v.ExpiresAt }
+
+// GetMaxUses returns GrantManagerFields.MaxUses, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetMaxUses() *int { return v.MaxUses }
+
+// GetUseCount returns GrantManagerFields.UseCount, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetUseCount() int { return v.UseCount }
+
+// GetReason returns GrantManagerFields.Reason, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetReason() string { return v.Reason }
+
+// GetCreatedAt returns GrantManagerFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetActivatedAt returns GrantManagerFields.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetActivatedAt() *string { return v.ActivatedAt }
+
+// GetRevokedAt returns GrantManagerFields.RevokedAt, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetRevokedAt() *string { return v.RevokedAt }
+
+// GetRevokedByUserId returns GrantManagerFields.RevokedByUserId, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetRevokedByUserId() *string { return v.RevokedByUserId }
+
+// GetHolderDepartedAt returns GrantManagerFields.HolderDepartedAt, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetHolderDepartedAt() *string { return v.HolderDepartedAt }
+
+// GetAllows returns GrantManagerFields.Allows, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetAllows() bool { return v.Allows }
+
+// GetState returns GrantManagerFields.State, and is useful for accessing the field via an interface.
+func (v *GrantManagerFields) GetState() GrantState { return v.State }
+
 // #3649 slice D (hrn:node:hadronmemory.com:specs:cor:acl:140:07; hrn:node:hadronmemory.com:specs:cor:dmo:130:04 mirrored) — a grant signature's state, derived on every read and never stored. A record that does not verify is never a signature: it is counted in GrantSignatureStatus.integrityProblems instead. This is the signature's state, not the grant's: whether the grant allows anything is Grant.allows.
 type GrantSignatureState string
 
@@ -84646,6 +84750,128 @@ func (v *QuotaCountersResponse) GetQuotaCounters() []*QuotaCountersQuotaCounters
 	return v.QuotaCounters
 }
 
+// QuotaCountersScopedQuotaCountersQuotaCounter includes the requested fields of the GraphQL type QuotaCounter.
+// The GraphQL type's documentation follows.
+//
+// Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
+type QuotaCountersScopedQuotaCountersQuotaCounter struct {
+	QuotaCounterFields `json:"-"`
+}
+
+// GetId returns QuotaCountersScopedQuotaCountersQuotaCounter.Id, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetId() string { return v.QuotaCounterFields.Id }
+
+// GetScopeKind returns QuotaCountersScopedQuotaCountersQuotaCounter.ScopeKind, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetScopeKind() string {
+	return v.QuotaCounterFields.ScopeKind
+}
+
+// GetScopeId returns QuotaCountersScopedQuotaCountersQuotaCounter.ScopeId, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetScopeId() string {
+	return v.QuotaCounterFields.ScopeId
+}
+
+// GetAction returns QuotaCountersScopedQuotaCountersQuotaCounter.Action, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetAction() string {
+	return v.QuotaCounterFields.Action
+}
+
+// GetWindow returns QuotaCountersScopedQuotaCountersQuotaCounter.Window, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetWindow() string {
+	return v.QuotaCounterFields.Window
+}
+
+// GetUsed returns QuotaCountersScopedQuotaCountersQuotaCounter.Used, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetUsed() int {
+	return v.QuotaCounterFields.Used
+}
+
+// GetLimit returns QuotaCountersScopedQuotaCountersQuotaCounter.Limit, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetLimit() int {
+	return v.QuotaCounterFields.Limit
+}
+
+// GetResetAt returns QuotaCountersScopedQuotaCountersQuotaCounter.ResetAt, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) GetResetAt() string {
+	return v.QuotaCounterFields.ResetAt
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*QuotaCountersScopedQuotaCountersQuotaCounter
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.QuotaCountersScopedQuotaCountersQuotaCounter = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.QuotaCounterFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalQuotaCountersScopedQuotaCountersQuotaCounter struct {
+	Id string `json:"id"`
+
+	ScopeKind string `json:"scopeKind"`
+
+	ScopeId string `json:"scopeId"`
+
+	Action string `json:"action"`
+
+	Window string `json:"window"`
+
+	Used int `json:"used"`
+
+	Limit int `json:"limit"`
+
+	ResetAt string `json:"resetAt"`
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *QuotaCountersScopedQuotaCountersQuotaCounter) __premarshalJSON() (*__premarshalQuotaCountersScopedQuotaCountersQuotaCounter, error) {
+	var retval __premarshalQuotaCountersScopedQuotaCountersQuotaCounter
+
+	retval.Id = v.QuotaCounterFields.Id
+	retval.ScopeKind = v.QuotaCounterFields.ScopeKind
+	retval.ScopeId = v.QuotaCounterFields.ScopeId
+	retval.Action = v.QuotaCounterFields.Action
+	retval.Window = v.QuotaCounterFields.Window
+	retval.Used = v.QuotaCounterFields.Used
+	retval.Limit = v.QuotaCounterFields.Limit
+	retval.ResetAt = v.QuotaCounterFields.ResetAt
+	return &retval, nil
+}
+
+// QuotaCountersScopedResponse is returned by QuotaCountersScoped on success.
+type QuotaCountersScopedResponse struct {
+	// Usage-vs-limit counters (#510, #5074, hrn:node:hadronmemory.com:specs:cor:acl:050:04). orgRef: the org's (+ one app with appRef), org-ADMIN. appRef alone: the App's and its organization's, or for a person's App the App's and, for its owner or a platform admin, the owner's user counters; every denial is NOT_FOUND. userRef alone: that person's, the person or a platform admin (FORBIDDEN otherwise). No ref, or userRef with another ref: BAD_USER_INPUT. Rows materialize on first view, seeded with platform defaults.
+	QuotaCounters []*QuotaCountersScopedQuotaCountersQuotaCounter `json:"quotaCounters"`
+}
+
+// GetQuotaCounters returns QuotaCountersScopedResponse.QuotaCounters, and is useful for accessing the field via an interface.
+func (v *QuotaCountersScopedResponse) GetQuotaCounters() []*QuotaCountersScopedQuotaCountersQuotaCounter {
+	return v.QuotaCounters
+}
+
 // ReAdoptAutomationResponse is returned by ReAdoptAutomation on success.
 type ReAdoptAutomationResponse struct {
 	// #1719: rebind a trigger to its reviewed graph. expectedHash must match previewAutomation; edits since preview refuse adoption.
@@ -104815,6 +105041,253 @@ func (v *TeamAppGrantRmRevokeAppGrant) __premarshalJSON() (*__premarshalTeamAppG
 	return &retval, nil
 }
 
+// TeamAppGrantsAppGrantsGrantsPage includes the requested fields of the GraphQL type GrantsPage.
+type TeamAppGrantsAppGrantsGrantsPage struct {
+	Total int                                           `json:"total"`
+	Items []*TeamAppGrantsAppGrantsGrantsPageItemsGrant `json:"items"`
+}
+
+// GetTotal returns TeamAppGrantsAppGrantsGrantsPage.Total, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPage) GetTotal() int { return v.Total }
+
+// GetItems returns TeamAppGrantsAppGrantsGrantsPage.Items, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPage) GetItems() []*TeamAppGrantsAppGrantsGrantsPageItemsGrant {
+	return v.Items
+}
+
+// TeamAppGrantsAppGrantsGrantsPageItemsGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
+type TeamAppGrantsAppGrantsGrantsPageItemsGrant struct {
+	GrantManagerFields `json:"-"`
+}
+
+// GetId returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetId() string { return v.GrantManagerFields.Id }
+
+// GetAppId returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.AppId, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetAppId() string {
+	return v.GrantManagerFields.AppId
+}
+
+// GetAction returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.Action, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetAction() string {
+	return v.GrantManagerFields.Action
+}
+
+// GetValues returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.Values, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetValues() *json.RawMessage {
+	return v.GrantManagerFields.Values
+}
+
+// GetHolderKind returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.HolderKind, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetHolderKind() GrantHolderKind {
+	return v.GrantManagerFields.HolderKind
+}
+
+// GetHolderId returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.HolderId, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetHolderId() string {
+	return v.GrantManagerFields.HolderId
+}
+
+// GetIssuerUserId returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.IssuerUserId, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetIssuerUserId() *string {
+	return v.GrantManagerFields.IssuerUserId
+}
+
+// GetRequestedByUserId returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.RequestedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetRequestedByUserId() *string {
+	return v.GrantManagerFields.RequestedByUserId
+}
+
+// GetRequestedByWorkerId returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.RequestedByWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetRequestedByWorkerId() *string {
+	return v.GrantManagerFields.RequestedByWorkerId
+}
+
+// GetRequestedBySessionId returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.RequestedBySessionId, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetRequestedBySessionId() *string {
+	return v.GrantManagerFields.RequestedBySessionId
+}
+
+// GetStartsAt returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.StartsAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetStartsAt() *string {
+	return v.GrantManagerFields.StartsAt
+}
+
+// GetExpiresAt returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetExpiresAt() *string {
+	return v.GrantManagerFields.ExpiresAt
+}
+
+// GetMaxUses returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.MaxUses, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetMaxUses() *int {
+	return v.GrantManagerFields.MaxUses
+}
+
+// GetUseCount returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.UseCount, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetUseCount() int {
+	return v.GrantManagerFields.UseCount
+}
+
+// GetReason returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.Reason, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetReason() string {
+	return v.GrantManagerFields.Reason
+}
+
+// GetCreatedAt returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetCreatedAt() string {
+	return v.GrantManagerFields.CreatedAt
+}
+
+// GetActivatedAt returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetActivatedAt() *string {
+	return v.GrantManagerFields.ActivatedAt
+}
+
+// GetRevokedAt returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetRevokedAt() *string {
+	return v.GrantManagerFields.RevokedAt
+}
+
+// GetRevokedByUserId returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.RevokedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetRevokedByUserId() *string {
+	return v.GrantManagerFields.RevokedByUserId
+}
+
+// GetHolderDepartedAt returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.HolderDepartedAt, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetHolderDepartedAt() *string {
+	return v.GrantManagerFields.HolderDepartedAt
+}
+
+// GetAllows returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.Allows, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetAllows() bool {
+	return v.GrantManagerFields.Allows
+}
+
+// GetState returns TeamAppGrantsAppGrantsGrantsPageItemsGrant.State, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) GetState() GrantState {
+	return v.GrantManagerFields.State
+}
+
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamAppGrantsAppGrantsGrantsPageItemsGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamAppGrantsAppGrantsGrantsPageItemsGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GrantManagerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamAppGrantsAppGrantsGrantsPageItemsGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Action string `json:"action"`
+
+	Values *json.RawMessage `json:"values"`
+
+	HolderKind GrantHolderKind `json:"holderKind"`
+
+	HolderId string `json:"holderId"`
+
+	IssuerUserId *string `json:"issuerUserId"`
+
+	RequestedByUserId *string `json:"requestedByUserId"`
+
+	RequestedByWorkerId *string `json:"requestedByWorkerId"`
+
+	RequestedBySessionId *string `json:"requestedBySessionId"`
+
+	StartsAt *string `json:"startsAt"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	MaxUses *int `json:"maxUses"`
+
+	UseCount int `json:"useCount"`
+
+	Reason string `json:"reason"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ActivatedAt *string `json:"activatedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedByUserId *string `json:"revokedByUserId"`
+
+	HolderDepartedAt *string `json:"holderDepartedAt"`
+
+	Allows bool `json:"allows"`
+
+	State GrantState `json:"state"`
+}
+
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamAppGrantsAppGrantsGrantsPageItemsGrant) __premarshalJSON() (*__premarshalTeamAppGrantsAppGrantsGrantsPageItemsGrant, error) {
+	var retval __premarshalTeamAppGrantsAppGrantsGrantsPageItemsGrant
+
+	retval.Id = v.GrantManagerFields.Id
+	retval.AppId = v.GrantManagerFields.AppId
+	retval.Action = v.GrantManagerFields.Action
+	retval.Values = v.GrantManagerFields.Values
+	retval.HolderKind = v.GrantManagerFields.HolderKind
+	retval.HolderId = v.GrantManagerFields.HolderId
+	retval.IssuerUserId = v.GrantManagerFields.IssuerUserId
+	retval.RequestedByUserId = v.GrantManagerFields.RequestedByUserId
+	retval.RequestedByWorkerId = v.GrantManagerFields.RequestedByWorkerId
+	retval.RequestedBySessionId = v.GrantManagerFields.RequestedBySessionId
+	retval.StartsAt = v.GrantManagerFields.StartsAt
+	retval.ExpiresAt = v.GrantManagerFields.ExpiresAt
+	retval.MaxUses = v.GrantManagerFields.MaxUses
+	retval.UseCount = v.GrantManagerFields.UseCount
+	retval.Reason = v.GrantManagerFields.Reason
+	retval.CreatedAt = v.GrantManagerFields.CreatedAt
+	retval.ActivatedAt = v.GrantManagerFields.ActivatedAt
+	retval.RevokedAt = v.GrantManagerFields.RevokedAt
+	retval.RevokedByUserId = v.GrantManagerFields.RevokedByUserId
+	retval.HolderDepartedAt = v.GrantManagerFields.HolderDepartedAt
+	retval.Allows = v.GrantManagerFields.Allows
+	retval.State = v.GrantManagerFields.State
+	return &retval, nil
+}
+
+// TeamAppGrantsResponse is returned by TeamAppGrants on success.
+type TeamAppGrantsResponse struct {
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, ruling 0253 item 4): every grant of one App, in every state (pending, active, expired, spent, revoked, holder departed), newest first, for whoever manages the App as a person. It shows the whole record, including who revoked a grant, when its holder went and each signature's signer and passkey label, never a credential id or public key. Anyone else (a member who does not manage, an outsider, a worker session, an App key, a run, an impersonated session) and an unknown App get an empty page, never an error. limit 0 returns the count only.
+	AppGrants *TeamAppGrantsAppGrantsGrantsPage `json:"appGrants"`
+}
+
+// GetAppGrants returns TeamAppGrantsResponse.AppGrants, and is useful for accessing the field via an interface.
+func (v *TeamAppGrantsResponse) GetAppGrants() *TeamAppGrantsAppGrantsGrantsPage { return v.AppGrants }
+
 // TeamAppIdentityApp includes the requested fields of the GraphQL type App.
 // The GraphQL type's documentation follows.
 //
@@ -108048,67 +108521,197 @@ func (v *TeamCompositionTeamCompositionLanesTeamCompositionLaneWorkersTeamCompos
 // A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
 // through it. Its stored facts as stored, and allows and state, which are computed (#4173).
 type TeamCreateGrantCreateGrant struct {
-	Id string `json:"id"`
-	// The registered action this grant allows.
-	Action string `json:"action"`
-	// The values it allows (a single value, a list or a wildcard); never a secret.
-	Values     *json.RawMessage `json:"values"`
-	HolderKind GrantHolderKind  `json:"holderKind"`
-	HolderId   string           `json:"holderId"`
-	StartsAt   *string          `json:"startsAt"`
-	ExpiresAt  *string          `json:"expiresAt"`
-	MaxUses    *int             `json:"maxUses"`
-	UseCount   int              `json:"useCount"`
-	Reason     string           `json:"reason"`
-	CreatedAt  string           `json:"createdAt"`
-	// Null while the grant is pending (a pending grant allows nothing).
-	ActivatedAt *string `json:"activatedAt"`
-	RevokedAt   *string `json:"revokedAt"`
-	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
-	Allows bool `json:"allows"`
+	GrantManagerFields `json:"-"`
 }
 
 // GetId returns TeamCreateGrantCreateGrant.Id, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetId() string { return v.Id }
+func (v *TeamCreateGrantCreateGrant) GetId() string { return v.GrantManagerFields.Id }
+
+// GetAppId returns TeamCreateGrantCreateGrant.AppId, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetAppId() string { return v.GrantManagerFields.AppId }
 
 // GetAction returns TeamCreateGrantCreateGrant.Action, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetAction() string { return v.Action }
+func (v *TeamCreateGrantCreateGrant) GetAction() string { return v.GrantManagerFields.Action }
 
 // GetValues returns TeamCreateGrantCreateGrant.Values, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetValues() *json.RawMessage { return v.Values }
+func (v *TeamCreateGrantCreateGrant) GetValues() *json.RawMessage { return v.GrantManagerFields.Values }
 
 // GetHolderKind returns TeamCreateGrantCreateGrant.HolderKind, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetHolderKind() GrantHolderKind { return v.HolderKind }
+func (v *TeamCreateGrantCreateGrant) GetHolderKind() GrantHolderKind {
+	return v.GrantManagerFields.HolderKind
+}
 
 // GetHolderId returns TeamCreateGrantCreateGrant.HolderId, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetHolderId() string { return v.HolderId }
+func (v *TeamCreateGrantCreateGrant) GetHolderId() string { return v.GrantManagerFields.HolderId }
+
+// GetIssuerUserId returns TeamCreateGrantCreateGrant.IssuerUserId, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetIssuerUserId() *string {
+	return v.GrantManagerFields.IssuerUserId
+}
+
+// GetRequestedByUserId returns TeamCreateGrantCreateGrant.RequestedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetRequestedByUserId() *string {
+	return v.GrantManagerFields.RequestedByUserId
+}
+
+// GetRequestedByWorkerId returns TeamCreateGrantCreateGrant.RequestedByWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetRequestedByWorkerId() *string {
+	return v.GrantManagerFields.RequestedByWorkerId
+}
+
+// GetRequestedBySessionId returns TeamCreateGrantCreateGrant.RequestedBySessionId, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetRequestedBySessionId() *string {
+	return v.GrantManagerFields.RequestedBySessionId
+}
 
 // GetStartsAt returns TeamCreateGrantCreateGrant.StartsAt, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetStartsAt() *string { return v.StartsAt }
+func (v *TeamCreateGrantCreateGrant) GetStartsAt() *string { return v.GrantManagerFields.StartsAt }
 
 // GetExpiresAt returns TeamCreateGrantCreateGrant.ExpiresAt, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetExpiresAt() *string { return v.ExpiresAt }
+func (v *TeamCreateGrantCreateGrant) GetExpiresAt() *string { return v.GrantManagerFields.ExpiresAt }
 
 // GetMaxUses returns TeamCreateGrantCreateGrant.MaxUses, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetMaxUses() *int { return v.MaxUses }
+func (v *TeamCreateGrantCreateGrant) GetMaxUses() *int { return v.GrantManagerFields.MaxUses }
 
 // GetUseCount returns TeamCreateGrantCreateGrant.UseCount, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetUseCount() int { return v.UseCount }
+func (v *TeamCreateGrantCreateGrant) GetUseCount() int { return v.GrantManagerFields.UseCount }
 
 // GetReason returns TeamCreateGrantCreateGrant.Reason, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetReason() string { return v.Reason }
+func (v *TeamCreateGrantCreateGrant) GetReason() string { return v.GrantManagerFields.Reason }
 
 // GetCreatedAt returns TeamCreateGrantCreateGrant.CreatedAt, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetCreatedAt() string { return v.CreatedAt }
+func (v *TeamCreateGrantCreateGrant) GetCreatedAt() string { return v.GrantManagerFields.CreatedAt }
 
 // GetActivatedAt returns TeamCreateGrantCreateGrant.ActivatedAt, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetActivatedAt() *string { return v.ActivatedAt }
+func (v *TeamCreateGrantCreateGrant) GetActivatedAt() *string {
+	return v.GrantManagerFields.ActivatedAt
+}
 
 // GetRevokedAt returns TeamCreateGrantCreateGrant.RevokedAt, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetRevokedAt() *string { return v.RevokedAt }
+func (v *TeamCreateGrantCreateGrant) GetRevokedAt() *string { return v.GrantManagerFields.RevokedAt }
+
+// GetRevokedByUserId returns TeamCreateGrantCreateGrant.RevokedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetRevokedByUserId() *string {
+	return v.GrantManagerFields.RevokedByUserId
+}
+
+// GetHolderDepartedAt returns TeamCreateGrantCreateGrant.HolderDepartedAt, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetHolderDepartedAt() *string {
+	return v.GrantManagerFields.HolderDepartedAt
+}
 
 // GetAllows returns TeamCreateGrantCreateGrant.Allows, and is useful for accessing the field via an interface.
-func (v *TeamCreateGrantCreateGrant) GetAllows() bool { return v.Allows }
+func (v *TeamCreateGrantCreateGrant) GetAllows() bool { return v.GrantManagerFields.Allows }
+
+// GetState returns TeamCreateGrantCreateGrant.State, and is useful for accessing the field via an interface.
+func (v *TeamCreateGrantCreateGrant) GetState() GrantState { return v.GrantManagerFields.State }
+
+func (v *TeamCreateGrantCreateGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamCreateGrantCreateGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamCreateGrantCreateGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GrantManagerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamCreateGrantCreateGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Action string `json:"action"`
+
+	Values *json.RawMessage `json:"values"`
+
+	HolderKind GrantHolderKind `json:"holderKind"`
+
+	HolderId string `json:"holderId"`
+
+	IssuerUserId *string `json:"issuerUserId"`
+
+	RequestedByUserId *string `json:"requestedByUserId"`
+
+	RequestedByWorkerId *string `json:"requestedByWorkerId"`
+
+	RequestedBySessionId *string `json:"requestedBySessionId"`
+
+	StartsAt *string `json:"startsAt"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	MaxUses *int `json:"maxUses"`
+
+	UseCount int `json:"useCount"`
+
+	Reason string `json:"reason"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ActivatedAt *string `json:"activatedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedByUserId *string `json:"revokedByUserId"`
+
+	HolderDepartedAt *string `json:"holderDepartedAt"`
+
+	Allows bool `json:"allows"`
+
+	State GrantState `json:"state"`
+}
+
+func (v *TeamCreateGrantCreateGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamCreateGrantCreateGrant) __premarshalJSON() (*__premarshalTeamCreateGrantCreateGrant, error) {
+	var retval __premarshalTeamCreateGrantCreateGrant
+
+	retval.Id = v.GrantManagerFields.Id
+	retval.AppId = v.GrantManagerFields.AppId
+	retval.Action = v.GrantManagerFields.Action
+	retval.Values = v.GrantManagerFields.Values
+	retval.HolderKind = v.GrantManagerFields.HolderKind
+	retval.HolderId = v.GrantManagerFields.HolderId
+	retval.IssuerUserId = v.GrantManagerFields.IssuerUserId
+	retval.RequestedByUserId = v.GrantManagerFields.RequestedByUserId
+	retval.RequestedByWorkerId = v.GrantManagerFields.RequestedByWorkerId
+	retval.RequestedBySessionId = v.GrantManagerFields.RequestedBySessionId
+	retval.StartsAt = v.GrantManagerFields.StartsAt
+	retval.ExpiresAt = v.GrantManagerFields.ExpiresAt
+	retval.MaxUses = v.GrantManagerFields.MaxUses
+	retval.UseCount = v.GrantManagerFields.UseCount
+	retval.Reason = v.GrantManagerFields.Reason
+	retval.CreatedAt = v.GrantManagerFields.CreatedAt
+	retval.ActivatedAt = v.GrantManagerFields.ActivatedAt
+	retval.RevokedAt = v.GrantManagerFields.RevokedAt
+	retval.RevokedByUserId = v.GrantManagerFields.RevokedByUserId
+	retval.HolderDepartedAt = v.GrantManagerFields.HolderDepartedAt
+	retval.Allows = v.GrantManagerFields.Allows
+	retval.State = v.GrantManagerFields.State
+	return &retval, nil
+}
 
 // TeamCreateGrantResponse is returned by TeamCreateGrant on success.
 type TeamCreateGrantResponse struct {
@@ -108948,6 +109551,8 @@ type TeamGrantGrant struct {
 	RevokedAt   *string `json:"revokedAt"`
 	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
 	Allows bool `json:"allows"`
+	// #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
+	State GrantState `json:"state"`
 }
 
 // GetId returns TeamGrantGrant.Id, and is useful for accessing the field via an interface.
@@ -108991,6 +109596,9 @@ func (v *TeamGrantGrant) GetRevokedAt() *string { return v.RevokedAt }
 
 // GetAllows returns TeamGrantGrant.Allows, and is useful for accessing the field via an interface.
 func (v *TeamGrantGrant) GetAllows() bool { return v.Allows }
+
+// GetState returns TeamGrantGrant.State, and is useful for accessing the field via an interface.
+func (v *TeamGrantGrant) GetState() GrantState { return v.State }
 
 // TeamGrantResponse is returned by TeamGrant on success.
 type TeamGrantResponse struct {
@@ -109296,6 +109904,8 @@ type TeamGrantsGrantsGrantsPageItemsGrant struct {
 	RevokedAt   *string `json:"revokedAt"`
 	// Whether the grant allows its action right now, judged on the database clock by the one live function (activated, not revoked, holder not gone, App not deleted, started, not expired, not spent). A fact about this instant, never a lifecycle name.
 	Allows bool `json:"allows"`
+	// #4173: the lifecycle state (hrn:node:hadronmemory.com:specs:cor:acl:140:03), the same on every surface that returns the grant.
+	State GrantState `json:"state"`
 }
 
 // GetId returns TeamGrantsGrantsGrantsPageItemsGrant.Id, and is useful for accessing the field via an interface.
@@ -109339,6 +109949,9 @@ func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetRevokedAt() *string { return v
 
 // GetAllows returns TeamGrantsGrantsGrantsPageItemsGrant.Allows, and is useful for accessing the field via an interface.
 func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetAllows() bool { return v.Allows }
+
+// GetState returns TeamGrantsGrantsGrantsPageItemsGrant.State, and is useful for accessing the field via an interface.
+func (v *TeamGrantsGrantsGrantsPageItemsGrant) GetState() GrantState { return v.State }
 
 // TeamGrantsResponse is returned by TeamGrants on success.
 type TeamGrantsResponse struct {
@@ -110604,9 +111217,11 @@ func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memo
 // per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
 // id with no readable name has a null name.
 type TeamMetricsCountFields struct {
-	Total     int      `json:"total"`
-	Ids       []string `json:"ids"`
-	Truncated bool     `json:"truncated"`
+	Total int      `json:"total"`
+	Ids   []string `json:"ids"`
+	// One entry per id of ids, same order: the id and its name, null when no name is readable.
+	Named     []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+	Truncated bool                                             `json:"truncated"`
 }
 
 // GetTotal returns TeamMetricsCountFields.Total, and is useful for accessing the field via an interface.
@@ -110615,8 +111230,28 @@ func (v *TeamMetricsCountFields) GetTotal() int { return v.Total }
 // GetIds returns TeamMetricsCountFields.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsCountFields) GetIds() []string { return v.Ids }
 
+// GetNamed returns TeamMetricsCountFields.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.Named
+}
+
 // GetTruncated returns TeamMetricsCountFields.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsCountFields) GetTruncated() bool { return v.Truncated }
+
+// TeamMetricsCountFieldsNamedTeamMetricsNamedId includes the requested fields of the GraphQL type TeamMetricsNamedId.
+// The GraphQL type's documentation follows.
+//
+// #4992: an id of a metrics count with its name (a task's title or a worker's name); the name follows the same gate as the id.
+type TeamMetricsCountFieldsNamedTeamMetricsNamedId struct {
+	Id   string  `json:"id"`
+	Name *string `json:"name"`
+}
+
+// GetId returns TeamMetricsCountFieldsNamedTeamMetricsNamedId.Id, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFieldsNamedTeamMetricsNamedId) GetId() string { return v.Id }
+
+// GetName returns TeamMetricsCountFieldsNamedTeamMetricsNamedId.Name, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFieldsNamedTeamMetricsNamedId) GetName() *string { return v.Name }
 
 // TeamMetricsProjectFields includes the GraphQL fields of TeamMetricsProject requested by the fragment TeamMetricsProjectFields.
 // The GraphQL type's documentation follows.
@@ -110732,6 +111367,11 @@ func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetIds() []string 
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -110767,6 +111407,8 @@ type __premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -110783,6 +111425,7 @@ func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) __premarshalJSON()
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -110808,6 +111451,11 @@ func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -110845,6 +111493,8 @@ type __premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -110861,6 +111511,7 @@ func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -110943,6 +111594,11 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMet
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -110978,6 +111634,8 @@ type __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildre
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -110994,6 +111652,7 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMet
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111127,6 +111786,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetIds() []strin
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111162,6 +111826,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111178,6 +111844,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) __premarshalJSON
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111338,6 +112005,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProject
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111373,6 +112045,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupB
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111389,6 +112063,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProject
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111451,6 +112126,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeam
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111486,6 +112166,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupT
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111502,6 +112184,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeam
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111579,6 +112262,11 @@ func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetIds() []string 
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111614,6 +112302,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111630,6 +112320,7 @@ func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) __premarshalJSON()
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111655,6 +112346,11 @@ func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111692,6 +112388,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111708,6 +112406,7 @@ func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111733,6 +112432,11 @@ func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111770,6 +112474,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111786,6 +112492,7 @@ func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111811,6 +112518,11 @@ func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111848,6 +112560,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111864,6 +112578,7 @@ func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) __premarshalJSON(
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -112554,6 +113269,438 @@ func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetDefe
 // GetDefectsMissedPerApprovingReview returns TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow.DefectsMissedPerApprovingReview, and is useful for accessing the field via an interface.
 func (v *TeamReviewQualityReportReviewQualityReportRowsReviewQualityRow) GetDefectsMissedPerApprovingReview() *float64 {
 	return v.DefectsMissedPerApprovingReview
+}
+
+// TeamRevokeGrantInstructedResponse is returned by TeamRevokeGrantInstructed on success.
+type TeamRevokeGrantInstructedResponse struct {
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, :03) — revoke a grant now, unsigned, in any state but ended. By the issuer (while still a member of the App's Org), by whoever manages the App, or by a held worker on a validated instruction from a holder who may. Returns the grant as appGrants reads it. The first end stands: a grant already revoked, withdrawn or whose holder departed is returned as it is, with no second stamp and no second REVOKE event. Judged on the locked current row. Refusals: GRANT_NOT_MANAGER (not allowed, and a grant that does not exist or cannot be seen: the same answer).
+	RevokeGrant *TeamRevokeGrantInstructedRevokeGrant `json:"revokeGrant"`
+}
+
+// GetRevokeGrant returns TeamRevokeGrantInstructedResponse.RevokeGrant, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedResponse) GetRevokeGrant() *TeamRevokeGrantInstructedRevokeGrant {
+	return v.RevokeGrant
+}
+
+// TeamRevokeGrantInstructedRevokeGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
+type TeamRevokeGrantInstructedRevokeGrant struct {
+	GrantManagerFields `json:"-"`
+}
+
+// GetId returns TeamRevokeGrantInstructedRevokeGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetId() string { return v.GrantManagerFields.Id }
+
+// GetAppId returns TeamRevokeGrantInstructedRevokeGrant.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetAppId() string { return v.GrantManagerFields.AppId }
+
+// GetAction returns TeamRevokeGrantInstructedRevokeGrant.Action, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetAction() string { return v.GrantManagerFields.Action }
+
+// GetValues returns TeamRevokeGrantInstructedRevokeGrant.Values, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetValues() *json.RawMessage {
+	return v.GrantManagerFields.Values
+}
+
+// GetHolderKind returns TeamRevokeGrantInstructedRevokeGrant.HolderKind, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetHolderKind() GrantHolderKind {
+	return v.GrantManagerFields.HolderKind
+}
+
+// GetHolderId returns TeamRevokeGrantInstructedRevokeGrant.HolderId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetHolderId() string {
+	return v.GrantManagerFields.HolderId
+}
+
+// GetIssuerUserId returns TeamRevokeGrantInstructedRevokeGrant.IssuerUserId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetIssuerUserId() *string {
+	return v.GrantManagerFields.IssuerUserId
+}
+
+// GetRequestedByUserId returns TeamRevokeGrantInstructedRevokeGrant.RequestedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetRequestedByUserId() *string {
+	return v.GrantManagerFields.RequestedByUserId
+}
+
+// GetRequestedByWorkerId returns TeamRevokeGrantInstructedRevokeGrant.RequestedByWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetRequestedByWorkerId() *string {
+	return v.GrantManagerFields.RequestedByWorkerId
+}
+
+// GetRequestedBySessionId returns TeamRevokeGrantInstructedRevokeGrant.RequestedBySessionId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetRequestedBySessionId() *string {
+	return v.GrantManagerFields.RequestedBySessionId
+}
+
+// GetStartsAt returns TeamRevokeGrantInstructedRevokeGrant.StartsAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetStartsAt() *string {
+	return v.GrantManagerFields.StartsAt
+}
+
+// GetExpiresAt returns TeamRevokeGrantInstructedRevokeGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetExpiresAt() *string {
+	return v.GrantManagerFields.ExpiresAt
+}
+
+// GetMaxUses returns TeamRevokeGrantInstructedRevokeGrant.MaxUses, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetMaxUses() *int { return v.GrantManagerFields.MaxUses }
+
+// GetUseCount returns TeamRevokeGrantInstructedRevokeGrant.UseCount, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetUseCount() int {
+	return v.GrantManagerFields.UseCount
+}
+
+// GetReason returns TeamRevokeGrantInstructedRevokeGrant.Reason, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetReason() string { return v.GrantManagerFields.Reason }
+
+// GetCreatedAt returns TeamRevokeGrantInstructedRevokeGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetCreatedAt() string {
+	return v.GrantManagerFields.CreatedAt
+}
+
+// GetActivatedAt returns TeamRevokeGrantInstructedRevokeGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetActivatedAt() *string {
+	return v.GrantManagerFields.ActivatedAt
+}
+
+// GetRevokedAt returns TeamRevokeGrantInstructedRevokeGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetRevokedAt() *string {
+	return v.GrantManagerFields.RevokedAt
+}
+
+// GetRevokedByUserId returns TeamRevokeGrantInstructedRevokeGrant.RevokedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetRevokedByUserId() *string {
+	return v.GrantManagerFields.RevokedByUserId
+}
+
+// GetHolderDepartedAt returns TeamRevokeGrantInstructedRevokeGrant.HolderDepartedAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetHolderDepartedAt() *string {
+	return v.GrantManagerFields.HolderDepartedAt
+}
+
+// GetAllows returns TeamRevokeGrantInstructedRevokeGrant.Allows, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetAllows() bool { return v.GrantManagerFields.Allows }
+
+// GetState returns TeamRevokeGrantInstructedRevokeGrant.State, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantInstructedRevokeGrant) GetState() GrantState {
+	return v.GrantManagerFields.State
+}
+
+func (v *TeamRevokeGrantInstructedRevokeGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRevokeGrantInstructedRevokeGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRevokeGrantInstructedRevokeGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GrantManagerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRevokeGrantInstructedRevokeGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Action string `json:"action"`
+
+	Values *json.RawMessage `json:"values"`
+
+	HolderKind GrantHolderKind `json:"holderKind"`
+
+	HolderId string `json:"holderId"`
+
+	IssuerUserId *string `json:"issuerUserId"`
+
+	RequestedByUserId *string `json:"requestedByUserId"`
+
+	RequestedByWorkerId *string `json:"requestedByWorkerId"`
+
+	RequestedBySessionId *string `json:"requestedBySessionId"`
+
+	StartsAt *string `json:"startsAt"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	MaxUses *int `json:"maxUses"`
+
+	UseCount int `json:"useCount"`
+
+	Reason string `json:"reason"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ActivatedAt *string `json:"activatedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedByUserId *string `json:"revokedByUserId"`
+
+	HolderDepartedAt *string `json:"holderDepartedAt"`
+
+	Allows bool `json:"allows"`
+
+	State GrantState `json:"state"`
+}
+
+func (v *TeamRevokeGrantInstructedRevokeGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRevokeGrantInstructedRevokeGrant) __premarshalJSON() (*__premarshalTeamRevokeGrantInstructedRevokeGrant, error) {
+	var retval __premarshalTeamRevokeGrantInstructedRevokeGrant
+
+	retval.Id = v.GrantManagerFields.Id
+	retval.AppId = v.GrantManagerFields.AppId
+	retval.Action = v.GrantManagerFields.Action
+	retval.Values = v.GrantManagerFields.Values
+	retval.HolderKind = v.GrantManagerFields.HolderKind
+	retval.HolderId = v.GrantManagerFields.HolderId
+	retval.IssuerUserId = v.GrantManagerFields.IssuerUserId
+	retval.RequestedByUserId = v.GrantManagerFields.RequestedByUserId
+	retval.RequestedByWorkerId = v.GrantManagerFields.RequestedByWorkerId
+	retval.RequestedBySessionId = v.GrantManagerFields.RequestedBySessionId
+	retval.StartsAt = v.GrantManagerFields.StartsAt
+	retval.ExpiresAt = v.GrantManagerFields.ExpiresAt
+	retval.MaxUses = v.GrantManagerFields.MaxUses
+	retval.UseCount = v.GrantManagerFields.UseCount
+	retval.Reason = v.GrantManagerFields.Reason
+	retval.CreatedAt = v.GrantManagerFields.CreatedAt
+	retval.ActivatedAt = v.GrantManagerFields.ActivatedAt
+	retval.RevokedAt = v.GrantManagerFields.RevokedAt
+	retval.RevokedByUserId = v.GrantManagerFields.RevokedByUserId
+	retval.HolderDepartedAt = v.GrantManagerFields.HolderDepartedAt
+	retval.Allows = v.GrantManagerFields.Allows
+	retval.State = v.GrantManagerFields.State
+	return &retval, nil
+}
+
+// TeamRevokeGrantResponse is returned by TeamRevokeGrant on success.
+type TeamRevokeGrantResponse struct {
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, :03) — revoke a grant now, unsigned, in any state but ended. By the issuer (while still a member of the App's Org), by whoever manages the App, or by a held worker on a validated instruction from a holder who may. Returns the grant as appGrants reads it. The first end stands: a grant already revoked, withdrawn or whose holder departed is returned as it is, with no second stamp and no second REVOKE event. Judged on the locked current row. Refusals: GRANT_NOT_MANAGER (not allowed, and a grant that does not exist or cannot be seen: the same answer).
+	RevokeGrant *TeamRevokeGrantRevokeGrant `json:"revokeGrant"`
+}
+
+// GetRevokeGrant returns TeamRevokeGrantResponse.RevokeGrant, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantResponse) GetRevokeGrant() *TeamRevokeGrantRevokeGrant { return v.RevokeGrant }
+
+// TeamRevokeGrantRevokeGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
+type TeamRevokeGrantRevokeGrant struct {
+	GrantManagerFields `json:"-"`
+}
+
+// GetId returns TeamRevokeGrantRevokeGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetId() string { return v.GrantManagerFields.Id }
+
+// GetAppId returns TeamRevokeGrantRevokeGrant.AppId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetAppId() string { return v.GrantManagerFields.AppId }
+
+// GetAction returns TeamRevokeGrantRevokeGrant.Action, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetAction() string { return v.GrantManagerFields.Action }
+
+// GetValues returns TeamRevokeGrantRevokeGrant.Values, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetValues() *json.RawMessage { return v.GrantManagerFields.Values }
+
+// GetHolderKind returns TeamRevokeGrantRevokeGrant.HolderKind, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetHolderKind() GrantHolderKind {
+	return v.GrantManagerFields.HolderKind
+}
+
+// GetHolderId returns TeamRevokeGrantRevokeGrant.HolderId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetHolderId() string { return v.GrantManagerFields.HolderId }
+
+// GetIssuerUserId returns TeamRevokeGrantRevokeGrant.IssuerUserId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetIssuerUserId() *string {
+	return v.GrantManagerFields.IssuerUserId
+}
+
+// GetRequestedByUserId returns TeamRevokeGrantRevokeGrant.RequestedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetRequestedByUserId() *string {
+	return v.GrantManagerFields.RequestedByUserId
+}
+
+// GetRequestedByWorkerId returns TeamRevokeGrantRevokeGrant.RequestedByWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetRequestedByWorkerId() *string {
+	return v.GrantManagerFields.RequestedByWorkerId
+}
+
+// GetRequestedBySessionId returns TeamRevokeGrantRevokeGrant.RequestedBySessionId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetRequestedBySessionId() *string {
+	return v.GrantManagerFields.RequestedBySessionId
+}
+
+// GetStartsAt returns TeamRevokeGrantRevokeGrant.StartsAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetStartsAt() *string { return v.GrantManagerFields.StartsAt }
+
+// GetExpiresAt returns TeamRevokeGrantRevokeGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetExpiresAt() *string { return v.GrantManagerFields.ExpiresAt }
+
+// GetMaxUses returns TeamRevokeGrantRevokeGrant.MaxUses, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetMaxUses() *int { return v.GrantManagerFields.MaxUses }
+
+// GetUseCount returns TeamRevokeGrantRevokeGrant.UseCount, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetUseCount() int { return v.GrantManagerFields.UseCount }
+
+// GetReason returns TeamRevokeGrantRevokeGrant.Reason, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetReason() string { return v.GrantManagerFields.Reason }
+
+// GetCreatedAt returns TeamRevokeGrantRevokeGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetCreatedAt() string { return v.GrantManagerFields.CreatedAt }
+
+// GetActivatedAt returns TeamRevokeGrantRevokeGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetActivatedAt() *string {
+	return v.GrantManagerFields.ActivatedAt
+}
+
+// GetRevokedAt returns TeamRevokeGrantRevokeGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetRevokedAt() *string { return v.GrantManagerFields.RevokedAt }
+
+// GetRevokedByUserId returns TeamRevokeGrantRevokeGrant.RevokedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetRevokedByUserId() *string {
+	return v.GrantManagerFields.RevokedByUserId
+}
+
+// GetHolderDepartedAt returns TeamRevokeGrantRevokeGrant.HolderDepartedAt, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetHolderDepartedAt() *string {
+	return v.GrantManagerFields.HolderDepartedAt
+}
+
+// GetAllows returns TeamRevokeGrantRevokeGrant.Allows, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetAllows() bool { return v.GrantManagerFields.Allows }
+
+// GetState returns TeamRevokeGrantRevokeGrant.State, and is useful for accessing the field via an interface.
+func (v *TeamRevokeGrantRevokeGrant) GetState() GrantState { return v.GrantManagerFields.State }
+
+func (v *TeamRevokeGrantRevokeGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamRevokeGrantRevokeGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamRevokeGrantRevokeGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GrantManagerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamRevokeGrantRevokeGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Action string `json:"action"`
+
+	Values *json.RawMessage `json:"values"`
+
+	HolderKind GrantHolderKind `json:"holderKind"`
+
+	HolderId string `json:"holderId"`
+
+	IssuerUserId *string `json:"issuerUserId"`
+
+	RequestedByUserId *string `json:"requestedByUserId"`
+
+	RequestedByWorkerId *string `json:"requestedByWorkerId"`
+
+	RequestedBySessionId *string `json:"requestedBySessionId"`
+
+	StartsAt *string `json:"startsAt"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	MaxUses *int `json:"maxUses"`
+
+	UseCount int `json:"useCount"`
+
+	Reason string `json:"reason"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ActivatedAt *string `json:"activatedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedByUserId *string `json:"revokedByUserId"`
+
+	HolderDepartedAt *string `json:"holderDepartedAt"`
+
+	Allows bool `json:"allows"`
+
+	State GrantState `json:"state"`
+}
+
+func (v *TeamRevokeGrantRevokeGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamRevokeGrantRevokeGrant) __premarshalJSON() (*__premarshalTeamRevokeGrantRevokeGrant, error) {
+	var retval __premarshalTeamRevokeGrantRevokeGrant
+
+	retval.Id = v.GrantManagerFields.Id
+	retval.AppId = v.GrantManagerFields.AppId
+	retval.Action = v.GrantManagerFields.Action
+	retval.Values = v.GrantManagerFields.Values
+	retval.HolderKind = v.GrantManagerFields.HolderKind
+	retval.HolderId = v.GrantManagerFields.HolderId
+	retval.IssuerUserId = v.GrantManagerFields.IssuerUserId
+	retval.RequestedByUserId = v.GrantManagerFields.RequestedByUserId
+	retval.RequestedByWorkerId = v.GrantManagerFields.RequestedByWorkerId
+	retval.RequestedBySessionId = v.GrantManagerFields.RequestedBySessionId
+	retval.StartsAt = v.GrantManagerFields.StartsAt
+	retval.ExpiresAt = v.GrantManagerFields.ExpiresAt
+	retval.MaxUses = v.GrantManagerFields.MaxUses
+	retval.UseCount = v.GrantManagerFields.UseCount
+	retval.Reason = v.GrantManagerFields.Reason
+	retval.CreatedAt = v.GrantManagerFields.CreatedAt
+	retval.ActivatedAt = v.GrantManagerFields.ActivatedAt
+	retval.RevokedAt = v.GrantManagerFields.RevokedAt
+	retval.RevokedByUserId = v.GrantManagerFields.RevokedByUserId
+	retval.HolderDepartedAt = v.GrantManagerFields.HolderDepartedAt
+	retval.Allows = v.GrantManagerFields.Allows
+	retval.State = v.GrantManagerFields.State
+	return &retval, nil
 }
 
 // ── Role definitions (#403 / hadron-server#960) — the pre-cast read.
@@ -116265,6 +117412,17 @@ func (v *TeamUtilizationTeamUtilizationCombinationsWorkerUtilizationLastMatchFai
 	return v.Reason
 }
 
+// TeamWithdrawGrantResponse is returned by TeamWithdrawGrant on success.
+type TeamWithdrawGrantResponse struct {
+	// #3711 (hrn:node:hadronmemory.com:specs:cor:acl:140:05, V57) — withdraw a grant the caller asked for, while it is still pending. The recorded requester: a person, the worker session that asked, or (#4767, ruling 0255 item 21) a worker session bound to the agent when a RUN of that agent asked (hrn:node:hadronmemory.com:specs:cor:acl:140:03 item 5; the run tool hadron_withdraw_grant is the run's own door onto it). A session's withdrawal is the grant's one end (revoked_at, with the driving person as revoker) and one WITHDRAW event; no new state is named. A withdrawal that loses the race to the signature is refused. Refusals: GRANT_NOT_FOUND (unknown and unreadable alike), GRANT_NOT_REQUESTER, GRANT_NOT_PENDING (activated). A grant already ended is returned as it is.
+	WithdrawGrant *TeamWithdrawGrantWithdrawGrant `json:"withdrawGrant"`
+}
+
+// GetWithdrawGrant returns TeamWithdrawGrantResponse.WithdrawGrant, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantResponse) GetWithdrawGrant() *TeamWithdrawGrantWithdrawGrant {
+	return v.WithdrawGrant
+}
+
 // TeamWithdrawGrantSigningRequestResponse is returned by TeamWithdrawGrantSigningRequest on success.
 type TeamWithdrawGrantSigningRequestResponse struct {
 	// #3649 slice B (hrn:node:hadronmemory.com:specs:cor:acl:140:07) — withdraw an open grant signing request. Only the requester account, from any of its sessions or workers, among the two callers who may read the grant (a bound worker in its own App, or a person who manages the App); a manager who did not ask is refused SIGNING_REQUEST_NOT_REQUESTER. Refusals: FORBIDDEN while impersonating, SIGNING_REQUEST_NOT_FOUND, SIGNING_REQUEST_NOT_REQUESTER, SIGNING_REQUEST_ENDED (extensions.state).
@@ -116420,6 +117578,210 @@ func (v *TeamWithdrawGrantSigningRequestWithdrawGrantSigningRequest) __premarsha
 	retval.EndedAt = v.TeamGrantSigningRequestFields.EndedAt
 	retval.LastRefusedAt = v.TeamGrantSigningRequestFields.LastRefusedAt
 	retval.CeremonyUrl = v.TeamGrantSigningRequestFields.CeremonyUrl
+	return &retval, nil
+}
+
+// TeamWithdrawGrantWithdrawGrant includes the requested fields of the GraphQL type Grant.
+// The GraphQL type's documentation follows.
+//
+// A grant (#3789, hrn:node:hadronmemory.com:specs:cor:acl:140:05): ids and scalars only, so no other entity's field resolvers are reachable
+// through it. Its stored facts as stored, and allows and state, which are computed (#4173).
+type TeamWithdrawGrantWithdrawGrant struct {
+	GrantManagerFields `json:"-"`
+}
+
+// GetId returns TeamWithdrawGrantWithdrawGrant.Id, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetId() string { return v.GrantManagerFields.Id }
+
+// GetAppId returns TeamWithdrawGrantWithdrawGrant.AppId, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetAppId() string { return v.GrantManagerFields.AppId }
+
+// GetAction returns TeamWithdrawGrantWithdrawGrant.Action, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetAction() string { return v.GrantManagerFields.Action }
+
+// GetValues returns TeamWithdrawGrantWithdrawGrant.Values, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetValues() *json.RawMessage {
+	return v.GrantManagerFields.Values
+}
+
+// GetHolderKind returns TeamWithdrawGrantWithdrawGrant.HolderKind, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetHolderKind() GrantHolderKind {
+	return v.GrantManagerFields.HolderKind
+}
+
+// GetHolderId returns TeamWithdrawGrantWithdrawGrant.HolderId, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetHolderId() string { return v.GrantManagerFields.HolderId }
+
+// GetIssuerUserId returns TeamWithdrawGrantWithdrawGrant.IssuerUserId, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetIssuerUserId() *string {
+	return v.GrantManagerFields.IssuerUserId
+}
+
+// GetRequestedByUserId returns TeamWithdrawGrantWithdrawGrant.RequestedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetRequestedByUserId() *string {
+	return v.GrantManagerFields.RequestedByUserId
+}
+
+// GetRequestedByWorkerId returns TeamWithdrawGrantWithdrawGrant.RequestedByWorkerId, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetRequestedByWorkerId() *string {
+	return v.GrantManagerFields.RequestedByWorkerId
+}
+
+// GetRequestedBySessionId returns TeamWithdrawGrantWithdrawGrant.RequestedBySessionId, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetRequestedBySessionId() *string {
+	return v.GrantManagerFields.RequestedBySessionId
+}
+
+// GetStartsAt returns TeamWithdrawGrantWithdrawGrant.StartsAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetStartsAt() *string { return v.GrantManagerFields.StartsAt }
+
+// GetExpiresAt returns TeamWithdrawGrantWithdrawGrant.ExpiresAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetExpiresAt() *string {
+	return v.GrantManagerFields.ExpiresAt
+}
+
+// GetMaxUses returns TeamWithdrawGrantWithdrawGrant.MaxUses, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetMaxUses() *int { return v.GrantManagerFields.MaxUses }
+
+// GetUseCount returns TeamWithdrawGrantWithdrawGrant.UseCount, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetUseCount() int { return v.GrantManagerFields.UseCount }
+
+// GetReason returns TeamWithdrawGrantWithdrawGrant.Reason, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetReason() string { return v.GrantManagerFields.Reason }
+
+// GetCreatedAt returns TeamWithdrawGrantWithdrawGrant.CreatedAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetCreatedAt() string { return v.GrantManagerFields.CreatedAt }
+
+// GetActivatedAt returns TeamWithdrawGrantWithdrawGrant.ActivatedAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetActivatedAt() *string {
+	return v.GrantManagerFields.ActivatedAt
+}
+
+// GetRevokedAt returns TeamWithdrawGrantWithdrawGrant.RevokedAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetRevokedAt() *string {
+	return v.GrantManagerFields.RevokedAt
+}
+
+// GetRevokedByUserId returns TeamWithdrawGrantWithdrawGrant.RevokedByUserId, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetRevokedByUserId() *string {
+	return v.GrantManagerFields.RevokedByUserId
+}
+
+// GetHolderDepartedAt returns TeamWithdrawGrantWithdrawGrant.HolderDepartedAt, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetHolderDepartedAt() *string {
+	return v.GrantManagerFields.HolderDepartedAt
+}
+
+// GetAllows returns TeamWithdrawGrantWithdrawGrant.Allows, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetAllows() bool { return v.GrantManagerFields.Allows }
+
+// GetState returns TeamWithdrawGrantWithdrawGrant.State, and is useful for accessing the field via an interface.
+func (v *TeamWithdrawGrantWithdrawGrant) GetState() GrantState { return v.GrantManagerFields.State }
+
+func (v *TeamWithdrawGrantWithdrawGrant) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*TeamWithdrawGrantWithdrawGrant
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.TeamWithdrawGrantWithdrawGrant = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GrantManagerFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalTeamWithdrawGrantWithdrawGrant struct {
+	Id string `json:"id"`
+
+	AppId string `json:"appId"`
+
+	Action string `json:"action"`
+
+	Values *json.RawMessage `json:"values"`
+
+	HolderKind GrantHolderKind `json:"holderKind"`
+
+	HolderId string `json:"holderId"`
+
+	IssuerUserId *string `json:"issuerUserId"`
+
+	RequestedByUserId *string `json:"requestedByUserId"`
+
+	RequestedByWorkerId *string `json:"requestedByWorkerId"`
+
+	RequestedBySessionId *string `json:"requestedBySessionId"`
+
+	StartsAt *string `json:"startsAt"`
+
+	ExpiresAt *string `json:"expiresAt"`
+
+	MaxUses *int `json:"maxUses"`
+
+	UseCount int `json:"useCount"`
+
+	Reason string `json:"reason"`
+
+	CreatedAt string `json:"createdAt"`
+
+	ActivatedAt *string `json:"activatedAt"`
+
+	RevokedAt *string `json:"revokedAt"`
+
+	RevokedByUserId *string `json:"revokedByUserId"`
+
+	HolderDepartedAt *string `json:"holderDepartedAt"`
+
+	Allows bool `json:"allows"`
+
+	State GrantState `json:"state"`
+}
+
+func (v *TeamWithdrawGrantWithdrawGrant) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *TeamWithdrawGrantWithdrawGrant) __premarshalJSON() (*__premarshalTeamWithdrawGrantWithdrawGrant, error) {
+	var retval __premarshalTeamWithdrawGrantWithdrawGrant
+
+	retval.Id = v.GrantManagerFields.Id
+	retval.AppId = v.GrantManagerFields.AppId
+	retval.Action = v.GrantManagerFields.Action
+	retval.Values = v.GrantManagerFields.Values
+	retval.HolderKind = v.GrantManagerFields.HolderKind
+	retval.HolderId = v.GrantManagerFields.HolderId
+	retval.IssuerUserId = v.GrantManagerFields.IssuerUserId
+	retval.RequestedByUserId = v.GrantManagerFields.RequestedByUserId
+	retval.RequestedByWorkerId = v.GrantManagerFields.RequestedByWorkerId
+	retval.RequestedBySessionId = v.GrantManagerFields.RequestedBySessionId
+	retval.StartsAt = v.GrantManagerFields.StartsAt
+	retval.ExpiresAt = v.GrantManagerFields.ExpiresAt
+	retval.MaxUses = v.GrantManagerFields.MaxUses
+	retval.UseCount = v.GrantManagerFields.UseCount
+	retval.Reason = v.GrantManagerFields.Reason
+	retval.CreatedAt = v.GrantManagerFields.CreatedAt
+	retval.ActivatedAt = v.GrantManagerFields.ActivatedAt
+	retval.RevokedAt = v.GrantManagerFields.RevokedAt
+	retval.RevokedByUserId = v.GrantManagerFields.RevokedByUserId
+	retval.HolderDepartedAt = v.GrantManagerFields.HolderDepartedAt
+	retval.Allows = v.GrantManagerFields.Allows
+	retval.State = v.GrantManagerFields.State
 	return &retval, nil
 }
 
@@ -140878,6 +142240,18 @@ func (v *__QuotaCountersInput) GetOrgRef() string { return v.OrgRef }
 // GetAppRef returns __QuotaCountersInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__QuotaCountersInput) GetAppRef() *string { return v.AppRef }
 
+// __QuotaCountersScopedInput is used internally by genqlient
+type __QuotaCountersScopedInput struct {
+	AppRef  *string `json:"appRef,omitempty"`
+	UserRef *string `json:"userRef,omitempty"`
+}
+
+// GetAppRef returns __QuotaCountersScopedInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__QuotaCountersScopedInput) GetAppRef() *string { return v.AppRef }
+
+// GetUserRef returns __QuotaCountersScopedInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__QuotaCountersScopedInput) GetUserRef() *string { return v.UserRef }
+
 // __ReAdoptAutomationInput is used internally by genqlient
 type __ReAdoptAutomationInput struct {
 	TriggerKind  AutomationTriggerKind `json:"triggerKind"`
@@ -143022,6 +144396,22 @@ func (v *__TeamAppGrantRmInstructedInput) GetName() AppGrantName { return v.Name
 // GetInstruction returns __TeamAppGrantRmInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__TeamAppGrantRmInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
+// __TeamAppGrantsInput is used internally by genqlient
+type __TeamAppGrantsInput struct {
+	AppRef string `json:"appRef"`
+	Limit  int    `json:"limit"`
+	Offset int    `json:"offset"`
+}
+
+// GetAppRef returns __TeamAppGrantsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantsInput) GetAppRef() string { return v.AppRef }
+
+// GetLimit returns __TeamAppGrantsInput.Limit, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantsInput) GetLimit() int { return v.Limit }
+
+// GetOffset returns __TeamAppGrantsInput.Offset, and is useful for accessing the field via an interface.
+func (v *__TeamAppGrantsInput) GetOffset() int { return v.Offset }
+
 // __TeamAppIdentityInput is used internally by genqlient
 type __TeamAppIdentityInput struct {
 	AppRef string `json:"appRef"`
@@ -143890,6 +145280,28 @@ func (v *__TeamReviewQualityReportInput) GetAppRef() string { return v.AppRef }
 // GetMonth returns __TeamReviewQualityReportInput.Month, and is useful for accessing the field via an interface.
 func (v *__TeamReviewQualityReportInput) GetMonth() string { return v.Month }
 
+// __TeamRevokeGrantInput is used internally by genqlient
+type __TeamRevokeGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __TeamRevokeGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TeamRevokeGrantInput) GetRef() string { return v.Ref }
+
+// __TeamRevokeGrantInstructedInput is used internally by genqlient
+type __TeamRevokeGrantInstructedInput struct {
+	Ref         string               `json:"ref"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetRef returns __TeamRevokeGrantInstructedInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TeamRevokeGrantInstructedInput) GetRef() string { return v.Ref }
+
+// GetInstruction returns __TeamRevokeGrantInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__TeamRevokeGrantInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
+
 // __TeamRoleListSetInput is used internally by genqlient
 type __TeamRoleListSetInput struct {
 	AppRef  string         `json:"appRef"`
@@ -144277,6 +145689,14 @@ func (v *__TeamUtilizationInput) GetTier() *string { return v.Tier }
 
 // GetWindowHours returns __TeamUtilizationInput.WindowHours, and is useful for accessing the field via an interface.
 func (v *__TeamUtilizationInput) GetWindowHours() *int { return v.WindowHours }
+
+// __TeamWithdrawGrantInput is used internally by genqlient
+type __TeamWithdrawGrantInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __TeamWithdrawGrantInput.Ref, and is useful for accessing the field via an interface.
+func (v *__TeamWithdrawGrantInput) GetRef() string { return v.Ref }
 
 // __TeamWithdrawGrantSigningRequestInput is used internally by genqlient
 type __TeamWithdrawGrantSigningRequestInput struct {
@@ -172847,8 +174267,8 @@ mutation IssueSecretReadClient ($input: IssueSecretReadClientInput!) {
 // cli#2631 slice 1: issue a read client for an App secret, and list the read
 // clients the caller issued or holds. Optional input fields are omitted when unset:
 // omitted keeps the server default, an explicit null would be read as a value.
-// The USE-mode arguments the server added (the CLI issues REVEAL clients only, gap #3014): omitted, never
-// sent as null, so the request without them is byte-identical to before the schema refresh (cli#3006).
+// The USE-mode arguments (cli#3014, `secret client issue --mode USE`): omitted, never sent as null, so a
+// REVEAL issue is byte-identical to before they existed.
 func IssueSecretReadClient(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -179024,7 +180444,10 @@ fragment QuotaCounterFields on QuotaCounter {
 `
 
 // Quota counters (server #510): usage vs limit for an org, plus one App's rows
-// when appRef is given. Org ADMIN. Rows materialize on first view.
+// when appRef is given. Org ADMIN. Rows materialize on first view. This document
+// names no userRef: `quota list --org` must keep working against a server that
+// predates #5074, which rejects an unknown argument even when its variable is
+// omitted (review:old-server-graphql-document-compatibility, cli#3139).
 func QuotaCounters(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -179041,6 +180464,55 @@ func QuotaCounters(
 	}
 
 	data_ = &QuotaCountersResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by QuotaCountersScoped.
+const QuotaCountersScoped_Operation = `
+query QuotaCountersScoped ($appRef: String, $userRef: ID) {
+	quotaCounters(appRef: $appRef, userRef: $userRef) {
+		... QuotaCounterFields
+	}
+}
+fragment QuotaCounterFields on QuotaCounter {
+	id
+	scopeKind
+	scopeId
+	action
+	window
+	used
+	limit
+	resetAt
+}
+`
+
+// cli#3139 (server #5074): the two forms the org-only document cannot express, an App on its own
+// (appRef alone) and a person (userRef alone). Every ref is optional and omitted when unset (never
+// null); the CLI sends exactly one of the two, and the server judges access. Needs a server with #5074.
+func QuotaCountersScoped(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef *string,
+	userRef *string,
+) (data_ *QuotaCountersScopedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "QuotaCountersScoped",
+		Query:  QuotaCountersScoped_Operation,
+		Variables: &__QuotaCountersScopedInput{
+			AppRef:  appRef,
+			UserRef: userRef,
+		},
+	}
+
+	data_ = &QuotaCountersScopedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -187400,6 +188872,71 @@ func TeamAppGrantRmInstructed(
 	return data_, err_
 }
 
+// The query executed by TeamAppGrants.
+const TeamAppGrants_Operation = `
+query TeamAppGrants ($appRef: String!, $limit: Int!, $offset: Int!) {
+	appGrants(appRef: $appRef, limit: $limit, offset: $offset) {
+		total
+		items {
+			... GrantManagerFields
+		}
+	}
+}
+fragment GrantManagerFields on Grant {
+	id
+	appId
+	action
+	values
+	holderKind
+	holderId
+	issuerUserId
+	requestedByUserId
+	requestedByWorkerId
+	requestedBySessionId
+	startsAt
+	expiresAt
+	maxUses
+	useCount
+	reason
+	createdAt
+	activatedAt
+	revokedAt
+	revokedByUserId
+	holderDepartedAt
+	allows
+	state
+}
+`
+
+func TeamAppGrants(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	limit int,
+	offset int,
+) (data_ *TeamAppGrantsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamAppGrants",
+		Query:  TeamAppGrants_Operation,
+		Variables: &__TeamAppGrantsInput{
+			AppRef: appRef,
+			Limit:  limit,
+			Offset: offset,
+		},
+	}
+
+	data_ = &TeamAppGrantsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by TeamAppIdentity.
 const TeamAppIdentity_Operation = `
 query TeamAppIdentity ($appRef: ID!) {
@@ -188493,25 +190030,38 @@ func TeamComposition(
 const TeamCreateGrant_Operation = `
 mutation TeamCreateGrant ($input: CreateGrantInput!) {
 	createGrant(input: $input) {
-		id
-		action
-		values
-		holderKind
-		holderId
-		startsAt
-		expiresAt
-		maxUses
-		useCount
-		reason
-		createdAt
-		activatedAt
-		revokedAt
-		allows
+		... GrantManagerFields
 	}
+}
+fragment GrantManagerFields on Grant {
+	id
+	appId
+	action
+	values
+	holderKind
+	holderId
+	issuerUserId
+	requestedByUserId
+	requestedByWorkerId
+	requestedBySessionId
+	startsAt
+	expiresAt
+	maxUses
+	useCount
+	reason
+	createdAt
+	activatedAt
+	revokedAt
+	revokedByUserId
+	holderDepartedAt
+	allows
+	state
 }
 `
 
 // cli#1868: the bound worker asks for a grant (pending until a person signs it).
+// cli#1846: a person who manages an App creates one too (input.appRef); the
+// answer is read as the manager reads it (GrantManagerFields).
 // Optional input fields are omitted when unset: omitted preserves the server
 // default, an explicit null would be read as a value.
 func TeamCreateGrant(
@@ -189167,6 +190717,7 @@ query TeamGrant ($ref: ID!) {
 		activatedAt
 		revokedAt
 		allows
+		state
 	}
 }
 `
@@ -189270,6 +190821,7 @@ query TeamGrants ($limit: Int!, $offset: Int!) {
 			activatedAt
 			revokedAt
 			allows
+			state
 		}
 	}
 }
@@ -189959,6 +191511,10 @@ query TeamMetrics ($appRef: ID!, $since: DateTime, $until: DateTime) {
 fragment TeamMetricsCountFields on TeamMetricsCount {
 	total
 	ids
+	named {
+		id
+		name
+	}
 	truncated
 }
 fragment TeamMetricsProjectFields on TeamMetricsProject {
@@ -190246,6 +191802,126 @@ func TeamReviewQualityReport(
 	}
 
 	data_ = &TeamReviewQualityReportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamRevokeGrant.
+const TeamRevokeGrant_Operation = `
+mutation TeamRevokeGrant ($ref: ID!) {
+	revokeGrant(ref: $ref) {
+		... GrantManagerFields
+	}
+}
+fragment GrantManagerFields on Grant {
+	id
+	appId
+	action
+	values
+	holderKind
+	holderId
+	issuerUserId
+	requestedByUserId
+	requestedByWorkerId
+	requestedBySessionId
+	startsAt
+	expiresAt
+	maxUses
+	useCount
+	reason
+	createdAt
+	activatedAt
+	revokedAt
+	revokedByUserId
+	holderDepartedAt
+	allows
+	state
+}
+`
+
+func TeamRevokeGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *TeamRevokeGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRevokeGrant",
+		Query:  TeamRevokeGrant_Operation,
+		Variables: &__TeamRevokeGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &TeamRevokeGrantResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamRevokeGrantInstructed.
+const TeamRevokeGrantInstructed_Operation = `
+mutation TeamRevokeGrantInstructed ($ref: ID!, $instruction: ActInstructionInput!) {
+	revokeGrant(ref: $ref, instruction: $instruction) {
+		... GrantManagerFields
+	}
+}
+fragment GrantManagerFields on Grant {
+	id
+	appId
+	action
+	values
+	holderKind
+	holderId
+	issuerUserId
+	requestedByUserId
+	requestedByWorkerId
+	requestedBySessionId
+	startsAt
+	expiresAt
+	maxUses
+	useCount
+	reason
+	createdAt
+	activatedAt
+	revokedAt
+	revokedByUserId
+	holderDepartedAt
+	allows
+	state
+}
+`
+
+// Only the explicit instructed path carries the claim: the instruction variable
+// is required here, so an unset flag can never send an explicit null.
+func TeamRevokeGrantInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	instruction *ActInstructionInput,
+) (data_ *TeamRevokeGrantInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamRevokeGrantInstructed",
+		Query:  TeamRevokeGrantInstructed_Operation,
+		Variables: &__TeamRevokeGrantInstructedInput{
+			Ref:         ref,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &TeamRevokeGrantInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -191487,6 +193163,64 @@ func TeamUtilization(
 	}
 
 	data_ = &TeamUtilizationResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by TeamWithdrawGrant.
+const TeamWithdrawGrant_Operation = `
+mutation TeamWithdrawGrant ($ref: ID!) {
+	withdrawGrant(ref: $ref) {
+		... GrantManagerFields
+	}
+}
+fragment GrantManagerFields on Grant {
+	id
+	appId
+	action
+	values
+	holderKind
+	holderId
+	issuerUserId
+	requestedByUserId
+	requestedByWorkerId
+	requestedBySessionId
+	startsAt
+	expiresAt
+	maxUses
+	useCount
+	reason
+	createdAt
+	activatedAt
+	revokedAt
+	revokedByUserId
+	holderDepartedAt
+	allows
+	state
+}
+`
+
+func TeamWithdrawGrant(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *TeamWithdrawGrantResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "TeamWithdrawGrant",
+		Query:  TeamWithdrawGrant_Operation,
+		Variables: &__TeamWithdrawGrantInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &TeamWithdrawGrantResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -194,7 +194,7 @@ func (m codingMemory) nodeRef(loc string) (string, error) {
 		return u, nil
 	}
 	return "", exitcode.Newf(exitcode.Usage,
-		"-m/--memory %q must name a memory as hrn:mem:<root>:<slug> to address nodes by bare loc", m.raw)
+		"-m/--memory (the value given is not shown) must name a memory as hrn:mem:<root>:<slug> to address nodes by bare loc")
 }
 
 // fetchRootEdges reads a lint root and projects the edges on the requested
@@ -233,7 +233,7 @@ func fetchRootGraph(ctx context.Context, client graphql.Client, mem codingMemory
 	}
 	if resp.Node == nil {
 		return rootGraph{}, exitcode.Newf(exitcode.NotFound,
-			"no %q node in %s — nothing to lint", rootLoc, mem.raw)
+			"no such root node in the memory (the loc and memory given are not shown) — nothing to lint")
 	}
 	g := rootGraph{MemoryID: resp.Node.MemoryId}
 	if resp.Node.Content != nil {

@@ -153,10 +153,10 @@ func stallScheduleValue(fl stallScheduleFlag, raw string) (json.RawMessage, erro
 	}
 	n, err := strconv.Atoi(raw)
 	if fl.max > 0 && (err != nil || n < fl.min || n > fl.max) {
-		return nil, exitcode.Newf(exitcode.Usage, "--%s takes a whole number of minutes from %d to %d, or default (the platform default), got %q", fl.name, fl.min, fl.max, raw)
+		return nil, exitcode.Newf(exitcode.Usage, "--%s takes a whole number of minutes from %d to %d, or default (the platform default)", fl.name, fl.min, fl.max)
 	}
 	if err != nil {
-		return nil, exitcode.Newf(exitcode.Usage, "--%s takes a whole number or default (the platform default), got %q", fl.name, raw)
+		return nil, exitcode.Newf(exitcode.Usage, "--%s takes a whole number or default (the platform default)", fl.name)
 	}
 	return json.RawMessage(strconv.Itoa(n)), nil
 }

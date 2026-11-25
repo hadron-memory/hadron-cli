@@ -8,7 +8,6 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
-	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // recordMutationError maps a failure of the content-validation RECORD mutation
@@ -22,7 +21,7 @@ import (
 // only the HTTP status and, when the envelope's own code is INTERNAL_SERVER_ERROR,
 // that code and its request id (cor:api:260:01); never server detail. Every other
 // failure keeps the shared mapping.
-func recordMutationError(err error, nodeRef string, hasRunID bool) error {
+func recordMutationError(err error, hasRunID bool) error {
 	mapped := api.MapError(err)
 	var httpErr *graphql.HTTPError
 	if !errors.As(err, &httpErr) {
@@ -54,8 +53,8 @@ func recordMutationError(err error, nodeRef string, hasRunID bool) error {
 		retry = "This run sent no --run-id, so a repeat sends no idempotency key and may record a second report; pass --run-id to make a repeat safe to compare."
 	}
 	return exitcode.New(exitcode.Unavailable, &recordUncertainError{
-		msg: fmt.Sprintf("the record request failed with %s: unknown outcome; the report may or may not have been recorded. Do not assume it failed: read the node's latest validation report (hadron node get %s) before recording again. %s This command does not retry.",
-			what, output.SafeLine(nodeRef, 256), retry),
+		msg: fmt.Sprintf("the record request failed with %s: unknown outcome; the report may or may not have been recorded. Do not assume it failed: read the node's latest validation report (hadron node get <ref>; the ref given is not shown) before recording again. %s This command does not retry.",
+			what, retry),
 		cause: mapped,
 	})
 }

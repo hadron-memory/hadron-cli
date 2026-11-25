@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -24,10 +27,21 @@ import (
 // test can answer it without a real browser (#1860).
 var browserLogin = auth.BrowserStrategy{}.Login
 
+// loginInterruptibly runs the browser flow with Ctrl+C turned into context
+// cancellation, so a code prompt puts the terminal's echo back before the
+// process exits. The signals are handed back as soon as the flow returns: the
+// prompts that follow (installing skills) must see Ctrl+C as the default.
+func loginInterruptibly(ctx context.Context, opts auth.LoginOptions) (*auth.Token, error) {
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return browserLogin(ctx, opts)
+}
+
 func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	var withToken bool
 	var installSkills, noInstallSkills bool
 	var provider string
+	var noBrowser bool
 	cmd := &cobra.Command{
 		Use:   "login",
 		Short: "Sign in to a Hadron server",
@@ -46,6 +60,18 @@ Otherwise choose GitHub or Google on that page, or pass --provider google
 to go straight to Google (--provider github opens the same sign-in page as
 the default). An agent cannot complete a browser passkey step; agents use
 HADRON_TOKEN or --with-token.
+
+On a host with no browser, the sign-in address is printed and the CLI asks for
+the code the sign-in page shows once you finish, on any device. --no-browser
+asks for that straight away; without it the CLI switches to it by itself when a
+browser cannot be opened. Paste the code at the prompt (it is not shown as you
+type); the CLI sends it to the server as it is and never prints or logs it. A
+code the server does not accept (wrong, expired or already used) gets one
+answer and exit 1, and the server limits how many tries a sign-in allows.
+Pasting needs a terminal: with standard input piped, as in an agent or CI, the
+command exits 2 and points to --with-token or HADRON_TOKEN. Needs server
+2026-11-25 or later; an older one redirects to the CLI's own address instead,
+so no code is shown.
 
 The browser step must finish within 15 minutes, a limit the CLI sets for
 itself. If it does not, nothing is stored; rerun ` + "`hadron auth login`" + `.
@@ -89,6 +115,7 @@ login again. hadron auth whoami shows the account any time; auth status checks
 only whether the credential authenticates.`,
 		Example: `  hadron auth login
   hadron auth login --provider google
+  hadron auth login --no-browser
   hadron --server https://hadron.example.com auth login
   hadron auth login --with-token < ~/.config/hadron/ci-token`,
 		Args: cobra.NoArgs,
@@ -108,9 +135,10 @@ only whether the credential authenticates.`,
 					return err
 				}
 			} else {
-				result, err := browserLogin(cmd.Context(), auth.LoginOptions{
+				result, err := loginInterruptibly(cmd.Context(), auth.LoginOptions{
 					ServerURL:     server,
 					LoginProvider: provider,
+					CodeEntry:     noBrowser,
 					IO:            f.IOStreams,
 					HTTPClient:    f.HTTPClient,
 				})
@@ -193,7 +221,9 @@ only whether the credential authenticates.`,
 	cmd.MarkFlagsMutuallyExclusive("install-skills", "no-install-skills")
 	cmd.Flags().BoolVar(&withToken, "with-token", false, "read the token from standard input")
 	cmd.Flags().StringVar(&provider, "provider", "", "browser identity provider: github or google (google skips the sign-in page)")
+	cmd.Flags().BoolVar(&noBrowser, "no-browser", false, "print the sign-in address and paste the code it shows, for a host with no browser")
 	cmd.MarkFlagsMutuallyExclusive("with-token", "provider")
+	cmd.MarkFlagsMutuallyExclusive("with-token", "no-browser")
 	return cmd
 }
 

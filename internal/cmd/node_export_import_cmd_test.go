@@ -248,7 +248,7 @@ func TestNodeExportUnknownFormatStaysGeneric(t *testing.T) {
 	if got := exitCodeFor(err); got != exitcode.Usage {
 		t.Errorf("exit code = %d, want usage", got)
 	}
-	if !strings.Contains(err.Error(), `unsupported --format "docx" (want md, json, or pdf)`) || strings.Contains(err.Error(), "reserved") {
+	if !strings.Contains(err.Error(), `unsupported --format (want md, json, or pdf)`) || strings.Contains(err.Error(), "reserved") {
 		t.Errorf("unexpected message: %v", err)
 	}
 }
@@ -539,7 +539,7 @@ func TestNodeImportHTMLFormatStaysGeneric(t *testing.T) {
 	if err == nil || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("expected a usage error, got %v", err)
 	}
-	if !strings.Contains(err.Error(), `unsupported --format "html"`) || strings.Contains(err.Error(), "reserved") {
+	if !strings.Contains(err.Error(), `unsupported --format (want`) || strings.Contains(err.Error(), "reserved") {
 		t.Errorf("unexpected message: %v", err)
 	}
 }

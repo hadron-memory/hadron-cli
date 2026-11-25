@@ -110,7 +110,7 @@ func nextNumber(used, retired []int, floor, step, max int) (int, bool) {
 func allocateChild(parent Citation, used, retired []int, after int) (Citation, error) {
 	childLevel := parent.Level() + 1
 	if childLevel > 4 {
-		return Citation{}, exitcode.Newf(exitcode.Usage, "%s is already at the deepest level (flow)", parent.Format())
+		return Citation{}, exitcode.Newf(exitcode.Usage, "the parent (the citation given is not shown) is already at the deepest level (flow)")
 	}
 	step, max, width := levelSpec(childLevel)
 	floor := 0
@@ -119,7 +119,7 @@ func allocateChild(parent Citation, used, retired []int, after int) (Citation, e
 	}
 	n, ok := nextNumber(used, retired, floor, step, max)
 	if !ok {
-		return Citation{}, exitcode.Newf(exitcode.Usage, "number space exhausted under %s", parent.Format())
+		return Citation{}, exitcode.Newf(exitcode.Usage, "number space exhausted under the parent (the citation given is not shown)")
 	}
 	seg := fmt.Sprintf("%0*d", width, n)
 	child := parent

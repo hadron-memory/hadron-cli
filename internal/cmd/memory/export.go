@@ -80,7 +80,7 @@ scatters hundreds of files among your own, and the overwrite is silent. Pass
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if format != "markdown" && format != "md" {
-				return exitcode.Newf(exitcode.Usage, "unsupported --format %q (only markdown is supported)", format)
+				return exitcode.Newf(exitcode.Usage, "unsupported --format (only markdown is supported)")
 			}
 			// --out is optional and defaults to "." (current directory); an
 			// explicit empty value falls back to "." rather than a bare path.

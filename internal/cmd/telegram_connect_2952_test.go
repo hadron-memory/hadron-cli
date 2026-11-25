@@ -248,15 +248,15 @@ func TestTelegramConnectRefusesStdinFromATerminal(t *testing.T) {
 	noTelegramSecret(t, "error", e.Error())
 }
 
-// The pass-through is pinned end to end (Joran's P2): every documented refusal
-// renders the server's own message as received, in BOTH renderers, and a
-// TELEGRAM_TOOL_* answer additionally carries its telegramErrorCode and its
-// serverCode in the --json envelope.
 // telegramToolNotConfigured is the wire form of the server's definitive
 // "the Telegram tool is not set up" refusal: a TELEGRAM_TOOL_* code with the
 // Telegram-side error code on its own extension.
 const telegramToolNotConfigured = `{"errors":[{"message":"no token","extensions":{"code":"TELEGRAM_TOOL_NOT_CONFIGURED","telegramErrorCode":"not_configured"}}],"data":null}`
 
+// The pass-through is pinned end to end (Joran's P2): every documented refusal
+// renders the server's own message as received, in BOTH renderers, and a
+// TELEGRAM_TOOL_* answer additionally carries its telegramErrorCode and its
+// serverCode in the --json envelope.
 func TestTelegramConnectPassesServerRefusalsThrough(t *testing.T) {
 	bot := tokenFile(t, "bot", tgBotTok)
 	args := []string{"connect", "--app", appID, "--bot-token-file", bot}

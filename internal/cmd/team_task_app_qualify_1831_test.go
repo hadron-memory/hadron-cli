@@ -148,10 +148,10 @@ func TestTaskAppQualify1831RefusalsSendNothing(t *testing.T) {
 		msg  string
 	}{
 		{"app id with a bare handle", []string{"team", "task", "get", "AT0.5", "--app", "capp100000000000000000000"}, "hrn:app:"},
-		{"qualified ref names another App", []string{"team", "task", "get", "hrn:agenttask:r:other:AT0.5", "--app", app1831}, "hrn:app:r:s"},
-		{"server-form qualified ref names another App", []string{"team", "task", "get", "hrn:agenttask:hrn:app:x.com:s:AT0.5", "--app", app1831}, "hrn:app:r:s"},
-		{"blocker names another App", []string{"team", "task", "add-blocker", "AT0.5", "hrn:agenttask:r:other:AT0.6", "--app", app1831}, "hrn:app:r:s"},
-		{"--parent names another App", []string{"team", "task", "list", "--parent", "hrn:agenttask:r:other:AT0.5", "--app", app1831}, "hrn:app:r:s"},
+		{"qualified ref names another App", []string{"team", "task", "get", "hrn:agenttask:r:other:AT0.5", "--app", app1831}, "names a task in another App"},
+		{"server-form qualified ref names another App", []string{"team", "task", "get", "hrn:agenttask:hrn:app:x.com:s:AT0.5", "--app", app1831}, "names a task in another App"},
+		{"blocker names another App", []string{"team", "task", "add-blocker", "AT0.5", "hrn:agenttask:r:other:AT0.6", "--app", app1831}, "names a task in another App"},
+		{"--parent names another App", []string{"team", "task", "list", "--parent", "hrn:agenttask:r:other:AT0.5", "--app", app1831}, "names a task in another App"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls, out, err := run1831(t, nil, tc.argv...)

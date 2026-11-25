@@ -69,7 +69,7 @@ func signingSession(ctx context.Context, f *cmdutil.Factory) (string, error) {
 	// Endpoint is the client's own normalization: equal endpoints are the
 	// same server, whatever the spelling.
 	if api.Endpoint(server) != api.Endpoint(b.Server) {
-		return "", refuse("it belongs to " + b.Server + ", not " + server)
+		return "", refuse("it belongs to " + b.Server + ", and this call targets another server (not shown)")
 	}
 	app, err := f.App()
 	if err != nil {

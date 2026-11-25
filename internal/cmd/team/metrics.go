@@ -24,11 +24,20 @@ import (
 const metricsNotVisible = "not visible to you"
 
 // metricsCountDTO is the server's TeamMetricsCount: the exact total, at most 200
-// ids, and whether the ids are fewer than the total.
+// ids, whether the ids are fewer than the total, and — server#4992, cli#3099 —
+// one named entry per id (same order), so a client needs no read per id.
 type metricsCountDTO struct {
-	Total     int      `json:"total"`
-	IDs       []string `json:"ids"`
-	Truncated bool     `json:"truncated"`
+	Total     int                 `json:"total"`
+	IDs       []string            `json:"ids"`
+	Named     []metricsNamedIDDTO `json:"named"`
+	Truncated bool                `json:"truncated"`
+}
+
+// metricsNamedIDDTO is one id of ids with its name — a task title or a worker
+// name — null when no name is readable.
+type metricsNamedIDDTO struct {
+	ID   string  `json:"id"`
+	Name *string `json:"name"`
 }
 
 type metricsProjectDTO struct {
@@ -110,7 +119,8 @@ type metricsDTO struct {
 const teamMetricsHelp = `Show a team's computed task and worker flow: the server's teamMetrics
 reports, rendered as returned. The CLI adds up, regroups and filters nothing.
 
-Each count comes with the ids behind it: --ids lists them. A list holds at
+Each count comes with the ids behind it: --ids lists them, each id with its
+name (a task title or a worker name) when one is readable. A list holds at
 most 200 ids, and a longer one reads "first 200 of N".
 
 The reports:
@@ -120,9 +130,12 @@ The reports:
                         It counts only started tasks that track external work
                         (a task with an issue reference or a source), so its
                         total is not all started tasks.
-  Started projects      each STARTED project with its direct child tasks
-                        counted by status. The server sends no project
-                        total, so the heading says how many are shown.
+  Started projects      each STARTED project with the tasks counted under
+                        it, at any depth, grouped by status; a task counts
+                        once, under its nearest marked project. Only STARTED
+                        projects are listed, so the rows do not add up to
+                        all tasks. The server sends no project total, so
+                        the heading says how many are shown.
   Workers               active, idle, overdue and inop. A worker can be in
                         several, so the four never add up to a head count.
   Flow in the window    tasks completed and tasks started in [since, until),
@@ -144,8 +157,9 @@ missing App (exit 4).
 a hidden report is null.
 
 Exit codes: 0 read; 2 a bad flag, a window the server refuses, or a server
-that does not serve teamMetrics (one from before 2026-11-22); 4 no such App
-or not readable; 1 a server fault.`
+that does not serve what the query selects — teamMetrics itself (one from
+before 2026-11-22) or the counts' named field (one from before
+2026-11-24); 4 no such App or not readable; 1 a server fault.`
 
 func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 	var since, until string
@@ -165,19 +179,19 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 			if cmd.Flags().Changed("since") {
 				t, err := time.Parse(time.RFC3339, since)
 				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 time such as 2026-11-02T00:00:00Z, got %q", since)
+					return exitcode.Newf(exitcode.Usage, "--since takes an RFC 3339 time such as 2026-11-02T00:00:00Z")
 				}
 				sinceAt, sinceArg = t, &since
 			}
 			if cmd.Flags().Changed("until") {
 				t, err := time.Parse(time.RFC3339, until)
 				if err != nil {
-					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 time such as 2026-11-09T00:00:00Z, got %q", until)
+					return exitcode.Newf(exitcode.Usage, "--until takes an RFC 3339 time such as 2026-11-09T00:00:00Z")
 				}
 				untilAt, untilArg = t, &until
 			}
 			if sinceArg != nil && untilArg != nil && sinceAt.After(untilAt) {
-				return exitcode.Newf(exitcode.Usage, "--since %s is after --until %s", since, until)
+				return exitcode.Newf(exitcode.Usage, "--since is after --until")
 			}
 			b, err := readBindingOrNilWithApp(ctx, f)
 			if err != nil {
@@ -197,12 +211,19 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 					return api.WithServerCode(exitcode.Newf(exitcode.Usage,
 						"this server does not serve teamMetrics (it predates 2026-11-22); nothing was read"), err)
 				}
+				if api.IsFrameworkValidationOnlyFor(err, "named") {
+					return api.WithServerCode(exitcode.Newf(exitcode.Usage,
+						"this server does not serve the counts' named field (it predates 2026-11-24, server#4992); nothing was read"), err)
+				}
 				return api.MapErrorKeepingCode(err)
 			}
 			if resp.TeamMetrics == nil {
 				return exitcode.Newf(exitcode.Error, "the server returned no metrics (teamMetrics was null)")
 			}
-			dto := metricsFromGen(resp.TeamMetrics)
+			dto, err := metricsFromGen(resp.TeamMetrics)
+			if err != nil {
+				return err
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				return renderMetrics(w, dto, ids)
 			})
@@ -214,10 +235,22 @@ func newCmdTeamMetrics(f *cmdutil.Factory) *cobra.Command {
 	return cmd
 }
 
-func countFromGen(c gen.TeamMetricsCountFields) metricsCountDTO {
-	out := metricsCountDTO{Total: c.Total, IDs: []string{}, Truncated: c.Truncated}
+// countFromGen copies one count. named runs beside ids, one entry per id in the
+// same order (cor:agt:150), and a missing name is an entry with a null name, not
+// a gap. A nil entry has no id at all, so only a malformed response carries one;
+// dropping it would shorten named and misalign it with ids, padding it would
+// invent a label, so it is refused.
+func countFromGen(c gen.TeamMetricsCountFields) (metricsCountDTO, error) {
+	out := metricsCountDTO{Total: c.Total, IDs: []string{}, Named: []metricsNamedIDDTO{}, Truncated: c.Truncated}
 	out.IDs = append(out.IDs, c.Ids...)
-	return out
+	for i, n := range c.Named {
+		if n == nil {
+			return metricsCountDTO{}, exitcode.Newf(exitcode.Error,
+				"the server returned a malformed answer: named entry %d of a count is null (the schema rules that out); nothing was read", i)
+		}
+		out.Named = append(out.Named, metricsNamedIDDTO{ID: n.Id, Name: n.Name})
+	}
+	return out, nil
 }
 
 func projectFromGen(p gen.TeamMetricsProjectFields) metricsProjectDTO {
@@ -230,7 +263,15 @@ func projectFromGen(p gen.TeamMetricsProjectFields) metricsProjectDTO {
 // [X!]! in the SDL, so a nil list entry is unreachable from a conforming server;
 // the loops skip one rather than crash, and cannot make a truncated list read as
 // whole (truncation is its own flag, copied as sent).
-func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
+func metricsFromGen(m *gen.TeamMetricsTeamMetrics) (metricsDTO, error) {
+	var firstErr error
+	count := func(c gen.TeamMetricsCountFields) metricsCountDTO {
+		out, err := countFromGen(c)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+		return out
+	}
 	empty := metricsCountDTO{IDs: []string{}}
 	dto := metricsDTO{AppID: m.AppId, AsOf: m.AsOf}
 	if m.Window != nil {
@@ -239,7 +280,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 	if so := m.StartedOwned; so != nil {
 		out := &metricsStartedOwnedDTO{All: empty, ByOwner: []metricsOwnerGroupDTO{}, OwnersTruncated: so.OwnersTruncated}
 		if so.All != nil {
-			out.All = countFromGen(so.All.TeamMetricsCountFields)
+			out.All = count(so.All.TeamMetricsCountFields)
 		}
 		for _, g := range so.ByOwner {
 			if g == nil {
@@ -250,7 +291,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 				og.Owner = &metricsOwnerDTO{ID: g.Owner.Id, Kind: string(g.Owner.Kind), Name: g.Owner.Name, URN: g.Owner.Urn}
 			}
 			if g.Tasks != nil {
-				og.Tasks = countFromGen(g.Tasks.TeamMetricsCountFields)
+				og.Tasks = count(g.Tasks.TeamMetricsCountFields)
 			}
 			for _, pg := range g.ByProject {
 				if pg == nil {
@@ -261,7 +302,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 					row.Project = projectFromGen(pg.Project.TeamMetricsProjectFields)
 				}
 				if pg.Tasks != nil {
-					row.Tasks = countFromGen(pg.Tasks.TeamMetricsCountFields)
+					row.Tasks = count(pg.Tasks.TeamMetricsCountFields)
 				}
 				og.ByProject = append(og.ByProject, row)
 			}
@@ -285,7 +326,7 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 				}
 				c := metricsChildStatusDTO{Status: string(ch.Status), Tasks: empty}
 				if ch.Tasks != nil {
-					c.Tasks = countFromGen(ch.Tasks.TeamMetricsCountFields)
+					c.Tasks = count(ch.Tasks.TeamMetricsCountFields)
 				}
 				row.Children = append(row.Children, c)
 			}
@@ -296,29 +337,29 @@ func metricsFromGen(m *gen.TeamMetricsTeamMetrics) metricsDTO {
 	dto.Workers = metricsWorkersDTO{Active: empty, Idle: empty, Overdue: empty, Inop: empty}
 	if w := m.Workers; w != nil {
 		if w.Active != nil {
-			dto.Workers.Active = countFromGen(w.Active.TeamMetricsCountFields)
+			dto.Workers.Active = count(w.Active.TeamMetricsCountFields)
 		}
 		if w.Idle != nil {
-			dto.Workers.Idle = countFromGen(w.Idle.TeamMetricsCountFields)
+			dto.Workers.Idle = count(w.Idle.TeamMetricsCountFields)
 		}
 		if w.Overdue != nil {
-			dto.Workers.Overdue = countFromGen(w.Overdue.TeamMetricsCountFields)
+			dto.Workers.Overdue = count(w.Overdue.TeamMetricsCountFields)
 		}
 		if w.Inop != nil {
-			dto.Workers.Inop = countFromGen(w.Inop.TeamMetricsCountFields)
+			dto.Workers.Inop = count(w.Inop.TeamMetricsCountFields)
 		}
 	}
 	if fl := m.Flow; fl != nil {
 		out := &metricsFlowDTO{Completed: empty, Started: empty}
 		if fl.Completed != nil {
-			out.Completed = countFromGen(fl.Completed.TeamMetricsCountFields)
+			out.Completed = count(fl.Completed.TeamMetricsCountFields)
 		}
 		if fl.Started != nil {
-			out.Started = countFromGen(fl.Started.TeamMetricsCountFields)
+			out.Started = count(fl.Started.TeamMetricsCountFields)
 		}
 		dto.Flow = out
 	}
-	return dto
+	return dto, firstErr
 }
 
 func renderMetrics(w io.Writer, dto metricsDTO, ids bool) error {
@@ -328,14 +369,25 @@ func renderMetrics(w io.Writer, dto metricsDTO, ids bool) error {
 		fmt.Fprintf(&sb, format, a...)
 		sb.WriteString("\n")
 	}
-	// idLine lists a count's ids under it (--ids): a cut-short list says it is partial.
+	// idLine lists a count's ids under it (--ids), each with its name when one
+	// is readable: a cut-short list says it is partial.
 	idLine := func(indent int, c metricsCountDTO) {
 		if !ids || len(c.IDs) == 0 {
 			return
 		}
+		names := make(map[string]string, len(c.Named))
+		for _, n := range c.Named {
+			if n.Name != nil && *n.Name != "" {
+				names[n.ID] = *n.Name
+			}
+		}
 		safe := make([]string, len(c.IDs))
 		for i, id := range c.IDs {
-			safe[i] = output.SafeCell(id)
+			cell := output.SafeCell(id)
+			if name, ok := names[id]; ok {
+				cell += " (" + output.SafeCell(name) + ")"
+			}
+			safe[i] = cell
 		}
 		label := "ids"
 		if c.Truncated {

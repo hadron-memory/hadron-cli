@@ -2400,7 +2400,7 @@ func TestSpecSupersedeUnverifiableEdgeSaysCheckFirst(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unverifiable retirement edge must not report success")
 	}
-	for _, want := range []string{"may or may not exist", "check `hadron spec get msg:010:02", "if after a minute it has no superseded-by edge to msg:010:03", "once `hadron spec get msg:010:02 -m micromentor.org::platform-specs` shows that edge"} {
+	for _, want := range []string{"may or may not exist", "check `hadron spec get <citation>", "if after a minute it has no superseded-by edge to the replacement", "once `hadron spec get <citation> -m <memory>` shows that edge"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message must contain %q; got %v", want, err)
 		}
@@ -2437,7 +2437,7 @@ func TestSpecSupersedeRaceWithBothEdgesCreatedRetiresNothing(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Fatalf("two successors must exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
 	}
-	if !strings.Contains(err.Error(), "superseded by both msg:010:03 and msg:020:01") {
+	if !strings.Contains(err.Error(), "superseded by both the replacement reported above and msg:020:01") {
 		t.Errorf("the message must name both successors; got %v", err)
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
@@ -2457,7 +2457,7 @@ func TestSpecSupersedeStaleRereadRetiresNothing(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "did not show that link yet") || !strings.Contains(err.Error(), "once `hadron spec get msg:010:02") {
+	if err == nil || !strings.Contains(err.Error(), "did not show that link yet") || !strings.Contains(err.Error(), "once `hadron spec get <citation>") {
 		t.Fatalf("an unseen link must not be retired on, and the rerun must wait for the link; got %v", err)
 	}
 	if _, retired := captured["UpdateSpecNode"]; retired {
@@ -2706,7 +2706,7 @@ func TestSpecSupersedeUnverifiableRetireIsUnknown(t *testing.T) {
 			root := NewRootCmd(f)
 			root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
 			err := root.Execute()
-			if err == nil || !strings.Contains(err.Error(), "whether it was retired is unknown") || !strings.Contains(err.Error(), "hadron spec get msg:010:02") {
+			if err == nil || !strings.Contains(err.Error(), "whether it was retired is unknown") || !strings.Contains(err.Error(), "hadron spec get <citation>") {
 				t.Fatalf("an unverifiable retirement must say so and name the check; got %v", err)
 			}
 			if !strings.Contains(out.String(), `"retired": null`) {
@@ -2756,7 +2756,7 @@ func TestSpecSupersedeLostCreateNamesTheReconciliation(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Unavailable {
 		t.Fatalf("a lost create must exit %d (Unavailable), got %d: %v", exitcode.Unavailable, code, err)
 	}
-	for _, want := range []string{"may have been created", "hadron spec get msg:010:03", "do NOT rerun as-is", "hadron spec link msg:010:02 msg:010:03", "only once `hadron spec get msg:010:02", "still does not exist after a minute"} {
+	for _, want := range []string{"may have been created", "the replacement numbered 03", "hadron spec get <replacement>", "do NOT rerun as-is", "hadron spec link <citation> <replacement>", "only once `hadron spec get <citation>", "still does not exist after a minute"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("message must contain %q; got %v", want, err)
 		}
@@ -2817,7 +2817,7 @@ func TestSpecSupersedeConfirmedWriteIsNotReportedUnwritten(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Fatalf("want exit %d (Conflict), got %d: %v", exitcode.Conflict, code, err)
 	}
-	if strings.Contains(err.Error(), "no second") || !strings.Contains(err.Error(), "superseded by both msg:010:03 and msg:020:01") {
+	if strings.Contains(err.Error(), "no second") || !strings.Contains(err.Error(), "superseded by both the replacement reported above and msg:020:01") {
 		t.Errorf("a confirmed write must be reported as written; got %v", err)
 	}
 	if !strings.Contains(out.String(), `"status": "created"`) {
@@ -3085,11 +3085,13 @@ func TestSpecSupersedeRetirementEdgeFailureEmitsResult(t *testing.T) {
 	// (TestSpecSupersedeRetryExistingRetirementEdgeFinishesUpdate).
 	// The rerun waits for the link to be visible: a rerun whose own first read
 	// is stale would mint a second replacement (#691 round 15).
-	if !strings.Contains(err.Error(), "once `hadron spec get msg:010:02") {
+	if !strings.Contains(err.Error(), "once `hadron spec get <citation>") {
 		t.Errorf("the remedy must wait for the link before rerunning; got %v", err)
 	}
 	_, remedy, _ := strings.Cut(err.Error(), "link them with `")
 	remedy, _, _ = strings.Cut(remedy, "`")
+	// The refusal shows the forms, never what was typed (cli#3114): fill them in, then run it.
+	remedy = strings.NewReplacer("<citation>", "msg:010:02", "<replacement>", "msg:010:03", "<memory>", specMem).Replace(remedy)
 	args := splitCommandLine(t, remedy)
 	if len(args) < 3 || args[0] != "hadron" || args[1] != "spec" || args[2] != "link" {
 		t.Fatalf("remedy is not a `hadron spec link` command: %q (from %v)", remedy, err)
@@ -4753,7 +4755,7 @@ func TestSpecEditReaffirmNotRefreshedWhenTheServerLeavesItStale(t *testing.T) {
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "edit", "msg:010:02", "-m", specMem,
 		"--abstract-still-accurate", "--server", gql.URL})
-	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "hadron spec lint msg:010:02 -m hrn:mem:micromentor.org:platform-specs") {
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "hadron spec lint <citation> -m <memory>") {
 		t.Errorf("stale-fingerprint recovery must name the edited memory, got %v", err)
 	}
 }
@@ -4819,7 +4821,7 @@ func TestSpecEditNullUpdateNodeIsNotASuccess(t *testing.T) {
 		if got := exitCodeFor(err); got != exitcode.Error {
 			t.Errorf("%v: a null updateSpecNode must exit 1, got %d", extra, got)
 		}
-		if err == nil || !strings.Contains(err.Error(), "hadron spec get msg:010:02 -m hrn:mem:micromentor.org:platform-specs") {
+		if err == nil || !strings.Contains(err.Error(), "hadron spec get <citation> -m <memory>") {
 			t.Errorf("%v: recovery must name the edited memory, got %v", extra, err)
 		}
 		if strings.Contains(out.String(), "updated") {

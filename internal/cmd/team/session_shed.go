@@ -667,10 +667,11 @@ func runShedCommand(cmd *cobra.Command, f *cmdutil.Factory, o *shedOptions, args
 		if auto {
 			return shedEmit(f, auto, fail("the command line could not be parsed"))
 		}
-		return exitcode.Newf(exitcode.Usage, "%v", err)
+		// The root's handler never shows the argument; pflag's own text quotes it.
+		return cmd.FlagErrorFunc()(cmd, err)
 	}
 	if rest := cmd.Flags().Args(); len(rest) > 0 && !auto {
-		return exitcode.Newf(exitcode.Usage, "shed takes no arguments, got %q", rest[0])
+		return exitcode.Newf(exitcode.Usage, "shed takes no arguments (the one given is not shown)")
 	}
 	if o.offline && !o.printPrompt && !auto {
 		return exitcode.Newf(exitcode.Usage, "--offline only applies with --print-prompt")

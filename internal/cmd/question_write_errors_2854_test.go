@@ -29,10 +29,10 @@ func TestQuestionOtherWritesMapErrorsBelowTheFieldAsUnknown2854(t *testing.T) {
 		hasNull         bool   // a null mutation result is decodable as "no question"
 	}
 	verbs := []verb{
-		{"ask", "AskQuestion", "askQuestion", []string{"ask", "LOG", "--input-file", askFile}, "hadron question list --log LOG", true},
-		{"amend", "AmendQuestion", "amendQuestion", []string{"amend", "QA", "--expected-revision", "3", "--reason", "r", "--title", "T"}, "hadron question get QA", true},
-		{"withdraw", "WithdrawQuestion", "withdrawQuestion", []string{"withdraw", "QA", "--expected-revision", "3", "--reason", "r", "--yes"}, "hadron question get QA", true},
-		{"purge", "PurgeUnansweredQuestion", "purgeUnansweredQuestion", []string{"purge", "QA", "--reason", "r", "--yes"}, "hadron question get QA", true},
+		{"ask", "AskQuestion", "askQuestion", []string{"ask", "LOG", "--input-file", askFile}, "hadron question list --log <log>", true},
+		{"amend", "AmendQuestion", "amendQuestion", []string{"amend", "QA", "--expected-revision", "3", "--reason", "r", "--title", "T"}, "hadron question get <question>", true},
+		{"withdraw", "WithdrawQuestion", "withdrawQuestion", []string{"withdraw", "QA", "--expected-revision", "3", "--reason", "r", "--yes"}, "hadron question get <question>", true},
+		{"purge", "PurgeUnansweredQuestion", "purgeUnansweredQuestion", []string{"purge", "QA", "--reason", "r", "--yes"}, "hadron question get <question>", true},
 	}
 	for _, v := range verbs {
 		// what the field resolves to when the write ran: the question, or purge's true

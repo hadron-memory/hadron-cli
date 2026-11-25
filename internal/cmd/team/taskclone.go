@@ -178,7 +178,7 @@ status; --json returns the task with its warnings list, as
 					s := gen.AgentTaskCreateStatusPending
 					input.Status = &s
 				default:
-					return exitcode.Newf(exitcode.Usage, "--status is backlog or pending at creation (every other status is reached by a move), got %q", status)
+					return exitcode.Newf(exitcode.Usage, "--status is backlog or pending at creation (every other status is reached by a move)")
 				}
 			}
 			// The same two validators `task create` uses for these two flags
@@ -186,13 +186,13 @@ status; --json returns the task with its warnings list, as
 			// value one command takes the other takes.
 			if flags.Changed("start-by") {
 				if _, err := time.Parse(time.RFC3339, startBy); err != nil {
-					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z, got %q", startBy)
+					return exitcode.Newf(exitcode.Usage, "--start-by takes an RFC 3339 timestamp, e.g. 2026-10-13T09:00:00Z")
 				}
 				input.StartBy = &startBy
 			}
 			if flags.Changed("finish-by") {
 				if _, ok := cmdutil.ParseStrictDateTime(finishBy); !ok {
-					return exitcode.Newf(exitcode.Usage, "--finish-by takes an RFC 3339 timestamp, e.g. 2099-11-02T09:00:00Z, got %q", finishBy)
+					return exitcode.Newf(exitcode.Usage, "--finish-by takes an RFC 3339 timestamp, e.g. 2099-11-02T09:00:00Z")
 				}
 				input.FinishBy = &finishBy
 			}

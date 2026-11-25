@@ -168,7 +168,7 @@ the same fields as hadron secret get.`,
 			if prot == nil {
 				resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], metadata, value)
 				if err != nil {
-					return mapChange(err, "the update of secret "+output.SafeCell(args[0]))
+					return mapChange(err, "the update of the secret (the ref given is not shown)")
 				}
 				if resp == nil || resp.UpdateSecret == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no secret")
@@ -177,7 +177,7 @@ the same fields as hadron secret get.`,
 			} else {
 				resp, err := gen.UpdateSecretProtected(cmd.Context(), client, args[0], metadata, value, prot)
 				if err != nil {
-					return mapChange(err, "the update of secret "+output.SafeCell(args[0]))
+					return mapChange(err, "the update of the secret (the ref given is not shown)")
 				}
 				if resp == nil || resp.UpdateSecret == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no secret")

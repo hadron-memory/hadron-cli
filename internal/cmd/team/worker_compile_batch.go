@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/Khan/genqlient/graphql"
@@ -143,7 +144,7 @@ func runWorkerCompileBatch(cmd *cobra.Command, f *cmdutil.Factory, opts bootcomp
 	if err != nil {
 		return err
 	}
-	roster, err = filterOnly(roster, opts.Only, scope.Ref)
+	roster, err = filterOnly(roster, opts.Only)
 	if err != nil {
 		return err
 	}
@@ -376,18 +377,18 @@ func scanBootPointers(ctx context.Context, client graphql.Client, appRef string)
 
 // filterOnly keeps the --only workers, refusing before any write when one is
 // not a live worker in the App.
-func filterOnly(rows []batchWorkerRow, only []string, appRef string) ([]batchWorkerRow, error) {
-	return filterOnlyNoting(rows, only, appRef, "nothing was compiled")
+func filterOnly(rows []batchWorkerRow, only []string) ([]batchWorkerRow, error) {
+	return filterOnlyNoting(rows, only, "nothing was compiled")
 }
 
 // filterOnlyNoting is filterOnly with the batch's own "nothing was <done>" note.
-func filterOnlyNoting(rows []batchWorkerRow, only []string, appRef, nothingDone string) ([]batchWorkerRow, error) {
+func filterOnlyNoting(rows []batchWorkerRow, only []string, nothingDone string) ([]batchWorkerRow, error) {
 	if len(only) == 0 {
 		return rows, nil
 	}
 	kept, missing := []batchWorkerRow{}, []string{}
 	seen := map[string]bool{}
-	for _, want := range only {
+	for i, want := range only {
 		found := false
 		for _, w := range rows {
 			if strings.EqualFold(w.Name, want) || w.Id == want || strings.EqualFold(strPtr(w.Urn), want) {
@@ -399,11 +400,11 @@ func filterOnlyNoting(rows []batchWorkerRow, only []string, appRef, nothingDone 
 			}
 		}
 		if !found {
-			missing = append(missing, want)
+			missing = append(missing, strconv.Itoa(i+1))
 		}
 	}
 	if len(missing) > 0 {
-		return nil, exitcode.Newf(exitcode.NotFound, "not a live worker in %s: %s (%s)", appRef, strings.Join(missing, ", "), nothingDone)
+		return nil, exitcode.Newf(exitcode.NotFound, "not a live worker in the App: --only value(s) %s, counted from 1 (the refs given are not shown; %s)", strings.Join(missing, ", "), nothingDone)
 	}
 	sort.SliceStable(kept, func(i, j int) bool { return strings.ToLower(kept[i].Name) < strings.ToLower(kept[j].Name) })
 	return kept, nil

@@ -324,7 +324,7 @@ func TestTeamHostIssueLocalRefusals(t *testing.T) {
 		{"no worker", []string{"worktree.create", "--host", "orca1"}, "--worker is required"},
 		{"bad arg", []string{"worktree.create", "--host", "orca1", "--worker", "Jonas", "--arg", "repo"}, "--arg takes key=value"},
 		{"empty key", []string{"worktree.create", "--host", "orca1", "--worker", "Jonas", "--arg", "=x"}, "--arg takes key=value"},
-		{"dup arg", []string{"worktree.create", "--host", "orca1", "--worker", "Jonas", "--arg", "repo=a", "--arg", "repo=b"}, "--arg repo is given twice"},
+		{"dup arg", []string{"worktree.create", "--host", "orca1", "--worker", "Jonas", "--arg", "repo=a", "--arg", "repo=b"}, "an --arg key is given twice"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls, _, err := runTeamTask(t, hostResponses(), append([]string{"team", "host", "issue"}, tc.argv...)...)

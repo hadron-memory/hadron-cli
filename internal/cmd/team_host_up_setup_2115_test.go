@@ -71,7 +71,7 @@ func wantDuplicateAbort2147(t *testing.T, err error, worker string) {
 	if got := exitCodeFor(err); got != 1 {
 		t.Fatalf("exit %d, want 1 for a malformed setup source: %v", got, err)
 	}
-	for _, want := range []string{"duplicate assignments for worker " + worker, "host orca1", "nothing planned"} {
+	for _, want := range []string{"duplicate assignments for worker " + worker, "the host (the host id given is not shown)", "nothing planned"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Fatalf("error %q lacks %q", err, want)
 		}

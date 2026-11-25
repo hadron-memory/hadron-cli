@@ -70,7 +70,7 @@ one. --json gives the secret fields, including currentVersion and protected.`,
 			// anywhere in it).
 			resp, err := gen.UpdateSecret(cmd.Context(), client, args[0], nil, &v)
 			if err != nil {
-				return mapChange(err, "the new value for secret "+output.SafeCell(args[0]))
+				return mapChange(err, "the new value for the secret (the ref given is not shown)")
 			}
 			if resp == nil || resp.UpdateSecret == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")

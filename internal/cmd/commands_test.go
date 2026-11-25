@@ -1211,7 +1211,7 @@ func TestNodeRmNonInteractiveRefusalDoesNotShowTheTarget3114(t *testing.T) {
 		t.Fatalf("expected the non-interactive --yes refusal (exit 2), got %v", err)
 	}
 	if _, called := captured["DeleteNode"]; called {
-		t.Error("the refusal must send nothing")
+		t.Error("the refusal must send no delete")
 	}
 	msg := err.Error()
 	if !strings.Contains(msg, "--yes") || !strings.Contains(msg, "not shown") || strings.Contains(msg, nodeURN) {
@@ -1366,9 +1366,9 @@ func TestNodeRmDescendantsRefusalIsActionable(t *testing.T) {
 	if !strings.Contains(msg, "3 descendant") || !strings.Contains(msg, "--recursive") {
 		t.Errorf("message should name the count and --recursive, got %q", msg)
 	}
-	// The node's loc (not the opaque PK) should anchor the message.
-	if !strings.Contains(msg, "findings:flaky-ci") {
-		t.Errorf("message should name the loc, got %q", msg)
+	// The loc equals the ref typed, so it is not shown (cli#3114).
+	if strings.Contains(msg, "findings:flaky-ci") || !strings.Contains(msg, "not shown") {
+		t.Errorf("message should not show the loc, got %q", msg)
 	}
 	// Must not leak the GraphQL-flavored "recursive: true" wording.
 	if strings.Contains(msg, "recursive: true") {

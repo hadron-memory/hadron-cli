@@ -89,7 +89,7 @@ hrn:node:hadronmemory.com:hadron-dev-team-shared:designs:decision-ledger-grammar
 			// An empty corpus would make every citation "unresolved": that is a
 			// wrong memory or no read access, not a ledger finding.
 			if len(ids) == 0 {
-				return exitcode.Newf(exitcode.NotFound, "no specs found in %s (wrong memory, or not visible to you)", memURN)
+				return exitcode.Newf(exitcode.NotFound, "no specs found in the memory (the ref given is not shown; wrong memory, or not visible to you)")
 			}
 			repl, err := loadReplacements(cmd.Context(), client, cands)
 			if err != nil {
