@@ -185,7 +185,7 @@ func TestSlice3HelperOnlyRefusals3114(t *testing.T) {
 		}
 		return err.Error()
 	}
-	if got := run(live, "team", "session", "start", "--as", "Iris", "--app", "hrn:app:acme.com:eng-team"); strings.Contains(got, "name Iris") || !strings.Contains(got, "worker release wkr1") {
+	if got := run(live, "team", "session", "start", "--as", "Iris", "--app", "hrn:app:acme.com:eng-team"); strings.Contains(got, "Iris") || !strings.Contains(got, "worker release wkr1") {
 		t.Errorf("held: %s", got)
 	}
 	if got := run(map[string]string{"TaskLinkDefect": `{"data":{"linkDefectToPullRequest":null}}`}, "team", "task", "link-defect", "AT1.2", "--defect", defect2189); strings.Contains(got, "AT1.2") {
@@ -202,13 +202,14 @@ func TestSlice3ServerMismatchHidesTheServerGiven3114(t *testing.T) {
 	for _, argv := range [][]string{
 		{"team", "session", "end"},
 		{"team", "task", "mine"},
-		{"team", "worker", "update", "Iris", "--title", "x", "--as-worker"},
+		{"team", "worker", "compile", "--apply", "--as-worker", "--app", "hrn:app:acme.com:eng-team"},
+		{"team", "worker", "update", "hrn:worker:acme.com:eng-team:iris", "--signature", "x", "--app", "hrn:app:acme.com:eng-team"},
 	} {
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
 		root.SetArgs(append(argv, "--server", "http://u:"+pastedUpper3029()+"@"+host))
 		err := root.Execute()
-		if err == nil || strings.Contains(err.Error(), "AbCdEf") || strings.Contains(err.Error(), host) {
+		if err == nil || strings.Contains(err.Error(), "AbCdEf") || strings.Contains(err.Error(), host) || !strings.Contains(err.Error(), "(not shown)") {
 			t.Errorf("%v: %v", argv, err)
 		}
 	}
