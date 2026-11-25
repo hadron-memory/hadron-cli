@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -57,7 +59,7 @@ func TestAgentLifecycleHelpStatesServerFacts(t *testing.T) {
 	}{
 		{[]string{"session"}, []string{"hadron team session", "App key"}},
 		// cli#2895 F5: the verb pages' own facts, not just the group page.
-		{[]string{"session", "start"}, []string{"must be positive", "implicit user creation", "usage error, not an anonymous session"}},
+		{[]string{"session", "start"}, []string{"must be positive", "implicit user creation", "usage error, not an anonymous session", "as typed"}},
 		{[]string{"session", "end"}, []string{"already ended succeeds"}},
 	} {
 		f, out := testFactory(t)
@@ -72,6 +74,19 @@ func TestAgentLifecycleHelpStatesServerFacts(t *testing.T) {
 				t.Errorf("%v help should say %q:\n%s", tc.args, w, out.String())
 			}
 		}
+	}
+}
+
+func assertSessionFieldSet(t *testing.T, got map[string]any) {
+	t.Helper()
+	wantFields := []string{"agentId", "appId", "expiresAt", "id", "isLive", "memoryId", "startedAt", "state", "type", "userId"}
+	gotFields := make([]string, 0, len(got))
+	for k := range got {
+		gotFields = append(gotFields, k)
+	}
+	sort.Strings(gotFields)
+	if !reflect.DeepEqual(gotFields, wantFields) {
+		t.Fatalf("session JSON field set drifted: %v, want %v", gotFields, wantFields)
 	}
 }
 
@@ -98,9 +113,7 @@ func TestAgentSessionStartByIDSendsOneMutation(t *testing.T) {
 	if got["id"] != "ses1" || got["agentId"] != "agt1" || got["state"] != "LIVE" || got["isLive"] != true {
 		t.Fatalf("json: %v", got)
 	}
-	if strings.Contains(strings.ToLower(out), "key") {
-		t.Fatalf("no key material or key field in the session output: %s", out)
-	}
+	assertSessionFieldSet(t, got)
 }
 
 func TestAgentSessionStartSendsOptionalFlags(t *testing.T) {
@@ -116,36 +129,58 @@ func TestAgentSessionStartSendsOptionalFlags(t *testing.T) {
 	}
 }
 
-// startAgentSession looks the agent up by ID only, so a URN is resolved first
-// with one read; the mutation then carries the ID.
-func TestAgentSessionStartResolvesURN(t *testing.T) {
+// cli#2665 A: startAgentSession(agentRef:) takes an id or a URN (hadron-server
+// #4141), so a URN is sent as typed with no read in front of it.
+func TestAgentSessionStartSendsURNAsTyped(t *testing.T) {
 	calls, _, err := runAgentLifecycle(t, map[string]string{
-		"AgentSessionAgentID": `{"data":{"agent":{"id":"agt1"}}}`,
-		"StartAgentSession":   `{"data":{"startAgentSession":` + agentSessionJSON + `}}`,
+		"StartAgentSession": `{"data":{"startAgentSession":` + agentSessionJSON + `}}`,
 	}, "session", "start", "hrn:agent:acme.com:support-bot")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Join(calls.ops, ",") != "AgentSessionAgentID,StartAgentSession" {
-		t.Fatalf("want one read then one mutation, got %v", calls.ops)
-	}
-	if calls.vars["AgentSessionAgentID"]["ref"] != "hrn:agent:acme.com:support-bot" || calls.vars["StartAgentSession"]["agentId"] != "agt1" {
-		t.Fatalf("vars: %v", calls.vars)
+	if v := wantOneOp(t, calls, "StartAgentSession"); v["agentId"] != "hrn:agent:acme.com:support-bot" {
+		t.Fatalf("vars: %v", v)
 	}
 }
 
-func TestAgentSessionStartUnreadableURNIsNotFoundWithoutMutation(t *testing.T) {
-	calls, _, err := runAgentLifecycle(t, map[string]string{
-		"AgentSessionAgentID": `{"data":{"agent":null}}`,
-	}, "session", "start", "hrn:agent:acme.com:nope")
-	if err == nil || exitCodeFor(err) != exitcode.NotFound {
-		t.Fatalf("want not-found, got %v", err)
+// cli#2665 A: the server's typed refusals map straight through: one FORBIDDEN
+// for every ref that names no live Agent (exit 8), URN_NOT_QUALIFIED for a
+// ref the server cannot read as an Agent URN (exit 2). Each sends exactly one operation.
+func TestAgentSessionStartServerRefusalsMapThrough(t *testing.T) {
+	for _, tc := range []struct {
+		name, ref, code string
+		want            int
+	}{
+		{"unknown urn", "hrn:agent:acme.com:nope", "FORBIDDEN", exitcode.Forbidden},
+		{"shorthand root:slug not installed", "acme.com:support-bot", "FORBIDDEN", exitcode.Forbidden},
+		{"ref that is not an agent urn", "acme.com:", "URN_NOT_QUALIFIED", exitcode.Usage},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			calls, _, err := runAgentLifecycle(t, map[string]string{
+				"StartAgentSession": `{"errors":[{"message":"refused","extensions":{"code":"` + tc.code + `"}}],"data":null}`,
+			}, "session", "start", tc.ref)
+			if err == nil || exitCodeFor(err) != tc.want {
+				t.Fatalf("want exit %d, got %v (%d)", tc.want, err, exitCodeFor(err))
+			}
+			if v := wantOneOp(t, calls, "StartAgentSession"); v["agentId"] != tc.ref {
+				t.Fatalf("vars: %v", v)
+			}
+		})
 	}
-	if len(calls.ops) != 1 || calls.ops[0] != "AgentSessionAgentID" {
-		t.Fatalf("no mutation after a failed resolve: %v", calls.ops)
+}
+
+// cli#2665 C: a Boolean! the schema allows to be false (the server never
+// returns it) exits 1 with no output and one call.
+func TestAgentSessionEndFalseExitsErrorSilently(t *testing.T) {
+	calls, out, err := runAgentLifecycle(t, map[string]string{
+		"EndAgentSession": `{"data":{"endAgentSession":false}}`,
+	}, "session", "end", "ses1")
+	if err == nil || exitCodeFor(err) != exitcode.Error {
+		t.Fatalf("want exit %d, got %v", exitcode.Error, err)
 	}
-	if !strings.Contains(err.Error(), "agent ID") {
-		t.Fatalf("the refusal should name the ID remedy: %v", err)
+	wantOneOp(t, calls, "EndAgentSession")
+	if out != "" {
+		t.Fatalf("no stdout on a refused end: %q", out)
 	}
 }
 
@@ -307,20 +342,51 @@ func TestAgentSessionStartExternalUserSentAsTyped(t *testing.T) {
 	}
 }
 
-// cli#2895 F6: the URN detection stays the `:`-contains check — a malformed
-// colon-bearing non-URN goes to the agent(ref) read and is refused as
-// not-found, never sent as a bare-ID mutation. Shape pinned per the attach.
-func TestAgentSessionStartColonRefGoesToTheRead(t *testing.T) {
+// cli#2665 B: the field-set pin compares names, not substrings, so a value that
+// merely contains "key" is fine.
+func TestAgentSessionStartValueContainingKeyIsNotAField(t *testing.T) {
+	body := strings.Replace(agentSessionJSON, `"memoryId":"mem1"`, `"memoryId":"monkey-key-mem"`, 1)
+	_, out, err := runAgentLifecycle(t, map[string]string{
+		"StartAgentSession": `{"data":{"startAgentSession":` + body + `}}`,
+	}, "session", "start", "agt1", "--json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(out), &got); err != nil || got["memoryId"] != "monkey-key-mem" {
+		t.Fatalf("got %v, %v", got, err)
+	}
+	assertSessionFieldSet(t, got)
+}
+
+// cli#2665 N1: the ref is sent byte for byte: no trimming, no case folding.
+func TestAgentSessionStartRefSentByteForByte(t *testing.T) {
+	const ref = "hrn:agent:Acme.com:Support-Bot"
 	calls, _, err := runAgentLifecycle(t, map[string]string{
-		"AgentSessionAgentID": `{"data":{"agent":null}}`,
-	}, "session", "start", "definitely:not-a-urn")
-	if err == nil || exitCodeFor(err) != exitcode.NotFound {
-		t.Fatalf("want not-found, got %v (%d)", err, exitCodeFor(err))
+		"StartAgentSession": `{"data":{"startAgentSession":` + agentSessionJSON + `}}`,
+	}, "session", "start", ref)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if len(calls.ops) != 1 || calls.ops[0] != "AgentSessionAgentID" {
-		t.Fatalf("exactly the read, no mutation: %v", calls.ops)
+	if v := wantOneOp(t, calls, "StartAgentSession"); v["agentId"] != ref {
+		t.Fatalf("vars: %v", v)
 	}
-	if calls.vars["AgentSessionAgentID"]["ref"] != "definitely:not-a-urn" {
-		t.Fatalf("vars: %v", calls.vars)
+}
+
+// cli#2665 F3: the text line names the server's agent id, and falls back to the
+// ref as typed when the server returns none.
+func TestAgentSessionStartTextNamesAgent(t *testing.T) {
+	_, out, err := runAgentLifecycle(t, map[string]string{
+		"StartAgentSession": `{"data":{"startAgentSession":` + agentSessionJSON + `}}`,
+	}, "session", "start", "hrn:agent:acme.com:support-bot")
+	if err != nil || strings.TrimSpace(out) != "✓ started session ses1 for agent agt1 (LIVE)" {
+		t.Fatalf("%v: %q", err, out)
+	}
+	noAgent := strings.Replace(agentSessionJSON, `"agentId":"agt1"`, `"agentId":null`, 1)
+	_, out, err = runAgentLifecycle(t, map[string]string{
+		"StartAgentSession": `{"data":{"startAgentSession":` + noAgent + `}}`,
+	}, "session", "start", "agt9")
+	if err != nil || strings.TrimSpace(out) != "✓ started session ses1 for agent agt9 (LIVE)" {
+		t.Fatalf("%v: %q", err, out)
 	}
 }
