@@ -2126,7 +2126,7 @@ type AgentFilter struct {
 	// agents: organizationId IS NULL AND ownerUserId = the caller. For ALL
 	// callers INCLUDING platform ADMIN/OWNER (owner scope is never an
 	// admin-bypass surface), mirroring the owner-only personal/private memories
-	// slice. Org-less by definition, so orgId is not consulted. App-key callers
+	// slice. Org-less by definition, so orgRef is not consulted. App-key callers
 	// (no user context) get an empty page. Powers the portal's "My agents".
 	OwnedByMe  *bool            `json:"ownedByMe,omitempty"`
 	Type       *AgentType       `json:"type,omitempty"`
@@ -2382,6 +2382,11 @@ func (v *AgentRevisionsAgentRevisionsAgentRevisionListRevisionsAgentRevision) Ge
 type AgentRevisionsResponse struct {
 	// An Agent's revisions, newest first, with the slot limit, the highest slot used and the saves left (#4488).
 	// Read by whoever may restore a revision: the Agent's manager.
+	//
+	// Error codes (extensions.code): AGENT_NOT_FOUND (no such Agent, or one the
+	// caller cannot read), FORBIDDEN (a reader who does not manage the Agent),
+	// AGENT_HAS_NO_SYSTEM_MEMORY (the Agent has no system memory, so it has no
+	// revisions to list).
 	//
 	// Accepts the entity's ID or URN.
 	AgentRevisions *AgentRevisionsAgentRevisionsAgentRevisionList `json:"agentRevisions"`
@@ -5382,7 +5387,7 @@ type AgentTaskCloneResponse struct {
 	// description, source, tags, requirements, references, closeSessionWhenDone, priority, properties and the parent. Not
 	// copied: assignee, status, result, handle, blockers, startBy, finishBy, externalId. The clone is PENDING (or BACKLOG, as
 	// input.status asks). The parent is kept only for someone who may create a child of it (else TASK_NOT_ASSIGNEE, nothing
-	// created, unless input.parentTaskId names another parent or null for none); a root is cloned as a root of the same
+	// created, unless input.parentTaskRef names another parent or null for none); a root is cloned as a root of the same
 	// kind, through the root create gate; under an ended parent it goes under the project AT0. The properties and priority
 	// are copied only for a caller who may set them and are otherwise left out, with no refusal. Refusals: TASK_NOT_FOUND
 	// (an unknown, unreadable or cross-App source or parent), BAD_USER_INPUT (AT0 cannot be cloned), TASK_NOT_ASSIGNEE,
@@ -20255,7 +20260,7 @@ func (v *AgentsAgentsAgentsPageItemsAgent) __premarshalJSON() (*__premarshalAgen
 // AgentsResponse is returned by Agents on success.
 type AgentsResponse struct {
 	// Uniform paginated agent list (#473). Scope: Agents owned by the caller's
-	// member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgId
+	// member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgRef
 	// follows cor:api:100:01 (member -> scope, non-member -> empty page, no
 	// disclosure, no admin bypass). filter narrows by type / visibility.
 	// filter.ownedByMe (#782) narrows to the caller's own user-owned (org-less)
@@ -23806,13 +23811,13 @@ type AppFilter struct {
 	// join; an App has no separate primary-agent column to match). Accepts an ID
 	// or a fully-qualified URN. The Agent must be one the caller can read: an
 	// unreadable, deleted, unresolvable or nonexistent Agent yields an empty page,
-	// never a not-found or forbidden error. Combines with ownedByMe and orgId.
+	// never a not-found or forbidden error. Combines with ownedByMe and orgRef.
 	AgentRef *string `json:"agentRef,omitempty"`
 	// #782 — true restricts the list to the caller's OWN user-owned (org-less)
 	// apps: organizationId IS NULL AND ownerUserId = the caller. For ALL callers
 	// INCLUDING platform ADMIN/OWNER (owner scope is never an admin-bypass
 	// surface), mirroring the owner-only personal/private memories slice.
-	// Org-less by definition, so orgId is not consulted. App-key callers (no
+	// Org-less by definition, so orgRef is not consulted. App-key callers (no
 	// user context) get an empty page. Powers the portal's "My apps".
 	OwnedByMe *bool `json:"ownedByMe,omitempty"`
 }
@@ -27360,10 +27365,10 @@ func (v *AppsAppsAppsPageItemsApp) GetCreatedAt() string { return v.CreatedAt }
 
 // AppsResponse is returned by Apps on success.
 type AppsResponse struct {
-	// Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgId!)
+	// Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgRef!)
 	// and the member myApps. Scope: Apps in the caller's member orgs (App
 	// doesn't carry a userId, so org membership is the routing); platform
-	// ADMIN/OWNER unscoped get every live App. orgId follows cor:api:100:01
+	// ADMIN/OWNER unscoped get every live App. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01
 	// (member -> scope, non-member -> empty page, no disclosure, no admin
 	// bypass). Name-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only. filter.ownedByMe (#782) narrows to the caller's own
@@ -34463,7 +34468,7 @@ func (v *ChannelsChannelsChannelsPageItemsChannel) __premarshalJSON() (*__premar
 type ChannelsResponse struct {
 	// Spec 049 Phase 4 — Channels whose host memory you may read, narrowed by an
 	// App (its host memories' Channels) or by one memory, and by the cor:api:100:01
-	// orgId. Loc-ascending (id tiebreak); limit default 20 / cap 200.
+	// orgRef. Loc-ascending (id tiebreak); limit default 20 / cap 200.
 	Channels *ChannelsChannelsChannelsPage `json:"channels"`
 }
 
@@ -34612,8 +34617,8 @@ type ChatMessagesResponse struct {
 	// (SYSTEM memory class excluded by default; explicit wins). Returns a
 	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
 	//
-	// orgId (optional) narrows the accessible scope to a single organization the
-	// caller is a member of; a non-member orgId returns an empty envelope
+	// orgRef (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgRef returns an empty envelope
 	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
 	// this is the canonical "the caller's runnable task nodes in one org" query
 	// (there is no separate myTasks surface — a task is simply an isRunnable node).
@@ -40524,7 +40529,7 @@ func (v *CreateAgentScheduleResponse) GetCreateAgentSchedule() *CreateAgentSched
 }
 
 // createAgentTask input. A ROOT task names appRef; any App participant may
-// create one (hrn:node:hadronmemory.com:specs:cor:agt:050:06). A CHILD task names parentTaskId; only the
+// create one (hrn:node:hadronmemory.com:specs:cor:agt:050:06). A CHILD task names parentTaskRef; only the
 // parent's assignee may create one, and it owns it (hrn:node:hadronmemory.com:specs:cor:agt:050:07).
 type CreateAgentTaskInput struct {
 	// The team App (id or URN). Required for a root task; for a child task it is taken from the parent and, if given, must match.
@@ -40561,7 +40566,7 @@ type CreateAgentTaskInput struct {
 	ParentTaskRef *string              `json:"parentTaskRef"`
 	// #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
 	Priority *int `json:"priority,omitempty"`
-	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0, carrying the project marker (#4997). Not with parentTaskId.
+	// Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0, carrying the project marker (#4997). Not with parentTaskRef.
 	Project *bool `json:"project,omitempty"`
 	// #2420 (hrn:node:hadronmemory.com:specs:cor:agt:050:28): the task's own properties, a JSON object with the same limits
 	// and refusal codes as on update. Only set when the creator is one of the task's writers (its owner, someone above the
@@ -41658,7 +41663,7 @@ type CreateAiServiceConfigResponse struct {
 	// Auth: platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
 	// the App/Agent's strict owner or owning-org ADMIN for APP/AGENT. A platform
 	// role does not bypass a user-owned App/Agent's credential gate.
-	// ownerId accepts ID or URN (HADRON_SERVER: ID only).
+	// ownerRef accepts ID or URN (HADRON_SERVER: ID only).
 	CreateAiServiceConfig *CreateAiServiceConfigCreateAiServiceConfig `json:"createAiServiceConfig"`
 }
 
@@ -41871,7 +41876,7 @@ type CreateAiServiceConfigWithApiStyleResponse struct {
 	// Auth: platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
 	// the App/Agent's strict owner or owning-org ADMIN for APP/AGENT. A platform
 	// role does not bypass a user-owned App/Agent's credential gate.
-	// ownerId accepts ID or URN (HADRON_SERVER: ID only).
+	// ownerRef accepts ID or URN (HADRON_SERVER: ID only).
 	CreateAiServiceConfig *CreateAiServiceConfigWithApiStyleCreateAiServiceConfig `json:"createAiServiceConfig"`
 }
 
@@ -42068,7 +42073,7 @@ type CreateAiServiceConfigWithEndpointResponse struct {
 	// Auth: platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
 	// the App/Agent's strict owner or owning-org ADMIN for APP/AGENT. A platform
 	// role does not bypass a user-owned App/Agent's credential gate.
-	// ownerId accepts ID or URN (HADRON_SERVER: ID only).
+	// ownerRef accepts ID or URN (HADRON_SERVER: ID only).
 	CreateAiServiceConfig *CreateAiServiceConfigWithEndpointCreateAiServiceConfig `json:"createAiServiceConfig"`
 }
 
@@ -44562,9 +44567,9 @@ func (v *CreateNodeCreateNode) GetRole() *string { return v.Role }
 // GetUpdatedAt returns CreateNodeCreateNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *CreateNodeCreateNode) GetUpdatedAt() string { return v.UpdatedAt }
 
-// Input for createNode. 'loc' and 'name' are required, plus EITHER 'memoryId'
+// Input for createNode. 'loc' and 'name' are required, plus EITHER 'memoryRef'
 // or 'install' (an App's install memory, #2044) — both or neither is an
-// error (BAD_USER_INPUT). Creating is create-only — a live node at (memoryId,
+// error (BAD_USER_INPUT). Creating is create-only — a live node at (memoryRef,
 // loc) rejects with NodeLocConflictError (spec 039 Phase 0 D1/D4).
 type CreateNodeInput struct {
 	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters.
@@ -44583,7 +44588,7 @@ type CreateNodeInput struct {
 	Edges []*NodeEdgeInput `json:"edges,omitempty"`
 	// Forced PK (importer/sync use case, e.g. a stable UUIDv7). Only ever a create-id here — never a selector (D2). Omit to mint.
 	Id *string `json:"id,omitempty"`
-	// #2044 — an App's install memory as the target, instead of 'memoryId'. See InstallTargetInput.
+	// #2044 — an App's install memory as the target, instead of 'memoryRef'. See InstallTargetInput.
 	Install *InstallTargetInput `json:"install,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060).
 	IsRunnable *bool   `json:"isRunnable,omitempty"`
@@ -47110,7 +47115,9 @@ type CreateTeamChatMessageResponse struct {
 	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE, TEAM_CHAT_DUPLICATE,
 	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
 	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume; extensions.reason
-	// names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE or NOT_OWNER),
+	// names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE, LIVENESS_UNKNOWN
+	// (too many open sessions on the worker to check them all, and none of those checked
+	// is live) or NOT_OWNER),
 	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
 	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
@@ -49189,7 +49196,7 @@ func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo)
 // DeliveryBatchesResponse is returned by DeliveryBatches on success.
 type DeliveryBatchesResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE, LIVENESS_UNKNOWN (too many open sessions on the worker to check them all, and none of those checked is live) or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *DeliveryBatchesDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -50856,8 +50863,8 @@ type DueWakesResponse struct {
 func (v *DueWakesResponse) GetDueWakes() *DueWakesDueWakesDueWakePage { return v.DueWakes }
 
 // Filter for the uniform edges() list (#473). Clauses AND-combine and are
-// intersected with the caller's readable memories. memoryId / sourceNodeId /
-// targetNodeId each accept an ID or a fully-qualified URN; an unresolvable
+// intersected with the caller's readable memories. memoryRef / sourceRef /
+// targetRef each accept an ID or a fully-qualified URN; an unresolvable
 // ref yields an empty page (consistent with the no-disclosure posture).
 type EdgeFilter struct {
 	// Include soft-deleted edges (default false).
@@ -53509,8 +53516,8 @@ type FindNodesResponse struct {
 	// (SYSTEM memory class excluded by default; explicit wins). Returns a
 	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
 	//
-	// orgId (optional) narrows the accessible scope to a single organization the
-	// caller is a member of; a non-member orgId returns an empty envelope
+	// orgRef (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgRef returns an empty envelope
 	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
 	// this is the canonical "the caller's runnable task nodes in one org" query
 	// (there is no separate myTasks surface — a task is simply an isRunnable node).
@@ -53770,8 +53777,8 @@ type FindNodesWithCommentSummaryResponse struct {
 	// (SYSTEM memory class excluded by default; explicit wins). Returns a
 	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
 	//
-	// orgId (optional) narrows the accessible scope to a single organization the
-	// caller is a member of; a non-member orgId returns an empty envelope
+	// orgRef (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgRef returns an empty envelope
 	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
 	// this is the canonical "the caller's runnable task nodes in one org" query
 	// (there is no separate myTasks surface — a task is simply an isRunnable node).
@@ -59568,12 +59575,12 @@ type GlobalSearchResponse struct {
 	// the caller exactly as the per-kind queries are. Distinct from `findNodes`,
 	// which is the node-only, vector-aware retrieval surface.
 	//
-	// orgId (optional) narrows the org-anchored slices to a single organization:
+	// orgRef (optional) narrows the org-anchored slices to a single organization:
 	// node/memory hits are confined to that org's memories and organization /
 	// agent / app / aiServiceConfig hits to that org. (The user slice is NOT
 	// org-scoped — users aren't org-owned; they stay gated by the caller's
 	// user-visibility as usual.) Omit for the cross-org union (default). A caller
-	// who is not a member of orgId gets an empty page (total: 0) — no
+	// who is not a member of orgRef gets an empty page (total: 0) — no
 	// org-existence disclosure; membership-gated for everyone, no admin bypass.
 	//
 	// Paged in the repo standard idiom: limit (default 20, capped 200) + offset
@@ -60832,7 +60839,7 @@ func (v *HomeAssistantInstancesHomeAssistantInstancesHomeAssistantInstancesPageI
 // HomeAssistantInstancesResponse is returned by HomeAssistantInstances on success.
 type HomeAssistantInstancesResponse struct {
 	// Uniform paginated Home Assistant instance list (cor:api:120). Default
-	// scope: the caller's member orgs. orgId follows cor:api:100:01 (member
+	// scope: the caller's member orgs. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member
 	// -> that org, non-member -> empty page, no disclosure, no admin
 	// bypass). Slug-ascending order (id tiebreak); limit default 20 / cap
 	// 200; limit: 0 -> count only.
@@ -63309,7 +63316,7 @@ func (v *ImpersonationSessionsImpersonationSessionsImpersonationSessionListItems
 // ImpersonationSessionsResponse is returned by ImpersonationSessions on success.
 type ImpersonationSessionsResponse struct {
 	// Uniform paginated admin-impersonation audit list (createdAt-desc).
-	// Platform admins may omit orgId (unscoped); everyone else must name an
+	// Platform admins may omit orgRef (unscoped); everyone else must name an
 	// org they are a live ADMIN/OWNER of. filter.activeOnly keeps only
 	// currently-live sessions. limit default 20 / cap 200.
 	ImpersonationSessions *ImpersonationSessionsImpersonationSessionsImpersonationSessionList `json:"impersonationSessions"`
@@ -63374,7 +63381,7 @@ func (v *ImportNodeImportNodeImportNodeResultNode) GetNodeType() string { return
 // GetUpdatedAt returns ImportNodeImportNodeImportNodeResultNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *ImportNodeImportNodeImportNodeResultNode) GetUpdatedAt() string { return v.UpdatedAt }
 
-// Input for importNode (#457). Target: 'nodeUrn' XOR ('memoryId' + 'loc') —
+// Input for importNode (#457). Target: 'nodeUrn' XOR ('memoryRef' + 'loc') —
 // the URN may name a not-yet-existing node (import creates it). Source:
 // exactly one of 'url' | 'content'.
 type ImportNodeInput struct {
@@ -63389,7 +63396,7 @@ type ImportNodeInput struct {
 	Content *string `json:"content,omitempty"`
 	// MIME type of 'content': text/html (DEFAULT here — unlike createNode) converts to Markdown at the write seam; text/markdown stores as-is; application/pdf extracts a PDF's text layer to Markdown ('content' must be raw base64 — a PDF is binary; scanned/image-only PDFs error). Ignored on the url path (always HTML).
 	ContentType *string `json:"contentType,omitempty"`
-	// Target loc within 'memoryId'. XOR with 'nodeUrn'.
+	// Target loc within 'memoryRef'. XOR with 'nodeUrn'.
 	Loc *string `json:"loc,omitempty"`
 	// Target memory (ID or fully-qualified URN), with 'loc'. XOR with 'nodeUrn'.
 	MemoryRef *string `json:"memoryRef,omitempty"`
@@ -63397,7 +63404,7 @@ type ImportNodeInput struct {
 	Name *string `json:"name,omitempty"`
 	// Default 'webpage' (or 'info' when contentType is application/pdf).
 	NodeType *string `json:"nodeType,omitempty"`
-	// Fully-qualified node URN naming the target (existing or new). XOR with memoryId+loc.
+	// Fully-qualified node URN naming the target (existing or new). XOR with memoryRef+loc.
 	NodeUrn *string `json:"nodeUrn,omitempty"`
 	// Merged provenance metadata; the server sets properties.url on the url path when absent (properties.title is filled from the extracted title by the write seam).
 	Properties *json.RawMessage `json:"properties,omitempty"`
@@ -65778,7 +65785,7 @@ type ListAssetsResponse struct {
 	// as the per-memory one.
 	//
 	// The three tabs of a top-level Assets section are filters over this,
-	// not separate queries: mine: true, no filter, and orgId respectively.
+	// not separate queries: mine: true, no filter, and orgRef respectively.
 	Assets *ListAssetsAssetsAssetsPage `json:"assets"`
 }
 
@@ -65939,7 +65946,7 @@ func (v *ListEdgesEdgesEdgesPageItemsEdge) __premarshalJSON() (*__premarshalList
 type ListEdgesResponse struct {
 	// Uniform paginated edge list (#473). Scope: edges whose (denormalized,
 	// source-side) memory the caller can read, AND-narrowed by the filter.
-	// orgId follows cor:api:100:01 (member -> scope, non-member -> empty page,
+	// orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> scope, non-member -> empty page,
 	// no disclosure, no admin bypass). Deterministic loc-ascending order
 	// (id tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
 	Edges *ListEdgesEdgesEdgesPage `json:"edges"`
@@ -67532,7 +67539,7 @@ func (v *McpServersMcpServersMcpServersPageItemsMcpServer) __premarshalJSON() (*
 // McpServersResponse is returned by McpServers on success.
 type McpServersResponse struct {
 	// Uniform paginated MCP-server list (cor:api:120). Default scope: the
-	// caller's member orgs. orgId follows cor:api:100:01 (member -> that
+	// caller's member orgs. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
 	// org, non-member -> empty page, no disclosure, no admin bypass).
 	// Slug-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only.
@@ -67700,10 +67707,10 @@ type MemoriesResponse struct {
 	// (every PUBLIC memory — the old publicMemories). filter.memoryClasses
 	// restricts to exactly the listed classes; omitted, the noisy agent system
 	// class is hidden by default (pass it explicitly to surface system
-	// memories, e.g. the old orgSystemMemories = orgId + memoryClasses:
+	// memories, e.g. the old orgSystemMemories = orgRef + memoryClasses:
 	// [system]).
 	//
-	// orgId follows cor:api:100:01: member -> the "active organization" view
+	// orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01: member -> the "active organization" view
 	// (own personal/private + that org's owned + subscribed memories);
 	// non-member -> empty page, no existence disclosure, no admin bypass.
 	//
@@ -67937,10 +67944,10 @@ type MemoriesSharedWithMeResponse struct {
 	// (every PUBLIC memory — the old publicMemories). filter.memoryClasses
 	// restricts to exactly the listed classes; omitted, the noisy agent system
 	// class is hidden by default (pass it explicitly to surface system
-	// memories, e.g. the old orgSystemMemories = orgId + memoryClasses:
+	// memories, e.g. the old orgSystemMemories = orgRef + memoryClasses:
 	// [system]).
 	//
-	// orgId follows cor:api:100:01: member -> the "active organization" view
+	// orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01: member -> the "active organization" view
 	// (own personal/private + that org's owned + subscribed memories);
 	// non-member -> empty page, no existence disclosure, no admin bypass.
 	//
@@ -69578,7 +69585,7 @@ type MemoryFilter struct {
 	// organizationId IS NULL AND the caller owns it. For ALL callers INCLUDING
 	// platform ADMIN/OWNER (owner scope is never an admin-bypass surface), the
 	// same intent as AgentFilter.ownedByMe and AppFilter.ownedByMe. Org-less by
-	// definition, so orgId is not consulted. App-key callers (no user context)
+	// definition, so orgRef is not consulted. App-key callers (no user context)
 	// and impersonated sessions get an empty page. Powers the portal's
 	// "My memories".
 	//
@@ -74138,7 +74145,7 @@ type NodeFilter struct {
 	// #2999 — runnability is tri-state. true returns only runnable rows; false returns only rows explicitly marked not runnable. A row never marked (NULL) matches neither, and only an omitted filter returns it. (hrn:node:hadronmemory.com:specs:cor:api:060:04)
 	IsRunnable *bool   `json:"isRunnable,omitempty"`
 	LocPrefix  *string `json:"locPrefix,omitempty"`
-	// Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryIds) overrides that.
+	// Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryRefs) overrides that.
 	MemoryClasses []MemoryClass `json:"memoryClasses,omitempty"`
 	// Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
 	MemoryRefs []string `json:"memoryRefs,omitempty"`
@@ -85842,7 +85849,7 @@ func (v *RegisterEntriesRegisterEntriesRegisterEntriesPageItemsRegisterEntry) __
 type RegisterEntriesResponse struct {
 	// Spec 049 Phase 5 — register entries you may read (§8.6), narrowed by owner
 	// (an App or an organization), Channel, or attendee (a Worker or an Agent),
-	// and by the cor:api:100:01 orgId. A filter naming something foreign returns
+	// and by the hrn:node:hadronmemory.com:specs:cor:api:100:01 orgRef. A filter naming something foreign returns
 	// the same empty page as one naming nothing. Oldest first; limit default 20 / cap 200.
 	RegisterEntries *RegisterEntriesRegisterEntriesRegisterEntriesPage `json:"registerEntries"`
 }
@@ -89803,7 +89810,7 @@ type ResumeSessionInput struct {
 	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
 	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
 	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
-	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read.
+	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read. That id-only refusal is built behaviour (#3822), not a rule of cor:agt:020:03, which says only that the caller may name the worker it expects and that a blank one is refused; the field is a known gap against cor:api:140:01, deferred to hadron-server#5163.
 	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
@@ -93501,7 +93508,7 @@ var AllScopeOwnerType = []ScopeOwnerType{
 type ScopesResponse struct {
 	// Spec 049 Phase 2 — paginated list of the scopes you may read, optionally
 	// narrowed by owner, by an App's resolution context, by name, and by the
-	// cor:api:100:01 orgId (member-gated, no admin bypass; non-member ⇒ empty
+	// hrn:node:hadronmemory.com:specs:cor:api:100:01 orgRef (member-gated, no admin bypass; non-member ⇒ empty
 	// page). Name-ascending (id tiebreak); limit default 20 / cap 200; limit: 0
 	// ⇒ count only.
 	Scopes *ScopesScopesScopesPage `json:"scopes"`
@@ -93955,8 +93962,8 @@ type SearchNodesResponse struct {
 	// (SYSTEM memory class excluded by default; explicit wins). Returns a
 	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
 	//
-	// orgId (optional) narrows the accessible scope to a single organization the
-	// caller is a member of; a non-member orgId returns an empty envelope
+	// orgRef (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgRef returns an empty envelope
 	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
 	// this is the canonical "the caller's runnable task nodes in one org" query
 	// (there is no separate myTasks surface — a task is simply an isRunnable node).
@@ -93968,13 +93975,13 @@ func (v *SearchNodesResponse) GetFindNodes() *SearchNodesFindNodesFindNodesResul
 
 // Bulk literal/regex search-and-replace across selected nodes.
 //
-// Selection is a union — at least one of 'nodeIds' or 'memoryIds' is required:
-// - nodeIds:   explicit nodes (IDs or fully-qualified URNs).
-// - memoryIds: every live node in those memories (IDs or URNs).
-// - prefix:    further restrict the memoryIds set to the node at 'prefix'
+// Selection is a union — at least one of 'nodeRefs' or 'memoryRefs' is required:
+// - nodeRefs:  explicit nodes (IDs or fully-qualified URNs).
+// - memoryRefs: every live node in those memories (IDs or URNs).
+// - prefix:    further restrict the memoryRefs set to the node at 'prefix'
 // plus its descendants, matched on colon loc-path boundaries
 // (so 'auth' matches 'auth' and 'auth:tokens' but not
-// 'authoring'). Requires 'memoryIds' — loc is only unique
+// 'authoring'). Requires 'memoryRefs' — loc is only unique
 // within a memory.
 //
 // Matching is literal substring by default; set 'regex: true' to treat
@@ -94000,7 +94007,7 @@ type SearchReplaceInNodesInput struct {
 	NodeRefs []string `json:"nodeRefs"`
 	// Text (literal) or RegExp source (regex mode) to find. Must be non-empty.
 	OldText string `json:"oldText"`
-	// Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
+	// Loc-prefix filter applied within 'memoryRefs' (parent loc + descendants).
 	Prefix *string `json:"prefix"`
 	// Why this change was made — recorded on each changed node's revision-history
 	// snapshot (NodeRevision.revLabel, #620; historically it squatted in
@@ -95765,7 +95772,7 @@ func (v *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) Ge
 // SessionInboxResponse is returned by SessionInbox on success.
 type SessionInboxResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE, LIVENESS_UNKNOWN (too many open sessions on the worker to check them all, and none of those checked is live) or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *SessionInboxDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -101457,7 +101464,7 @@ func (v *SlackConnectionSlackConnection) GetUpdatedAt() string { return v.Update
 // SlackConnectionsResponse is returned by SlackConnections on success.
 type SlackConnectionsResponse struct {
 	// Uniform paginated Slack-connection list (cor:api:120). Default scope:
-	// the caller's member orgs. orgId follows cor:api:100:01 (member -> that
+	// the caller's member orgs. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
 	// org, non-member -> empty page, no disclosure, no admin bypass).
 	// Team-name-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only.
@@ -102325,8 +102332,8 @@ type SpecPlaceholderScanResponse struct {
 	// (SYSTEM memory class excluded by default; explicit wins). Returns a
 	// scored-hit envelope. Access-scoped identically to the per-kind node queries.
 	//
-	// orgId (optional) narrows the accessible scope to a single organization the
-	// caller is a member of; a non-member orgId returns an empty envelope
+	// orgRef (optional) narrows the accessible scope to a single organization the
+	// caller is a member of; a non-member orgRef returns an empty envelope
 	// (total 0, no existence disclosure). Combined with filter.isRunnable: true
 	// this is the canonical "the caller's runnable task nodes in one org" query
 	// (there is no separate myTasks surface — a task is simply an isRunnable node).
@@ -117108,7 +117115,7 @@ func (v *TelegramConnectionTelegramConnection) GetUpdatedAt() string { return v.
 // TelegramConnectionsResponse is returned by TelegramConnections on success.
 type TelegramConnectionsResponse struct {
 	// Uniform paginated Telegram-connection list (hrn:node:hadronmemory.com:specs:cor:api:120). Default scope:
-	// the caller's member orgs. orgId follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
+	// the caller's member orgs. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
 	// org, non-member -> empty page, no disclosure, no admin bypass).
 	// Bot-username-ascending order (id tiebreak); limit default 20 / cap 200;
 	// limit: 0 -> count only.
@@ -123653,8 +123660,8 @@ func (v *UpdateNodeDataUpdateNodeDataNode) GetRole() *string { return v.Role }
 // GetUpdatedAt returns UpdateNodeDataUpdateNodeDataNode.UpdatedAt, and is useful for accessing the field via an interface.
 func (v *UpdateNodeDataUpdateNodeDataNode) GetUpdatedAt() string { return v.UpdatedAt }
 
-// Input for updateNode. Identify the target by 'id' (PK or fully-qualified
-// node URN) XOR ('memoryId' + 'loc') — both selectors, or neither, is an
+// Input for updateNode. Identify the target by 'ref' (PK or fully-qualified
+// node URN) XOR ('memoryRef' + 'loc') — both selectors, or neither, is an
 // error (spec 039 Phase 0 D2). updateNode never creates and never moves (D3).
 // Every content field is optional: omitted = preserved (D4).
 type UpdateNodeInput struct {
@@ -123681,16 +123688,14 @@ type UpdateNodeInput struct {
 	// preserves last-write-wins compatibility.
 	// Read the baseline from Node.revision.
 	ExpectedRevision *int `json:"expectedRevision,omitempty"`
-	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
-	Ref *string `json:"ref,omitempty"`
-	// #2044 — selector, with 'loc', in place of 'memoryId': the App's install memory. Creates nothing (the first createNode does). XOR with 'id'.
+	// #2044 — selector, with 'loc', in place of 'memoryRef': the App's install memory. Creates nothing (the first createNode does). XOR with 'ref'.
 	Install *InstallTargetInput `json:"install,omitempty"`
 	// Whether this node can be run as a task by hadron_run_task (cor:api:060). Omit to preserve.
 	IsRunnable *bool   `json:"isRunnable,omitempty"`
 	LlmModel   *string `json:"llmModel,omitempty"`
-	// Selector, with 'memoryId': the target's current loc. Not writable here — moveNode relocates.
+	// Selector, with 'memoryRef': the target's current loc. Not writable here — moveNode relocates.
 	Loc *string `json:"loc,omitempty"`
-	// Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'id'.
+	// Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'ref'.
 	MemoryRef *string `json:"memoryRef,omitempty"`
 	// Omit to preserve (D4).
 	Name     *string `json:"name,omitempty"`
@@ -123705,6 +123710,8 @@ type UpdateNodeInput struct {
 	// appends no revision, so it creates no history row on which to record this
 	// reason.
 	Reason *string `json:"reason,omitempty"`
+	// The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryRef+loc.
+	Ref *string `json:"ref,omitempty"`
 	// #1201 — what this node is FOR (open string). NOT 'nodeType' and NOT
 	// 'objectType' — see Node.role. Omit to preserve; null to clear. A GOVERNED
 	// value requires that kind's own door, and so does editing a node that
@@ -123745,9 +123752,6 @@ func (v *UpdateNodeInput) GetEdges() []*NodeEdgeInput { return v.Edges }
 // GetExpectedRevision returns UpdateNodeInput.ExpectedRevision, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetExpectedRevision() *int { return v.ExpectedRevision }
 
-// GetRef returns UpdateNodeInput.Ref, and is useful for accessing the field via an interface.
-func (v *UpdateNodeInput) GetRef() *string { return v.Ref }
-
 // GetInstall returns UpdateNodeInput.Install, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetInstall() *InstallTargetInput { return v.Install }
 
@@ -123780,6 +123784,9 @@ func (v *UpdateNodeInput) GetProperties() *json.RawMessage { return v.Properties
 
 // GetReason returns UpdateNodeInput.Reason, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetReason() *string { return v.Reason }
+
+// GetRef returns UpdateNodeInput.Ref, and is useful for accessing the field via an interface.
+func (v *UpdateNodeInput) GetRef() *string { return v.Ref }
 
 // GetRole returns UpdateNodeInput.Role, and is useful for accessing the field via an interface.
 func (v *UpdateNodeInput) GetRole() *string { return v.Role }
