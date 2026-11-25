@@ -121,3 +121,77 @@ func TestSpecLintServerReadFailureIsNotSwallowed(t *testing.T) {
 		t.Fatal("a failed specLint read must fail the lint")
 	}
 }
+
+// --all / --prefix take the corpus path: nodes come from the batch read, and
+// the server is asked about all of them by id. One comes back unavailable: it
+// must be named, never dropped (blind P2-1/P2-4 on #3150).
+func runCorpusLint3127(t *testing.T, flag, scope string, lintResp string, extra ...string) (string, map[string]json.RawMessage, error) {
+	t.Helper()
+	gql, captured := captureGraphQL(t, map[string]string{
+		"FindNodes": `{"data":{"nodes":[` + specNodeList("msg:010:02", `["spec","p1"]`) + `,` + specNodeList("msg:010:03", `["spec","p1"]`) + `]}}`,
+		"NodeBatch": `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[` +
+			specBatchNode("msg:010:02") + `,` + specBatchNode("msg:010:03") + `]}}}`,
+		"SpecLintBatch": lintResp,
+		"Memories":      memListMicromentorJSON,
+		"GetMemory":     memGetVectorEnabledJSON,
+	})
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	args := []string{"spec", "lint", flag}
+	if scope != "" {
+		args = append(args, scope)
+	}
+	root.SetArgs(append(append(args, "-m", specMem, "--server", gql.URL), extra...))
+	err := root.Execute()
+	return out.String(), captured, err
+}
+
+func corpusLintResp3127(unavailable string) string {
+	return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[` + unavailable + `],"nodes":[` +
+		`{"id":"id-msg:010:02","loc":"msg:010:02","specLint":[{"citation":"msg:010:02","line":4,"message":"limits something, no reason","rule":"LIMIT_WITHOUT_REASON","sentence":"X is excluded.","severity":"WARNING"}]}]}}}`
+}
+
+func TestSpecLintCorpusAsksForEveryNodeAndNamesTheUnavailable(t *testing.T) {
+	for _, c := range []struct{ flag, scope string }{{"--all", ""}, {"--prefix", "msg:010"}} {
+		out, captured, err := runCorpusLint3127(t, c.flag, c.scope, corpusLintResp3127(`"id-msg:010:03"`), "--json")
+		if err != nil {
+			t.Fatalf("%s: %v\n%s", c.flag, err, out)
+		}
+		var vars struct {
+			Refs []string `json:"refs"`
+		}
+		_ = json.Unmarshal(captured["SpecLintBatch"], &vars)
+		if len(vars.Refs) != 2 {
+			t.Errorf("%s: the server must be asked about both specs by id, got %v", c.flag, vars.Refs)
+		}
+		if !strings.Contains(out, `"rule": "limit-without-reason"`) {
+			t.Errorf("%s: relayed finding missing:\n%s", c.flag, out)
+		}
+		if !strings.Contains(out, `"rule": "spec-lint-not-read"`) || !strings.Contains(out, "msg:010:03") {
+			t.Errorf("%s: a spec the server reports unavailable must be named, not dropped:\n%s", c.flag, out)
+		}
+		// A CLI-local finding keeps its shape: line and sentence only on server findings.
+		var rep []map[string]any
+		_ = json.Unmarshal([]byte(out), &rep)
+		for _, r := range rep {
+			if r["rule"] != "limit-without-reason" {
+				if _, has := r["line"]; has {
+					t.Errorf("%s: a non-server finding gained a line: %v", c.flag, r)
+				}
+				if _, has := r["sentence"]; has {
+					t.Errorf("%s: a non-server finding gained a sentence: %v", c.flag, r)
+				}
+			}
+		}
+	}
+}
+
+func TestSpecLintTablePrintsLineAndSentence(t *testing.T) {
+	out, _, err := runCorpusLint3127(t, "--all", "", corpusLintResp3127(""))
+	if err != nil {
+		t.Fatalf("%v\n%s", err, out)
+	}
+	if !strings.Contains(out, "limit-without-reason") || !strings.Contains(out, "line 4: limits something, no reason: X is excluded.") {
+		t.Errorf("table must carry the line and the sentence:\n%s", out)
+	}
+}

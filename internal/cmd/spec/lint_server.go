@@ -52,13 +52,21 @@ func serverLintFindings(ctx context.Context, client graphql.Client, nodes []spec
 func collectServerLint(nodes []specNode, fetch serverLintFetch) ([]lintFindingDTO, error) {
 	findings := []lintFindingDTO{}
 	queue := make([]string, 0, len(nodes))
+	locByID := map[string]string{}
+	var unread []string
 	for _, n := range nodes {
-		if n.Unavailable || n.ID == "" {
+		if n.Unavailable {
+			continue // lintNode already reports it as "unavailable"
+		}
+		if n.ID == "" {
+			// A node built without its id cannot be asked about. That is a bug in
+			// whatever built it, and a silent skip would read as a clean answer.
+			unread = append(unread, n.Loc)
 			continue
 		}
+		locByID[n.ID] = n.Loc
 		queue = append(queue, n.ID)
 	}
-	var unread []string
 	for len(queue) > 0 {
 		n := api.NodeBatchCap
 		if n > len(queue) {
@@ -81,6 +89,15 @@ func collectServerLint(nodes []specNode, fetch serverLintFetch) ([]lintFindingDT
 		if res == nil {
 			return nil, fmt.Errorf("nodeBatch returned no result for %d ref(s)", len(chunk))
 		}
+		// A spec readable a moment ago can be deleted or denied by now: the server
+		// names it here rather than in Nodes. Report it, never drop it.
+		for _, id := range res.Unavailable {
+			loc := locByID[id]
+			if loc == "" {
+				loc = id
+			}
+			unread = append(unread, loc)
+		}
 		for _, sn := range res.Nodes {
 			if sn == nil {
 				continue
@@ -98,20 +115,28 @@ func collectServerLint(nodes []specNode, fetch serverLintFetch) ([]lintFindingDT
 		}
 		if res.Truncated {
 			if len(res.Nodes) == 0 {
-				return nil, fmt.Errorf("nodeBatch truncated without returning any node (%d omitted)", len(res.Omitted))
+				return nil, fmt.Errorf("nodeBatch truncated without returning any node (%d omitted, first: %s)", len(res.Omitted), strings.Join(firstN(res.Omitted, unreadShown), ", "))
 			}
 			queue = append(queue, res.Omitted...)
 		}
 	}
 	if len(unread) > 0 {
+		list := strings.Join(firstN(unread, unreadShown), ", ")
+		if len(unread) > unreadShown {
+			list += fmt.Sprintf(", and %d more", len(unread)-unreadShown)
+		}
 		findings = append(findings, lintFindingDTO{
 			Rule:     ruleServerLintUnread,
 			Severity: sevInfo,
-			Message:  fmt.Sprintf("the server did not load the text of %d spec(s), so the content checks did NOT run on them: %s", len(unread), strings.Join(unread, ", ")),
+			Message:  fmt.Sprintf("the server did not return content findings for %d spec(s) (text not loaded, or no longer readable), so the content checks did NOT run on them: %s", len(unread), list),
 		})
 	}
 	return findings, nil
 }
+
+// unreadShown caps how many specs a not-read notice names, so a corpus where
+// the server loads nothing is one readable line, not hundreds of citations.
+const unreadShown = 10
 
 func serverLintFinding(loc string, f *gen.SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) lintFindingDTO {
 	citation := f.Citation

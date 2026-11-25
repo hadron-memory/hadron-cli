@@ -143,8 +143,9 @@ func unstubbedDefault(op string) (string, bool) {
 	case "GetAgentLifecycle":
 		return missingFieldJSON("lifecycle"), true
 	// #3127: `spec lint` asks the server for its two content checks. Unstubbed,
-	// the server finds nothing, so the existing lint tests keep their reports;
-	// the tests of those checks stub SpecLintBatch themselves.
+	// the stub returns an empty batch (a simplification: a real server returns
+	// every ref in nodes or unavailable), so the existing lint tests keep their
+	// reports; the tests of those checks stub SpecLintBatch themselves.
 	case "SpecLintBatch":
 		return `{"data":{"nodeBatch":{"truncated":false,"omitted":[],"unavailable":[],"nodes":[]}}}`, true
 	// #2162: an unstubbed legacy server has no Agent.contextCap (#4258).

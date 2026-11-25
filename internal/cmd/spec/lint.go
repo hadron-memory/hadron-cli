@@ -401,6 +401,9 @@ clean result, and everything else still runs.`, abstractSoftMax, abstractHardMax
 				t := output.NewTable(w, "CITATION", "SEVERITY", "RULE", "MESSAGE")
 				for _, fnd := range findings {
 					msg := fnd.Message
+					if fnd.Line != nil {
+						msg = fmt.Sprintf("line %d: %s", *fnd.Line, msg)
+					}
 					if fnd.Sentence != "" && !strings.Contains(msg, fnd.Sentence) {
 						msg += ": " + fnd.Sentence
 					}

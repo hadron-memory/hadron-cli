@@ -1446,6 +1446,7 @@ func nodeFromGQL(n *gen.GetNodeNode) specNode {
 // projection, so a batch-read spec lints identically to a single-read one.
 func nodeFromBatch(n *gen.NodeBatchNodeBatchNodeBatchResultNodesNode) specNode {
 	sn := specNode{
+		ID:                 n.Id,
 		Loc:                n.Loc,
 		Name:               n.Name,
 		NodeType:           n.NodeType,
