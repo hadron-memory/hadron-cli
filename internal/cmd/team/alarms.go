@@ -98,9 +98,10 @@ walk read — a lower bound whenever the walk is incomplete — and IDLE is
 absent, not zero, when the task's own timestamp is unreadable: an unknown age
 is not a zero one.
 
-Only alarms on a task appear; task-less alarms (dark-worker, alarm.lead-cadence, start-failing)
-are read with ` + "`team events --alarms`" + `. Tasks are PENDING and STARTED unless --status
-names others, so an alarm on a finished task is not listed by default.
+Only alarms on a task appear; task-less alarms (dark-worker,
+alarm.lead-cadence, start-failing) are read with ` + "`team events --alarms`" + `. Tasks
+are PENDING and STARTED unless --status names others, so an alarm on a
+finished task is not listed by default.
 
 The roster state is the server's TeamRosterState as returned (YOUR_MOVE ...
 NOT_LAUNCHABLE), not relabelled, with the check status beside it

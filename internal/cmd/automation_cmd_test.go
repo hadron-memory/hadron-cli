@@ -383,7 +383,7 @@ func TestAutomationSelection(t *testing.T) {
 			t.Fatalf("want exit 4 and nothing sent: code=%d err=%v", r.code, r.err)
 		}
 		msg := r.err.Error()
-		if !strings.Contains(msg, `no automation named "nope"`) || !strings.Contains(msg, autoApp) || !strings.Contains(msg, "hadron automation list") {
+		if !strings.Contains(msg, "no automation with that name") || strings.Contains(msg, "nope") || strings.Contains(msg, autoApp) || !strings.Contains(msg, "hadron automation list") {
 			t.Errorf("zero-match message: %s", msg)
 		}
 		for _, bad := range []string{"nightly", "weekly", "hook"} {
@@ -1101,15 +1101,15 @@ func TestAutomationFailedPromptNeverMutates(t *testing.T) {
 	}
 }
 
-// The oversized-summary recovery command names the App and, when the trigger name
-// would not survive sanitizing, offers a placeholder instead of a copy of it.
+// The oversized-summary recovery command names the kind of target and App, never what was
+// typed (cli#3114), whether or not the name would survive sanitizing.
 func TestAutomationOversizeRecoveryCommand(t *testing.T) {
 	big := strings.Replace(autoDetail("UNADOPTED"), `"reads":["what the App can read in this App"]`, `"reads":[`+jq(strings.Repeat("y", 3000))+`]`, 1)
-	t.Run("names the App", func(t *testing.T) {
+	t.Run("an ordinary name is a placeholder", func(t *testing.T) {
 		s := oneRowServer(t, "UNADOPTED", map[string]func(map[string]any) autoReply{"AutomationApproval": fixed(big)})
 		r := runAuto(t, s, false, "", "approve", "nightly", "--yes")
-		if r.err == nil || !strings.Contains(r.err.Error(), "approval schedule/nightly --json --app "+autoApp) {
-			t.Errorf("recovery command must carry --app: %v", r.err)
+		if r.err == nil || !strings.Contains(r.err.Error(), "approval <name> --app <app-ref> --json") || strings.Contains(r.err.Error(), autoApp) {
+			t.Errorf("recovery command must name the forms and no value: %v", r.err)
 		}
 	})
 	t.Run("an unsafe name becomes a placeholder", func(t *testing.T) {
@@ -1118,7 +1118,7 @@ func TestAutomationOversizeRecoveryCommand(t *testing.T) {
 			"AutomationApproval":  fixed(big),
 			"AutomationApprovals": fixed(autoPage([]string{autoRow("SCHEDULE", "s1", evil, "UNADOPTED", "h")}, "", true))})
 		r := runAuto(t, s, false, "", "approve", evil, "--yes")
-		if r.err == nil || strings.ContainsAny(r.err.Error(), "\x1b") || !strings.Contains(r.err.Error(), "approval <name> --json") {
+		if r.err == nil || strings.ContainsAny(r.err.Error(), "\x1b") || !strings.Contains(r.err.Error(), "approval <name> --app <app-ref> --json") {
 			t.Errorf("unsafe name must be a placeholder: %q", r.err)
 		}
 	})

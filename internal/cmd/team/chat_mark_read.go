@@ -47,11 +47,11 @@ where it already is), and a seq beyond the chat's newest message is refused
 (exit 2). --channel names another channel by id or address; the default is the
 App's team chat.
 
-On the team chat, a successful mark also moves this worktree's local read
-watermark (the one ` + "`" + `hadron team session log` + "`" + ` compares against) up to
---through, never backwards; if the server refuses the mark, the local watermark
-stays as it was. A channel given with --channel leaves the local watermark
-alone, because it counts the team chat only.
+On the team chat, a successful mark also moves this worktree's rendering cache
+(the local record that only ` + "`" + `hadron team chat read` + "`" + ` consults) up to --through, never
+backwards; if the server refuses the mark, the cache stays as it was. A channel
+given with --channel leaves the cache alone, because it records the team chat
+only.
 
 Needs a worker session bound to this worktree (` + "`" + `hadron team session start` + "`" + `)
 on this server: the position belongs to the bound worker, and the server only
@@ -103,8 +103,8 @@ accepts it from that worker's own live session.`,
 				return err
 			}
 			channelRef := strings.TrimSpace(channel)
-			// Only the App's team chat is what the binding's local watermark
-			// counts (state.go ChatSeenSeq), so a Channel the caller named is
+			// Only the App's team chat is what the binding's rendering cache
+			// records (state.go ChatSeenSeq), so a Channel the caller named is
 			// never mirrored into it (cli#1854).
 			teamChat := channelRef == ""
 			if channelRef == "" {
@@ -139,10 +139,11 @@ accepts it from that worker's own live session.`,
 			// dereference nil). Exit 1, the CLI's "the server returned no X".
 			if r == nil {
 				return exitcode.Newf(exitcode.Error,
-					"the server returned no read receipt, so the mark is unconfirmed — the local read hint was not moved; check `hadron team chat read` or re-run mark-read")
+					"the server returned no read receipt, so the mark is unconfirmed — the rendering cache was not moved; check `hadron team chat read` or re-run mark-read")
 			}
-			// cli#1854: after the server accepted the mark, bring the local
-			// hint up to it, so `session log` cannot lag an explicit mark-read.
+			// cli#1854: after the server accepted the mark, bring the rendering
+			// cache up to it, so a later `chat read --since <through>` still
+			// starts at or below the cache and counts as read through.
 			// recordChatWatermark only moves forward (a through below the
 			// watermark changes nothing) and only for the session that is still
 			// bound. Best-effort: the mark has happened, so a failed

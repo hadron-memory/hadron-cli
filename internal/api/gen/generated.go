@@ -20858,7 +20858,7 @@ func (v *AiServiceConfigFilter) GetOwnerType() AiConfigOwnerType { return v.Owne
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -21035,7 +21035,7 @@ func (v *AiServiceConfigStyleFields) __premarshalJSON() (*__premarshalAiServiceC
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -21225,7 +21225,7 @@ func (v *AiServiceConfigWithEndpointResponse) GetAiServiceConfig() *AiServiceCon
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -21443,7 +21443,7 @@ func (v *AiServiceConfigsMaskedAiServiceConfigsAiServiceConfigsPage) GetTotal() 
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -21662,7 +21662,7 @@ func (v *AiServiceConfigsMaskedWithUrnAiServiceConfigsAiServiceConfigsPage) GetT
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -24149,8 +24149,8 @@ type AppKeysScopesHostUsesRows1595 struct {
 	RevokedAt  *string `json:"revokedAt"`
 	// #1749 — the scopes this key holds now (hrn:node:hadronmemory.com:specs:cor:aut:010:03). Whoever manages the App only.
 	Scopes []*AppKeysScopesHostUsesRows1595ScopesAppKeyScope `json:"scopes"`
-	// #1709 — what this key did as a host, newest first (hrn:node:hadronmemory.com:specs:cor:agt:070:07: every use is recorded). Whoever manages the App only.
-	HostUses []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse `json:"hostUses"`
+	// #5061 — what this key did as a host, one page, newest first (usedAt, then id): the paged sibling of hostUses (hrn:node:hadronmemory.com:specs:cor:api:120:04, hrn:node:hadronmemory.com:specs:cor:agt:070:07). Whoever manages the App only, refused exactly as hostUses is, before anything is counted. limit omitted is 20, 0 is count-only, a negative limit is 0, a limit over 200 is served as 200 (never a refusal); a negative offset is 0. Continue with offset; hasMore says whether rows remain past this page.
+	HostUsesPage *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage `json:"hostUsesPage"`
 }
 
 // GetId returns AppKeysScopesHostUsesRows1595.Id, and is useful for accessing the field via an interface.
@@ -24176,16 +24176,37 @@ func (v *AppKeysScopesHostUsesRows1595) GetScopes() []*AppKeysScopesHostUsesRows
 	return v.Scopes
 }
 
-// GetHostUses returns AppKeysScopesHostUsesRows1595.HostUses, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595) GetHostUses() []*AppKeysScopesHostUsesRows1595HostUsesHostKeyUse {
-	return v.HostUses
+// GetHostUsesPage returns AppKeysScopesHostUsesRows1595.HostUsesPage, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595) GetHostUsesPage() *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage {
+	return v.HostUsesPage
 }
 
-// AppKeysScopesHostUsesRows1595HostUsesHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
+// AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage includes the requested fields of the GraphQL type HostKeyUsePage.
+// The GraphQL type's documentation follows.
+//
+// #5061 — one page of a host key's uses (AppKey.hostUsesPage). total counts every use of the key; hasMore is whether rows remain past this page.
+type AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage struct {
+	Items   []*AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse `json:"items"`
+	Total   int                                                                       `json:"total"`
+	HasMore bool                                                                      `json:"hasMore"`
+}
+
+// GetItems returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.Items, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetItems() []*AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse {
+	return v.Items
+}
+
+// GetTotal returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.Total, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetTotal() int { return v.Total }
+
+// GetHasMore returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage.HasMore, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePage) GetHasMore() bool { return v.HasMore }
+
+// AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse includes the requested fields of the GraphQL type HostKeyUse.
 // The GraphQL type's documentation follows.
 //
 // #1709 — one use of a host key (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
-type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
+type AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse struct {
 	HostId string `json:"hostId"`
 	// register, collect, report, availability, read, (#1969) session: a refused session write (updateSession, endSession), or (#4292) an endAgentlessSession, accepted or refused, or (#1981) issue: a refused issueHostOperation; checkpoint: registerContextResetRecovery with checkpoint input (including replay/refusal).
 	Action string `json:"action"`
@@ -24198,27 +24219,35 @@ type AppKeysScopesHostUsesRows1595HostUsesHostKeyUse struct {
 	UsedAt      string  `json:"usedAt"`
 }
 
-// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.HostId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetHostId() string { return v.HostId }
+// GetHostId returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.HostId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetHostId() string {
+	return v.HostId
+}
 
-// GetAction returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Action, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetAction() string { return v.Action }
+// GetAction returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.Action, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetAction() string {
+	return v.Action
+}
 
-// GetCount returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.Count, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetCount() *int { return v.Count }
+// GetCount returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.Count, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetCount() *int {
+	return v.Count
+}
 
-// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.OperationId, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetOperationId() *string {
+// GetOperationId returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.OperationId, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetOperationId() *string {
 	return v.OperationId
 }
 
-// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetRefusedCode() *string {
+// GetRefusedCode returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.RefusedCode, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetRefusedCode() *string {
 	return v.RefusedCode
 }
 
-// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
-func (v *AppKeysScopesHostUsesRows1595HostUsesHostKeyUse) GetUsedAt() string { return v.UsedAt }
+// GetUsedAt returns AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse.UsedAt, and is useful for accessing the field via an interface.
+func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse) GetUsedAt() string {
+	return v.UsedAt
+}
 
 // AppKeysScopesHostUsesRows1595ScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
 // The GraphQL type's documentation follows.
@@ -25913,6 +25942,10 @@ type AppRunsResponse struct {
 	//
 	// sortBy / sortDir (#833) order the whole result set server-side, so a client
 	// table is no longer limited to sorting the page it happens to hold.
+	//
+	// appRef, orgRef and parentRunRef share one scalar, ID (#5050,
+	// hrn:node:hadronmemory.com:specs:cor:api:140:01). appRef and orgRef were String until #5050, so a
+	// document that declares either variable as String no longer validates; declare it ID.
 	AppRuns *AppRunsAppRunsAppRunsPage `json:"appRuns"`
 }
 
@@ -34480,8 +34513,8 @@ func (v *ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice) GetModel() *s
 // ChatAiConfigChoicesResponse is returned by ChatAiConfigChoices on success.
 type ChatAiConfigChoicesResponse struct {
 	// #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): what a chat of this App may choose from — the App's OWN enabled AI configs plus one
-	// `default` entry, which resolves through the App -> Agent -> Org -> Host walk at turn time. Send an entry's
-	// `value` back as the chat's aiConfigChoice. Never a key, key preview, params or endpoint. Any App member may
+	// `default` entry, which resolves through the App -> Agent -> Org -> Host walk at turn time (a person's App reaches only its own and its Agent's configurations, #5075). Send an entry's
+	// `value` back as the chat's aiConfigChoice. Never a key, key preview, params or endpoint. Any App member, or the owner of a personal App, may
 	// call it (a platform admin too); anyone else, a missing App and a request that is not a signed-in person get
 	// the same APP_NOT_FOUND answer.
 	ChatAiConfigChoices []*ChatAiConfigChoicesChatAiConfigChoicesChatAiConfigChoice `json:"chatAiConfigChoices"`
@@ -34496,7 +34529,7 @@ func (v *ChatAiConfigChoicesResponse) GetChatAiConfigChoices() []*ChatAiConfigCh
 type ChatEffectiveToolChoiceResponse struct {
 	// #4042 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10, hrn:node:hadronmemory.com:specs:cor:acl:030:01): the tool-choice decision the chat turn will use for this chat's
 	// effective config: same predicate, same resolve order as the turn (the chat's stored choice, else the App's chatbot
-	// config, else the `default` walk). Null when no level matches, and for a user-owned App whose walk lands on the platform's config (which that App may not use); otherwise non-null.
+	// config, else the `default` walk). Null when no level matches (the walk gives a person's App no organization or platform level, #5075); otherwise non-null.
 	// Authorized through the single-chat read gate chatHistory uses: a chat has no access layer of its own, so read is
 	// decided by the host memory. A chat the caller may not read answers exactly as a chat that does not exist.
 	// The decision only: no key, id, name, provider or model.
@@ -36408,7 +36441,7 @@ func (v *ClearAiServiceConfigApiStyleResponse) GetUpdateAiServiceConfig() *Clear
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -41459,7 +41492,7 @@ func (v *CreateAgentWithLifecycleResponse) GetCreateAgent() *CreateAgentWithLife
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -41640,7 +41673,7 @@ func (v *CreateAiServiceConfigResponse) GetCreateAiServiceConfig() *CreateAiServ
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -41853,7 +41886,7 @@ func (v *CreateAiServiceConfigWithApiStyleResponse) GetCreateAiServiceConfig() *
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -47076,7 +47109,8 @@ type CreateTeamChatMessageResponse struct {
 	//
 	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE, TEAM_CHAT_DUPLICATE,
 	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
-	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume),
+	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume; extensions.reason
+	// names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE or NOT_OWNER),
 	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
 	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
@@ -49155,7 +49189,7 @@ func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo)
 // DeliveryBatchesResponse is returned by DeliveryBatches on success.
 type DeliveryBatchesResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *DeliveryBatchesDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -56208,7 +56242,20 @@ func (v *GetRegisterEntryResponse) GetRegisterEntry() *GetRegisterEntryRegisterE
 // One org-owned BYO Resend sender. The API key is encrypted and write-only.
 type GetResendSenderResendSender struct {
 	ResendSenderFields `json:"-"`
+	// #4865 — report only. Whether the domain of the from address is verified at Resend, read
+	// live through the hadrontool-resend capability tool each time this field is selected: never
+	// cached, so it is current as of this read, and it costs one tool call per sender. Core never
+	// calls Resend itself (hrn:node:hadronmemory.com:specs:cor:int:030:01).
+	// true: Resend reports the domain verified.
+	// false: Resend reports it not verified, including when Resend has no record of the domain.
+	// null: the state could not be read. The caller is not a member of the sender's organization
+	// (an App key may list senders, but reads null here); the tool is not configured; or the
+	// lookup failed or ran past its bound of 12 seconds. A null says nothing about the domain.
+	DomainVerified *bool `json:"domainVerified"`
 }
+
+// GetDomainVerified returns GetResendSenderResendSender.DomainVerified, and is useful for accessing the field via an interface.
+func (v *GetResendSenderResendSender) GetDomainVerified() *bool { return v.DomainVerified }
 
 // GetId returns GetResendSenderResendSender.Id, and is useful for accessing the field via an interface.
 func (v *GetResendSenderResendSender) GetId() string { return v.ResendSenderFields.Id }
@@ -56265,6 +56312,8 @@ func (v *GetResendSenderResendSender) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalGetResendSenderResendSender struct {
+	DomainVerified *bool `json:"domainVerified"`
+
 	Id string `json:"id"`
 
 	OrganizationId string `json:"organizationId"`
@@ -56295,6 +56344,7 @@ func (v *GetResendSenderResendSender) MarshalJSON() ([]byte, error) {
 func (v *GetResendSenderResendSender) __premarshalJSON() (*__premarshalGetResendSenderResendSender, error) {
 	var retval __premarshalGetResendSenderResendSender
 
+	retval.DomainVerified = v.DomainVerified
 	retval.Id = v.ResendSenderFields.Id
 	retval.OrganizationId = v.ResendSenderFields.OrganizationId
 	retval.From = v.ResendSenderFields.From
@@ -60105,7 +60155,7 @@ func (v *GrantCreditsInput) GetSourceType() *string { return v.SourceType }
 
 // GrantCreditsResponse is returned by GrantCredits on success.
 type GrantCreditsResponse struct {
-	// Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN ONLY (self-grant risk); processor top-ups land here later.
+	// Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN or the BILLING platform role only (self-grant risk; #5012); processor top-ups land here.
 	GrantCredits *GrantCreditsGrantCreditsCreditLedgerEntry `json:"grantCredits"`
 }
 
@@ -72305,7 +72355,8 @@ func (v *NodeAuthoringCheckNodeAuthoringCheckRecovery) GetLoad() *NodeAuthoringC
 // NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad includes the requested fields of the GraphQL type AuthoringCheckLoad.
 // The GraphQL type's documentation follows.
 //
-// How to load the author task, per surface. A surface with no route is null.
+// How to load the author task, per surface. graphql always has a route and is never null; mcp and cli are null when the
+// task has no URN to name.
 type NodeAuthoringCheckNodeAuthoringCheckRecoveryLoadAuthoringCheckLoad struct {
 	Cli     *string `json:"cli"`
 	Graphql string  `json:"graphql"`
@@ -72344,7 +72395,8 @@ func (v *NodeAuthoringCheckResponse) GetNodeAuthoringCheck() *NodeAuthoringCheck
 }
 
 // #4168 (hrn:node:hadronmemory.com:specs:cor:dmo:060:17): the verdict of a proposed write's authoring
-// attestation check. PASS: the write would pass. REFUSED: the write would be refused, with the code,
+// attestation check. PASS: the write would pass the authoring attestation check; the answer covers that check and not the
+// rest of the write's validation. REFUSED: the write would be refused, with the code,
 // the governed role, the prose and the recovery the write returns. UNAVAILABLE: the caller reads the
 // memory but does not write it, one answer for every node and role, so it shows nothing about the
 // memory's rules. A preview, never a reservation, and a pass is never proof the procedure was followed.
@@ -73908,7 +73960,26 @@ type NodeExportResponse struct {
 	// "hadron node import". Requires MD or JSON; sections is ignored.
 	// full: false returns a PRESENTATION render of the selected sections
 	// (default: all); not guaranteed round-trippable.
-	// Auth: same node-read gate as node(ref:). (HTML/PDF + asUrl delivery land
+	// format: PDF is always a presentation render and `full` does not apply
+	// (hrn:node:hadronmemory.com:specs:cor:int:020:02, #395). The node's content
+	// is always printed; the sections you name are ADDED after it (naming
+	// CONTENT changes nothing), in the fixed order Abstract, Data, Properties,
+	// Edges, Metadata whatever order you gave: Data and Properties as two-column
+	// tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
+	// left out. No sections named prints the content only. Comments is not a
+	// section yet.
+	// Edges: an outgoing edge is exported only when the caller can read its
+	// TARGET's memory (the Edge.target rule, denied ≡ absent), so a
+	// partial-access caller's file — full: true included — omits those edges.
+	// The round trip is additive: "hadron node import --with-edges" wires the
+	// edges the file carries and never deletes an edge the file lacks, so an
+	// omitted edge survives a restore into a memory that still has it. The
+	// PDF's Edges section applies the same readability rule and additionally
+	// drops soft-deleted targets (it prints locs, so it keeps only live ones).
+	// ref: the node's PK or URN (hrn:node:hadronmemory.com:specs:cor:api:140). Auth: the same node-read gate as
+	// node(ref:), including read-only PUBLIC knowledge for an App key or userless
+	// run (hrn:node:hadronmemory.com:specs:cor:acl:010:01). A node the caller can't read, a missing ref and a
+	// soft-deleted node all refuse as NODE_NOT_FOUND. (HTML + asUrl delivery land
 	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportNodeExportNodeExportResult `json:"nodeExport"`
 }
@@ -73975,7 +74046,26 @@ type NodeExportSectionsResponse struct {
 	// "hadron node import". Requires MD or JSON; sections is ignored.
 	// full: false returns a PRESENTATION render of the selected sections
 	// (default: all); not guaranteed round-trippable.
-	// Auth: same node-read gate as node(ref:). (HTML/PDF + asUrl delivery land
+	// format: PDF is always a presentation render and `full` does not apply
+	// (hrn:node:hadronmemory.com:specs:cor:int:020:02, #395). The node's content
+	// is always printed; the sections you name are ADDED after it (naming
+	// CONTENT changes nothing), in the fixed order Abstract, Data, Properties,
+	// Edges, Metadata whatever order you gave: Data and Properties as two-column
+	// tables (a value that is not an object prints as a fenced JSON block), Edges as a list, Metadata as a list, a section with nothing in it
+	// left out. No sections named prints the content only. Comments is not a
+	// section yet.
+	// Edges: an outgoing edge is exported only when the caller can read its
+	// TARGET's memory (the Edge.target rule, denied ≡ absent), so a
+	// partial-access caller's file — full: true included — omits those edges.
+	// The round trip is additive: "hadron node import --with-edges" wires the
+	// edges the file carries and never deletes an edge the file lacks, so an
+	// omitted edge survives a restore into a memory that still has it. The
+	// PDF's Edges section applies the same readability rule and additionally
+	// drops soft-deleted targets (it prints locs, so it keeps only live ones).
+	// ref: the node's PK or URN (hrn:node:hadronmemory.com:specs:cor:api:140). Auth: the same node-read gate as
+	// node(ref:), including read-only PUBLIC knowledge for an App key or userless
+	// run (hrn:node:hadronmemory.com:specs:cor:acl:010:01). A node the caller can't read, a missing ref and a
+	// soft-deleted node all refuse as NODE_NOT_FOUND. (HTML + asUrl delivery land
 	// later; the result shape is forward-compatible.)
 	NodeExport *NodeExportSectionsNodeExportNodeExportResult `json:"nodeExport"`
 }
@@ -78916,6 +79006,82 @@ type PRVerdictResponse struct {
 // GetRecordReviewVerdict returns PRVerdictResponse.RecordReviewVerdict, and is useful for accessing the field via an interface.
 func (v *PRVerdictResponse) GetRecordReviewVerdict() *PRVerdictRecordReviewVerdictPrProtocolResult {
 	return v.RecordReviewVerdict
+}
+
+// PRWithdrawInstructedResponse is returned by PRWithdrawInstructed on success.
+type PRWithdrawInstructedResponse struct {
+	// #4441 — withdraw a FINISHED review seat's negative verdict (CHANGES_REQUESTED, FAIL or REFUSED) at the head it was recorded at, on evidence (Holger's ruling, the withdraw verb). Who: the actor who recorded that verdict, or the coordinator: a worker whose current role is coordinator in the App, or whoever manages the App (hrn:node:hadronmemory.com:specs:cor:dmo:050:12; a worker whose holder manages it, with an instruction). Records one review.verdict.withdrawn event on the seat task naming the verdict event; the verdict event and the finished task are unchanged. A withdrawn negative no longer blocks the head: the head may be frozen again, a schedule may drop its slot, and a superseding seat may bind to its slot at the same head. It never counts as a positive verdict: the slot counts only through a superseding seat's APPROVE, PASS or CARRY. Refusals: TASK_NOT_FOUND (a caller who may not read the App's tasks), REVIEW_SEAT_UNASSIGNED, TASK_INVALID_TRANSITION (the seat is not FINISHED; a STARTED seat's holder re-rates instead), REVIEW_HEAD_MISMATCH, REVIEW_VERDICT_NOT_NEGATIVE, REVIEW_VERDICT_ALREADY_WITHDRAWN, REVIEW_WITHDRAW_FORBIDDEN, BAD_USER_INPUT; each writes nothing.
+	WithdrawReviewVerdict *PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult `json:"withdrawReviewVerdict"`
+}
+
+// GetWithdrawReviewVerdict returns PRWithdrawInstructedResponse.WithdrawReviewVerdict, and is useful for accessing the field via an interface.
+func (v *PRWithdrawInstructedResponse) GetWithdrawReviewVerdict() *PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult {
+	return v.WithdrawReviewVerdict
+}
+
+// PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
+// The GraphQL type's documentation follows.
+//
+// #3448 — a command committed, with optional register guidance (hrn:node:hadronmemory.com:specs:cor:agt:110:03).
+type PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult struct {
+	PRProtocolReceipt `json:"-"`
+}
+
+// GetTask returns PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult.Task, and is useful for accessing the field via an interface.
+func (v *PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult) GetTask() *PRProtocolReceiptTaskAgentTask {
+	return v.PRProtocolReceipt.Task
+}
+
+// GetAction returns PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult.Action, and is useful for accessing the field via an interface.
+func (v *PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult) GetAction() *PRProtocolReceiptActionPrProtocolAction {
+	return v.PRProtocolReceipt.Action
+}
+
+func (v *PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.PRProtocolReceipt)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalPRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult struct {
+	Task *PRProtocolReceiptTaskAgentTask `json:"task"`
+
+	Action *PRProtocolReceiptActionPrProtocolAction `json:"action"`
+}
+
+func (v *PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *PRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult) __premarshalJSON() (*__premarshalPRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult, error) {
+	var retval __premarshalPRWithdrawInstructedWithdrawReviewVerdictPrProtocolResult
+
+	retval.Task = v.PRProtocolReceipt.Task
+	retval.Action = v.PRProtocolReceipt.Action
+	return &retval, nil
 }
 
 // PRWithdrawResponse is returned by PRWithdraw on success.
@@ -84280,7 +84446,7 @@ func (v *QuestionsResponse) GetQuestions() *QuestionsQuestionsQuestionPage { ret
 // Usage-vs-limit for one scope x action window (#510). The stored limit is the enforced value; env defaults only seed first touch.
 type QuotaCounterFields struct {
 	Id string `json:"id"`
-	// app or org.
+	// app, org or user. A user row is the person's shared counter for their Apps; it is read and set now and enforced once a person's App can run (F3a).
 	ScopeKind string `json:"scopeKind"`
 	ScopeId   string `json:"scopeId"`
 	// run.execute, llm.tokens, sms.send, or email.send.
@@ -84425,7 +84591,7 @@ func (v *QuotaCountersQuotaCountersQuotaCounter) __premarshalJSON() (*__premarsh
 
 // QuotaCountersResponse is returned by QuotaCounters on success.
 type QuotaCountersResponse struct {
-	// Usage-vs-limit counters for an org (+ one app when appRef given). Org-ADMIN. Rows materialize on first view, seeded with platform defaults (#510).
+	// Usage-vs-limit counters (#510, #5074, hrn:node:hadronmemory.com:specs:cor:acl:050:04). orgRef: the org's (+ one app with appRef), org-ADMIN. appRef alone: the App's and its organization's, or for a person's App the App's and, for its owner or a platform admin, the owner's user counters; every denial is NOT_FOUND. userRef alone: that person's, the person or a platform admin (FORBIDDEN otherwise). No ref, or userRef with another ref: BAD_USER_INPUT. Rows materialize on first view, seeded with platform defaults.
 	QuotaCounters []*QuotaCountersQuotaCountersQuotaCounter `json:"quotaCounters"`
 }
 
@@ -88408,7 +88574,7 @@ func (v *ReserveSpecCitationResponse) GetReserveSpecCitation() *ReserveSpecCitat
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -88497,8 +88663,9 @@ type ResolveAiServiceConfigsResponse struct {
 	// execution context — every distinct config name a chat in this context
 	// could select. Populates a config picker in the chatbot UI.
 	//
-	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+	// HadronServer; a person's App lists only its own and the named Agent's
+	// configurations), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
 	// each entry is the row the resolution walk selects for that name; this
 	// masked listing does not grant permission to decrypt it. Only
@@ -88508,7 +88675,7 @@ type ResolveAiServiceConfigsResponse struct {
 	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
 	// must be installed and live-licensed in that App. Because the result is
 	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -88529,7 +88696,7 @@ func (v *ResolveAiServiceConfigsResponse) GetResolveAiServiceConfigs() []*Resolv
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -88712,8 +88879,9 @@ type ResolveAiServiceConfigsWithEndpointAndUrnResponse struct {
 	// execution context — every distinct config name a chat in this context
 	// could select. Populates a config picker in the chatbot UI.
 	//
-	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+	// HadronServer; a person's App lists only its own and the named Agent's
+	// configurations), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
 	// each entry is the row the resolution walk selects for that name; this
 	// masked listing does not grant permission to decrypt it. Only
@@ -88723,7 +88891,7 @@ type ResolveAiServiceConfigsWithEndpointAndUrnResponse struct {
 	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
 	// must be installed and live-licensed in that App. Because the result is
 	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -88744,7 +88912,7 @@ func (v *ResolveAiServiceConfigsWithEndpointAndUrnResponse) GetResolveAiServiceC
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -88911,8 +89079,9 @@ type ResolveAiServiceConfigsWithEndpointResponse struct {
 	// execution context — every distinct config name a chat in this context
 	// could select. Populates a config picker in the chatbot UI.
 	//
-	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+	// HadronServer; a person's App lists only its own and the named Agent's
+	// configurations), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
 	// each entry is the row the resolution walk selects for that name; this
 	// masked listing does not grant permission to decrypt it. Only
@@ -88922,7 +89091,7 @@ type ResolveAiServiceConfigsWithEndpointResponse struct {
 	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
 	// must be installed and live-licensed in that App. Because the result is
 	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -88943,7 +89112,7 @@ func (v *ResolveAiServiceConfigsWithEndpointResponse) GetResolveAiServiceConfigs
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -89047,8 +89216,9 @@ type ResolveAiServiceConfigsWithUrnResponse struct {
 	// execution context — every distinct config name a chat in this context
 	// could select. Populates a config picker in the chatbot UI.
 	//
-	// Same walk as resolveAIConfig (App -> Agent -> Org (of the App, else of
-	// the Agent) -> HadronServer), but returns ALL names instead of resolving
+	// Same walk and tenant rule as resolveAIConfig (App -> Agent -> Org ->
+	// HadronServer; a person's App lists only its own and the named Agent's
+	// configurations), but returns ALL names instead of resolving
 	// one: configs are deduped by name with the innermost owner winning, so
 	// each entry is the row the resolution walk selects for that name; this
 	// masked listing does not grant permission to decrypt it. Only
@@ -89058,7 +89228,7 @@ type ResolveAiServiceConfigsWithUrnResponse struct {
 	// unless the caller manages the selected source.
 	//
 	// Auth: scoped to one App's chat context. A non-admin caller MUST pass an
-	// appRef, be a member of that App, and (when an agentRef is given) the Agent
+	// appRef, be a member of that App (or the owner of a personal App), and (when an agentRef is given) the Agent
 	// must be installed and live-licensed in that App. Because the result is
 	// masked (no key material), App membership — not org admin — is the bar, unlike
 	// resolveAIConfig and the aiServiceConfigs management list. Platform
@@ -92167,7 +92337,11 @@ func (v *RevokeUserApiKeyRevokeUserApiKey) __premarshalJSON() (*__premarshalRevo
 type Role string
 
 const (
-	RoleAdmin       Role = "ADMIN"
+	RoleAdmin Role = "ADMIN"
+	// A platform role for a payment service (#5012): it may write credit grants and adjustments (grantCredits,
+	// adjustCredits) and nothing else. Refused (BAD_USER_INPUT) as an organization member's, a memory subscription's
+	// or an invitation's role, and never combined with another platform role on one user.
+	RoleBilling     Role = "BILLING"
 	RoleContributor Role = "CONTRIBUTOR"
 	RoleOwner       Role = "OWNER"
 	RoleReader      Role = "READER"
@@ -92175,6 +92349,7 @@ const (
 
 var AllRole = []Role{
 	RoleAdmin,
+	RoleBilling,
 	RoleContributor,
 	RoleOwner,
 	RoleReader,
@@ -95590,7 +95765,7 @@ func (v *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) Ge
 // SessionInboxResponse is returned by SessionInbox on success.
 type SessionInboxResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *SessionInboxDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -98720,12 +98895,14 @@ func (v *SetQuestionLogDecidersSetQuestionLogDecidersQuestionLog) __premarshalJS
 type SetQuotaLimitInput struct {
 	// run.execute, llm.tokens, sms.send, or email.send.
 	Action string `json:"action"`
-	// Optional app scope - ref: PK or URN; must belong to the org. Omit to set the org-level limit.
+	// App scope - ref: PK or URN. With orgRef it must belong to the org; alone it names an organization's App (the org-ADMIN callers) or a person's App (its owner, owner-role members, a platform admin). Every denial answers NOT_FOUND, as for an unknown ref.
 	AppRef *string `json:"appRef,omitempty"`
 	// Non-negative integer; 0 pauses the scope (every launch denies QUOTA_EXCEEDED).
 	Limit int `json:"limit"`
-	// Org - ref: PK or URN.
-	OrgRef string `json:"orgRef"`
+	// Org - ref: PK or URN. Alone: the organization's limit; with appRef: that App's. Omit with appRef alone (an App of an organization or of a person) or with userRef alone.
+	OrgRef *string `json:"orgRef,omitempty"`
+	// A person (user id): that person's own counters. The person as themself or a platform admin; never with orgRef or appRef (BAD_USER_INPUT).
+	UserRef *string `json:"userRef,omitempty"`
 }
 
 // GetAction returns SetQuotaLimitInput.Action, and is useful for accessing the field via an interface.
@@ -98738,7 +98915,10 @@ func (v *SetQuotaLimitInput) GetAppRef() *string { return v.AppRef }
 func (v *SetQuotaLimitInput) GetLimit() int { return v.Limit }
 
 // GetOrgRef returns SetQuotaLimitInput.OrgRef, and is useful for accessing the field via an interface.
-func (v *SetQuotaLimitInput) GetOrgRef() string { return v.OrgRef }
+func (v *SetQuotaLimitInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetUserRef returns SetQuotaLimitInput.UserRef, and is useful for accessing the field via an interface.
+func (v *SetQuotaLimitInput) GetUserRef() *string { return v.UserRef }
 
 // SetQuotaLimitResponse is returned by SetQuotaLimit on success.
 type SetQuotaLimitResponse struct {
@@ -101885,6 +102065,170 @@ func (v *SpecDocumentSpecDocumentEntriesSpecDocumentEntryMintStatusNodeMintStatu
 	retval.Revision = v.NodeMintStatusFields.Revision
 	retval.Hash = v.NodeMintStatusFields.Hash
 	return &retval, nil
+}
+
+// SpecLintBatchNodeBatchNodeBatchResult includes the requested fields of the GraphQL type NodeBatchResult.
+// The GraphQL type's documentation follows.
+//
+// Spec cor:api:040 — result envelope for the batch node read (nodeBatch).
+// 'nodes' is the authorized, existing subset (input order for a ref set, loc
+// order for a prefix). 'unavailable' and 'omitted' are both lists of REFS, not
+// node objects. 'unavailable' lists the requested refs that were denied OR not
+// found — indistinguishable, so the result never discloses whether an
+// unreadable node exists. 'truncated' is true when the response-size cap was
+// reached, and 'omitted' then carries the refs of the nodes dropped to stay
+// under it. (Over the node-count cap the query errors instead — never a silent
+// short read.) Both lists echo the caller's OWN ref strings for the 'refs'
+// form — pass a URN, get that URN back, not a primary key you never sent — and
+// node ids for the prefix form, which has no caller refs.
+type SpecLintBatchNodeBatchNodeBatchResult struct {
+	Truncated   bool                                              `json:"truncated"`
+	Omitted     []string                                          `json:"omitted"`
+	Unavailable []string                                          `json:"unavailable"`
+	Nodes       []*SpecLintBatchNodeBatchNodeBatchResultNodesNode `json:"nodes"`
+}
+
+// GetTruncated returns SpecLintBatchNodeBatchNodeBatchResult.Truncated, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResult) GetTruncated() bool { return v.Truncated }
+
+// GetOmitted returns SpecLintBatchNodeBatchNodeBatchResult.Omitted, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResult) GetOmitted() []string { return v.Omitted }
+
+// GetUnavailable returns SpecLintBatchNodeBatchNodeBatchResult.Unavailable, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResult) GetUnavailable() []string { return v.Unavailable }
+
+// GetNodes returns SpecLintBatchNodeBatchNodeBatchResult.Nodes, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResult) GetNodes() []*SpecLintBatchNodeBatchNodeBatchResultNodesNode {
+	return v.Nodes
+}
+
+// SpecLintBatchNodeBatchNodeBatchResultNodesNode includes the requested fields of the GraphQL type Node.
+type SpecLintBatchNodeBatchNodeBatchResultNodesNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+	// #5109 (server half of hadron-cli#3127) — spec content lint, computed on read from this node's stored text and never stored: a Rule spec with no Why We Need This Rule section, or an empty one, is an ERROR; a sentence above the divider line that restricts something and gives no reason (no because, so that, since or why in its paragraph, and no link to a ruling or a Why section) is a WARNING that names the sentence. A node that is not a spec, and a retired one, have no findings; an empty list is a real answer. Null means the node's text was not loaded for this read. Read under the node's own read gate; at most 200 findings.
+	SpecLint []*SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding `json:"specLint"`
+}
+
+// GetId returns SpecLintBatchNodeBatchNodeBatchResultNodesNode.Id, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNode) GetId() string { return v.Id }
+
+// GetLoc returns SpecLintBatchNodeBatchNodeBatchResultNodesNode.Loc, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNode) GetLoc() string { return v.Loc }
+
+// GetSpecLint returns SpecLintBatchNodeBatchNodeBatchResultNodesNode.SpecLint, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNode) GetSpecLint() []*SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding {
+	return v.SpecLint
+}
+
+// SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding includes the requested fields of the GraphQL type SpecLintFinding.
+// The GraphQL type's documentation follows.
+//
+// #5109 — one spec lint finding.
+type SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding struct {
+	// The spec's citation (its loc).
+	Citation string `json:"citation"`
+	// 1-based line of the sentence's paragraph or of the Why heading; null when there is none.
+	Line    *int         `json:"line"`
+	Message string       `json:"message"`
+	Rule    SpecLintRule `json:"rule"`
+	// The offending sentence, for LIMIT_WITHOUT_REASON; null for a structural finding.
+	Sentence *string          `json:"sentence"`
+	Severity SpecLintSeverity `json:"severity"`
+}
+
+// GetCitation returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Citation, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetCitation() string {
+	return v.Citation
+}
+
+// GetLine returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Line, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetLine() *int {
+	return v.Line
+}
+
+// GetMessage returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Message, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetMessage() string {
+	return v.Message
+}
+
+// GetRule returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Rule, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetRule() SpecLintRule {
+	return v.Rule
+}
+
+// GetSentence returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Sentence, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetSentence() *string {
+	return v.Sentence
+}
+
+// GetSeverity returns SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding.Severity, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchNodeBatchNodeBatchResultNodesNodeSpecLintSpecLintFinding) GetSeverity() SpecLintSeverity {
+	return v.Severity
+}
+
+// SpecLintBatchResponse is returned by SpecLintBatch on success.
+type SpecLintBatchResponse struct {
+	// Batch read (spec cor:api:040) — the full node projection (select any Node
+	// fields, including content + edges) for MANY nodes in one call, eliminating
+	// the N+1 of one node(ref:) per node (e.g. 'spec lint --all'). Provide EITHER
+	// 'refs' (explicit set, returned in input order) OR 'memory' + 'locPrefix'
+	// (subtree, loc order) — not both. Each entry of 'refs' is a primary key OR a
+	// fully-qualified node URN (cor:api:140), so a URN-holding caller batches in
+	// ONE call instead of resolving each ref first. The split on a bad ref is by
+	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
+	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
+	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// the caller may read comes back in 'unavailable'. A caller mistake stays
+	// loud instead of hiding among denials. Per-node access is applied
+	// independently AFTER resolution: denied or missing refs come back in
+	// 'unavailable' and never fail the call. Bounded by hard caps — over the
+	// node-count cap throws BAD_USER_INPUT; over the response-size cap returns a
+	// partial result with 'truncated: true' and the dropped refs in 'omitted'
+	// (never a silent short read). Node content is returned raw — Mustache
+	// templates are NOT compiled (unlike the single-node 'node' read), since this
+	// is a bulk source read for lint / audit / migration and compiling per node
+	// would re-introduce the N+1 it eliminates.
+	// Requested edge fields share a 2000-row budget for this batch result; exceeding
+	// it returns BAD_USER_INPUT. Read large edge sets through the paged edges query.
+	// Unselected edges and endpoint bodies are not prefetched by the batch read.
+	NodeBatch *SpecLintBatchNodeBatchNodeBatchResult `json:"nodeBatch"`
+}
+
+// GetNodeBatch returns SpecLintBatchResponse.NodeBatch, and is useful for accessing the field via an interface.
+func (v *SpecLintBatchResponse) GetNodeBatch() *SpecLintBatchNodeBatchNodeBatchResult {
+	return v.NodeBatch
+}
+
+// #5109 — which spec lint check a finding comes from.
+type SpecLintRule string
+
+const (
+	// A sentence restricts something and gives no reason in its paragraph or through a link to a ruling or a Why section.
+	SpecLintRuleLimitWithoutReason SpecLintRule = "LIMIT_WITHOUT_REASON"
+	// A Rule spec has the section, but it is empty or only whitespace.
+	SpecLintRuleRuleWhyEmpty SpecLintRule = "RULE_WHY_EMPTY"
+	// A Rule spec has no Why We Need This Rule section.
+	SpecLintRuleRuleWhyMissing SpecLintRule = "RULE_WHY_MISSING"
+)
+
+var AllSpecLintRule = []SpecLintRule{
+	SpecLintRuleLimitWithoutReason,
+	SpecLintRuleRuleWhyEmpty,
+	SpecLintRuleRuleWhyMissing,
+}
+
+// #5109 — how serious a spec lint finding is. The sentence check is a WARNING for now (it has false positives).
+type SpecLintSeverity string
+
+const (
+	SpecLintSeverityError   SpecLintSeverity = "ERROR"
+	SpecLintSeverityWarning SpecLintSeverity = "WARNING"
+)
+
+var AllSpecLintSeverity = []SpecLintSeverity{
+	SpecLintSeverityError,
+	SpecLintSeverityWarning,
 }
 
 // #1448 — why the mint report lists an item.
@@ -120710,7 +121054,7 @@ func (v *UpdateAiServiceConfigResponse) GetUpdateAiServiceConfig() *UpdateAiServ
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -120881,7 +121225,7 @@ func (v *UpdateAiServiceConfigWithApiStyleResponse) GetUpdateAiServiceConfig() *
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -121084,7 +121428,7 @@ func (v *UpdateAiServiceConfigWithEndpointResponse) GetUpdateAiServiceConfig() *
 // 036-ai-service-config: a named AI service configuration (masked
 // management view — never carries key material beyond the preview).
 // Owned by exactly one of HadronServer / Organization / App / Agent.
-// Resolution walks App -> Agent -> Org (of the App) -> HadronServer and
+// Resolution walks App -> Agent -> Org (of the tenant: the owner of the App, #5075) -> HadronServer and
 // returns the first ENABLED config with the requested name. Well-known
 // fallback name: 'default' (conventional extras: 'fast', 'frontier').
 // Name is unique per owner.
@@ -127199,6 +127543,7 @@ func (v *UpdateTickerUpdateTicker) __premarshalJSON() (*__premarshalUpdateTicker
 
 // UpdateUserRolesResponse is returned by UpdateUserRoles on success.
 type UpdateUserRolesResponse struct {
+	// Set a user's platform roles (platform ADMIN). BILLING stands alone: a list holding it with any other role is BAD_USER_INPUT (#5012).
 	UpdateUserRoles *UpdateUserRolesUpdateUserRolesUser `json:"updateUserRoles"`
 }
 
@@ -133881,17 +134226,17 @@ func (v *__AppKeysMetadataInstructedInput) GetOffset() int { return v.Offset }
 
 // __AppKeysScopesHostUsesInput is used internally by genqlient
 type __AppKeysScopesHostUsesInput struct {
-	AppRef string `json:"appRef"`
-	First  int    `json:"first"`
-	Limit  int    `json:"limit"`
-	Offset int    `json:"offset"`
+	AppRef    string `json:"appRef"`
+	UsesLimit int    `json:"usesLimit"`
+	Limit     int    `json:"limit"`
+	Offset    int    `json:"offset"`
 }
 
 // GetAppRef returns __AppKeysScopesHostUsesInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetAppRef() string { return v.AppRef }
 
-// GetFirst returns __AppKeysScopesHostUsesInput.First, and is useful for accessing the field via an interface.
-func (v *__AppKeysScopesHostUsesInput) GetFirst() int { return v.First }
+// GetUsesLimit returns __AppKeysScopesHostUsesInput.UsesLimit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInput) GetUsesLimit() int { return v.UsesLimit }
 
 // GetLimit returns __AppKeysScopesHostUsesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInput) GetLimit() int { return v.Limit }
@@ -133902,7 +134247,7 @@ func (v *__AppKeysScopesHostUsesInput) GetOffset() int { return v.Offset }
 // __AppKeysScopesHostUsesInstructedInput is used internally by genqlient
 type __AppKeysScopesHostUsesInstructedInput struct {
 	AppRef      string               `json:"appRef"`
-	First       int                  `json:"first"`
+	UsesLimit   int                  `json:"usesLimit"`
 	Instruction *ActInstructionInput `json:"instruction,omitempty"`
 	Limit       int                  `json:"limit"`
 	Offset      int                  `json:"offset"`
@@ -133911,8 +134256,8 @@ type __AppKeysScopesHostUsesInstructedInput struct {
 // GetAppRef returns __AppKeysScopesHostUsesInstructedInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInstructedInput) GetAppRef() string { return v.AppRef }
 
-// GetFirst returns __AppKeysScopesHostUsesInstructedInput.First, and is useful for accessing the field via an interface.
-func (v *__AppKeysScopesHostUsesInstructedInput) GetFirst() int { return v.First }
+// GetUsesLimit returns __AppKeysScopesHostUsesInstructedInput.UsesLimit, and is useful for accessing the field via an interface.
+func (v *__AppKeysScopesHostUsesInstructedInput) GetUsesLimit() int { return v.UsesLimit }
 
 // GetInstruction returns __AppKeysScopesHostUsesInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__AppKeysScopesHostUsesInstructedInput) GetInstruction() *ActInstructionInput {
@@ -139801,12 +140146,12 @@ func (v *__NodeEdgesAttributedInput) GetRef() string { return v.Ref }
 
 // __NodeExportInput is used internally by genqlient
 type __NodeExportInput struct {
-	Id     string           `json:"id"`
+	Ref    string           `json:"ref"`
 	Format NodeExportFormat `json:"format"`
 }
 
-// GetId returns __NodeExportInput.Id, and is useful for accessing the field via an interface.
-func (v *__NodeExportInput) GetId() string { return v.Id }
+// GetRef returns __NodeExportInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeExportInput) GetRef() string { return v.Ref }
 
 // GetFormat returns __NodeExportInput.Format, and is useful for accessing the field via an interface.
 func (v *__NodeExportInput) GetFormat() NodeExportFormat { return v.Format }
@@ -139821,13 +140166,13 @@ func (v *__NodeExportMetaInput) GetRef() string { return v.Ref }
 
 // __NodeExportSectionsInput is used internally by genqlient
 type __NodeExportSectionsInput struct {
-	Id       string              `json:"id"`
+	Ref      string              `json:"ref"`
 	Format   NodeExportFormat    `json:"format"`
 	Sections []NodeExportSection `json:"sections"`
 }
 
-// GetId returns __NodeExportSectionsInput.Id, and is useful for accessing the field via an interface.
-func (v *__NodeExportSectionsInput) GetId() string { return v.Id }
+// GetRef returns __NodeExportSectionsInput.Ref, and is useful for accessing the field via an interface.
+func (v *__NodeExportSectionsInput) GetRef() string { return v.Ref }
 
 // GetFormat returns __NodeExportSectionsInput.Format, and is useful for accessing the field via an interface.
 func (v *__NodeExportSectionsInput) GetFormat() NodeExportFormat { return v.Format }
@@ -140194,6 +140539,26 @@ func (v *__PRWithdrawInput) GetHead() string { return v.Head }
 
 // GetReceipt returns __PRWithdrawInput.Receipt, and is useful for accessing the field via an interface.
 func (v *__PRWithdrawInput) GetReceipt() *string { return v.Receipt }
+
+// __PRWithdrawInstructedInput is used internally by genqlient
+type __PRWithdrawInstructedInput struct {
+	TaskRef     string               `json:"taskRef"`
+	Head        string               `json:"head"`
+	Receipt     *string              `json:"receipt,omitempty"`
+	Instruction *ActInstructionInput `json:"instruction,omitempty"`
+}
+
+// GetTaskRef returns __PRWithdrawInstructedInput.TaskRef, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInstructedInput) GetTaskRef() string { return v.TaskRef }
+
+// GetHead returns __PRWithdrawInstructedInput.Head, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInstructedInput) GetHead() string { return v.Head }
+
+// GetReceipt returns __PRWithdrawInstructedInput.Receipt, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInstructedInput) GetReceipt() *string { return v.Receipt }
+
+// GetInstruction returns __PRWithdrawInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__PRWithdrawInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
 // __PlanNodeMoveInput is used internally by genqlient
 type __PlanNodeMoveInput struct {
@@ -142320,6 +142685,14 @@ func (v *__SpecDocumentInput) GetMemoryRef() string { return v.MemoryRef }
 
 // GetLoc returns __SpecDocumentInput.Loc, and is useful for accessing the field via an interface.
 func (v *__SpecDocumentInput) GetLoc() string { return v.Loc }
+
+// __SpecLintBatchInput is used internally by genqlient
+type __SpecLintBatchInput struct {
+	Refs []string `json:"refs"`
+}
+
+// GetRefs returns __SpecLintBatchInput.Refs, and is useful for accessing the field via an interface.
+func (v *__SpecLintBatchInput) GetRefs() []string { return v.Refs }
 
 // __SpecPlaceholderScanInput is used internally by genqlient
 type __SpecPlaceholderScanInput struct {
@@ -155137,7 +155510,7 @@ func AppKeysScopes(
 
 // The query executed by AppKeysScopesHostUses.
 const AppKeysScopesHostUses_Operation = `
-query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUses ($appRef: ID!, $usesLimit: Int!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, limit: $limit, offset: $offset) {
 		hasMore
 		total
@@ -155154,13 +155527,17 @@ query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: 
 				grantedAt
 				grantedBy
 			}
-			hostUses(first: $first) {
-				hostId
-				action
-				count
-				operationId
-				refusedCode
-				usedAt
+			hostUsesPage(limit: $usesLimit) {
+				items {
+					hostId
+					action
+					count
+					operationId
+					refusedCode
+					usedAt
+				}
+				total
+				hasMore
 			}
 		}
 	}
@@ -155168,12 +155545,13 @@ query AppKeysScopesHostUses ($appRef: ID!, $first: Int!, $limit: Int!, $offset: 
 `
 
 // cli#1333 — `app key list --scopes --host-uses N`: adds each key's newest N
-// host uses (cor:agt:070:07). N is always sent here, so no omitempty.
+// host uses (cor:agt:070:07), read through hostUsesPage (cli#3134) so total and
+// hasMore come with them. N is always sent here, so no omitempty.
 func AppKeysScopesHostUses(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	first int,
+	usesLimit int,
 	limit int,
 	offset int,
 ) (data_ *AppKeysScopesHostUsesResponse, err_ error) {
@@ -155181,10 +155559,10 @@ func AppKeysScopesHostUses(
 		OpName: "AppKeysScopesHostUses",
 		Query:  AppKeysScopesHostUses_Operation,
 		Variables: &__AppKeysScopesHostUsesInput{
-			AppRef: appRef,
-			First:  first,
-			Limit:  limit,
-			Offset: offset,
+			AppRef:    appRef,
+			UsesLimit: usesLimit,
+			Limit:     limit,
+			Offset:    offset,
 		},
 	}
 
@@ -155202,7 +155580,7 @@ func AppKeysScopesHostUses(
 
 // The query executed by AppKeysScopesHostUsesInstructed.
 const AppKeysScopesHostUsesInstructed_Operation = `
-query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
+query AppKeysScopesHostUsesInstructed ($appRef: ID!, $usesLimit: Int!, $instruction: ActInstructionInput!, $limit: Int!, $offset: Int!) {
 	appKeysPage(appRef: $appRef, instruction: $instruction, limit: $limit, offset: $offset) {
 		hasMore
 		total
@@ -155219,13 +155597,17 @@ query AppKeysScopesHostUsesInstructed ($appRef: ID!, $first: Int!, $instruction:
 				grantedAt
 				grantedBy
 			}
-			hostUses(first: $first) {
-				hostId
-				action
-				count
-				operationId
-				refusedCode
-				usedAt
+			hostUsesPage(limit: $usesLimit) {
+				items {
+					hostId
+					action
+					count
+					operationId
+					refusedCode
+					usedAt
+				}
+				total
+				hasMore
 			}
 		}
 	}
@@ -155236,7 +155618,7 @@ func AppKeysScopesHostUsesInstructed(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
-	first int,
+	usesLimit int,
 	instruction *ActInstructionInput,
 	limit int,
 	offset int,
@@ -155246,7 +155628,7 @@ func AppKeysScopesHostUsesInstructed(
 		Query:  AppKeysScopesHostUsesInstructed_Operation,
 		Variables: &__AppKeysScopesHostUsesInstructedInput{
 			AppRef:      appRef,
-			First:       first,
+			UsesLimit:   usesLimit,
 			Instruction: instruction,
 			Limit:       limit,
 			Offset:      offset,
@@ -155817,7 +156199,7 @@ func AppRun(
 
 // The query executed by AppRuns.
 const AppRuns_Operation = `
-query AppRuns ($appRef: String, $orgRef: String, $status: AppRunStatus, $statuses: [AppRunStatus!], $parentRunId: ID, $sortBy: AppRunSortField, $sortDir: SortDirection, $limit: Int, $offset: Int) {
+query AppRuns ($appRef: ID, $orgRef: ID, $status: AppRunStatus, $statuses: [AppRunStatus!], $parentRunId: ID, $sortBy: AppRunSortField, $sortDir: SortDirection, $limit: Int, $offset: Int) {
 	appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunRef: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
 		total
 		items {
@@ -169103,6 +169485,7 @@ const GetResendSender_Operation = `
 query GetResendSender ($ref: ID!) {
 	resendSender(ref: $ref) {
 		... ResendSenderFields
+		domainVerified
 	}
 }
 fragment ResendSenderFields on ResendSender {
@@ -169118,6 +169501,8 @@ fragment ResendSenderFields on ResendSender {
 }
 `
 
+// domainVerified is selected HERE and nowhere else: the server reads it live from Resend, one tool call per
+// sender, every time it is selected (hadron-server#4865), so list/create/update must not ask for it (cli#2588).
 func GetResendSender(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -175629,8 +176014,8 @@ func NodeEdgesAttributed(
 
 // The query executed by NodeExport.
 const NodeExport_Operation = `
-query NodeExport ($id: ID!, $format: NodeExportFormat!) {
-	nodeExport(id: $id, format: $format, full: true) {
+query NodeExport ($ref: ID!, $format: NodeExportFormat!) {
+	nodeExport(ref: $ref, format: $format, full: true) {
 		format
 		mimeType
 		filename
@@ -175644,17 +176029,19 @@ query NodeExport ($id: ID!, $format: NodeExportFormat!) {
 // renderer (#106) — so `hadron node export` emits byte-for-byte what the portal
 // and every other API client get from the one shared renderer. full: true is the
 // canonical form (all sections, importable); format selects MD or JSON.
+// cli#2899 (hadron-server#4763, #4139): the node is passed as `ref` (a PK or a node URN);
+// a missing, soft-deleted, unreadable or concealed node refuses as NODE_NOT_FOUND.
 func NodeExport(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	format NodeExportFormat,
 ) (data_ *NodeExportResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "NodeExport",
 		Query:  NodeExport_Operation,
 		Variables: &__NodeExportInput{
-			Id:     id,
+			Ref:    ref,
 			Format: format,
 		},
 	}
@@ -175715,8 +176102,8 @@ func NodeExportMeta(
 
 // The query executed by NodeExportSections.
 const NodeExportSections_Operation = `
-query NodeExportSections ($id: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
-	nodeExport(id: $id, format: $format, full: false, sections: $sections) {
+query NodeExportSections ($ref: ID!, $format: NodeExportFormat!, $sections: [NodeExportSection!]!) {
+	nodeExport(ref: $ref, format: $format, full: false, sections: $sections) {
 		format
 		mimeType
 		filename
@@ -175732,7 +176119,7 @@ query NodeExportSections ($id: ID!, $format: NodeExportFormat!, $sections: [Node
 func NodeExportSections(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	id string,
+	ref string,
 	format NodeExportFormat,
 	sections []NodeExportSection,
 ) (data_ *NodeExportSectionsResponse, err_ error) {
@@ -175740,7 +176127,7 @@ func NodeExportSections(
 		OpName: "NodeExportSections",
 		Query:  NodeExportSections_Operation,
 		Variables: &__NodeExportSectionsInput{
-			Id:       id,
+			Ref:      ref,
 			Format:   format,
 			Sections: sections,
 		},
@@ -177367,8 +177754,7 @@ fragment PRProtocolReceipt on PrProtocolResult {
 `
 
 // cli#3006 (hadron-server#4869, #4441): withdraw a finished seat's negative verdict at the same head. $receipt
-// is omitted when unset; this command never sends an instruction (the gate's ruling): the manager arm for a
-// worker session is a follow-up.
+// is omitted when unset. This document never carries an instruction: PRWithdrawInstructed (cli#3013) does.
 func PRWithdraw(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -177387,6 +177773,61 @@ func PRWithdraw(
 	}
 
 	data_ = &PRWithdrawResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by PRWithdrawInstructed.
+const PRWithdrawInstructed_Operation = `
+mutation PRWithdrawInstructed ($taskRef: ID!, $head: String!, $receipt: String, $instruction: ActInstructionInput!) {
+	withdrawReviewVerdict(taskRef: $taskRef, head: $head, receipt: $receipt, instruction: $instruction) {
+		... PRProtocolReceipt
+	}
+}
+fragment PRProtocolReceipt on PrProtocolResult {
+	task {
+		id
+		handle
+		status
+	}
+	action {
+		code
+		state
+		taskLoc
+		taskUrn
+	}
+}
+`
+
+// cli#3013: the same withdraw carrying a holder's instruction claim (cor:dmo:050:12), for a worker on the
+// App-manager arm. Its own document, so a no-flag request is exactly PRWithdraw.
+func PRWithdrawInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	taskRef string,
+	head string,
+	receipt *string,
+	instruction *ActInstructionInput,
+) (data_ *PRWithdrawInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "PRWithdrawInstructed",
+		Query:  PRWithdrawInstructed_Operation,
+		Variables: &__PRWithdrawInstructedInput{
+			TaskRef:     taskRef,
+			Head:        head,
+			Receipt:     receipt,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &PRWithdrawInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -185861,6 +186302,72 @@ func SpecDocument(
 	}
 
 	data_ = &SpecDocumentResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SpecLintBatch.
+const SpecLintBatch_Operation = `
+query SpecLintBatch ($refs: [ID!]!) {
+	nodeBatch(refs: $refs) {
+		truncated
+		omitted
+		unavailable
+		nodes {
+			id
+			loc
+			specLint {
+				citation
+				line
+				message
+				rule
+				sentence
+				severity
+			}
+		}
+	}
+}
+`
+
+// hadron-cli#3127 / hadron-server#5109 — the server's spec content lint
+// (Node.specLint): a Rule spec with no Why section (ERROR) and a restricting
+// sentence with no reason (WARNING). Computed on read from the stored text, so
+// the body is asked raw, which is what the server lints. Null specLint means the
+// node's text was not loaded for this read — NOT "no findings" — so it stays a
+// pointer.
+//
+// Selecting `content` is NOT needed for specLint to answer. Verified two ways at
+// server e07173d7: the resolver (src/api/graphql/schema/resolvers.types.ts:1299)
+// returns null only when the parent row carries no content (`n.content ===
+// undefined`), and nodeBatch rows always carry it; and a real run of this
+// operation through `hadron spec lint` against a live server returned
+// rule-why-missing and limit-without-reason findings without ever selecting
+// `content`. If a future server stops populating it, the failure is loud, not
+// silent: every spec comes back null and `spec lint` reports spec-lint-not-read.
+//
+// Its own operation, never part of an ordinary node read: an older
+// server rejects the field, and only `spec lint` should have to tolerate that.
+func SpecLintBatch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	refs []string,
+) (data_ *SpecLintBatchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SpecLintBatch",
+		Query:  SpecLintBatch_Operation,
+		Variables: &__SpecLintBatchInput{
+			Refs: refs,
+		},
+	}
+
+	data_ = &SpecLintBatchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

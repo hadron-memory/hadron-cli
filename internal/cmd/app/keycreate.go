@@ -125,10 +125,10 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 			resp, err := gen.CreateAppKey(cmd.Context(), client, ref, labelArg)
 			if err != nil {
 				cleanup := pending.Abort()
-				return withCleanup(createFailure(err, ref, label, cleanup == nil), cleanup)
+				return withCleanup(createFailure(err, label, cleanup == nil), cleanup)
 			}
 			if resp == nil || resp.CreateAppKey == nil || resp.CreateAppKey.Key == nil || resp.CreateAppKey.RawKey == "" {
-				return withCleanup(exitcode.Newf(exitcode.Error, "the server returned no key; run `hadron app key list %s` and revoke any unexpected key labelled %s", ref, labelOrDefault(label)), pending.Abort())
+				return withCleanup(exitcode.Newf(exitcode.Error, "the server returned no key; run `hadron app key list <app-ref>` and revoke any unexpected key with %s", labelOrDefault(label)), pending.Abort())
 			}
 			created := resp.CreateAppKey
 			if err := pending.Commit([]byte(created.RawKey + "\n")); err != nil {
@@ -164,15 +164,15 @@ App key, an impersonated session and a bound worker's session (exit 8).`,
 
 func labelOrDefault(label string) string {
 	if label == "" {
-		return "(the default label)"
+		return "the default label"
 	}
-	return fmt.Sprintf("%q", label)
+	return "the --label given (not shown)"
 }
 
 // createFailure classifies a failed createAppKey. A transport-class failure or
 // an internal fault means the request may have reached the server and minted a
 // key nobody has; anything else is a refusal, and no key exists.
-func createFailure(err error, ref, label string, fileRemoved bool) error {
+func createFailure(err error, label string, fileRemoved bool) error {
 	mapped := api.MapError(err)
 	code := exitcode.FromError(mapped)
 	if code == exitcode.Unavailable || code == exitcode.Error {
@@ -180,8 +180,8 @@ func createFailure(err error, ref, label string, fileRemoved bool) error {
 		if fileRemoved {
 			kept = " and no file was kept"
 		}
-		return exitcode.Newf(code, "createAppKey was sent and its answer was lost, so a key labelled %s may exist whose value nobody has. It was not retried%s. Run `hadron app key list %s` and revoke any unexpected key with that label (%s). Cause: %s",
-			labelOrDefault(label), kept, ref, revokeRoute, failureClass(code))
+		return exitcode.Newf(code, "createAppKey was sent and its answer was lost, so a key with %s may exist whose value nobody has. It was not retried%s. Run `hadron app key list <app-ref>` and revoke any unexpected key with that label (%s). Cause: %s",
+			labelOrDefault(label), kept, revokeRoute, failureClass(code))
 	}
 	return exitcode.Newf(code, "createAppKey refused: %s; no key was minted", failureClass(code))
 }

@@ -122,9 +122,7 @@ func TestPRWithdrawHelpAndTheSentencesItCompletes3006(t *testing.T) {
 			t.Errorf("pr withdraw --help lacks %q:\n%s", want, leaf)
 		}
 	}
-	if strings.Contains(leaf, "--instruction") {
-		t.Errorf("no --instruction on pr withdraw (the gate's ruling):\n%s", leaf)
-	}
+	// --instruction arrived with cli#3013; its pins are in team_pr_withdraw_3013_test.go.
 	for _, page := range [][]string{{"team", "pr", "seat"}, {"team", "pr", "verdict"}} {
 		if h := flat(page...); !strings.Contains(h, "pr withdraw") {
 			t.Errorf("%v --help (the shared review rules) must name pr withdraw as the way a finished negative clears:\n%s", page, h)

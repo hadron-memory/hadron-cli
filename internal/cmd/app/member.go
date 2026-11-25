@@ -106,28 +106,21 @@ func requireMemberUser(user string) error {
 //
 // `partial` is true when the response carried a result next to the error: the
 // resolver ran and returned data, so the write may have committed whatever the
-// error says. The recovery command repeats the frozen target App.
-func memberWriteError(err error, partial bool, appRef string) error {
+// error says. The recovery command names the form of the target App, never the ref typed (cli#3114).
+func memberWriteError(err error, partial bool) error {
 	if !partial && api.AppMemberWriteRefused(err) {
 		return api.MapErrorKeepingCode(err)
 	}
 	return exitcode.Newf(exitcode.Unavailable,
 		"outcome unknown: %s. The membership change may or may not have been applied and was not retried — "+
 			"run %s to check (a list showing no row is not proof: rows you cannot see are withheld)",
-		api.MapError(err), memberListHint(appRef))
+		api.MapError(err), memberListHint)
 }
 
 // memberListHint is the copy-pasteable check for the App a write was aimed at.
-func memberListHint(appRef string) string {
-	return "`hadron app member list --app " + shellQuote(appRef) + "`"
-}
-
-func shellQuote(s string) string {
-	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._/@-") == "" {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}
+// memberListHint is the check after an unknown outcome. It never repeats the App
+// ref the operator typed (#2898 policy).
+const memberListHint = "`hadron app member list --app <app-ref>`"
 
 func memberUserDTO(id string, handle, urn *string) appMemberUserDTO {
 	return appMemberUserDTO{ID: id, Handle: handle, URN: urn}
@@ -159,12 +152,12 @@ returns [] when the App's member list is not readable by you.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.App == nil {
-				return exitcode.Newf(exitcode.NotFound, "app %q not found, or not visible to you", appRef)
+				return exitcode.Newf(exitcode.NotFound, "app not found, or not visible to you (the ref given is not shown)")
 			}
 			dto := appMemberListDTO{AppID: resp.App.Id, AppURN: resp.App.Urn, Members: []appMemberRowDTO{}}
 			for _, m := range resp.App.Members {
 				if m == nil || m.User == nil {
-					return exitcode.Newf(exitcode.Error, "server returned a malformed member row for %q", appRef)
+					return exitcode.Newf(exitcode.Error, "server returned a malformed member row for the App (the ref given is not shown)")
 				}
 				dto.Members = append(dto.Members, appMemberRowDTO{
 					User:      memberUserDTO(m.User.Id, m.User.Handle, m.User.Urn),
@@ -221,7 +214,7 @@ not see exits 4.`,
 				return api.MapError(err)
 			}
 			if resp == nil || resp.App == nil {
-				return exitcode.Newf(exitcode.NotFound, "app %q not found, or not visible to you", appRef)
+				return exitcode.Newf(exitcode.NotFound, "app not found, or not visible to you (the ref given is not shown)")
 			}
 			roles := append([]string{}, resp.App.AvailableMemberRoles...)
 			return output.Write(f.IOStreams, f.JSON, roles, func(w io.Writer) error {
@@ -293,11 +286,11 @@ retried): check with "hadron app member list".`,
 			}
 			resp, err := ensureMember(ctx, client, appRef, user, role, claim)
 			if err != nil {
-				return memberWriteError(err, resp != nil && resp.EnsureAppMember != nil, appRef)
+				return memberWriteError(err, resp != nil && resp.EnsureAppMember != nil)
 			}
 			if resp == nil || resp.EnsureAppMember == nil || resp.EnsureAppMember.User == nil {
 				return exitcode.Newf(exitcode.Unavailable,
-					"outcome unknown: the server returned no member row. Run %s to check (a list showing no row is not proof: rows you cannot see are withheld)", memberListHint(appRef))
+					"outcome unknown: the server returned no member row. Run %s to check (a list showing no row is not proof: rows you cannot see are withheld)", memberListHint)
 			}
 			m := resp.EnsureAppMember
 			dto := appMemberAddDTO{
@@ -370,11 +363,11 @@ non-interactive run is refused before anything is sent.`,
 			}
 			resp, err := removeMember(ctx, client, appRef, user, claim)
 			if err != nil {
-				return memberWriteError(err, resp != nil && resp.RemoveAppMember != nil, appRef)
+				return memberWriteError(err, resp != nil && resp.RemoveAppMember != nil)
 			}
 			if resp == nil || resp.RemoveAppMember == nil || !*resp.RemoveAppMember {
 				return exitcode.Newf(exitcode.Unavailable,
-					"outcome unknown: the server did not confirm the removal. Run %s to check (a list showing no row is not proof: rows you cannot see are withheld)", memberListHint(appRef))
+					"outcome unknown: the server did not confirm the removal. Run %s to check (a list showing no row is not proof: rows you cannot see are withheld)", memberListHint)
 			}
 			dto := appMemberRemoveDTO{App: appRef, UserRef: user, Status: "absent"}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {

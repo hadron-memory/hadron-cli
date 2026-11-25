@@ -91,11 +91,3 @@ func safeBlock(s string, max int) string {
 	}
 	return b.String()
 }
-
-// shellQuote quotes s for a copy-pasteable command in an error hint.
-func shellQuote(s string) string {
-	if s != "" && strings.Trim(s, "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:._/@-") == "" {
-		return s
-	}
-	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
-}

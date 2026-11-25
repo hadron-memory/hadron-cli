@@ -117,11 +117,11 @@ func ResolveUser(cmd *cobra.Command, client graphql.Client, ref string) (fields 
 	case len(exact) == 1:
 		return exact[0].UserFields, true, nil
 	case len(exact) > 1:
-		return gen.UserFields{}, false, ambiguousUserErr(ref, exact)
+		return gen.UserFields{}, false, ambiguousUserErr(exact)
 	case len(fuzzy) == 1:
 		return fuzzy[0].UserFields, true, nil
 	case len(fuzzy) > 1:
-		return gen.UserFields{}, false, ambiguousUserErr(ref, fuzzy)
+		return gen.UserFields{}, false, ambiguousUserErr(fuzzy)
 	}
 
 	// No matches. An email is unambiguous about intent, so report not-found
@@ -130,7 +130,7 @@ func ResolveUser(cmd *cobra.Command, client graphql.Client, ref string) (fields 
 	// (e.g. sharing a personal memory cross-org) can't be found by email/handle —
 	// point the caller at the id, which always works.
 	if strings.Contains(token, "@") {
-		return gen.UserFields{}, false, exitcode.Newf(exitcode.NotFound, "no user matches %q — if they are outside your organization, pass their user id", ref)
+		return gen.UserFields{}, false, exitcode.Newf(exitcode.NotFound, "no user matches (the ref given is not shown) — if they are outside your organization, pass their user id")
 	}
 	return gen.UserFields{Id: token}, false, nil
 }
@@ -184,7 +184,7 @@ func ResolveUserExactly(cmd *cobra.Command, client graphql.Client, ref string) (
 	}
 	if found && !userMatchesExactly(fields, token) {
 		return gen.UserFields{}, false, exitcode.Newf(exitcode.Usage,
-			"%q only matched user %s partially — pass an exact id, handle, or email", ref, DescribeUser(fields))
+			"the ref given (not shown) only matched user %s partially — pass an exact id, handle, or email", DescribeUser(fields))
 	}
 	return fields, found, nil
 }
@@ -217,11 +217,11 @@ func eqFold(field *string, token string) bool {
 	return field != nil && *field != "" && strings.EqualFold(*field, token)
 }
 
-func ambiguousUserErr(ref string, matches []*gen.SearchUsersUsersUsersPageItemsUser) error {
+func ambiguousUserErr(matches []*gen.SearchUsersUsersUsersPageItemsUser) error {
 	labels := make([]string, 0, len(matches))
 	for _, m := range matches {
 		labels = append(labels, m.Id)
 	}
 	return exitcode.Newf(exitcode.Usage,
-		"%q matches multiple users (%s) — pass an exact id", ref, strings.Join(labels, ", "))
+		"the ref given (not shown) matches multiple users (%s) — pass an exact id", strings.Join(labels, ", "))
 }

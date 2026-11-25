@@ -46,7 +46,7 @@ hadron ticket list.`,
 				return exitcode.Newf(exitcode.Usage, "--count must be a positive integer")
 			}
 			if !isSupportedMintAction(action) {
-				return exitcode.Newf(exitcode.Usage, "unsupported --action %q — v1 supports %s", action, strings.Join(supportedMintActions, ", "))
+				return exitcode.Newf(exitcode.Usage, "unsupported --action — v1 supports %s", strings.Join(supportedMintActions, ", "))
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {

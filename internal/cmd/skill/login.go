@@ -2,6 +2,7 @@ package skill
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"path/filepath"
@@ -33,7 +34,7 @@ func loginHosts(keys []string) ([]skilldoc.Host, error) {
 			}
 		}
 		if !found {
-			return nil, fmt.Errorf("unsupported skill host %q", key)
+			return nil, errors.New("unsupported skill host (the value given is not shown)")
 		}
 	}
 	return hosts, nil

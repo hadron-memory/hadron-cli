@@ -187,7 +187,7 @@ Details:
 				return api.MapError(err)
 			}
 			if r == nil || r.SlackConnection == nil {
-				return exitcode.Newf(exitcode.NotFound, "no Slack connection %s is visible to you", strconv.Quote(ref))
+				return exitcode.Newf(exitcode.NotFound, "no such Slack connection is visible to you (the ref given is not shown)")
 			}
 			v := r.SlackConnection
 			dto, err := toDTO(v.Id, v.OrganizationId, v.DefaultAppId, v.Provider, v.Status, v.TeamId, v.TeamName, v.BotId, v.BotUserId, v.CreatedAt, v.UpdatedAt)

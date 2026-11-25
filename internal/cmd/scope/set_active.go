@@ -87,7 +87,7 @@ Pass an empty string ("") to clear it.`,
 				}
 				if resp == nil || resp.Scope == nil {
 					return exitcode.Newf(exitcode.NotFound,
-						"no scope %q is readable here — it would fail every search that used it (--no-verify stores it anyway)", ref)
+						"no such scope is readable here (the ref given is not shown) — it would fail every search that used it (--no-verify stores it anyway)")
 				}
 			}
 

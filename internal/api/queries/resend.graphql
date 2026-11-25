@@ -9,8 +9,10 @@ fragment ResendSenderFields on ResendSender {
   createdBy
   updatedBy
 }
+# domainVerified is selected HERE and nowhere else: the server reads it live from Resend, one tool call per
+# sender, every time it is selected (hadron-server#4865), so list/create/update must not ask for it (cli#2588).
 query GetResendSender($ref: ID!) {
-  resendSender(ref: $ref) { ...ResendSenderFields }
+  resendSender(ref: $ref) { ...ResendSenderFields domainVerified }
 }
 query ListResendSenders(
   # @genqlient(omitempty: true)

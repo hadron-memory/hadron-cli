@@ -225,7 +225,7 @@ func TestSlackConnectAmbiguousFailureIsSentOnceAndPointsAtStatus(t *testing.T) {
 	if e == nil || n != 1 {
 		t.Fatalf("sent once, never retried: err=%v requests=%d", e, n)
 	}
-	if !strings.Contains(e.Error(), "outcome unknown") || !strings.Contains(e.Error(), `hadron slack status --org=acme.com`) {
+	if !strings.Contains(e.Error(), "outcome unknown") || !strings.Contains(e.Error(), `hadron slack status`) {
 		t.Errorf("must say the outcome is unknown and where to look: %v", e)
 	}
 	noSecret(t, "error", e.Error())
@@ -402,7 +402,7 @@ func TestSlackConnectScrubKeepsClassCodeAndRecoveryGuidance(t *testing.T) {
 	}
 	noSecret(t, "the rendered output", all)
 	all, _, e = runSlackRendered(t, `{"errors":[{"message":"boom `+appTok+`","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, false, connectArgs(t)...)
-	for _, want := range []string{"outcome unknown", "not retried", "hadron slack status --org", "--offset", redactedPlaceholder} {
+	for _, want := range []string{"outcome unknown", "not retried", "hadron slack status", "--offset", redactedPlaceholder} {
 		if !strings.Contains(all, want) {
 			t.Errorf("an echoed token must not cost the recovery guidance, missing %q:\n%s", want, all)
 		}
@@ -433,7 +433,7 @@ func TestSlackConnectWithholdsASuccessAnswerThatRepeatsAToken(t *testing.T) {
 						t.Fatalf("a repeated token is Unavailable, withheld: err=%v requests=%d", e, n)
 					}
 					noSecret(t, "the rendered output", all)
-					if !strings.Contains(all, "hadron slack status --org") {
+					if !strings.Contains(all, "hadron slack status") {
 						t.Errorf("must say where to look: %s", all)
 					}
 				})
@@ -576,9 +576,8 @@ func TestSlackConnectSuggestedCommandsAreShellSafe(t *testing.T) {
 	bot := tokenFile(t, "bot", botTok)
 	app := tokenFile(t, "app", appTok)
 	_, _, e := runSlackRendered(t, `{"data":{"createSlackConnection":null}}`, false, "connect", "--org", awkward, "--app", appID, "--bot-token-file", bot, "--app-token-file", app)
-	want := "hadron slack status --org='acme.com; touch /tmp/x $(id) `id` it'\\''s'"
-	if e == nil || !strings.Contains(e.Error(), want) {
-		t.Fatalf("the org must be one single-quoted shell word:\n%v\nwant %s", e, want)
+	if e == nil || !strings.HasSuffix(e.Error(), "hadron slack status") || strings.Contains(e.Error(), "touch") {
+		t.Fatalf("the org typed is never repeated (cli#3114):\n%v", e)
 	}
 	row := strings.Replace(strings.Replace(connectedRow, `"id":"c1"`, `"id":"c 1$(x)"`, 1), `"status":"ACTIVE"`, `"status":"WAT"`, 1)
 	_, _, e = runSlackRendered(t, `{"data":{"createSlackConnection":`+row+`}}`, false, connectArgs(t)...)
@@ -586,8 +585,8 @@ func TestSlackConnectSuggestedCommandsAreShellSafe(t *testing.T) {
 		t.Fatalf("unknown status ends in one quoted disconnect, no looping get/status: %v", e)
 	}
 	_, _, _, e = runSlackWrite(t, "DeleteSlackConnection", `{"data":{"deleteSlackConnection":false}}`, "", "disconnect", "a b$(x)", "--yes")
-	if e == nil || !strings.Contains(e.Error(), "hadron slack get -- 'a b$(x)'") {
-		t.Fatalf("disconnect's pointer quotes the id: %v", e)
+	if e == nil || !strings.HasSuffix(e.Error(), "hadron slack status") || strings.Contains(e.Error(), "a b$(x)") {
+		t.Fatalf("disconnect's pointer does not repeat the id: %v", e)
 	}
 }
 
@@ -622,8 +621,8 @@ func TestSlackSuggestedIDCommandsSurviveADashPrefixedID(t *testing.T) {
 		if deleted == "true" && e != nil {
 			t.Fatalf("must succeed: %v", e)
 		}
-		if deleted == "false" && (e == nil || !strings.Contains(e.Error(), "hadron slack get -- -x")) {
-			t.Fatalf("disconnect's pointer carries the terminator too: %v", e)
+		if deleted == "false" && (e == nil || !strings.HasSuffix(e.Error(), "hadron slack status")) {
+			t.Fatalf("disconnect's pointer is the runnable listing: %v", e)
 		}
 	}
 }
@@ -682,11 +681,11 @@ func TestSlackConnectNeverPrintsAControlCharacterID(t *testing.T) {
 	}
 }
 
-// Rodolfo: the disconnect outcome-unknown message carries the shell-quoted id
-// with the terminator and no prose double quotes around the command.
+// The disconnect outcome-unknown message never repeats the id (cli#3114) and ends
+// in the runnable listing command, with no prose double quotes around it.
 func TestSlackDisconnectOutcomeUnknownSuggestsOneQuotedCommand(t *testing.T) {
 	_, _, n, e := runSlackWrite(t, "DeleteSlackConnection", `{"errors":[{"message":"boom","extensions":{"code":"SOMETHING_UNMAPPED"}}],"data":null}`, "", "disconnect", "--yes", "a b$(x)")
-	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "Check whether it still exists with:\n  hadron slack get -- 'a b$(x)'") || strings.Contains(e.Error(), `"hadron slack get`) {
+	if e == nil || n != 1 || !strings.HasSuffix(e.Error(), "by listing connections with:\n  hadron slack status") || strings.Contains(e.Error(), "a b$(x)") {
 		t.Fatalf("err=%v requests=%d", e, n)
 	}
 }
@@ -705,7 +704,7 @@ func TestSlackConnectRecoveryCommandIsLastEvenWithAServerError(t *testing.T) {
 			// ONE invocation: the returned error and the rendered stderr come from the
 			// same run (blind delta P3).
 			all, _, e := runSlackRendered(t, wire, false, args...)
-			if e == nil || !strings.HasSuffix(e.Error(), "Check with:\n  hadron slack status --org=acme.com") {
+			if e == nil || !strings.HasSuffix(e.Error(), "Check with:\n  hadron slack status") {
 				t.Fatalf("the command must end the message:\n%v", e)
 			}
 			if name == "ambiguous" {
@@ -717,7 +716,7 @@ func TestSlackConnectRecoveryCommandIsLastEvenWithAServerError(t *testing.T) {
 			// Beckett (delta P2): the command is ALONE on the final line of what the
 			// operator sees, so copying a whole line copies only the command.
 			lines := strings.Split(strings.TrimRight(all, "\n"), "\n")
-			if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron slack status --org=acme.com" {
+			if last := strings.TrimSpace(lines[len(lines)-1]); last != "hadron slack status" {
 				t.Errorf("the final rendered line must be exactly the command, got %q\n%s", last, all)
 			}
 		})
@@ -782,15 +781,15 @@ func TestSlackDisconnectSuggestionsEndWithTheCommandAloneOnTheLastLine(t *testin
 			}
 			lines := strings.Split(strings.TrimRight(all, "\n"), "\n")
 			last := strings.TrimSpace(lines[len(lines)-1])
-			want := "hadron slack get -- 'a b$(x)'"
-			if name != "plain" {
-				want = "hadron slack status"
-				if !strings.Contains(all, "follow its --offset hint") {
-					t.Errorf("the listing fallback must say it is paged:\n%s", all)
-				}
-				if strings.Contains(all, "injected-line") || strings.ContainsAny(all, "\x1b\r\u202e\u2028\u2029") {
-					t.Errorf("nothing from the id may reach the output:\n%q", all)
-				}
+			const want = "hadron slack status"
+			if strings.Contains(all, "a b$(x)") {
+				t.Errorf("the id typed is never repeated (cli#3114):\n%s", all)
+			}
+			if !strings.Contains(all, "follow its --offset hint") {
+				t.Errorf("the listing fallback must say it is paged:\n%s", all)
+			}
+			if strings.Contains(all, "injected-line") || strings.ContainsAny(all, "\x1b\r\u202e\u2028\u2029") {
+				t.Errorf("nothing from the id may reach the output:\n%q", all)
 			}
 			if last != want {
 				t.Errorf("rendered last line %q, want %q\n%s", last, want, all)

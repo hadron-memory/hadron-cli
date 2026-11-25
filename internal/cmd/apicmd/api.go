@@ -151,7 +151,7 @@ func parseFields(fields []string) (map[string]any, error) {
 	for _, field := range fields {
 		key, value, ok := strings.Cut(field, "=")
 		if !ok || key == "" {
-			return nil, exitcode.Newf(exitcode.Usage, "invalid -F %q: expected key=value", field)
+			return nil, exitcode.Newf(exitcode.Usage, "invalid -F: expected key=value (the value given is not shown)")
 		}
 		var parsed any
 		if err := json.Unmarshal([]byte(value), &parsed); err == nil {
