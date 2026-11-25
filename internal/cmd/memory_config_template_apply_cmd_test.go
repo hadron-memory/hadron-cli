@@ -270,7 +270,7 @@ func TestMemoryConfigRuleLockedIsAConflictNamingUnlock(t *testing.T) {
 			if got := exitCodeFor(err); got != exitcode.Conflict {
 				t.Errorf("exit = %d, want %d", got, exitcode.Conflict)
 			}
-			if err == nil || !strings.Contains(err.Error(), "hadron memory config rule unlock "+configMemoryRef+" spec") {
+			if err == nil || !strings.Contains(err.Error(), "hadron memory config rule unlock <memory> <role>") {
 				t.Errorf("the refusal must name the unlock command, got %v", err)
 			}
 		})

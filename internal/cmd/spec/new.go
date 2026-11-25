@@ -77,7 +77,7 @@ is the base spec role, a citation-prefixed name, and the legacy spec tag.
 When the name is prefixed automatically, --title must be the human text after
 "<loc> — ". A title already starting with that exact prefix is refused (exit 2)
 before any write, including --dry-run; remove the prefix and run again (the
-refusal ends with the corrected --title). An explicit --role keeps its
+refusal does not show the title given). An explicit --role keeps its
 literal-title behavior.
 Roles use lower-case letter/digit/dash segments joined by dots, up to
 64 characters; a valid dotted subrole may still be refused by the memory's
@@ -110,7 +110,8 @@ strictly above n). There is no retry and no local fallback: a server without
 the operation refuses. If the fill fails, the number stays reserved (the output
 names it, says allocated: true and fillStatus: refused or unknown, and lists
 the recovery commands that restore the title, abstract, body, tags, role and
-edges, and the feature's contract); read the node first, and do not rerun spec
+edges, and the feature's contract; the text shows placeholders for what you
+typed, --json carries the commands in full); read the node first, and do not rerun spec
 new, which would allocate another number. A blank body is refused before any
 number is reserved. If a feature is filled but its contract fails, the output
 says so and names the contract loc to inspect. If the allocation answer is lost
@@ -138,10 +139,10 @@ is one call instead of four.`, abstractSoftMax),
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if product != "" && !reModule.MatchString(product) {
-				return exitcode.Newf(exitcode.Usage, "--product %q must be 3 lowercase letters", product)
+				return exitcode.Newf(exitcode.Usage, "--product must be 3 lowercase letters")
 			}
 			if module != "" && !reModule.MatchString(module) {
-				return exitcode.Newf(exitcode.Usage, "--module %q must be 3 lowercase letters", module)
+				return exitcode.Newf(exitcode.Usage, "--module must be 3 lowercase letters")
 			}
 			if product != "" && module == productContractCode {
 				return exitcode.Newf(exitcode.Usage, "module %q is reserved for the product contract — use --contract", productContractCode)
@@ -154,7 +155,7 @@ is one call instead of four.`, abstractSoftMax),
 					return exitcode.Newf(exitcode.Usage, "--role is supported only with spec new <loc> (without --new-path)")
 				}
 				if !validSpecRole(role) {
-					return exitcode.Newf(exitcode.Usage, "--role %q must be spec or a dotted spec subrole of lower-case letter/digit/dash segments (1-64 characters)", role)
+					return exitcode.Newf(exitcode.Usage, "--role must be spec or a dotted spec subrole of lower-case letter/digit/dash segments (1-64 characters)")
 				}
 			}
 			if newFeature && feature != "" {
@@ -210,7 +211,7 @@ is one call instead of four.`, abstractSoftMax),
 						return verr
 					}
 					if at, _ := validateSpecLoc(args[0]); inh == at {
-						return exitcode.Newf(exitcode.Usage, "a spec cannot inherit from itself (%s)", at)
+						return exitcode.Newf(exitcode.Usage, "a spec cannot inherit from itself (the loc given is not shown)")
 					}
 				}
 			}
@@ -425,7 +426,7 @@ is one call instead of four.`, abstractSoftMax),
 			// (hadron-server#1300).
 			var edges []*gen.NodeEdgeInput
 			if !noEdges {
-				edges, err = resolveSpecEdges(cmd, client, memURN, target.Format(), result.Edges, nil)
+				edges, err = resolveSpecEdges(cmd, client, memURN, result.Edges, nil)
 				if err != nil {
 					return err
 				}
@@ -473,7 +474,7 @@ is one call instead of four.`, abstractSoftMax),
 					cInput.Edges = []*gen.NodeEdgeInput{inlineSpecEdge(newID, coContract.title)}
 				}
 				if _, cErr := api.CreateSpecNode(cmd.Context(), client, &cInput); cErr != nil {
-					return fmt.Errorf("created %s but its contract %s failed: %w", target.Format(), coContract.cit.Format(), api.MapError(cErr))
+					return fmt.Errorf("created the spec (the citation given is not shown) but its contract failed: %w", api.MapError(cErr))
 				}
 			}
 
@@ -559,7 +560,7 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 			return err
 		}
 		if inheritLoc == loc {
-			return exitcode.Newf(exitcode.Usage, "a spec cannot inherit from itself (%s)", loc)
+			return exitcode.Newf(exitcode.Usage, "a spec cannot inherit from itself (the loc given is not shown)")
 		}
 	}
 	body, err := resolveBodyOr(in.content, in.contentFile, f.IOStreams.In, func() string { return rubricBodyAt(loc, in.title, true) })
@@ -577,7 +578,7 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 	// The loc must be free. A NotFound is the go-ahead; anything else — a
 	// live node, or a failure to find out — stops before a write.
 	if _, rerr := resolveSpecNode(cmd, client, memURN, loc); rerr == nil {
-		return exitcode.Newf(exitcode.Usage, "%s already exists — change it with `hadron spec edit %s`, or retire it with `hadron spec supersede`", loc, loc)
+		return exitcode.Newf(exitcode.Usage, "the loc given (not shown) already exists — change it with `hadron spec edit <loc>`, or retire it with `hadron spec supersede`")
 	} else if exitcode.FromError(rerr) != exitcode.NotFound {
 		return rerr
 	}
@@ -610,7 +611,7 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 			return renderNewResult(w, result)
 		})
 	}
-	edges, err := resolveSpecEdges(cmd, client, memURN, loc, result.Edges, nil)
+	edges, err := resolveSpecEdges(cmd, client, memURN, result.Edges, nil)
 	if err != nil {
 		return err
 	}
@@ -684,7 +685,7 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-product requires --product <ppp>")
 		}
 		if productExists {
-			return Citation{}, "", "", exitcode.Newf(exitcode.Conflict, "product %q already exists (product codes are frozen)", in.product)
+			return Citation{}, "", "", exitcode.Newf(exitcode.Conflict, "the product (the value given is not shown) already exists (product codes are frozen)")
 		}
 		return productRoot, "", "", nil
 
@@ -696,10 +697,10 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--new-module cannot be combined with feature/rule/flow/contract flags")
 		}
 		if in.product != "" && !productExists {
-			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "product %q does not exist — create it first with --new-product", in.product)
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the product (the value given is not shown) does not exist — create it first with --new-product")
 		}
 		if moduleExists {
-			return Citation{}, "", "", exitcode.Newf(exitcode.Conflict, "module %q already exists (module codes are frozen)", moduleCit.Format())
+			return Citation{}, "", "", exitcode.Newf(exitcode.Conflict, "the module (the value given is not shown) already exists (module codes are frozen)")
 		}
 		// Parent is the product root (product mode) or none (flat); a module
 		// under a product inherits the product's :gen contract.
@@ -718,7 +719,7 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 			return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "--contract cannot be combined with --rule/--flow/--new-feature")
 		}
 		if in.product != "" && !productExists {
-			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "product %q does not exist — create it first with --new-product", in.product)
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the product (the value given is not shown) does not exist — create it first with --new-product")
 		}
 		return planContract(in, productRoot, moduleCit)
 	}
@@ -728,10 +729,10 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 		return Citation{}, "", "", exitcode.Newf(exitcode.Usage, "pass --module <mmm> (or --new-product/--new-module/--contract)")
 	}
 	if in.product != "" && !productExists {
-		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "product %q does not exist — create it first with --new-product", in.product)
+		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the product (the value given is not shown) does not exist — create it first with --new-product")
 	}
 	if !moduleExists {
-		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "module %q does not exist — create it first with --new-module", moduleCit.Format())
+		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the module (the value given is not shown) does not exist — create it first with --new-module")
 	}
 
 	if in.newFeature {
@@ -767,7 +768,7 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 		return Citation{}, "", "", perr
 	}
 	if !in.locs[featureCit.Format()] {
-		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "feature %q does not exist — create it with --new-feature", featureCit.Format())
+		return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the feature (the value given is not shown) does not exist — create it with --new-feature")
 	}
 
 	// Explicit flow.
@@ -777,7 +778,7 @@ func planTarget(in planInput) (target Citation, parentLoc, inheritLoc string, er
 		}
 		ruleCit := Citation{Product: in.product, Module: in.module, Feature: in.feature, Rule: in.rule}
 		if !in.locs[ruleCit.Format()] {
-			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "rule %q does not exist", ruleCit.Format())
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the rule (the value given is not shown) does not exist")
 		}
 		t := Citation{Product: in.product, Module: in.module, Feature: in.feature, Rule: in.rule, Flow: in.flow}
 		if _, perr := ParseCitation(t.Format()); perr != nil {
@@ -858,19 +859,19 @@ func planContract(in planInput, productRoot, moduleCit Citation) (Citation, stri
 			return Citation{}, "", "", perr
 		}
 		if !in.locs[featureCit.Format()] {
-			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "feature %q does not exist", featureCit.Format())
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the feature (the value given is not shown) does not exist")
 		}
 		t := Citation{Product: in.product, Module: in.module, Feature: in.feature, Rule: "00"}
 		return t, featureCit.Format(), "", nil
 	case in.module != "":
 		if !in.locs[moduleCit.Format()] {
-			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "module %q does not exist — create it first with --new-module", moduleCit.Format())
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the module (the value given is not shown) does not exist — create it first with --new-module")
 		}
 		t := Citation{Product: in.product, Module: in.module, Feature: moduleContractFeature}
 		return t, moduleCit.Format(), "", nil
 	case in.product != "":
 		if !in.locs[productRoot.Format()] {
-			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "product %q does not exist — create it first with --new-product", in.product)
+			return Citation{}, "", "", exitcode.Newf(exitcode.NotFound, "the product (the value given is not shown) does not exist — create it first with --new-product")
 		}
 		t := Citation{Product: in.product, Module: productContractCode}
 		return t, productRoot.Format(), "", nil
@@ -946,7 +947,7 @@ func renderNewResult(w io.Writer, r newResultDTO) error {
 // ancestor — in top-down order.
 func planChain(target Citation, existing map[string]bool) ([]Citation, error) {
 	if existing[target.Format()] {
-		return nil, exitcode.Newf(exitcode.Conflict, "%s already exists", target.Format())
+		return nil, exitcode.Newf(exitcode.Conflict, "the citation given (not shown) already exists")
 	}
 	var chain []Citation
 	for c := target; ; {
@@ -1094,14 +1095,14 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	}
 	resolved := map[string]string{}
 	if !noEdges {
-		for _, pn := range plan {
-			for _, e := range pn.edges {
+		for n, pn := range plan {
+			for i, e := range pn.edges {
 				if inPlan[e.Target] || resolved[e.Target] != "" {
 					continue
 				}
 				id, rerr := resolveSpecNode(cmd, client, memURN, e.Target)
 				if rerr != nil {
-					return fmt.Errorf("cannot wire %s's edge %q → %s, so nothing was created: %w", pn.cit.Format(), e.Label, e.Target, rerr)
+					return fmt.Errorf("cannot wire edge %d of node %d of %d, top-down (its ends are not shown; --dry-run lists them), so nothing was created: %w", i+1, n+1, len(plan), rerr)
 				}
 				resolved[e.Target] = id
 			}
@@ -1112,7 +1113,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 	// scaffold as a whole is not one transaction, so a failure part-way names
 	// what was already written — each of those is complete, edges included.
 	nodeType := "info"
-	var written []string
+	var written []string // node ids the server returned
 	for _, pn := range plan {
 		ab, bd := pn.abstract, pn.body
 		input := gen.CreateNodeInput{
@@ -1123,7 +1124,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 			Seq: specSeq(pn.cit), Role: specRole(),
 		}
 		if !noEdges {
-			edges, eerr := resolveSpecEdges(cmd, client, memURN, pn.cit.Format(), pn.edges, resolved)
+			edges, eerr := resolveSpecEdges(cmd, client, memURN, pn.edges, resolved)
 			if eerr != nil {
 				return eerr
 			}
@@ -1132,12 +1133,12 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		up, uerr := api.CreateSpecNode(cmd.Context(), client, &input)
 		if uerr != nil {
 			if len(written) > 0 {
-				return fmt.Errorf("scaffolding %s failed after creating %s (each with its edges): %w", pn.cit.Format(), strings.Join(written, ", "), api.MapError(uerr))
+				return fmt.Errorf("scaffolding the chain (the citation given is not shown) failed after creating its first %d of %d node(s), top-down (each with its edges; ids %s): %w", len(written), len(plan), strings.Join(written, ", "), api.MapError(uerr))
 			}
-			return fmt.Errorf("scaffolding %s: %w", pn.cit.Format(), api.MapError(uerr))
+			return fmt.Errorf("scaffolding the chain (the citation given is not shown): %w", api.MapError(uerr))
 		}
 		resolved[pn.cit.Format()] = up.Id
-		written = append(written, pn.cit.Format())
+		written = append(written, up.Id)
 	}
 	return render()
 }

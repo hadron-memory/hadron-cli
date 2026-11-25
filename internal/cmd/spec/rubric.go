@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -210,19 +209,15 @@ func specNameAt(loc, title string) string {
 // refuseCopiedNamePrefix refuses a --title that already starts with the
 // automatic prefix for loc, which would be composed in front of it a second
 // time (#1148, cli#810). The title is compared trimmed, never rewritten. The
-// refusal ends with the corrected title to retry with (#1302): the remainder
-// with every leading copy of the prefix stripped, so the hint passes this
-// guard itself.
+// refusal says which part to drop (#1302) without showing the title or the
+// citation given (cli#3114).
 func refuseCopiedNamePrefix(title, loc string) error {
 	prefix := specNamePrefix(loc)
 	t := strings.TrimSpace(title)
 	if !strings.HasPrefix(t, prefix) {
 		return nil
 	}
-	for strings.HasPrefix(t, prefix) {
-		t = strings.TrimSpace(strings.TrimPrefix(t, prefix))
-	}
-	return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: %q is added automatically, so drop it from the value: --title %s", prefix, cmdutil.ShellQuote(t))
+	return exitcode.Newf(exitcode.Usage, "--title is the text AFTER the citation: \"<citation>%s\" is added automatically, so drop it (every leading copy) from the value; the title given is not shown", specNameSeparator)
 }
 
 // specTags returns the tag set for a spec: "spec" then any extra semantic

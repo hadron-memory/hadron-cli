@@ -201,7 +201,7 @@ func changedFiles(ctx context.Context, base, head string) (files []string, usedB
 	tracked, err := gitPaths(ctx, args...)
 	if err != nil {
 		return nil, base, exitcode.Newf(exitcode.Usage,
-			"could not read the diff from git (base %q, head %q) — pass --diff to supply one instead: %v", base, head, err)
+			"could not read the diff from git (the base and head given are not shown) — pass --diff to supply one instead: %v", err)
 	}
 	seen := map[string]bool{}
 	for _, f := range tracked {

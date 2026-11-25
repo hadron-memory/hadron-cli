@@ -79,7 +79,7 @@ including memories of organizations you do not belong to.`,
 					}
 				}
 				if visArg == nil {
-					return exitcode.Newf(exitcode.Usage, "invalid --visibility %q (want ORGANIZATION, GROUP or PUBLIC). Nothing was sent", visibility)
+					return exitcode.Newf(exitcode.Usage, "invalid --visibility (want ORGANIZATION, GROUP or PUBLIC). Nothing was sent")
 				}
 			}
 			client, err := f.GraphQLClient()

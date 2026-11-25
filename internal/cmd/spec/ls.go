@@ -162,7 +162,7 @@ the normal tag/role union. An empty --role is refused.`,
 				}
 				if draft.Missing {
 					return exitcode.Newf(exitcode.NotFound,
-						"no memory found for %q — expected a memory id or a URN: hrn:mem:<root>:<slug>", ref)
+						"no memory found (the ref given is not shown) — expected a memory id or a URN: hrn:mem:<root>:<slug>")
 				}
 			}
 			rawNodes = pageBranch(rawNodes, prefix, limit, offset)

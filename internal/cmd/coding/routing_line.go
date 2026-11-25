@@ -274,10 +274,10 @@ func matchSection(secs []bodySection, want string) (bodySection, error) {
 		return partial[0], nil
 	case 0:
 		return bodySection{}, exitcode.Newf(exitcode.Usage,
-			"--section %q matches no heading in the router's body%s", want, headingHint(secs))
+			"--section (the value given is not shown) matches no heading in the router's body%s", headingHint(secs))
 	default:
 		return bodySection{}, exitcode.Newf(exitcode.Usage,
-			"--section %q is ambiguous%s", want, headingHint(partial))
+			"--section (the value given is not shown) is ambiguous%s", headingHint(partial))
 	}
 }
 

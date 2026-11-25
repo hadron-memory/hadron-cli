@@ -411,5 +411,5 @@ func findRule(cmd *cobra.Command, f *cmdutil.Factory, memoryRef, role string) (*
 		have = "its rules are for: " + strings.Join(roles, ", ")
 	}
 	return nil, "", exitcode.Newf(exitcode.NotFound,
-		"memory %s has no rule for role %q (roles are matched exactly) — %s", memoryRef, role, have)
+		"the memory has no rule for that role (the memory and role given are not shown; roles are matched exactly) — %s", have)
 }

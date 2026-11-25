@@ -360,7 +360,7 @@ NODE_MINTED (exit 5). Supersede that spec instead.`,
 				return err
 			}
 			if from == to {
-				return exitcode.Newf(exitcode.Usage, "<from-citation> and <to-citation> are both %s; nothing to renumber", from)
+				return exitcode.Newf(exitcode.Usage, "<from-citation> and <to-citation> are the same (not shown); nothing to renumber")
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -416,8 +416,8 @@ NODE_MINTED (exit 5). Supersede that spec instead.`,
 			}
 			if dto.Failed > 0 {
 				return exitcode.Newf(exitcode.Error,
-					"%s moved to %s, but %d reference rewrite(s) FAILED — those nodes still name the old citation; see the rewrites above",
-					from, to, dto.Failed)
+					"the spec moved (the citations given are not shown), but %d reference rewrite(s) FAILED — those nodes still name the old citation; see the rewrites above",
+					dto.Failed)
 			}
 			return nil
 		},

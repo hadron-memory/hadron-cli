@@ -328,7 +328,7 @@ Apps:
 						case "system":
 							return exitcode.Newf(exitcode.Usage, "--owner-me supports --class personal or private only; system memories are auto-provisioned, not created directly")
 						default:
-							return exitcode.Newf(exitcode.Usage, "--owner-me supports --class personal or private only; pass --org to create a %s memory", class)
+							return exitcode.Newf(exitcode.Usage, "--owner-me supports --class personal or private only; pass --org to create a memory of another class")
 						}
 					}
 					c := gen.MemoryClass("personal")

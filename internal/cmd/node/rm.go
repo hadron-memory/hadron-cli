@@ -109,10 +109,10 @@ refused (that memory may not be yours). --cascade-cross-memory-edges, with
 					}
 					if n := api.DescendantCount(err); n >= 0 {
 						return exitcode.Newf(exitcode.Usage,
-							"%q has %d descendant(s); pass %s to delete the whole subtree", node.Loc, n, hint)
+							"the node (the ref given is not shown) has %d descendant(s); pass %s to delete the whole subtree", n, hint)
 					}
 					return exitcode.Newf(exitcode.Usage,
-						"%q has descendants; pass %s to delete the whole subtree", node.Loc, hint)
+						"the node (the ref given is not shown) has descendants; pass %s to delete the whole subtree", hint)
 				}
 				// cli#1341: a hard delete of a node with edges to other memories
 				// refuses with CROSS_MEMORY_EDGES and names the GraphQL argument;
@@ -120,10 +120,10 @@ refused (that memory may not be yours). --cascade-cross-memory-edges, with
 				if api.HasErrorCode(err, "CROSS_MEMORY_EDGES") {
 					if n := api.ExtensionCount(err, "CROSS_MEMORY_EDGES"); n >= 0 {
 						return exitcode.Newf(exitcode.Usage,
-							"%q has %d edge(s) linking it to other memories; pass --cascade-cross-memory-edges with --hard to delete them too", node.Loc, n)
+							"the node (the ref given is not shown) has %d edge(s) linking it to other memories; pass --cascade-cross-memory-edges with --hard to delete them too", n)
 					}
 					return exitcode.Newf(exitcode.Usage,
-						"%q has edges linking it to other memories; pass --cascade-cross-memory-edges with --hard to delete them too", node.Loc)
+						"the node (the ref given is not shown) has edges linking it to other memories; pass --cascade-cross-memory-edges with --hard to delete them too")
 				}
 				return api.MapError(err)
 			}
