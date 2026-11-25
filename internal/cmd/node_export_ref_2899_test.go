@@ -59,6 +59,11 @@ func TestNodeExportSendsRefNotID2899(t *testing.T) {
 			if _, has := sent[0].Vars["id"]; has {
 				t.Errorf("no id variable: %v", sent[0].Vars)
 			}
+			// The VALUE flows from the resolve step, not from the typed ref:
+			// an empty or echoed-typed-URN value must fail (Jonas's F3 on #2918).
+			if got, ok := sent[0].Vars["ref"].(string); !ok || got != "n1" {
+				t.Errorf("the ref variable carries the resolved node id n1, got %v", sent[0].Vars["ref"])
+			}
 		})
 	}
 }
@@ -219,5 +224,27 @@ func TestNodeExportUnknownRefArgumentOverHTTP400IsOutOfSyncNotTooOld2899(t *test
 		if exportAttempts != 1 {
 			t.Errorf("%s: one attempt, no retry with the old name: %d", name, exportAttempts)
 		}
+	}
+}
+
+// A validation response that batches the unknown `ref` argument WITH a real "Cannot query
+// field" (GraphQL validation reports every error of one document in a single response —
+// here an intermediate server that has nodeExport(id:) and lacks a field the document
+// selects) still takes the too-old branch: a missing FIELD is the discriminator, and the
+// unknown-argument exclusion must not mask it (Jonas's F2 on #2918).
+func TestNodeExportBatchedValidationKeepsTheTooOldAnswer2899(t *testing.T) {
+	srv, calls := attnServer(t, map[string]string{
+		"ResolveUrn": resolveNodeJSON,
+		"NodeExport": `{"errors":[{"message":"Unknown argument \"ref\" on field \"Query.nodeExport\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}},{"message":"Cannot query field \"bytes\" on type \"NodeExportResult\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"node", "export", nodeURN, "--server", srv.URL})
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "too old to render exports server-side") {
+		t.Fatalf("a batched response carrying a real missing field is the too-old answer (exit 2): exit=%d err=%v", exitCodeFor(err), err)
+	}
+	if len(exportCalls2899(calls)) != 1 {
+		t.Fatalf("one attempt, no retry: %d", len(exportCalls2899(calls)))
 	}
 }

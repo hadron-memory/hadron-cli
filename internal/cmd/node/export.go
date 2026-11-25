@@ -283,15 +283,21 @@ func isUnknownFieldErr(err error, field string) bool {
 	if !strings.Contains(msg, field) {
 		return false
 	}
+	// A missing FIELD is the too-old signature even when the server batches an
+	// unknown-argument error into the same validation response (GraphQL reports
+	// every error of one document together): the field phrases decide first, or
+	// the argument exclusion below would mask them.
+	if strings.Contains(msg, "Cannot query field") ||
+		strings.Contains(msg, "Unknown field") {
+		return true
+	}
 	// An unknown ARGUMENT on a field the server has (nodeExport(ref:) against a server that
 	// still has nodeExport(id:), cli#2899) is a version mismatch, not a missing field: it
 	// falls through to the generic out-of-sync refusal.
 	if strings.Contains(msg, "Unknown argument") {
 		return false
 	}
-	return strings.Contains(msg, "Cannot query field") ||
-		strings.Contains(msg, "Unknown field") ||
-		strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED")
+	return strings.Contains(msg, "GRAPHQL_VALIDATION_FAILED")
 }
 
 // exportSections maps --section values onto NodeExportSection; nil when none
