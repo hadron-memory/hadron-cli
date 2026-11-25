@@ -1,6 +1,7 @@
 // Package billing is the metering surface (cli#215): provider rate rows and an
-// org's credit balance and ledger (reads), and the platform-admin writes that
-// add a rate row or grant credit (billing_write.go).
+// org's credit balance, ledger and AI spend (reads), and the writes that add a
+// rate row, grant credit or adjust it (billing_write.go). The rules for credit are
+// cor:dmo:170.
 //
 // Every money field is a base-10 integer string of micro-cents (1e-8 USD) on
 // the wire, and this package never parses one: a ledger amount is signed and
@@ -25,30 +26,36 @@ import (
 func NewCmdBilling(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "billing <command>",
-		Short: "Read AI-credit rates, balances and ledgers; set rates and grant credit",
+		Short: "Read AI-credit rates, balances and spend; set rates, grant and adjust credit",
 		Long: `See an organization's AI credit: what the models cost ("prices"), how much
-credit is left ("balance") and every grant and charge ("ledger").
+credit is left ("balance"), what AI use cost and was charged ("spend") and
+every grant, charge and adjustment ("ledger").
 
 Money is shown in micro-cents, never converted to dollars: 100000000
 micro-cents = 1 USD, so 5000000 is 5 cents and 1000000 is 1 cent.
 
-prices, balance and ledger only read. "prices set" and "grant" change money
-records, are platform-admin actions, and ask before they send (--yes to skip).
+prices, balance, spend and ledger are reads. "prices set", "grant" and "adjust"
+change money records and ask before they send (--yes to skip). "prices set" is
+for platform admins; "grant" and "adjust" also for the billing role.
 
 Details:
   Amounts are base-10 integers exactly as the server keeps them, signed on the
-  ledger, never rounded; the credit metering records are described in spec 046.`,
+  ledger, never rounded.`,
 		Example: `  hadron billing prices --provider anthropic
   hadron billing prices get <id>
   hadron billing balance hrn:org:acme.com
+  hadron billing spend hrn:org:acme.com --from 2026-11-01 --to 2026-12-01 --group-by day
   hadron billing ledger hrn:org:acme.com --limit 20
   hadron billing prices set --provider anthropic --model claude-opus-5-5 --input 1500000000 --output 7500000000 --yes
-  hadron billing grant hrn:org:acme.com --amount 500000000 --note trial --yes`,
+  hadron billing grant hrn:org:acme.com --amount 500000000 --source-type trial --source-id t-1 --yes
+  hadron billing adjust hrn:org:acme.com --amount -300 --source-type refund --source-id r-1 --note "refund r-1" --yes`,
 	}
 	cmd.AddCommand(newCmdPrices(f))
 	cmd.AddCommand(newCmdBalance(f))
 	cmd.AddCommand(newCmdLedger(f))
+	cmd.AddCommand(newCmdSpend(f))
 	cmd.AddCommand(newCmdGrant(f))
+	cmd.AddCommand(newCmdAdjust(f))
 	return cmd
 }
 
@@ -66,8 +73,15 @@ type priceDTO struct {
 }
 
 type balanceDTO struct {
-	OrganizationID    string `json:"organizationId"`
-	BalanceMicroCents string `json:"balanceMicroCents"`
+	OrganizationID    string        `json:"organizationId"`
+	BalanceMicroCents string        `json:"balanceMicroCents"`
+	Expiring          []expiringDTO `json:"expiring"`
+}
+
+// expiringDTO is what is left of one unexpired grant that expires.
+type expiringDTO struct {
+	AmountMicroCents string `json:"amountMicroCents"`
+	ExpiresAt        string `json:"expiresAt"`
 }
 
 type ledgerEntryDTO struct {
@@ -293,13 +307,19 @@ func newCmdBalance(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "balance <org>",
 		Short: "Show an organization's credit balance",
-		Long: `Show how much AI credit an organization has left: grants minus charges, as one
-number in micro-cents (1 USD = 100,000,000 micro-cents). Requires org ADMIN.
+		Long: `Show how much AI credit an organization has left, in micro-cents
+(1 USD = 100,000,000 micro-cents), and what is left of each grant that expires.
+Requires org ADMIN.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example
-hrn:org:acme.com). The output is one line,
-for example "250000000 micro-cents (organization <id>)", which is 2.50 USD. To
-see what made up the number, run "hadron billing ledger".`,
+hrn:org:acme.com). The first line is the balance,
+for example "250000000 micro-cents (organization <id>)", which is 2.50 USD. Then
+comes one line per expiring grant with something left, soonest first. These are
+part of the balance, not added to it. Credit that has expired is never in the
+balance. To see what made up the number, run "hadron billing ledger".
+
+Reading the balance can make the server write the ledger entries that settle
+grants which have already expired.`,
 		Example: `  hadron billing balance hrn:org:acme.com
   hadron billing balance hrn:org:acme.com --json`,
 		Args: cobra.ExactArgs(1),
@@ -318,10 +338,23 @@ see what made up the number, run "hadron billing ledger".`,
 			dto := balanceDTO{
 				OrganizationID:    resp.CreditBalance.OrganizationId,
 				BalanceMicroCents: resp.CreditBalance.BalanceMicroCents,
+				Expiring:          []expiringDTO{},
+			}
+			for _, e := range resp.CreditBalance.Expiring {
+				if e != nil {
+					dto.Expiring = append(dto.Expiring, expiringDTO{AmountMicroCents: e.AmountMicroCents, ExpiresAt: e.ExpiresAt})
+				}
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "%s micro-cents (organization %s)\n", output.SafeCell(dto.BalanceMicroCents), output.SafeCell(dto.OrganizationID))
-				return err
+				if _, err := fmt.Fprintf(w, "%s micro-cents (organization %s)\n", output.SafeCell(dto.BalanceMicroCents), output.SafeCell(dto.OrganizationID)); err != nil {
+					return err
+				}
+				for _, e := range dto.Expiring {
+					if _, err := fmt.Fprintf(w, "  %s micro-cents expires %s\n", output.SafeCell(e.AmountMicroCents), output.SafeCell(e.ExpiresAt)); err != nil {
+						return err
+					}
+				}
+				return nil
 			})
 		},
 	}
@@ -332,10 +365,10 @@ func newCmdLedger(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "ledger <org>",
 		Short: "List an organization's credit ledger",
-		Long: `List every credit grant and charge for an organization, newest first, so you can
-see what produced the balance. Grants are positive and charges negative, in
-micro-cents (1 USD = 100,000,000 micro-cents; a charge of -1500000 is 1.5
-cents). Requires org ADMIN. Without --limit the whole ledger is listed; --limit
+		Long: `List every credit grant, charge and adjustment for an organization, newest
+first, so you can see what produced the balance. Grants are positive, charges
+negative and adjustments either, in micro-cents (1 USD = 100,000,000
+micro-cents; a charge of -1500000 is 1.5 cents). Requires org ADMIN. Without --limit the whole ledger is listed; --limit
 and --offset ask for one page.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example

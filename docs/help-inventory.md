@@ -287,7 +287,7 @@ section between the markers.
 | `user invite` |  |  | y | #1052 | cc2918067fc0 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `user merge` |  |  | y | #1052 | 6de466ea4a64 |  | unread |  |
 | `user search` | ls, list |  | y | #1052 | e04a65686a7d |  | unread |  |
-| `user set-roles` |  |  | y | #1052 | 5dff1f031295 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50): P3 retained: ordinary confirmation/noninteractive refusal example would help; replacement/authority clear |
+| `user set-roles` |  |  | y | #1052 | f7cdac4b8bc7 |  | unread |  |
 <!-- group:1052 end -->
 
 ## Group: App and automation commands (#1053)
@@ -750,7 +750,7 @@ section between the markers.
 <!-- group:1056 start -->
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
-| `(root)` |  |  | n | #1056 | 4e0bf5a1f8fa |  | unread |  |
+| `(root)` |  |  | n | #1056 | d1ab1602f52f |  | unread |  |
 | `agentic-usage` |  |  | y | #1056 | a77cfb7385c1 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `api` |  |  | y | #1056 | ecff45e61c3a | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
 | `completion` |  | generated | n | #1056 | 532ef0768ca4 | Gil | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991356354), [step 3](https://github.com/hadron-memory/hadron-cli/issues/1056#issuecomment-6991617179) |
@@ -783,13 +783,15 @@ section between the markers.
 | `automation team-snapshot-grant list` | ls |  | y | #1184 | b698c2bc6e37 |  | unread |  |
 | `automation team-snapshot-grant revoke` |  |  | y | #1184 | 649541714120 |  | unread |  |
 | `automation team-snapshot-grant set` |  |  | y | #1184 | 58877c715061 |  | unread |  |
-| `billing` |  |  | y | #1184 | 7e66fd0c12a2 |  | unread |  |
-| `billing balance` |  |  | y | #1184 | 9f01a80975bf |  | unread |  |
-| `billing grant` |  |  | y | #1184 | 4bcaeb4d0790 |  | unread |  |
-| `billing ledger` |  |  | y | #1184 | 963f38664afb |  | unread |  |
+| `billing` |  |  | y | #1184 | 825abda5903e |  | unread |  |
+| `billing adjust` |  |  | y | #1184 | 7c0b84d5a924 |  | unread |  |
+| `billing balance` |  |  | y | #1184 | 31e39d981a7a |  | unread |  |
+| `billing grant` |  |  | y | #1184 | c0d572e237ed |  | unread |  |
+| `billing ledger` |  |  | y | #1184 | 1cbbbe8ba6bf |  | unread |  |
 | `billing prices` |  |  | y | #1184 | fb30acdcaf4f |  | unread |  |
 | `billing prices get` |  |  | y | #1184 | 52487a9bf12e |  | unread |  |
 | `billing prices set` |  |  | y | #1184 | 08dca1e37d12 |  | unread |  |
+| `billing spend` |  |  | y | #1184 | 15c85478d897 |  | unread |  |
 | `calendar` |  |  | y | #1184 | c2849191f7cd | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `calendar event` |  |  | n | #1184 | eda97ca71e1c | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `calendar event create` |  |  | y | #1184 | e91f48331fa3 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |

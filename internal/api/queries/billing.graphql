@@ -1,6 +1,6 @@
 # Spec 046 metering reads (cli#215). Money fields are base-10 integer strings
 # of micro-cents (1e-8 USD); the CLI never parses them. The writes
-# (setAiModelPrice, grantCredits) are at the end of the file (cli#215 write cut).
+# (setAiModelPrice, grantCredits, adjustCredits) are at the end of the file (cli#215 write cut).
 
 fragment AiModelPriceFields on AiModelPrice {
   id
@@ -59,11 +59,36 @@ query AiModelPrices(
   }
 }
 
-# One org's balance: the SUM over its append-only ledger. Org-ADMIN.
+# One org's balance and what is left of each expiring grant, soonest first.
+# Org-ADMIN. The read may settle expired grants (hadron-server#5011).
 query CreditBalance($orgRef: String!) {
   creditBalance(orgRef: $orgRef) {
     organizationId
     balanceMicroCents
+    expiring {
+      amountMicroCents
+      expiresAt
+    }
+  }
+}
+
+# One org's AI spend over [from, to), one grouping (cli#3071). Org-ADMIN. Cost
+# and charged are two figures (cor:dmo:170:04).
+query AiSpend($orgRef: String!, $from: String!, $to: String!, $groupBy: AiSpendGroup!) {
+  aiSpend(orgRef: $orgRef, from: $from, to: $to, groupBy: $groupBy) {
+    from
+    to
+    truncated
+    totalGroups
+    rows {
+      key
+      events
+      tokensIn
+      tokensOut
+      costMicroCents
+      unpricedEvents
+      chargedMicroCents
+    }
   }
 }
 
@@ -99,7 +124,7 @@ mutation SetAiModelPrice(
   }
 }
 
-# Platform-ADMIN. Appends a positive grant to an org's ledger. The response
+# Platform-ADMIN or the BILLING role. Appends a positive grant to an org's ledger. The response
 # has no created/reused flag, so a replay of (sourceType, sourceId) is
 # indistinguishable from a first grant. An omitted optional is not sent.
 # @genqlient(for: "GrantCreditsInput.expiresAt", omitempty: true)
@@ -110,6 +135,16 @@ mutation GrantCredits(
   $input: GrantCreditsInput!
 ) {
   grantCredits(input: $input) {
+    ...CreditLedgerEntryFields
+  }
+}
+
+# Platform-ADMIN or the BILLING role. Appends a signed adjustment; idempotent on
+# (sourceType, sourceId), a mismatched replay is IDEMPOTENCY_CONFLICT.
+mutation AdjustCredits(
+  $input: AdjustCreditsInput!
+) {
+  adjustCredits(input: $input) {
     ...CreditLedgerEntryFields
   }
 }
