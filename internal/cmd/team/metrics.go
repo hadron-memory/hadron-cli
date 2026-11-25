@@ -130,9 +130,12 @@ The reports:
                         It counts only started tasks that track external work
                         (a task with an issue reference or a source), so its
                         total is not all started tasks.
-  Started projects      each STARTED project with its direct child tasks
-                        counted by status. The server sends no project
-                        total, so the heading says how many are shown.
+  Started projects      each STARTED project with the tasks counted under
+                        it, at any depth, grouped by status; a task counts
+                        once, under its nearest marked project. Only STARTED
+                        projects are listed, so the rows do not add up to
+                        all tasks. The server sends no project total, so
+                        the heading says how many are shown.
   Workers               active, idle, overdue and inop. A worker can be in
                         several, so the four never add up to a head count.
   Flow in the window    tasks completed and tasks started in [since, until),

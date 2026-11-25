@@ -559,7 +559,7 @@ section between the markers.
 | `team host unassign` |  |  | y | #1054 | 27a1042772ef |  | unread |  |
 | `team host up` |  |  | y | #1054 | a0cb59cf71f9 |  | unread |  |
 | `team init` |  |  | y | #1054 | 28b798b2fe94 |  | unread |  |
-| `team metrics` |  |  | y | #1054 | 94b74d7eb7d0 |  | unread |  |
+| `team metrics` |  |  | y | #1054 | 648a01704e51 |  | unread |  |
 | `team pause` |  |  | y | #1054 | b2d114ef7480 |  | unread |  |
 | `team pr` |  |  | y | #1054 | 28eb77314660 |  | unread |  |
 | `team pr freeze` |  |  | y | #1054 | db75d8f4345a |  | unread |  |
