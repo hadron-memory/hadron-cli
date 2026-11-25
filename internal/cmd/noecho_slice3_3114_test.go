@@ -197,7 +197,7 @@ func TestSlice3HelperOnlyRefusals3114(t *testing.T) {
 func TestSlice3ServerMismatchHidesTheServerGiven3114(t *testing.T) {
 	writeTeamBinding(t)
 	setTeamBindingServer(t, "https://bound.example.com")
-	gql, _ := captureGraphQL(t, nil)
+	gql, _ := captureGraphQL(t, map[string]string{"GetWorker": `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`})
 	host := strings.TrimPrefix(gql.URL, "http://")
 	for _, argv := range [][]string{
 		{"team", "session", "end"},
