@@ -6928,8 +6928,9 @@ or head in the wrong form) exits 2, and an empty `--defect` or
 `--introduced-at-head` is refused with exit 2 before any request. A response
 with no link exits 1: the link may have been recorded, so read the events of
 the task you named (`hadron team events --task <task>`) before retrying; the
-message does not show the ref given. No retry. `--json` is `{taskId, defect, introducedAtHead, eventId,
-linkedAt, created}`; `introducedAtHead` is null when the link names no head.
+message does not show the ref given. No retry. `--json` is `{taskId, defect,
+introducedAtHead, eventId, linkedAt, created}`; `introducedAtHead` is null when
+the link names no head.
 
 `finding-dispositions --json` is `{items:[{findingId,disposition,reference}],
 total,hasMore}` in finding order; empty items is `[]`. Default page 20, maximum

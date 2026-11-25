@@ -21,8 +21,8 @@ func linkDefectParagraph2440(t *testing.T) (lines []string, firstLine int) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	// The message shows the ref in full (cli#2371): keep that claim in the anchor.
-	const anchor = "The message's last line is that task ref alone, in full"
+	// The message never shows the ref (cli#3114): keep that claim in the anchor.
+	const anchor = "the message does not show the ref given. No retry."
 	all := strings.Split(out.String(), "\n")
 	var found [][2]int
 	for i := 0; i < len(all); {
@@ -61,25 +61,22 @@ func linkDefectParagraph2440(t *testing.T) (lines []string, firstLine int) {
 // displayed copy is not supported, and the CLI does not reject such a ref. The
 // wording pin below holds that sentence.
 //
-// cli#2371 F4: the link-defect paragraph in agentic-usage says the last line is
-// the task ref in full, that control characters in it show as spaces (so reuse
-// the ref you passed in), and that the ref should be quoted when passed back to
-// a POSIX shell.
+// cli#2371 F4, as cli#3114 leaves it: the link-defect paragraph in agentic-usage names the read to run and
+// says the ref given is not shown, and no longer tells the reader to copy it from the message.
 func TestAgenticUsageLinkDefectRefWording2371(t *testing.T) {
 	lines, _ := linkDefectParagraph2440(t)
 	para := strings.Join(strings.Fields(strings.Join(lines, " ")), " ")
 	for _, want := range []string{
-		"control characters in the ref show as spaces",
-		// cli#2440 BLIND P2: the displayed ref can differ from the original.
-		"reuse the ref you passed in when you still hold it",
-		"quote the ref when you pass it back to a POSIX shell",
-		// cli#2417 F4: name a safe form. A ref can hold a single quote and
-		// double quotes still expand $(...) and backticks.
-		"Single-quote it, writing each embedded `'` as `'\\''`",
-		"double quotes still expand `$(...)` and backticks",
+		"read the events of the task you named (`hadron team events --task <task>`) before retrying",
+		"the message does not show the ref given",
 	} {
 		if !strings.Contains(para, want) {
 			t.Errorf("link-defect paragraph lacks %q:\n%s", want, para)
+		}
+	}
+	for _, gone := range []string{"last line", "Single-quote it"} {
+		if strings.Contains(para, gone) {
+			t.Errorf("link-defect paragraph still says %q, but the ref is no longer printed:\n%s", gone, para)
 		}
 	}
 }
