@@ -12,6 +12,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -192,21 +193,26 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 	// pasted code). The reader stops when ctx ends, which Login's return
 	// causes, and leaves the terminal as it found it.
 	var pasted chan pasteResult
+	startReader := func() {}
 	if canReadCode {
 		pasted = make(chan pasteResult, 1)
 		readCtx, stopReading := context.WithCancel(ctx)
-		readerDone := make(chan struct{})
-		go func() {
-			defer close(readerDone)
-			c, err := readCode(readCtx)
-			pasted <- pasteResult{code: c, err: err}
-		}()
+		var readers sync.WaitGroup
+		startReader = func() {
+			readers.Add(1)
+			go func() {
+				defer readers.Done()
+				c, err := readCode(readCtx)
+				pasted <- pasteResult{code: c, err: err}
+			}()
+		}
+		startReader()
 		// Whatever way this returns (a token, an error, Ctrl+C), stop the
 		// reader and wait for it, so the terminal's echo is back before the
 		// process can exit.
 		defer func() {
 			stopReading()
-			<-readerDone
+			readers.Wait()
 		}()
 	}
 	for {
@@ -222,17 +228,18 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 			}
 			return exchangeCode(ctx, httpClient, meta.TokenEndpoint, clientID, res.code, pk.Verifier, redirectURI, resource)
 		case p := <-pasted:
-			pasted = nil // a failed read does not end the wait for the redirect
 			if p.err != nil {
-				continue
+				continue // a failed read does not end the wait for the redirect
 			}
 			code := cleanCode(p.code)
 			if code == "" {
+				startReader() // an empty line is not a code: keep reading
 				continue
 			}
 			tok, err := exchangeEnteredCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, redirectURI, resource)
 			if err != nil && !refusalEnds && isCodeRefusal(err) {
-				fmt.Fprintf(opts.IO.ErrOut, "note: %s; still waiting for the browser sign-in to finish\n", codeRefusal)
+				fmt.Fprintf(opts.IO.ErrOut, "note: %s; still waiting for the browser sign-in to finish\n", codeRefusedReason)
+				startReader() // the next try is read without echo too
 				continue
 			}
 			return tok, err

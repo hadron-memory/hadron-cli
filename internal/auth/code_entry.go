@@ -26,7 +26,10 @@ const (
 // Wrong, expired, already used, dead after too many entries and mismatched
 // are the server's states and the server answers all of them alike; the CLI
 // adds no text that tells them apart and never repeats the code.
-const codeRefusal = "the code was not accepted (it may be wrong, expired or already used); run `hadron auth login` again to get a new one"
+const (
+	codeRefusedReason = "the code was not accepted (it may be wrong, expired or already used)"
+	codeRefusal       = codeRefusedReason + "; run `hadron auth login` again to get a new one"
+)
 
 // noCodeInputHint is the remedy when a pasted code cannot be read at all.
 const noCodeInputHint = "sign in with a token instead: echo $TOKEN | hadron auth login --with-token, or set HADRON_TOKEN"

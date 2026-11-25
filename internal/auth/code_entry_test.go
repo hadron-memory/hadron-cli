@@ -321,32 +321,42 @@ func TestRefusedPasteEndsFallbackLogin_3180(t *testing.T) {
 }
 
 // Default mode, a refused paste: the browser redirect may still arrive, so the
-// refusal is only reported and the login goes on to complete through it.
+// refusal is only reported (without telling the person to start over: the wait
+// is live), the terminal keeps being read, and the login goes on to complete
+// through the redirect.
 func TestRefusedPasteDoesNotEndDefaultLogin_3180(t *testing.T) {
 	as := newFakeAS(t)
 	streams, _, errOut := output.Test()
 	browser := consentingBrowser(as)
 	var addr string // set before the reader starts
-	var redirectOnce bool
+	var reads atomic.Int32
 	tok, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
 		ServerURL: as.server.URL, IO: streams, HTTPClient: as.server.Client(),
 		OpenBrowser: func(u string) error { addr = u; return nil }, // the redirect is sent after the paste is refused
-		ReadCode: func(context.Context) (string, error) {
-			if !redirectOnce {
-				redirectOnce = true
+		ReadCode: func(ctx context.Context) (string, error) {
+			if reads.Add(1) == 1 {
 				go func() {
 					time.Sleep(300 * time.Millisecond)
 					_ = browser(addr)
 				}()
+				return "not-the-code", nil
 			}
-			return "not-the-code", nil
+			<-ctx.Done() // re-armed: waiting for the next paste
+			return "", ctx.Err()
 		},
 	})
 	if err != nil || tok == nil {
 		t.Fatalf("a refused paste must not end a login the redirect completes: %v", err)
 	}
-	if !strings.Contains(errOut.String(), codeRefusal) {
-		t.Errorf("the refusal must still be reported:\n%s", errOut.String())
+	if reads.Load() < 2 {
+		t.Errorf("the terminal must keep being read after a refused paste, reads=%d", reads.Load())
+	}
+	out := errOut.String()
+	if !strings.Contains(out, "note: "+codeRefusedReason) || !strings.Contains(out, "still waiting") {
+		t.Errorf("the refusal must be reported as a note:\n%s", out)
+	}
+	if strings.Contains(out, "note: "+codeRefusal) {
+		t.Errorf("the note must not say to start over while the wait is live:\n%s", out)
 	}
 }
 

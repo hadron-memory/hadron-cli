@@ -27,6 +27,16 @@ import (
 // test can answer it without a real browser (#1860).
 var browserLogin = auth.BrowserStrategy{}.Login
 
+// loginInterruptibly runs the browser flow with Ctrl+C turned into context
+// cancellation, so a code prompt puts the terminal's echo back before the
+// process exits. The signals are handed back as soon as the flow returns: the
+// prompts that follow (installing skills) must see Ctrl+C as the default.
+func loginInterruptibly(ctx context.Context, opts auth.LoginOptions) (*auth.Token, error) {
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return browserLogin(ctx, opts)
+}
+
 func newCmdLogin(f *cmdutil.Factory) *cobra.Command {
 	var withToken bool
 	var installSkills, noInstallSkills bool
@@ -125,11 +135,7 @@ only whether the credential authenticates.`,
 					return err
 				}
 			} else {
-				// Ctrl+C ends the wait through the context, so a code prompt puts
-				// the terminal's echo back before the process exits.
-				ctx, stopSignals := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
-				defer stopSignals()
-				result, err := browserLogin(ctx, auth.LoginOptions{
+				result, err := loginInterruptibly(cmd.Context(), auth.LoginOptions{
 					ServerURL:     server,
 					LoginProvider: provider,
 					CodeEntry:     noBrowser,
