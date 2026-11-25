@@ -2383,6 +2383,11 @@ type AgentRevisionsResponse struct {
 	// An Agent's revisions, newest first, with the slot limit, the highest slot used and the saves left (#4488).
 	// Read by whoever may restore a revision: the Agent's manager.
 	//
+	// Error codes (extensions.code): AGENT_NOT_FOUND (no such Agent, or one the
+	// caller cannot read), FORBIDDEN (a reader who does not manage the Agent),
+	// AGENT_HAS_NO_SYSTEM_MEMORY (the Agent has no system memory, so it has no
+	// revisions to list).
+	//
 	// Accepts the entity's ID or URN.
 	AgentRevisions *AgentRevisionsAgentRevisionsAgentRevisionList `json:"agentRevisions"`
 }
@@ -110676,9 +110681,11 @@ func (v *TeamMemoryAppResponse) GetMemory() *TeamMemoryAppMemory { return v.Memo
 // per id; it is at most 200 long too. A name follows the same gate as its id: a count a reader may not see is null, and an
 // id with no readable name has a null name.
 type TeamMetricsCountFields struct {
-	Total     int      `json:"total"`
-	Ids       []string `json:"ids"`
-	Truncated bool     `json:"truncated"`
+	Total int      `json:"total"`
+	Ids   []string `json:"ids"`
+	// One entry per id of ids, same order: the id and its name, null when no name is readable.
+	Named     []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+	Truncated bool                                             `json:"truncated"`
 }
 
 // GetTotal returns TeamMetricsCountFields.Total, and is useful for accessing the field via an interface.
@@ -110687,8 +110694,28 @@ func (v *TeamMetricsCountFields) GetTotal() int { return v.Total }
 // GetIds returns TeamMetricsCountFields.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsCountFields) GetIds() []string { return v.Ids }
 
+// GetNamed returns TeamMetricsCountFields.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFields) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.Named
+}
+
 // GetTruncated returns TeamMetricsCountFields.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsCountFields) GetTruncated() bool { return v.Truncated }
+
+// TeamMetricsCountFieldsNamedTeamMetricsNamedId includes the requested fields of the GraphQL type TeamMetricsNamedId.
+// The GraphQL type's documentation follows.
+//
+// #4992: an id of a metrics count with its name (a task's title or a worker's name); the name follows the same gate as the id.
+type TeamMetricsCountFieldsNamedTeamMetricsNamedId struct {
+	Id   string  `json:"id"`
+	Name *string `json:"name"`
+}
+
+// GetId returns TeamMetricsCountFieldsNamedTeamMetricsNamedId.Id, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFieldsNamedTeamMetricsNamedId) GetId() string { return v.Id }
+
+// GetName returns TeamMetricsCountFieldsNamedTeamMetricsNamedId.Name, and is useful for accessing the field via an interface.
+func (v *TeamMetricsCountFieldsNamedTeamMetricsNamedId) GetName() *string { return v.Name }
 
 // TeamMetricsProjectFields includes the GraphQL fields of TeamMetricsProject requested by the fragment TeamMetricsProjectFields.
 // The GraphQL type's documentation follows.
@@ -110804,6 +110831,11 @@ func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetIds() []string 
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -110839,6 +110871,8 @@ type __premarshalTeamMetricsTeamMetricsFlowCompletedTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -110855,6 +110889,7 @@ func (v *TeamMetricsTeamMetricsFlowCompletedTeamMetricsCount) __premarshalJSON()
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -110880,6 +110915,11 @@ func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsFlowStartedTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -110917,6 +110957,8 @@ type __premarshalTeamMetricsTeamMetricsFlowStartedTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -110933,6 +110975,7 @@ func (v *TeamMetricsTeamMetricsFlowStartedTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111015,6 +111058,11 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMet
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMetricsChildStatusTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111050,6 +111098,8 @@ type __premarshalTeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildre
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111066,6 +111116,7 @@ func (v *TeamMetricsTeamMetricsProjectsItemsTeamMetricsProjectRowChildrenTeamMet
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111199,6 +111250,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetIds() []strin
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111234,6 +111290,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111250,6 +111308,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedAllTeamMetricsCount) __premarshalJSON
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111410,6 +111469,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProject
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProjectTeamMetricsProjectGroupTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111445,6 +111509,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupB
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111461,6 +111527,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupByProject
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111523,6 +111590,11 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeam
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111558,6 +111630,8 @@ type __premarshalTeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupT
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111574,6 +111648,7 @@ func (v *TeamMetricsTeamMetricsStartedOwnedByOwnerTeamMetricsOwnerGroupTasksTeam
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111651,6 +111726,11 @@ func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetIds() []string 
 	return v.TeamMetricsCountFields.Ids
 }
 
+// GetNamed returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
+}
+
 // GetTruncated returns TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) GetTruncated() bool {
 	return v.TeamMetricsCountFields.Truncated
@@ -111686,6 +111766,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersActiveTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111702,6 +111784,7 @@ func (v *TeamMetricsTeamMetricsWorkersActiveTeamMetricsCount) __premarshalJSON()
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111727,6 +111810,11 @@ func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111764,6 +111852,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersIdleTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111780,6 +111870,7 @@ func (v *TeamMetricsTeamMetricsWorkersIdleTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111805,6 +111896,11 @@ func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersInopTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111842,6 +111938,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersInopTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111858,6 +111956,7 @@ func (v *TeamMetricsTeamMetricsWorkersInopTeamMetricsCount) __premarshalJSON() (
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -111883,6 +111982,11 @@ func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetTotal() int {
 // GetIds returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Ids, and is useful for accessing the field via an interface.
 func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetIds() []string {
 	return v.TeamMetricsCountFields.Ids
+}
+
+// GetNamed returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Named, and is useful for accessing the field via an interface.
+func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) GetNamed() []*TeamMetricsCountFieldsNamedTeamMetricsNamedId {
+	return v.TeamMetricsCountFields.Named
 }
 
 // GetTruncated returns TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount.Truncated, and is useful for accessing the field via an interface.
@@ -111920,6 +112024,8 @@ type __premarshalTeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount struct {
 
 	Ids []string `json:"ids"`
 
+	Named []*TeamMetricsCountFieldsNamedTeamMetricsNamedId `json:"named"`
+
 	Truncated bool `json:"truncated"`
 }
 
@@ -111936,6 +112042,7 @@ func (v *TeamMetricsTeamMetricsWorkersOverdueTeamMetricsCount) __premarshalJSON(
 
 	retval.Total = v.TeamMetricsCountFields.Total
 	retval.Ids = v.TeamMetricsCountFields.Ids
+	retval.Named = v.TeamMetricsCountFields.Named
 	retval.Truncated = v.TeamMetricsCountFields.Truncated
 	return &retval, nil
 }
@@ -190095,6 +190202,10 @@ query TeamMetrics ($appRef: ID!, $since: DateTime, $until: DateTime) {
 fragment TeamMetricsCountFields on TeamMetricsCount {
 	total
 	ids
+	named {
+		id
+		name
+	}
 	truncated
 }
 fragment TeamMetricsProjectFields on TeamMetricsProject {
