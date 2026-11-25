@@ -63,13 +63,14 @@ func TestForeignBindingAgenticUsage3135(t *testing.T) {
 		t.Fatal(err)
 	}
 	var line string
+	var lines int
 	for _, l := range strings.Split(string(data), "\n") {
 		if strings.HasPrefix(l, "# cli#3091:") {
-			line = l
+			line, lines = l, lines+1
 		}
 	}
-	if line == "" {
-		t.Fatal("no cli#3091 line in agentic-usage.md")
+	if lines != 1 {
+		t.Fatalf("%d cli#3091 lines in agentic-usage.md, want 1", lines)
 	}
 	if want := "(exit 2; the refused write is not sent, though reads the command makes first may be)"; !strings.Contains(line, want) {
 		t.Errorf("missing %q", want)
@@ -87,32 +88,34 @@ func TestForeignBindingSessionMatch3135(t *testing.T) {
 		vars   any
 		refuse bool
 	}{
-		"top-level value":         {map[string]any{"sessionRef": "s-new"}, true},
-		"nested value":            {map[string]any{"input": map[string]any{"a": []any{map[string]any{"s": "s-new"}}}}, true},
-		"exact nested key":        {map[string]any{"input": map[string]any{"s-new": 1}}, true},
-		"free text is the id":     {map[string]any{"body": "s-new"}, true},
-		"upper-cased":             {map[string]any{"sessionRef": "S-NEW"}, true},
-		"space-padded":            {map[string]any{"sessionRef": "  s-new\n"}, true},
-		"reference form":          {map[string]any{"sessionRef": "x:s-new"}, true},
-		"urn, upper-cased":        {map[string]any{"sessionRef": "hrn:session:acme.com:S-NEW "}, true},
-		"nested reference":        {map[string]any{"input": []any{"x:s-new"}}, true},
-		"padded key":              {map[string]any{"input": map[string]any{" S-new ": 1}}, true},
-		"reference key":           {map[string]any{"input": map[string]any{"x:s-new": 1}}, true},
-		"typed variables":         {struct{ Ref *string }{new3135("S-NEW")}, true},
-		"prose":                   {map[string]any{"body": "session s-new ended"}, false},
-		"prose ending in the id":  {map[string]any{"body": "see session: s-new"}, false},
-		"quoted prose":            {map[string]any{"body": `it is "s-new" here`}, false},
-		"json in a string":        {map[string]any{"body": `{"sessionRef":"s-new"}`}, false},
-		"longer id":               {map[string]any{"sessionRef": "s-new2"}, false},
-		"prefix without a colon":  {map[string]any{"sessionRef": "xs-new"}, false},
-		"key that contains it":    {map[string]any{"input": map[string]any{"s-new-note": 1}}, false},
-		"another session":         {map[string]any{"sessionRef": "s-other"}, false},
-		"no string in it":         {map[string]any{"a": 1, "b": nil, "c": true}, false},
-		"unencodable":             {map[string]any{"a": make(chan int), "s": "s-new"}, false},
-		"no variables":            {nil, false},
-		"after a huge number":     {json.RawMessage(`{"n":1e999,"s":"S-NEW"}`), true},
-		"raw, duplicate key":      {json.RawMessage(`{"s":"s-new","s":"other"}`), true},
-		"tail of a quoted string": {map[string]any{"body": `see "s-new`}, true},
+		"top-level value":             {map[string]any{"sessionRef": "s-new"}, true},
+		"nested value":                {map[string]any{"input": map[string]any{"a": []any{map[string]any{"s": "s-new"}}}}, true},
+		"exact nested key":            {map[string]any{"input": map[string]any{"s-new": 1}}, true},
+		"free text is the id":         {map[string]any{"body": "s-new"}, true},
+		"upper-cased":                 {map[string]any{"sessionRef": "S-NEW"}, true},
+		"space-padded":                {map[string]any{"sessionRef": "  s-new\n"}, true},
+		"reference form":              {map[string]any{"sessionRef": "x:s-new"}, true},
+		"urn, upper-cased":            {map[string]any{"sessionRef": "hrn:session:acme.com:S-NEW "}, true},
+		"nested reference":            {map[string]any{"input": []any{"x:s-new"}}, true},
+		"padded key":                  {map[string]any{"input": map[string]any{" S-new ": 1}}, true},
+		"reference key":               {map[string]any{"input": map[string]any{"x:s-new": 1}}, true},
+		"typed variables":             {struct{ Ref *string }{new3135("S-NEW")}, true},
+		"prose":                       {map[string]any{"body": "session s-new ended"}, false},
+		"prose ending in the id":      {map[string]any{"body": "see session: s-new"}, false},
+		"prose ending in a reference": {map[string]any{"body": "see session:s-new"}, false},
+		"lines ending in a reference": {map[string]any{"body": "handing over\nsession:s-new"}, false},
+		"quoted prose":                {map[string]any{"body": `it is "s-new" here`}, false},
+		"json in a string":            {map[string]any{"body": `{"sessionRef":"s-new"}`}, false},
+		"longer id":                   {map[string]any{"sessionRef": "s-new2"}, false},
+		"prefix without a colon":      {map[string]any{"sessionRef": "xs-new"}, false},
+		"key that contains it":        {map[string]any{"input": map[string]any{"s-new-note": 1}}, false},
+		"another session":             {map[string]any{"sessionRef": "s-other"}, false},
+		"no string in it":             {map[string]any{"a": 1, "b": nil, "c": true}, false},
+		"unencodable":                 {map[string]any{"a": make(chan int), "s": "s-new"}, false},
+		"no variables":                {nil, false},
+		"after a huge number":         {json.RawMessage(`{"n":1e999,"s":"S-NEW"}`), true},
+		"raw, duplicate key":          {json.RawMessage(`{"s":"s-new","s":"other"}`), true},
+		"tail of a quoted string":     {map[string]any{"body": `see "s-new`}, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := guard3135(t, "id1::"+ownRoot3091, "", &graphql.Request{OpName: "M", Query: mutation3135, Variables: tc.vars})
@@ -138,20 +141,23 @@ func TestForeignBindingParseCost3135(t *testing.T) {
 		parses, git               int
 		refuse                    bool
 	}{
-		"no signal, read":             {"", "", "R", read3135, nil, 0, 0, false},
-		"no signal, mutation":         {"", "", "M", mutation3135, named, 0, 0, false},
-		"no signal, authored":         {"", "", "A", authored3135, nil, 0, 0, false},
-		"malformed signal":            {"no-separator", "", "A", authored3135, nil, 0, 0, false},
-		"opt-in, read":                {foreign, "1", "R", read3135, nil, 0, 0, false},
-		"opt-in, mutation":            {foreign, "1", "M", mutation3135, named, 0, 0, false},
-		"opt-in, authored":            {foreign, "1", "A", authored3135, nil, 0, 0, false},
-		"foreign, read":               {foreign, "", "R", read3135, named, 1, 0, false},
-		"foreign, mutation":           {foreign, "", "M", mutation3135, named, 1, 1, true},
-		"foreign, unrelated mutation": {foreign, "", "M", mutation3135, nil, 1, 1, false},
-		"foreign, authored":           {foreign, "", "A", authored3135, nil, 1, 1, true},
-		"foreign, unnamed operation":  {foreign, "", "", authored3135, nil, 1, 1, true},
-		"foreign, unparseable":        {foreign, "", "M", "mutation {", named, 1, 0, false},
-		"own, authored":               {own, "", "A", authored3135, nil, 1, 1, false},
+		"no signal, read":                 {"", "", "R", read3135, nil, 0, 0, false},
+		"no signal, mutation":             {"", "", "M", mutation3135, named, 0, 0, false},
+		"no signal, authored":             {"", "", "A", authored3135, nil, 0, 0, false},
+		"malformed signal":                {"no-separator", "", "A", authored3135, nil, 0, 0, false},
+		"opt-in, read":                    {foreign, "1", "R", read3135, nil, 0, 0, false},
+		"opt-in, mutation":                {foreign, "1", "M", mutation3135, named, 0, 0, false},
+		"opt-in, authored":                {foreign, "1", "A", authored3135, nil, 0, 0, false},
+		"foreign, read":                   {foreign, "", "R", read3135, named, 1, 0, false},
+		"foreign, mutation":               {foreign, "", "M", mutation3135, named, 1, 1, true},
+		"foreign, unrelated mutation":     {foreign, "", "M", mutation3135, nil, 1, 1, false},
+		"foreign, authored":               {foreign, "", "A", authored3135, nil, 1, 1, true},
+		"foreign, unnamed operation":      {foreign, "", "", authored3135, nil, 1, 1, true},
+		"foreign, unparseable":            {foreign, "", "M", "mutation {", named, 1, 0, false},
+		"own, authored":                   {own, "", "A", authored3135, nil, 1, 1, false},
+		"opt-in is exactly 1, not zero":   {foreign, "0", "A", authored3135, nil, 1, 1, true},
+		"opt-in is exactly 1, not true":   {foreign, "true", "A", authored3135, nil, 1, 1, true},
+		"opt-in is exactly 1, not padded": {foreign, " 1", "A", authored3135, nil, 1, 1, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := guard3135(t, tc.invoker, tc.optIn, &graphql.Request{OpName: tc.op, Query: tc.query, Variables: tc.vars})
