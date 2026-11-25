@@ -320,7 +320,7 @@ func TestAppKeyCreateLostAnswerSendsOnceAndPointsAtListAndRevoke(t *testing.T) {
 		t.Errorf("--out must be absent: %v", err)
 	}
 	msg := r.all()
-	for _, want := range []string{"the --label given (not shown)", "hadron app key list <app-ref>", "revoke"} {
+	for _, want := range []string{"the --label you passed (value not shown)", "hadron app key list <app-ref>", "revoke"} {
 		if !strings.Contains(msg, want) {
 			t.Errorf("message missing %q: %q", want, msg)
 		}
@@ -544,7 +544,7 @@ func TestAppKeyCreateLostAnswerPlusFailedCleanupKeepsBothRoutes(t *testing.T) {
 	if len(ents) != 1 {
 		t.Fatalf("expected the undeleted file, got %v", ents)
 	}
-	for _, want := range []string{"the --label given (not shown)", "hadron app key list <app-ref>", "revoke", filepath.Join(dir, ents[0].Name()), "delete it yourself"} {
+	for _, want := range []string{"the --label you passed (value not shown)", "hadron app key list <app-ref>", "revoke", filepath.Join(dir, ents[0].Name()), "delete it yourself"} {
 		if !strings.Contains(r.all(), want) {
 			t.Errorf("message missing %q: %q", want, r.all())
 		}

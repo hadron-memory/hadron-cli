@@ -222,7 +222,7 @@ func parseChecks(vals []string) (map[gen.MemoryValidationCheck]bool, error) {
 		k, ok := checkKinds[key]
 		if !ok {
 			return nil, exitcode.Newf(exitcode.Usage,
-				"unknown --check %q — expected one of: %s", v, strings.Join(sortedCheckNames(), ", "))
+				"unknown --check — expected one of: %s", strings.Join(sortedCheckNames(), ", "))
 		}
 		out[k] = true
 	}

@@ -728,7 +728,7 @@ section between the markers.
 | `spec lint` | check, validate |  | y | #1055 | b601151d2dbe |  | unread |  |
 | `spec list` | ls |  | y | #1055 | f482dd92b9bc |  | unread |  |
 | `spec mint` |  |  | y | #1055 | 176744cc0f39 |  | unread |  |
-| `spec new` | scaffold |  | y | #1055 | 77286154345b |  | unread |  |
+| `spec new` | scaffold |  | y | #1055 | 586580ab0b49 |  | unread |  |
 | `spec register` | reg |  | y | #1055 | 2f690e3f6081 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec renumber` |  |  | y | #1055 | 26cba652322d |  | unread |  |
 | `spec replace` |  |  | y | #1055 | d439a9b4acd9 |  | unread |  |

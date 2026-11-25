@@ -227,7 +227,7 @@ func (s *memorySettings) embedding() (*gen.EmbeddingSource, error) {
 			return &v, nil
 		}
 	}
-	return nil, exitcode.Newf(exitcode.Usage, "invalid --embedding-source %q (want abstract, contentChunks or both). Nothing was sent", s.embeddingSource)
+	return nil, exitcode.Newf(exitcode.Usage, "invalid --embedding-source (want abstract, contentChunks or both). Nothing was sent")
 }
 
 func (s *memorySettings) embeddingArg(cmd *cobra.Command) *gen.EmbeddingSource {

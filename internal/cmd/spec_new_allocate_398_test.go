@@ -347,7 +347,7 @@ func TestSpecNewLostAllocationAnswer398(t *testing.T) {
 			t.Errorf("%s was sent although nothing was allocated for certain", op)
 		}
 	}
-	for _, s := range []string{"outcome unknown", "spec ls -m", "--prefix msg:010", `"Test"`, "rerunning allocates another number"} {
+	for _, s := range []string{"outcome unknown", "spec ls -m", "--prefix <parent>", "with your title", "rerunning allocates another number"} {
 		if !strings.Contains(errText, s) {
 			t.Errorf("message missing %q: %s", s, errText)
 		}

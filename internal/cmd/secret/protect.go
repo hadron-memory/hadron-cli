@@ -64,7 +64,7 @@ hadron secret change withdraw.`,
 				if api.IsFrameworkValidationOnlyFor(err, "setSecretProtected") {
 					return api.WithServerCode(exitcode.Newf(exitcode.Usage, "%s", noProtectedChanges), err)
 				}
-				return mapChange(err, "the protection change for secret "+output.SafeCell(ref))
+				return mapChange(err, "the protection change for the secret (the ref given is not shown)")
 			}
 			if resp == nil || resp.SetSecretProtected == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no secret")
@@ -89,8 +89,8 @@ hadron secret change withdraw.`,
 			// Any other returned secret is an answer this CLI does not expect:
 			// say what the server returned and how to look.
 			return exitcode.Newf(exitcode.Unavailable,
-				"the server answered with the secret instead of staging a change request, which setSecretProtected does not do; it reports protected: %t. The outcome is not confirmed: check it with: hadron secret get %s",
-				resp.SetSecretProtected.Protected, cmdutil.ShellQuote(output.SafeCell(ref)))
+				"the server answered with the secret instead of staging a change request, which setSecretProtected does not do; it reports protected: %t. The outcome is not confirmed: check it with: hadron secret get <secret> (the ref given is not shown)",
+				resp.SetSecretProtected.Protected)
 		},
 	}
 	cmd.Flags().BoolVar(&on, "on", false, "protect the secret")

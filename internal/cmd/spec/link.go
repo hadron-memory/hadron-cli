@@ -76,7 +76,7 @@ label), it reports "already linked" and writes nothing.`,
 				return err
 			}
 			if from == to {
-				return exitcode.Newf(exitcode.Usage, "cannot link a spec to itself (%s)", from)
+				return exitcode.Newf(exitcode.Usage, "cannot link a spec to itself (the citation given is not shown)")
 			}
 
 			client, err := f.GraphQLClient()
@@ -156,10 +156,10 @@ label), it reports "already linked" and writes nothing.`,
 // requireSpec rejects an endpoint that is not a spec (isSpec) — `spec link` is the
 // convention-aware path for spec↔spec cross-refs; `edge add` handles arbitrary
 // nodes.
-func requireSpec(tags []string, role *string, loc string) error {
+func requireSpec(tags []string, role *string) error {
 	if !isSpec(tags, role) {
 		return exitcode.Newf(exitcode.Usage,
-			"%s is not a spec (no \"spec\" tag or spec role) — use `hadron edge add` for arbitrary nodes", loc)
+			"the node (the citation given is not shown) is not a spec (no \"spec\" tag or spec role) — use `hadron edge add` for arbitrary nodes")
 	}
 	return nil
 }
@@ -169,7 +169,7 @@ func fetchSpecLinkEndpoint(cmd *cobra.Command, client graphql.Client, memoryURN,
 	if err != nil {
 		return nil, err
 	}
-	if err := requireSpec(n.Tags, n.Role, n.Loc); err != nil {
+	if err := requireSpec(n.Tags, n.Role); err != nil {
 		return nil, err
 	}
 	return n, nil

@@ -876,8 +876,8 @@ func TestSpecLintPrefixIsTrimmed(t *testing.T) {
 	if vars.Filter.LocPrefix != "msg:010" {
 		t.Errorf("lint scanned prefix %q, want the trimmed msg:010", vars.Filter.LocPrefix)
 	}
-	if err == nil || !strings.Contains(err.Error(), `"msg:010"`) {
-		t.Errorf("the empty-scope message should name the trimmed prefix: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "no specs found under the prefix") {
+		t.Errorf("the empty-scope message should say the prefix matched nothing: %v", err)
 	}
 }
 

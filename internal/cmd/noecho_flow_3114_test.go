@@ -26,10 +26,9 @@ import (
 //
 // noEchoPendingDirs are the directory groups whose slice of #3114 has not landed. They are not exempt:
 // each slice deletes its group, and the last one deletes this list.
-var noEchoPendingDirs = []string{
-	"internal/cmd/team/",
-	"internal/cmd/spec/", "internal/cmd/node/", "internal/cmd/memory/",
-	"internal/cmd/question/", "internal/cmd/secret/", "internal/cmd/coding/",
+// Each carries its hit count, so a new echo there fails the guard.
+var noEchoPendingDirs = map[string]int{
+	"internal/cmd/team/": 20,
 }
 
 type echoFlow struct {
@@ -391,6 +390,7 @@ func TestNoRefusalEchoesATypedValueThroughACopyOrHelper3114(t *testing.T) {
 		t.Fatalf("the guard loaded only %d packages", len(pkgs))
 	}
 	var found []string
+	inPending := map[string]int{}
 	for _, hit := range refusalEchoes(pkgs) {
 		rel, err := filepath.Rel(root, hit)
 		if err != nil {
@@ -398,8 +398,11 @@ func TestNoRefusalEchoesATypedValueThroughACopyOrHelper3114(t *testing.T) {
 		}
 		rel = filepath.ToSlash(rel)
 		pending := false
-		for _, d := range noEchoPendingDirs {
-			pending = pending || strings.HasPrefix(rel, d)
+		for d := range noEchoPendingDirs {
+			if strings.HasPrefix(rel, d) {
+				pending = true
+				inPending[d]++
+			}
 		}
 		if !pending {
 			found = append(found, rel)
@@ -408,6 +411,11 @@ func TestNoRefusalEchoesATypedValueThroughACopyOrHelper3114(t *testing.T) {
 	if len(found) > 0 {
 		t.Errorf("%d refusal(s) echo a positional argument through a copy or a helper; name its kind and say the value is not shown (#2898 policy, cli#3114):\n  %s",
 			len(found), strings.Join(found, "\n  "))
+	}
+	for d, want := range noEchoPendingDirs {
+		if inPending[d] != want {
+			t.Errorf("%s has %d pending echo(es), want %d: a new refusal must not echo, and a fixed one lowers the count", d, inPending[d], want)
+		}
 	}
 }
 
