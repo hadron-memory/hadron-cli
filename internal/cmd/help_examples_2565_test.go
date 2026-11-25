@@ -183,6 +183,11 @@ func heredocBody2565(files map[string]string, file string) (string, bool) {
 	return body, ok
 }
 
+// unconsumedHeredocs2565 lists the heredoc files no example's file argument read.
+func unconsumedHeredocs2565(files map[string]string, used map[string]bool) []string {
+	return nil
+}
+
 // stripRedirect2565 drops a trailing shell "> file" redirect from a command: the
 // last " > " that is outside quotes.
 func stripRedirect2565(seg string) string {

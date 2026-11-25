@@ -30,6 +30,14 @@ func TestHeredocFiles2565FindsADirectoryName2602(t *testing.T) {
 	}
 }
 
+func TestUnconsumedHeredocs2565NamesABodyNoExampleRead2602(t *testing.T) {
+	files := map[string]string{"b.json": "x", "a.json": "x", "used.json": "x"}
+	got := unconsumedHeredocs2565(files, map[string]bool{"used.json": true, "other.json": true})
+	if strings.Join(got, ",") != "a.json,b.json" {
+		t.Errorf("got %q, want a.json,b.json", got)
+	}
+}
+
 func TestHeredocFiles2565RefusesAnUnterminatedHeredoc2602(t *testing.T) {
 	if _, err := heredocFiles2565("cat > ask.json <<'EOF'\n{}\n"); err == nil {
 		t.Error("an unterminated heredoc was silently dropped")
@@ -71,6 +79,13 @@ func TestUncovered2565NamesPagesWithNoExecutedExample2602(t *testing.T) {
 	}
 }
 
+func TestUncovered2565NeedsAReason2602(t *testing.T) {
+	got := uncovered2565([]string{"a"}, nil, map[string]string{"a": " "})
+	if strings.Join(got, "|") != "a: allowlisted without a reason" {
+		t.Errorf("got %q", got)
+	}
+}
+
 func TestCheckQuestionHeredoc2565Rules2602(t *testing.T) {
 	const opts = `"options":[{"key":"pg","label":"Postgres"}]`
 	const rec = `"recommendation":{"key":"pg","reason":"r"}`
@@ -90,6 +105,7 @@ func TestCheckQuestionHeredoc2565Rules2602(t *testing.T) {
 		"both recommendations":    {`{"title":"t",` + opts + `,` + rec + `,"noRecommendation":{"reason":"r"}}`, true, "not both"},
 		"neither recommendation":  {`{"title":"t",` + opts + `}`, true, "neither"},
 		"yesno neither":           {`{"title":"t","yesno":true}`, true, "neither"},
+		"duplicate option key":    {`{"title":"t","options":[{"key":"pg","label":"A"},{"key":"pg","label":"B"}],` + rec + `}`, true, "twice"},
 		"free text with one":      {`{"title":"t","noRecommendation":{"reason":"r"}}`, true, "no options"},
 		"amend both":              {`{` + rec + `,"noRecommendation":{"reason":"r"}}`, false, "not both"},
 		"amend options and yesno": {`{"yesno":true,` + opts + `}`, false, "options or yesno"},
