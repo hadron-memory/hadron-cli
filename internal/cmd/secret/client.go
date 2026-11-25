@@ -112,12 +112,12 @@ func renderIssue(f *cmdutil.Factory, d issueDTO) error {
 }
 
 func newCmdClientIssue(f *cmdutil.Factory) *cobra.Command {
-	var reason, worker, startsAt, expiresAt string
+	var reason, worker, startsAt, expiresAt, mode, agent, bindingPrefix, bindingHeader string
 	var maxReads int
-	var autoDelete, wait bool
+	var autoDelete, wait, appHolder bool
 	var waitTimeout time.Duration
 	cmd := &cobra.Command{
-		Use:   "issue <secret> --reason <text> [--worker <worker-id>] [--starts-at <ts>] [--expires-at <ts>] [--max-reads <n>] [--wait]",
+		Use:   "issue <secret> --reason <text> [--worker <worker-id> | --mode USE (--agent <agent-id> | --app-holder) --binding-prefix <https-prefix> --binding-header <name>] [--starts-at <ts>] [--expires-at <ts>] [--max-reads <n>] [--wait]",
 		Short: "Issue a read client for an App secret, pending a person's signature",
 		Long: `Issue a read client for an App secret. <secret> is the App secret's ID or URN.
 It sends the issue, then asks for the grant's signing request and prints the
@@ -131,6 +131,18 @@ worker of the App by its id. The server refuses any other holder. --reason is
 required and is shown to the signer. --max-reads 1 makes a one-use client.
 --starts-at and --expires-at take a timestamp such as 2026-12-01T09:00:00Z (the
 server parses it).
+
+USE mode (--mode USE, any case) issues an injection-only client: the holder's runs use the
+secret by reference and its value is never shown. It needs a holder that is an
+agent installed in the App (--agent <agent-id>) or the App itself
+(--app-holder): give exactly one of the two, and not --worker. --binding-prefix
+is the signed https origin and path prefix the value may be sent to and
+--binding-header the header it goes in. USE needs both (exit 2 without either);
+they are sent exactly as typed (the
+server judges them; the person signs those bytes). Until a person signs, a USE
+client is pending and allows nothing. The USE flags are refused without --mode
+USE, and --agent and --app-holder never hold a client issued without it (that
+one is held by you or --worker).
 
 --auto-delete marks the client: the server then deletes the secret at the client's
 last read or when its window ends, whichever comes first. It needs --expires-at
@@ -175,7 +187,8 @@ check 'hadron secret client list' before issuing again. --json signingRequest is
 null when no signing request was received (the server refused it, or its answer
 was lost: the error says which, and how to ask again).`,
 		Example: `  hadron secret client issue <secret-id> --reason "deploy window" --max-reads 1
-  hadron secret client issue <secret-id> --worker <worker-id> --reason "nightly job" --wait`,
+  hadron secret client issue <secret-id> --worker <worker-id> --reason "nightly job" --wait
+  hadron secret client issue <secret-id> --mode USE --agent <agent-id> --binding-prefix https://api.example.com/v1/ --binding-header X-Api-Key --reason "nightly sync"`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
@@ -193,12 +206,32 @@ was lost: the error says which, and how to ask again).`,
 			if waitTimeout <= 0 {
 				return exitcode.Newf(exitcode.Usage, "--wait-timeout must be positive")
 			}
+			use, err := checkUseFlags(fl.Changed, mode, agent, appHolder)
+			if err != nil {
+				return err
+			}
 			in := gen.IssueSecretReadClientInput{
 				SecretRef: args[0], Reason: reason, HolderKind: gen.GrantHolderKindUser, AutoDelete: autoDelete,
 			}
 			if fl.Changed("worker") {
 				in.HolderKind = gen.GrantHolderKindWorker
 				in.HolderRef = &worker
+			}
+			if use {
+				useMode := gen.SecretReadClientModeUse
+				in.Mode = &useMode
+				if fl.Changed("agent") {
+					in.HolderKind = gen.GrantHolderKindAgent
+					in.HolderRef = &agent
+				} else {
+					in.HolderKind = gen.GrantHolderKindApp // no holderRef: the server holds it for the secret's App
+				}
+				if fl.Changed("binding-prefix") {
+					in.BindingPrefix = &bindingPrefix
+				}
+				if fl.Changed("binding-header") {
+					in.BindingHeader = &bindingHeader
+				}
 			}
 			if fl.Changed("starts-at") {
 				in.StartsAt = &startsAt
@@ -307,10 +340,58 @@ was lost: the error says which, and how to ask again).`,
 	fl.StringVar(&startsAt, "starts-at", "", "when the client starts to allow reads, a timestamp the server parses")
 	fl.StringVar(&expiresAt, "expires-at", "", "when the client stops allowing reads, a timestamp the server parses")
 	fl.IntVar(&maxReads, "max-reads", 0, "how many reads the client allows (1 = one-use)")
+	fl.StringVar(&mode, "mode", "", "REVEAL (default) or USE, an injection-only client the holder's runs use by reference")
+	fl.StringVar(&agent, "agent", "", "USE holder: an agent installed in the App (its id); exactly one of --agent and --app-holder")
+	fl.BoolVar(&appHolder, "app-holder", false, "USE holder: the App itself; exactly one of --agent and --app-holder")
+	fl.StringVar(&bindingPrefix, "binding-prefix", "", "USE: the https origin and path prefix the value may be sent to, sent exactly as typed")
+	fl.StringVar(&bindingHeader, "binding-header", "", "USE: the header name the value is sent in, sent exactly as typed")
 	fl.BoolVar(&autoDelete, "auto-delete", false, "the server deletes the secret at the client's last read or when its window ends (needs --expires-at or --max-reads; with --expires-at a signed deletion survives revoking the client, with only --max-reads revoking cancels it)")
 	fl.BoolVar(&wait, "wait", false, "poll the signing request until it ends")
 	fl.DurationVar(&waitTimeout, "wait-timeout", defaultSignWait, "max time to wait with --wait")
 	return cmd
+}
+
+// checkUseFlags decides the mode and refuses (exit 2, before anything is sent)
+// the flag combinations that cannot be a USE or a REVEAL issue. It judges which
+// flags were given, plus one value rule: a USE --agent must not be blank (it
+// would silently fall back to the App holder). The binding values and every
+// holder are otherwise the server's to judge, so a blank binding value is sent
+// as typed on purpose (cli#3014). --mode is trimmed and case-folded. It reports
+// whether this is a USE issue.
+func checkUseFlags(changed func(string) bool, mode, agent string, appHolder bool) (bool, error) {
+	use := false
+	if changed("mode") {
+		switch strings.ToUpper(strings.TrimSpace(mode)) {
+		case "USE":
+			use = true
+		case "REVEAL":
+		default:
+			return false, exitcode.Newf(exitcode.Usage, "--mode must be REVEAL or USE")
+		}
+	}
+	if !use {
+		for _, name := range []string{"agent", "app-holder", "binding-prefix", "binding-header"} {
+			if changed(name) {
+				return false, exitcode.Newf(exitcode.Usage, "--%s is a USE flag: add --mode USE (a REVEAL client is held by you or --worker)", name)
+			}
+		}
+		return false, nil
+	}
+	if changed("agent") && strings.TrimSpace(agent) == "" {
+		return false, exitcode.Newf(exitcode.Usage, "--agent needs a value; omit the flag to leave it unset")
+	}
+	if changed("worker") {
+		return false, exitcode.Newf(exitcode.Usage, "--worker holds a REVEAL client; a USE client takes --agent <agent-id> or --app-holder")
+	}
+	// Exactly one holder: --agent and --app-holder are given together or not at all.
+	if changed("agent") == appHolder {
+		return false, exitcode.Newf(exitcode.Usage, "--mode USE needs exactly one holder: --agent <agent-id> or --app-holder")
+	}
+	// The server requires the signed origin/prefix and the header name for USE.
+	if !changed("binding-prefix") || !changed("binding-header") {
+		return false, exitcode.Newf(exitcode.Usage, "--mode USE needs both --binding-prefix <https-prefix> and --binding-header <name>")
+	}
+	return true, nil
 }
 
 // issueError maps a failed issue. A lost answer (the 7 class) says a pending
