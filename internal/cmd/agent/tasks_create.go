@@ -66,8 +66,9 @@ team follows belongs in that team's process, not a shared role memory.
 
 --template prints the body template (the fenced block of the add-role-task node,
 read as an ordinary node) and creates nothing, so it takes no agent, slug or
-other flag, --json included (given any, it refuses with exit 2 before reading
-anything; only the global --app and --server apply); start the body file from it.
+other command flag, --json included (given any, it refuses with exit 2 before
+reading anything; the global read-context flags (--app, --server, the unlock
+flags) still apply); start the body file from it.
 
 By default NO skill export is written. --export-skill <name> with
 --skill-description <text> (both together) asks the server for an enabled
@@ -91,7 +92,9 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 			// instruction it would silently drop: refuse them by name before any request (cli#3038).
 			// The list is DERIVED from this command's own flags, so a flag added later is refused too;
 			// --json (persistent, but it asks for a shape the template text does not have) is refused
-			// explicitly; --app and --server stay: the template read honours them.
+			// explicitly; the global read-context flags (--app, --server, the unlock flags) stay: they are
+			// not this command's flags and are not refused (#3085). A persistent flag added later is a
+			// separate decision for whoever adds it.
 			if template {
 				if len(args) > 0 {
 					return exitcode.Newf(exitcode.Usage, "--template prints the template and takes no agent or slug")
@@ -107,7 +110,7 @@ existing task is not done here (node update --content-file keeps it runnable).`,
 					given = append(given, "--json")
 				}
 				if len(given) > 0 {
-					return exitcode.Newf(exitcode.Usage, "--template prints the template and creates nothing, so it takes no other flag (got %s); drop them, or drop --template to create the task (--app and --server still apply)", strings.Join(given, ", "))
+					return exitcode.Newf(exitcode.Usage, "--template prints the template and creates nothing, so it takes no other command flag (got %s); drop them, or drop --template to create the task (the global read-context flags (--app, --server, the unlock flags) still apply)", strings.Join(given, ", "))
 				}
 			}
 			client, err := f.GraphQLClient()

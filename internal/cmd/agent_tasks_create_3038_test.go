@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -124,6 +125,19 @@ func TestAgentTasksCreateNullResultIsTheLostAnswerClass3038(t *testing.T) {
 	if got := exitCodeFor(js.err); got != exitcode.Error || strings.TrimSpace(js.out) != "" {
 		t.Errorf("--json: want exit 1 and an empty stdout, got exit %d stdout %q (%v)", got, js.out, js.err)
 	}
+	// The same message, and the write sent exactly once, in --json too (#3085).
+	if js.err == nil || !strings.Contains(js.err.Error(), "the server answered createTaskNode with no node and no error") {
+		t.Errorf("--json: the lost-answer message must be the same: %v", js.err)
+	}
+	jsWrites := 0
+	for _, op := range js.ops {
+		if op == "CreateRoleTask" {
+			jsWrites++
+		}
+	}
+	if jsWrites != 1 {
+		t.Errorf("--json: exactly one write, never retried: %v", js.ops)
+	}
 }
 
 // Item 3: ONE quoting style for the index label. The label is neutralised by output.SafeCell and printed as is,
@@ -173,9 +187,11 @@ func TestAgentTasksCreateTemplateRefusesOtherFlags3038(t *testing.T) {
 		})
 	}
 	// Several at once are all named.
-	run := runRoleTask2990(t, map[string]string{}, "--template", "--name", "x", "--trigger", "y")
-	if run.err == nil || !strings.Contains(run.err.Error(), "--name") || !strings.Contains(run.err.Error(), "--trigger") {
-		t.Errorf("every other flag given is named: %v", run.err)
+	run := runRoleTask2990(t, map[string]string{}, "--template", "--name", "x", "--trigger", "y", "--json")
+	for _, want := range []string{"--name", "--trigger", "--json"} {
+		if run.err == nil || !strings.Contains(run.err.Error(), want) {
+			t.Errorf("every other flag given is named (%s): %v", want, run.err)
+		}
 	}
 }
 
@@ -245,22 +261,109 @@ func TestAgentTasksCreateTemplateRefusesJSONAndArguments3038(t *testing.T) {
 		}
 		seen++
 		args := []string{"--template", "--" + fl.Name}
-		if fl.Value.Type() != "bool" {
-			args = append(args, "x")
+		if v, ok := flagTestValue3085(t, fl); ok {
+			args = append(args, v)
 		}
 		run := runRoleTask2990(t, map[string]string{}, args...)
-		if got := exitCodeFor(run.err); got != exitcode.Usage || len(run.ops) != 0 || run.err == nil || !strings.Contains(run.err.Error(), "--"+fl.Name) {
+		if got := exitCodeFor(run.err); got != exitcode.Usage || len(run.ops) != 0 || run.err == nil ||
+			!strings.Contains(run.err.Error(), "--"+fl.Name) || !strings.Contains(run.err.Error(), "--template prints the template") {
 			t.Errorf("--template --%s: want a usage refusal naming it before any request, got exit %d ops %v err %v", fl.Name, got, run.ops, run.err)
 		}
 	})
 	if seen < 6 {
 		t.Errorf("expected at least the six create flags, saw %d", seen)
 	}
-	// The globals still apply: --app does not make --template refuse.
+	// The global read-context flags are not refused: --app is ACCEPTED here, which is all this
+	// asserts. The template read is an ordinary node read that carries no App scoping on the
+	// wire, so there is no request-side effect of --app to assert (#3085). --server is the
+	// proof the read goes where it is pointed: runRoleTask2990 passes it, and the fake server
+	// answers the read.
 	content := "# Add a task to a role\n\n## Template\n\n```markdown\n# <Task name>\n```\n"
 	resp := map[string]string{"GetNode": `{"data":{"node":{"id":"t1","loc":"tasks:add-role-task","urn":"hrn:node:hadronmemory.com:agent-team-system:tasks:add-role-task","name":"Add a task to a role","content":` + jsonText(content) + `}}}`}
 	ok := runRoleTask2990(t, resp, "--template", "--app", "acme.com:eng")
 	if ok.err != nil || !strings.Contains(ok.out, "# <Task name>") {
 		t.Errorf("--template --app still prints the template: err %v out %q", ok.err, ok.out)
+	}
+}
+
+// flagTestValue3085 chooses the value to pass a non-bool flag by its TYPE, so a numeric, duration or
+// count flag added to the command later is not handed a string it would mis-handle (#3085).
+func flagTestValue3085(t *testing.T, fl *pflag.Flag) (string, bool) {
+	t.Helper()
+	switch fl.Value.Type() {
+	case "bool":
+		return "", false
+	case "string":
+		return "x", true
+	case "int", "int8", "int16", "int32", "int64", "uint", "uint8", "uint16", "uint32", "uint64", "count":
+		return "1", true
+	case "duration":
+		return "1s", true
+	case "float32", "float64":
+		return "1", true
+	default:
+		t.Fatalf("flag --%s has type %q: teach flagTestValue3085 a value for it", fl.Name, fl.Value.Type())
+		return "", false
+	}
+}
+
+// #3085: the refusal, the help and agentic-usage.md say what is true: --template takes no other COMMAND
+// flag, and the global read-context flags (--app, --server and the unlock flags) are not refused. The old
+// wording said "only the global --app and --server apply", which the persistent --unlock flags contradict.
+const templateGlobalsPhrase3085 = "takes no other command flag"
+
+func TestAgentTasksCreateTemplateRefusalSaysWhichGlobalsApply3085(t *testing.T) {
+	run := runRoleTask2990(t, map[string]string{}, "--template", "--name", "x")
+	if run.err == nil || exitCodeFor(run.err) != exitcode.Usage {
+		t.Fatalf("want a usage refusal: %v", run.err)
+	}
+	msg := run.err.Error()
+	for _, want := range []string{templateGlobalsPhrase3085, "the global read-context flags (--app, --server, the unlock flags) still apply"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("the refusal must say %q: %s", want, msg)
+		}
+	}
+	if strings.Contains(msg, "(--app and --server still apply)") || strings.Contains(msg, "only") {
+		t.Errorf("the old, wrong 'only --app and --server' wording must be gone: %s", msg)
+	}
+}
+
+func TestAgentTasksCreateHelpAndAgenticUsageSayWhichGlobalsApply3085(t *testing.T) {
+	f, out := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"agent", "tasks", "create", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	help := strings.Join(strings.Fields(out.String()), " ")
+	usage, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, text := range map[string]string{"--help": help, "agentic-usage.md": string(usage)} {
+		if !strings.Contains(text, "the global read-context flags") || !strings.Contains(text, "the unlock flags") {
+			t.Errorf("%s must name the global read-context flags and the unlock flags", name)
+		}
+		if strings.Contains(text, "only the global --app and --server apply") || strings.Contains(text, "only the global `--app`/`--server` apply") {
+			t.Errorf("%s still says only --app and --server apply", name)
+		}
+	}
+}
+
+// The set of refused flags is unchanged by the reword: the persistent unlock flags and --app are not
+// refused (they are the global read-context flags), so none of them produces the --template refusal.
+func TestAgentTasksCreateTemplateAcceptsTheGlobalReadContextFlags3085(t *testing.T) {
+	content := "# Add a task to a role\n\n## Template\n\n```markdown\n# <Task name>\n```\n"
+	resp := map[string]string{"GetNode": `{"data":{"node":{"id":"t1","loc":"tasks:add-role-task","urn":"hrn:node:hadronmemory.com:agent-team-system:tasks:add-role-task","name":"Add a task to a role","content":` + jsonText(content) + `}}}`}
+	for _, args := range [][]string{
+		{"--template", "--app", "acme.com:eng"},
+		{"--template", "--unlock", "acme.com:secrets"},
+		{"--template", "--unlock-passphrase-file", "pass.txt"},
+		{"--template", "--unlock-passphrase-stdin"},
+	} {
+		run := runRoleTask2990(t, resp, args...)
+		if run.err != nil && strings.Contains(run.err.Error(), templateGlobalsPhrase3085) {
+			t.Errorf("%v is a global read-context flag and must not be refused as another command flag: %v", args, run.err)
+		}
 	}
 }
