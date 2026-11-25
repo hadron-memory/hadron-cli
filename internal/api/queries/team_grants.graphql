@@ -43,3 +43,25 @@ mutation TeamWithdrawGrantSigningRequest($id: ID!) {
 query TeamGrantSigningRequest($id: ID!) {
   grantSigningRequest(id: $id) { ...TeamGrantSigningRequestFields }
 }
+
+# cli#3197 (hadron-server#5001, cor:acl:140:07): one signing request over a
+# SELECTION of one App's pending grants. Each item is an ordinary signing request,
+# read through the same fragment. No operation takes an assertion.
+fragment TeamGrantSigningSelectionFields on GrantSigningSelection {
+  id state payloadVersion
+  requestedBy { userId appId workerId sessionId }
+  createdAt expiresAt endedAt lastRefusedAt ceremonyUrl
+  items { ...TeamGrantSigningRequestFields }
+}
+
+mutation TeamRequestGrantSelectionSignature($grantRefs: [ID!]!) {
+  requestGrantSelectionSignature(grantRefs: $grantRefs) { ...TeamGrantSigningSelectionFields }
+}
+
+mutation TeamWithdrawGrantSigningSelection($id: ID!) {
+  withdrawGrantSigningSelection(id: $id) { ...TeamGrantSigningSelectionFields }
+}
+
+query TeamGrantSigningSelection($id: ID!) {
+  grantSigningSelection(id: $id) { ...TeamGrantSigningSelectionFields }
+}
