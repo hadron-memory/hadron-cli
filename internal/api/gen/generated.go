@@ -47862,7 +47862,8 @@ var AllCreateUserPermission = []CreateUserPermission{
 
 // CreditBalanceCreditBalance includes the requested fields of the GraphQL type CreditBalance.
 type CreditBalanceCreditBalance struct {
-	OrganizationId    string `json:"organizationId"`
+	OrganizationId string `json:"organizationId"`
+	// The balance in micro-cents. Never includes credit whose expiry has passed.
 	BalanceMicroCents string `json:"balanceMicroCents"`
 }
 
@@ -47874,7 +47875,10 @@ func (v *CreditBalanceCreditBalance) GetBalanceMicroCents() string { return v.Ba
 
 // CreditBalanceResponse is returned by CreditBalance on success.
 type CreditBalanceResponse struct {
-	// One org's credit balance - SUM over the append-only ledger (spec 046). Org-ADMIN.
+	// One organization's credit balance (spec 046). Org-ADMIN. The sum over the append-only ledger, less what is left of
+	// any grant whose expiry has passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles
+	// the organization's grants that expired more than a minute ago: it may write those settlement entries, once per grant,
+	// and never does for an impersonated session, which gets the same figure worked out and stored nowhere.
 	CreditBalance *CreditBalanceCreditBalance `json:"creditBalance"`
 }
 
@@ -53836,6 +53840,15 @@ type FindObjectsResponse struct {
 	// cast inferred from the memory schema; 'where' is the full #719 predicate
 	// (ANDed with match); 'sort' is a single-field shorthand desugared to a
 	// property-path sort.
+	// In a STRICT collection (the memory's schema declares the type with strict:
+	// true) a field the query names that the collection does not declare is refused
+	// with FIELD_NOT_DECLARED (extensions: field, objectType), before any row is read
+	// (hrn:node:hadronmemory.com:specs:cor:api:170:03): the first segment of each
+	// properties path in match, where and sort; where on data, and exports, are never
+	// refused. A non-strict collection, a memory with no schema and a type the schema
+	// does not declare are unchanged, and a caller who cannot read the memory gets the
+	// answer it always got. Malformed input is still BAD_USER_INPUT. The declared
+	// fields are discovered through Memory.schema.
 	FindObjects *FindObjectsFindObjectsObjectList `json:"findObjects"`
 }
 
@@ -60145,7 +60158,12 @@ func (v *GrantCreditsGrantCreditsCreditLedgerEntry) __premarshalJSON() (*__prema
 type GrantCreditsInput struct {
 	// Positive micro-cents, base-10 integer string.
 	AmountMicroCents string `json:"amountMicroCents"`
-	// Grant expiry policy field (no enforcement in Phase 0).
+	// When the grant expires, ISO 8601; omit for credit that never expires. Enforced
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:170:10): from this instant what is left of the grant no longer counts in
+	// the balance, and the server settles it with one adjustment entry of minus that amount. Must be later than now
+	// (BAD_USER_INPUT otherwise). A replay of the same source pair returns the stored grant with its stored expiry, which is
+	// the one enforced; a different expiry on a replay is not compared and does not change it (a corrected expiry needs an
+	// adjustment, not a second grant).
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	Note      *string `json:"note,omitempty"`
 	OrgRef    string  `json:"orgRef"`
