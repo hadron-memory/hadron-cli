@@ -132,12 +132,13 @@ required and is shown to the signer. --max-reads 1 makes a one-use client.
 --starts-at and --expires-at take a timestamp such as 2026-12-01T09:00:00Z (the
 server parses it).
 
-USE mode (--mode USE) issues an injection-only client: the holder's runs use the
+USE mode (--mode USE, any case) issues an injection-only client: the holder's runs use the
 secret by reference and its value is never shown. It needs a holder that is an
 agent installed in the App (--agent <agent-id>) or the App itself
 (--app-holder): give exactly one of the two, and not --worker. --binding-prefix
 is the signed https origin and path prefix the value may be sent to and
---binding-header the header it goes in. Both are sent exactly as typed (the
+--binding-header the header it goes in. USE needs both (exit 2 without either);
+they are sent exactly as typed (the
 server judges them; the person signs those bytes). Until a person signs, a USE
 client is pending and allows nothing. The USE flags are refused without --mode
 USE, and --agent and --app-holder never hold a client issued without it (that
@@ -351,9 +352,12 @@ was lost: the error says which, and how to ask again).`,
 }
 
 // checkUseFlags decides the mode and refuses (exit 2, before anything is sent)
-// the flag combinations that cannot be a USE or a REVEAL issue. It judges only
-// which flags were given, never a value: the binding values and every holder are
-// the server's to judge (cli#3014). It reports whether this is a USE issue.
+// the flag combinations that cannot be a USE or a REVEAL issue. It judges which
+// flags were given, plus one value rule: a USE --agent must not be blank (it
+// would silently fall back to the App holder). The binding values and every
+// holder are otherwise the server's to judge, so a blank binding value is sent
+// as typed on purpose (cli#3014). --mode is trimmed and case-folded. It reports
+// whether this is a USE issue.
 func checkUseFlags(changed func(string) bool, mode, agent string, appHolder bool) (bool, error) {
 	use := false
 	if changed("mode") {
@@ -365,9 +369,6 @@ func checkUseFlags(changed func(string) bool, mode, agent string, appHolder bool
 			return false, exitcode.Newf(exitcode.Usage, "--mode must be REVEAL or USE")
 		}
 	}
-	if changed("agent") && strings.TrimSpace(agent) == "" {
-		return false, exitcode.Newf(exitcode.Usage, "--agent needs a value; omit the flag to leave it unset")
-	}
 	if !use {
 		for _, name := range []string{"agent", "app-holder", "binding-prefix", "binding-header"} {
 			if changed(name) {
@@ -376,11 +377,19 @@ func checkUseFlags(changed func(string) bool, mode, agent string, appHolder bool
 		}
 		return false, nil
 	}
+	if changed("agent") && strings.TrimSpace(agent) == "" {
+		return false, exitcode.Newf(exitcode.Usage, "--agent needs a value; omit the flag to leave it unset")
+	}
 	if changed("worker") {
 		return false, exitcode.Newf(exitcode.Usage, "--worker holds a REVEAL client; a USE client takes --agent <agent-id> or --app-holder")
 	}
+	// Exactly one holder: --agent and --app-holder are given together or not at all.
 	if changed("agent") == appHolder {
 		return false, exitcode.Newf(exitcode.Usage, "--mode USE needs exactly one holder: --agent <agent-id> or --app-holder")
+	}
+	// The server requires the signed origin/prefix and the header name for USE.
+	if !changed("binding-prefix") || !changed("binding-header") {
+		return false, exitcode.Newf(exitcode.Usage, "--mode USE needs both --binding-prefix <https-prefix> and --binding-header <name>")
 	}
 	return true, nil
 }
