@@ -32,18 +32,21 @@ forms; the server decides who may use each.
                           org's ADMIN or OWNER. A person's App: its owner, a
                           member with the owner role, or a platform admin.
                           Every refusal of this form is exit 4, the same as an
-                          App that does not exist (App keys, impersonated
-                          sessions and runs included), so it never says whether
+                          App that does not exist (App keys and runs
+                          included), so it never says whether
                           the App exists.
   --user <id>             a person's limit, by user id: that person or a
                           platform admin. Anyone else gets exit 8, whether or
-                          not the person exists (App keys, impersonated
-                          sessions and runs included); only a platform admin
+                          not the person exists (App keys and runs
+                          included); only a platform admin
                           naming a person who does not exist gets exit 4.
 
 --user cannot be combined with --org or --app, and one form is required
 (exit 2). The App context and the active org fill nothing in; every ref is sent
-as typed.
+as typed. An impersonated session cannot set a limit at all: it is refused
+first, with exit 1 (read-only), whatever the form. --app alone and --user need
+a server that supports them; an older server refuses them as a schema mismatch
+(exit 2), and the org forms keep working.
 
 --action is run.execute, llm.tokens, sms.send or email.send. --limit is a
 whole number from 0 up. For an org or an App, 0 stops that action for the scope

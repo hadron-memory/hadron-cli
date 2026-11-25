@@ -286,7 +286,7 @@ func TestQuotaHelpPerForm3139(t *testing.T) {
 		"--org", "--app", "--user",
 		"organization's App", "person's App", "platform admin", "owner role",
 		"Every refusal of this form is exit 4", "whether or not the person exists",
-		"scopeKind (org, app or user)",
+		"scopeKind (org, app or user)", "an older server refuses them as a schema mismatch",
 	} {
 		if !strings.Contains(list, want) {
 			t.Errorf("quota list --help lacks %q:\n%s", want, list)
@@ -296,6 +296,7 @@ func TestQuotaHelpPerForm3139(t *testing.T) {
 	for _, want := range []string{
 		"--user", "platform admin", "Every refusal of this form is exit 4",
 		"shared by all their Apps", "once a person's App can run",
+		"An impersonated session cannot set a limit at all", "an older server refuses them as a schema mismatch",
 	} {
 		if !strings.Contains(set, want) {
 			t.Errorf("quota set --help lacks %q:\n%s", want, set)
@@ -322,5 +323,38 @@ func TestQuotaOrgDocumentNamesNoUserRef3139(t *testing.T) {
 	// arguments, so it needs no second document.
 	if strings.Contains(gen.SetQuotaLimit_Operation, "userRef") {
 		t.Errorf("SetQuotaLimit names userRef as a document argument:\n%s", gen.SetQuotaLimit_Operation)
+	}
+}
+
+// A ref is sent exactly as typed, padding included: the CLI does not trim,
+// resolve or normalise it, so the server answers for what the person wrote
+// (and a blank one is refused locally, above).
+func TestQuotaRefsAreSentAsTypedPaddingIncluded3139(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		flag []string
+		key  string
+		want string
+	}{
+		{"app alone", []string{"--app", " hrn:app:acme.com:bot "}, "appRef", `" hrn:app:acme.com:bot "`},
+		{"user alone", []string{"--user", " u-1 "}, "userRef", `" u-1 "`},
+	} {
+		for _, cmd := range []string{"list", "set"} {
+			t.Run(cmd+"/"+c.name, func(t *testing.T) {
+				args := append([]string{"quota", cmd}, c.flag...)
+				op := listOp3139(c.flag)
+				if cmd == "set" {
+					args = append(args, "--action", "run.execute", "--limit", "5")
+					op = "SetQuotaLimit"
+				}
+				r := runQuota3139(t, quotaReplies3139(), "", args...)
+				if r.err != nil {
+					t.Fatalf("execute: %v", r.err)
+				}
+				if got := refVars3139(t, r, op)[c.key]; string(got) != c.want {
+					t.Errorf("%s = %s, want %s (sent as typed)", c.key, got, c.want)
+				}
+			})
+		}
 	}
 }

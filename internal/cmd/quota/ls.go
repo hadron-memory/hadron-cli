@@ -44,7 +44,9 @@ who may use each.
 
 --user cannot be combined with --org or --app, and one form is required
 (exit 2). The App context and the active org fill nothing in; every ref is sent
-as typed. Counters that were never used are created with the platform defaults
+as typed. --app alone and --user need a server that supports them; an older
+server refuses them as a schema mismatch (exit 2), and the org forms keep
+working. Counters that were never used are created with the platform defaults
 the first time they are shown. For a scope you have not used, the limit shown
 is the platform default. A person's limit is shared by all their Apps and
 applies once a person's App can run.

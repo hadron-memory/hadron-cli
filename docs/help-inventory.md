@@ -827,8 +827,8 @@ section between the markers.
 | `marketplace memories` |  |  | n | #1184 | 6fb8e32dcf51 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
 | `marketplace orgs` | organizations |  | n | #1184 | 3a741f13f92f | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2579#issuecomment-7001749241) |
 | `quota` | quotas |  | y | #1184 | 0264f3e6c8a1 |  | unread |  |
-| `quota list` | ls |  | y | #1184 | 782b0e2e897b |  | unread |  |
-| `quota set` |  |  | y | #1184 | 427c576c3371 |  | unread |  |
+| `quota list` | ls |  | y | #1184 | 7bc9dcfe8db9 |  | unread |  |
+| `quota set` |  |  | y | #1184 | 64129cdf458c |  | unread |  |
 | `usage` |  |  | y | #1184 | 1eadd264c3ec |  | unread |  |
 | `usage activity` |  |  | y | #1184 | f84e38744981 |  | unread |  |
 | `usage events` |  |  | y | #1184 | 5f78bab249d6 |  | unread |  |
