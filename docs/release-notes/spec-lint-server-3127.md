@@ -17,6 +17,5 @@ length, wiring, links, frame) are unchanged, so one report mixes both sources.
 - **Warnings never fail a run** (the sentence check gave 4,444 warnings over 603 of
   704 live specs at its first scan); `--strict` promotes them to errors as before.
 - **Older servers:** no failure; the info finding says the checks were skipped.
-- **Schema snapshot:** the pin also carries the server's `Mutation.createMemory` `draftCorpus` deprecation (accepted and ignored since #1591); no CLI change.
-- **Merge order:** this build pins the server at e07173d7; it merges after the
+- **Merge order:** the snapshot is server main 8e01d932 (contains e07173d7, which carries Node.specLint); it merges after the
   deploy-verified announce for that revision (0274).

@@ -129,9 +129,9 @@ mutation TriggerAppRun(
 # filters; `run ls` pages to exhaustion.
 query AppRuns(
   # @genqlient(omitempty: true)
-  $appRef: String
+  $appRef: ID
   # @genqlient(omitempty: true)
-  $orgRef: String
+  $orgRef: ID
   # @genqlient(omitempty: true)
   $status: AppRunStatus
   # @genqlient(omitempty: true)
