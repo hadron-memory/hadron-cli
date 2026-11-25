@@ -107,8 +107,8 @@ var g23InputRenames = []struct{ typ, retired, want string }{
 	{"TickerInput", "channelIds", "channelRefs"},
 	{"TickerPatch", "channelIds", "channelRefs"},
 	{"BatchThrough", "channelId", "channelRef"},
-	// NodeAuthoringCheckInput.memoryId is renamed too, but nodeAuthoringCheck is
-	// coverage gap #3089: no CLI document sends it, so only the snapshot pins it.
+	// NodeAuthoringCheckInput is a hand-bound type (cli#3089), so the snapshot
+	// pins the rename here and node_authoring_check_3089_test.go pins the wire.
 	{"NodeAuthoringCheckInput", "memoryId", "memoryRef"},
 }
 

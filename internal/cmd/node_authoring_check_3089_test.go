@@ -23,7 +23,7 @@ func runAuthoringCheck3089(t *testing.T, response string, args ...string) (map[s
 }
 
 // The request variables and the --json shape are pinned: a refusal's recovery
-// passes through verbatim, and a bare loc with -m goes as memoryId+loc so a
+// passes through verbatim, and a bare loc with -m goes as memoryRef+loc so a
 // not-yet-existing node can be checked as a create.
 func TestNodeAuthoringCheckRequestAndJSONShape3089(t *testing.T) {
 	captured, out, err := runAuthoringCheck3089(t, authoringCheckRefused3089,
@@ -39,7 +39,7 @@ func TestNodeAuthoringCheckRequestAndJSONShape3089(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]string{
-		"memoryId":     `"hrn:mem:acme.com:kb"`,
+		"memoryRef":    `"hrn:mem:acme.com:kb"`,
 		"loc":          `"specs/new"`,
 		"role":         `"spec"`,
 		"isRunnable":   `false`,
@@ -88,8 +88,8 @@ func TestNodeAuthoringCheckRefAndTriStates3089(t *testing.T) {
 	if string(vars.Input["ref"]) != `"hrn:node:acme.com:kb:specs:x"` || string(vars.Input["role"]) != `null` || string(vars.Input["changesAuthoredContent"]) != `false` {
 		t.Fatalf("input = %v", vars.Input)
 	}
-	if _, ok := vars.Input["memoryId"]; ok {
-		t.Fatalf("memoryId sent with ref: %v", vars.Input)
+	if _, ok := vars.Input["memoryRef"]; ok {
+		t.Fatalf("memoryRef sent with ref: %v", vars.Input)
 	}
 }
 
@@ -182,7 +182,7 @@ func TestNodeAuthoringCheckOmissionAndBlankRole3089(t *testing.T) {
 		return vars.Input
 	}
 	in := inputOf("hrn:node:acme.com:kb:specs:x")
-	for _, k := range []string{"role", "isRunnable", "changesAuthoredContent", "authoredWith", "memoryId", "loc"} {
+	for _, k := range []string{"role", "isRunnable", "changesAuthoredContent", "authoredWith", "memoryRef", "loc"} {
 		if _, ok := in[k]; ok {
 			t.Errorf("input.%s sent although not asked for: %v", k, in)
 		}

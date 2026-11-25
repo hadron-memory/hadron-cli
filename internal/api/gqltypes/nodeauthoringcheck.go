@@ -18,7 +18,7 @@ type AuthoredWith struct {
 // pass can never turn into a null or a default the caller did not choose.
 type NodeAuthoringCheckInput struct {
 	Ref                    *string       `json:"ref,omitempty"`
-	MemoryID               *string       `json:"memoryId,omitempty"`
+	MemoryRef              *string       `json:"memoryRef,omitempty"`
 	Loc                    *string       `json:"loc,omitempty"`
 	Role                   *string       `json:"role,omitempty"`
 	IsRunnable             *bool         `json:"isRunnable,omitempty"`
