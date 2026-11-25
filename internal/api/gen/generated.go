@@ -8573,6 +8573,12 @@ type AgentTaskFinishResponse struct {
 	// malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
 	// every finish. Both are judged after the assignee and status checks and before any write or event: the task
 	// stays started. With no set, any one word is accepted. The set is read only at finish.
+	// #5036: a task bound as a PR review seat (pr seat) with no verdict recorded at its assigned head is refused with
+	// SEAT_VERDICT_REQUIRED, whose message names hadron team pr verdict; record the verdict, then finish. Exempt: a
+	// seat never bound, a seat superseded by a later seat, and a task finished with outcome failed or cancelled (any
+	// case). Judged at the assigned head of the seat, not the current frozen head of the build task, after the assignee and status
+	// checks and before any write or event: the task stays started. Rule: the team memory
+	// coordination:pr-finishing (Finishing a review seat).
 	FinishAgentTask *AgentTaskFinishFinishAgentTask `json:"finishAgentTask"`
 }
 
@@ -9036,6 +9042,12 @@ type AgentTaskFinishWithFindingsResponse struct {
 	// malformed, or two installed Team Agents when either carries the node, is TASK_OUTCOME_SET_UNUSABLE, refusing
 	// every finish. Both are judged after the assignee and status checks and before any write or event: the task
 	// stays started. With no set, any one word is accepted. The set is read only at finish.
+	// #5036: a task bound as a PR review seat (pr seat) with no verdict recorded at its assigned head is refused with
+	// SEAT_VERDICT_REQUIRED, whose message names hadron team pr verdict; record the verdict, then finish. Exempt: a
+	// seat never bound, a seat superseded by a later seat, and a task finished with outcome failed or cancelled (any
+	// case). Judged at the assigned head of the seat, not the current frozen head of the build task, after the assignee and status
+	// checks and before any write or event: the task stays started. Rule: the team memory
+	// coordination:pr-finishing (Finishing a review seat).
 	FinishAgentTask *AgentTaskFinishWithFindingsFinishAgentTask `json:"finishAgentTask"`
 }
 
@@ -40542,9 +40554,10 @@ type CreateAgentTaskInput struct {
 	Description          *string `json:"description"`
 	// #3125 S2 (hrn:node:hadronmemory.com:specs:cor:agt:120:02): the outside item this task claims, for example an issue's
 	// canonical URL. Stored and compared exactly as written; 1 to 512 characters with no whitespace, control or invisible
-	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. A second
-	// task with the same value in this App, whatever the first task's state, is refused TASK_EXTERNAL_ID_TAKEN, which
-	// names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
+	// format character and no user name or password (else BAD_USER_INPUT). Set only here: no edit takes it. At most one
+	// ACTIVE task (backlog, pending or started) per App holds a given value; a finished or cancelled task keeps its value
+	// but no longer blocks a new claim. A create while an active task holds the value is refused TASK_EXTERNAL_ID_TAKEN,
+	// which names no task (find it with agentTasks(externalId:)). Another App's tasks never conflict.
 	// #4113 (hrn:node:hadronmemory.com:specs:cor:agt:050:02): naming it with YOURSELF as the assignee is the claim, and a
 	// claim is created STARTED in this one call (startedAt set; task.created, task.assigned, task.started; never queued,
 	// matched or alarmed as not started). A claim naming another assignee, no assignee, or an open blocker stays PENDING
@@ -47115,7 +47128,9 @@ type CreateTeamChatMessageResponse struct {
 	// Error codes (extensions.code): TEAM_CHAT_BODY_TOO_LARGE, TEAM_CHAT_DUPLICATE,
 	// TEAM_CHAT_REPLY_NOT_FOUND, SESSION_NOT_FOUND, SESSION_ENDED,
 	// SESSION_NOT_LIVE (dormant or ineligible for lapsed-session resume; extensions.reason
-	// names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE or NOT_OWNER),
+	// names the failed condition: DORMANT, ENDED, OTHER_SESSION_LIVE, LIVENESS_UNKNOWN
+	// (too many open sessions on the worker to check them all, and none of those checked
+	// is live) or NOT_OWNER),
 	// SESSION_NOT_WORKER_BOUND, CHANNEL_HOST_NOT_WRITABLE, WORKER_RETIRED,
 	// SESSION_EXPIRED (encrypted team memory without an active session key),
 	// TEAM_AGENT_NOT_FOUND / TEAM_AGENT_AMBIGUOUS (first-post bootstrap could
@@ -47847,7 +47862,8 @@ var AllCreateUserPermission = []CreateUserPermission{
 
 // CreditBalanceCreditBalance includes the requested fields of the GraphQL type CreditBalance.
 type CreditBalanceCreditBalance struct {
-	OrganizationId    string `json:"organizationId"`
+	OrganizationId string `json:"organizationId"`
+	// The balance in micro-cents. Never includes credit whose expiry has passed.
 	BalanceMicroCents string `json:"balanceMicroCents"`
 }
 
@@ -47859,7 +47875,10 @@ func (v *CreditBalanceCreditBalance) GetBalanceMicroCents() string { return v.Ba
 
 // CreditBalanceResponse is returned by CreditBalance on success.
 type CreditBalanceResponse struct {
-	// One org's credit balance - SUM over the append-only ledger (spec 046). Org-ADMIN.
+	// One organization's credit balance (spec 046). Org-ADMIN. The sum over the append-only ledger, less what is left of
+	// any grant whose expiry has passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles
+	// the organization's grants that expired more than a minute ago: it may write those settlement entries, once per grant,
+	// and never does for an impersonated session, which gets the same figure worked out and stored nowhere.
 	CreditBalance *CreditBalanceCreditBalance `json:"creditBalance"`
 }
 
@@ -49194,7 +49213,7 @@ func (v *DeliveryBatchesDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo)
 // DeliveryBatchesResponse is returned by DeliveryBatches on success.
 type DeliveryBatchesResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE, LIVENESS_UNKNOWN (too many open sessions on the worker to check them all, and none of those checked is live) or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *DeliveryBatchesDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
@@ -53321,7 +53340,11 @@ type FindNodesFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
@@ -53544,7 +53567,11 @@ type FindNodesWithCommentSummaryFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
@@ -53813,6 +53840,15 @@ type FindObjectsResponse struct {
 	// cast inferred from the memory schema; 'where' is the full #719 predicate
 	// (ANDed with match); 'sort' is a single-field shorthand desugared to a
 	// property-path sort.
+	// In a STRICT collection (the memory's schema declares the type with strict:
+	// true) a field the query names that the collection does not declare is refused
+	// with FIELD_NOT_DECLARED (extensions: field, objectType), before any row is read
+	// (hrn:node:hadronmemory.com:specs:cor:api:170:03): the first segment of each
+	// properties path in match, where and sort; where on data, and exports, are never
+	// refused. A non-strict collection, a memory with no schema and a type the schema
+	// does not declare are unchanged, and a caller who cannot read the memory gets the
+	// answer it always got. Malformed input is still BAD_USER_INPUT. The declared
+	// fields are discovered through Memory.schema.
 	FindObjects *FindObjectsFindObjectsObjectList `json:"findObjects"`
 }
 
@@ -60122,7 +60158,12 @@ func (v *GrantCreditsGrantCreditsCreditLedgerEntry) __premarshalJSON() (*__prema
 type GrantCreditsInput struct {
 	// Positive micro-cents, base-10 integer string.
 	AmountMicroCents string `json:"amountMicroCents"`
-	// Grant expiry policy field (no enforcement in Phase 0).
+	// When the grant expires, ISO 8601; omit for credit that never expires. Enforced
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:170:10): from this instant what is left of the grant no longer counts in
+	// the balance, and the server settles it with one adjustment entry of minus that amount. Must be later than now
+	// (BAD_USER_INPUT otherwise). A replay of the same source pair returns the stored grant with its stored expiry, which is
+	// the one enforced; a different expiry on a replay is not compared and does not change it (a corrected expiry needs an
+	// adjustment, not a second grant).
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	Note      *string `json:"note,omitempty"`
 	OrgRef    string  `json:"orgRef"`
@@ -93958,7 +93999,11 @@ type SearchNodesFindNodesFindNodesResult struct {
 	// and `scope.droppedCount` says how many), stopped_early (#2772: a vector
 	// or hybrid search ran out of its work budget before the page was complete;
 	// #4779: also when a hybrid page's fused order could not be certified inside
-	// the work budget or the keyword leg's 2000-row ceiling, or when a page that
+	// the work budget or the keyword leg's 2000-row ceiling (#4994: including
+	// when, among more than 20000 eligible vectors, a hit whose vector rank was
+	// needed lies past the first 1000 nodes of the vector ranking; #5162: or when, among
+	// that many, the vector ranking read to certify the page disagrees with the vector
+	// results the page was built from), or when a page that
 	// hydration left short (or filled past the depth its ranking was certified
 	// to) was still incomplete after its one deeper re-ranking (chunk
 	// granularity flags a short page without re-ranking);
@@ -95996,7 +96041,7 @@ func (v *SessionInboxDeliveryBatchesDeliveryBatchPagePageInfoDueWakePageInfo) Ge
 // SessionInboxResponse is returned by SessionInbox on success.
 type SessionInboxResponse struct {
 	// #2017 (S1) — the ready-to-deliver batches of the workers registered on the calling host (hrn:node:hadronmemory.com:specs:cor:agt:080:22, :26).
-	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
+	// An own live session reads only its bound worker. #5000: a session past its idle window but inside its App's dormancy period is LAPSED, not ended, and its holder's own read resumes it (same session id); a refusal is SESSION_NOT_LIVE with extensions.reason OTHER_SESSION_LIVE, LIVENESS_UNKNOWN (too many open sessions on the worker to check them all, and none of those checked is live) or NOT_OWNER (not the caller's own session to resume, or the caller can no longer drive the App); an ended or dormant session is refused earlier, at the session binding, with the generic message. A host App key needs attention:deliver AND host:operate;
 	// the host is the key's, the request names none, and a worker not on that host is absent. The text is written by the server and typed unchanged. Reading moves nothing; acknowledge the batch ids.
 	DeliveryBatches *SessionInboxDeliveryBatchesDeliveryBatchPage `json:"deliveryBatches"`
 }
