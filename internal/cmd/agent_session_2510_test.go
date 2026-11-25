@@ -152,6 +152,7 @@ func TestAgentSessionStartServerRefusalsMapThrough(t *testing.T) {
 		want            int
 	}{
 		{"unknown urn", "hrn:agent:acme.com:nope", "FORBIDDEN", exitcode.Forbidden},
+		{"shorthand root:slug not installed", "acme.com:support-bot", "FORBIDDEN", exitcode.Forbidden},
 		{"ref that is not an agent urn", "acme.com:", "URN_NOT_QUALIFIED", exitcode.Usage},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
