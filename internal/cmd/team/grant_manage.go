@@ -287,8 +287,9 @@ an App that does not exist. Text mode says so; --json stays the bare page.
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if len(dto.Items) == 0 && dto.Total > 0 {
 					// The server counted grants but this page holds none, which is not the
-					// empty answer of an unauthorised caller. Below the total the page
-					// should have held rows, so it is not called past the end (cli#3193).
+					// empty answer of an unauthorised caller. If the offset is below the
+					// total, the page should have held rows: the answer is inconsistent,
+					// not the offset past the end (cli#3193).
 					if offset < dto.Total {
 						_, e := fmt.Fprintf(w, "No rows on this page: the server counted %d grants but returned none on this page (offset %d).\n", dto.Total, offset)
 						return e

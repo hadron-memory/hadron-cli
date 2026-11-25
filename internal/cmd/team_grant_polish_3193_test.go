@@ -11,16 +11,21 @@ import (
 // offset is at or past that total. Below it the server's answer is inconsistent
 // (it counted grants and returned none), and the text says that instead.
 func TestGrantAppListEmptyPageSaysPastTheEndOnlyWhenItIs3193(t *testing.T) {
-	const counted = "returned none on this page"
+	const (
+		at0  = "No rows on this page: the server counted 2 grants but returned none on this page (offset 0).\n"
+		at1  = "No rows on this page: the server counted 2 grants but returned none on this page (offset 1).\n"
+		past = "No rows on this page: offset %s is past the end of 2 grants.\n"
+	)
 	for _, tc := range []struct {
-		name, items, offset, says, not string
+		name, items, offset, want string
 	}{
-		{"null items at offset 0", `null`, "0", counted, "past the end"},
-		{"no items at offset 0", `[]`, "0", counted, "past the end"},
-		{"only null items", `[null,null]`, "0", counted, "past the end"},
-		{"one below the total", `[]`, "1", counted, "past the end"},
-		{"offset is the total", `[]`, "2", "offset 2 is past the end of 2 grants", counted},
-		{"offset over the total", `[]`, "3", "offset 3 is past the end of 2 grants", counted},
+		{"null items at offset 0", `null`, "0", at0},
+		{"no items at offset 0", `[]`, "0", at0},
+		// Null items are dropped before the page is judged, so this page is empty.
+		{"only null items", `[null,null]`, "0", at0},
+		{"one below the total", `[]`, "1", at1},
+		{"offset is the total", `[]`, "2", strings.ReplaceAll(past, "%s", "2")},
+		{"offset over the total", `[]`, "3", strings.ReplaceAll(past, "%s", "3")},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, out, _, err := runManage1846(t, map[string]string{"TeamAppGrants": `{"data":{"appGrants":{"total":2,"items":` + tc.items + `}}}`},
@@ -28,9 +33,8 @@ func TestGrantAppListEmptyPageSaysPastTheEndOnlyWhenItIs3193(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !strings.Contains(out, tc.says) || strings.Contains(out, tc.not) || !strings.Contains(out, "2 grants") ||
-				strings.Contains(strings.ToLower(out), "authori") {
-				t.Errorf("want %q, not %q, with the total and no word on authorisation: %q", tc.says, tc.not, out)
+			if out != tc.want {
+				t.Errorf("got %q, want %q", out, tc.want)
 			}
 		})
 	}
@@ -38,12 +42,16 @@ func TestGrantAppListEmptyPageSaysPastTheEndOnlyWhenItIs3193(t *testing.T) {
 
 // cli#3193 items 3 and 4: the App an instructed revoke is checked against is
 // --app, else the worktree binding's App. It decides whether the claim goes out
-// through the worker session.
+// through the worker session. When it does not match the binding, the shared
+// --instruction rule (cli#1594) sends the write as the signed-in person and says
+// so on stderr; that is never silent.
 func TestGrantManageRevokeInstructionApp3193(t *testing.T) {
 	const op = "TeamRevokeGrantInstructed"
-	resp := map[string]string{
-		op:                `{"data":{"revokeGrant":` + managerGrant1846 + `}}`,
-		"TeamAppIdentity": `{"data":{"app":null}}`,
+	resp := func(app string) map[string]string {
+		return map[string]string{
+			op:                `{"data":{"revokeGrant":` + managerGrant1846 + `}}`,
+			"TeamAppIdentity": `{"data":{"app":` + app + `}}`,
+		}
 	}
 	argv := []string{"team", "grant", "revoke", "g1", "--instruction", instrTask1592}
 	for _, tc := range []struct {
@@ -52,14 +60,17 @@ func TestGrantManageRevokeInstructionApp3193(t *testing.T) {
 		extra   []string
 		session string
 		ops     string
+		app     string
+		note    string
 	}{
-		{"the binding's App, no lookup", run1592{bound: true}, nil, "s-new", op},
-		{"--app wins over the binding", run1592{bound: true}, []string{"--app", otherApp1592}, "", "TeamAppIdentity," + op},
-		{"no binding", run1592{}, nil, "", op},
-		{"no worktree", run1592{noWorktree: true}, nil, "", op},
+		{"the binding's App, no lookup", run1592{bound: true}, nil, "s-new", op, "null", ""},
+		{"--app wins: an App the caller cannot read", run1592{bound: true}, []string{"--app", otherApp1592}, "", "TeamAppIdentity," + op, "null", "can't be read as you"},
+		{"--app wins: another App", run1592{bound: true}, []string{"--app", otherApp1592}, "", "TeamAppIdentity," + op, `{"id":"` + otherApp1592 + `"}`, "different App"},
+		{"no binding", run1592{}, nil, "", op, "null", ""},
+		{"no worktree", run1592{noWorktree: true}, nil, "", op, "null", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			tc.run.response = resp
+			tc.run.response = resp(tc.app)
 			calls, r := tc.run.exec(t, append(append([]string{}, argv...), tc.extra...)...)
 			if r.err != nil {
 				t.Fatal(r.err)
@@ -73,6 +84,13 @@ func TestGrantManageRevokeInstructionApp3193(t *testing.T) {
 			}
 			if last := (*calls)[len(*calls)-1]; last.Session != tc.session {
 				t.Errorf("session %q, want %q", last.Session, tc.session)
+			}
+			const person = "the change goes out as the signed-in person"
+			if tc.note == "" && strings.Contains(r.errOut, person) {
+				t.Errorf("unexpected note: %q", r.errOut)
+			}
+			if tc.note != "" && (!strings.Contains(r.errOut, person) || !strings.Contains(r.errOut, tc.note)) {
+				t.Errorf("want the note saying %q and %q: %q", person, tc.note, r.errOut)
 			}
 		})
 	}
