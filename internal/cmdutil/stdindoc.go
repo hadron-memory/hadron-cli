@@ -25,8 +25,10 @@ import (
 // corruption.
 //
 // NOT every `-` reader should call this: the test is whether the value is a
-// DOCUMENT. A secret read from stdin refuses a terminal for its own reason, an
-// echoed paste, through RefuseSecretStdinOnTerminal (cli#2654, cli#2689).
+// DOCUMENT. Secret readers refuse a terminal for their own reason, an echoed
+// paste: ReadSecretInput (cli#2654) and, on memory encrypt, link-user and
+// --unlock, RefuseSecretStdinOnTerminal (cli#2689). `ai-config --api-key -` has
+// no such refusal yet (cli#3214).
 //
 // flag names the source in the diagnostic (e.g. `--content -`), and fileFlag
 // the companion that reads a path (e.g. `--content-file`), so the remedy is

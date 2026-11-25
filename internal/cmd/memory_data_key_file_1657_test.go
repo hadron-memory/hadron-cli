@@ -86,7 +86,7 @@ func TestDataKeyFileExclusiveWithDataKeyAndPassphraseFile1657(t *testing.T) {
 // --data-key-file - reads piped stdin only after the confirmation gate: without
 // --yes a pipe is refused with the key still unread, and with --yes the piped
 // key is sent. (A terminal is refused outright: cli#2689.)
-func TestDataKeyFileStdinConfirmsBeforeReading1657(t *testing.T) {
+func TestDataKeyFileStdinRequiresYesAndStaysUnread1657(t *testing.T) {
 	for _, c := range dataKeyCases1657() {
 		t.Run(c.name, func(t *testing.T) {
 			base := []string{}
