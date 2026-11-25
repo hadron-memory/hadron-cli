@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"golang.org/x/term"
-
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
@@ -50,40 +48,22 @@ func errNoCodeInput() error {
 // material, so the terminal never shows it and it is never logged.
 func pasteReader(streams *output.IOStreams) CodeReader {
 	return func(ctx context.Context) (string, error) {
-		if streams == nil || !streams.IsInputTerminal() {
+		if !streams.IsInputTerminal() {
 			return "", errNoCodeInput()
 		}
 		in, ok := streams.In.(*os.File)
 		if !ok {
 			return "", errNoCodeInput()
 		}
-		fd := int(in.Fd())
-		// ReadPassword turns echo off and restores it when it returns. If the
-		// wait is abandoned (the loopback redirect arrived first, or the
-		// timeout fired) it never returns, so put the terminal back here.
-		saved, _ := term.GetState(fd)
-		type result struct {
-			line []byte
-			err  error
-		}
-		done := make(chan result, 1)
-		go func() {
-			b, err := term.ReadPassword(fd)
-			done <- result{b, err}
-		}()
-		select {
-		case r := <-done:
-			fmt.Fprintln(streams.ErrOut)
-			if r.err != nil {
-				return "", exitcode.Newf(exitcode.Error, "reading the code failed")
+		line, err := readHiddenLine(ctx, int(in.Fd()))
+		fmt.Fprintln(streams.ErrOut)
+		if err != nil {
+			if ctx.Err() != nil {
+				return "", ctx.Err()
 			}
-			return string(r.line), nil
-		case <-ctx.Done():
-			if saved != nil {
-				_ = term.Restore(fd, saved)
-			}
-			return "", ctx.Err()
+			return "", exitcode.Newf(exitcode.Error, "reading the code failed")
 		}
+		return line, nil
 	}
 }
 
@@ -95,6 +75,10 @@ func cleanCode(raw string) string { return strings.TrimSpace(raw) }
 // register without starting anything on it. In code-entry mode the server
 // sends nothing to the address; it only has to be a valid registered one for
 // the exchange to present.
+//
+// The port is free when named and could be taken by another local process
+// before the exchange; that only matters to a server that redirects anyway
+// (one without the code page), and PKCE keeps a code taken that way unusable.
 func reserveRedirectURI() (string, error) {
 	l, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
@@ -124,3 +108,9 @@ func waitForCode(ctx context.Context, read CodeReader, bound time.Duration) (str
 
 // errCodeRefused marks a token-endpoint refusal of a pasted code.
 var errCodeRefused = errors.New("code refused")
+
+// isCodeRefusal reports whether err is the fixed refusal of a pasted code.
+func isCodeRefusal(err error) bool {
+	var coded *exitcode.CodedError
+	return errors.As(err, &coded) && coded.Error() == codeRefusal
+}

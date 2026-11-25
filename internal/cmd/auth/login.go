@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 
@@ -122,7 +125,11 @@ only whether the credential authenticates.`,
 					return err
 				}
 			} else {
-				result, err := browserLogin(cmd.Context(), auth.LoginOptions{
+				// Ctrl+C ends the wait through the context, so a code prompt puts
+				// the terminal's echo back before the process exits.
+				ctx, stopSignals := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+				defer stopSignals()
+				result, err := browserLogin(ctx, auth.LoginOptions{
 					ServerURL:     server,
 					LoginProvider: provider,
 					CodeEntry:     noBrowser,

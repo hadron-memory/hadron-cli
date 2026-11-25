@@ -72,7 +72,7 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 	// A code can be pasted only where something reads it: an injected reader,
 	// or a terminal on standard input. Without one, code entry refuses at once
 	// instead of hanging until the login timeout.
-	canReadCode := opts.ReadCode != nil || (opts.IO != nil && opts.IO.IsInputTerminal())
+	canReadCode := opts.ReadCode != nil || opts.IO.IsInputTerminal()
 	if opts.CodeEntry && !canReadCode {
 		return nil, errNoCodeInput()
 	}
@@ -149,9 +149,13 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		}
 		return meta.AuthorizationEndpoint + "?" + params.Encode()
 	}
-	enterCode := func() (*Token, error) {
+	promptForCode := func() {
 		fmt.Fprintf(opts.IO.ErrOut, "Open this address in a browser, on any device, and sign in:\n  %s\n", authorizeURL(true))
-		fmt.Fprint(opts.IO.ErrOut, "Then paste the code the page shows (it is not displayed as you type): ")
+		fmt.Fprint(opts.IO.ErrOut, "Then paste the code the page shows (it is not shown as you type): ")
+	}
+
+	if opts.CodeEntry {
+		promptForCode()
 		code, err := waitForCode(ctx, readCode, bound)
 		if err != nil {
 			return nil, err
@@ -159,35 +163,50 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 		return exchangeEnteredCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, redirectURI, resource)
 	}
 
-	if opts.CodeEntry {
-		return enterCode()
-	}
-
-	defaultURL := authorizeURL(false)
 	fmt.Fprintln(opts.IO.ErrOut, "Opening your browser to sign in to Hadron...")
-	fmt.Fprintf(opts.IO.ErrOut, "If the browser doesn't open, visit:\n  %s\n", defaultURL)
+	defaultURL := authorizeURL(false)
+	// refusalEnds: in the fallback below the paste is the way in, so a refused
+	// code ends the login. With a browser open the redirect may still arrive,
+	// so a refused paste is only reported.
+	refusalEnds := false
 	if err := openBrowser(defaultURL); err != nil {
 		fmt.Fprintf(opts.IO.ErrOut, "(could not open browser automatically: %v)\n", err)
-		// No browser here, so the redirect can never arrive: stop waiting for
-		// it and take the code by hand, chosen on this side (the server never
-		// infers it).
-		_ = loopback.Close()
+		// No browser here, so take the code by hand, chosen on this side (the
+		// server never infers it). Only the code-entry address is printed: the
+		// default one would send the code to a loopback address nobody can
+		// reach. The loopback listener stays up for a forwarded port.
 		if !canReadCode {
 			return nil, errNoCodeInput()
 		}
-		return enterCode()
+		promptForCode()
+		refusalEnds = true
+	} else {
+		fmt.Fprintf(opts.IO.ErrOut, "If the browser doesn't open, visit:\n  %s\n", defaultURL)
+		if canReadCode {
+			fmt.Fprintln(opts.IO.ErrOut, "If you were given a code instead, paste it here (it is not shown as you type):")
+		}
 	}
 
 	// A code pasted while the redirect is awaited completes the login too,
 	// whichever comes first (cor:aut:030:01: the client always accepts a
-	// pasted code). Reading stops when this returns (ctx ends with it) and the terminal is restored.
+	// pasted code). The reader stops when ctx ends, which Login's return
+	// causes, and leaves the terminal as it found it.
 	var pasted chan pasteResult
 	if canReadCode {
-		fmt.Fprintln(opts.IO.ErrOut, "If you were given a code instead, paste it here (nothing is shown as you type):")
 		pasted = make(chan pasteResult, 1)
+		readCtx, stopReading := context.WithCancel(ctx)
+		readerDone := make(chan struct{})
 		go func() {
-			c, err := readCode(ctx)
+			defer close(readerDone)
+			c, err := readCode(readCtx)
 			pasted <- pasteResult{code: c, err: err}
+		}()
+		// Whatever way this returns (a token, an error, Ctrl+C), stop the
+		// reader and wait for it, so the terminal's echo is back before the
+		// process can exit.
+		defer func() {
+			stopReading()
+			<-readerDone
 		}()
 	}
 	for {
@@ -211,7 +230,12 @@ func (BrowserStrategy) Login(ctx context.Context, opts LoginOptions) (*Token, er
 			if code == "" {
 				continue
 			}
-			return exchangeEnteredCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, redirectURI, resource)
+			tok, err := exchangeEnteredCode(ctx, httpClient, meta.TokenEndpoint, clientID, code, pk.Verifier, redirectURI, resource)
+			if err != nil && !refusalEnds && isCodeRefusal(err) {
+				fmt.Fprintf(opts.IO.ErrOut, "note: %s; still waiting for the browser sign-in to finish\n", codeRefusal)
+				continue
+			}
+			return tok, err
 		case <-ctx.Done():
 			return nil, ctxDoneError(ctx, bound)
 		}

@@ -5,9 +5,9 @@ Design as built. Governing spec: `cor:aut:030:01`, "A code-entry completion for 
 ## Behavior
 
 - **Flag:** `hadron auth login --no-browser` enters code-entry mode. Mutually exclusive with `--with-token`.
-- **Client-side choice:** without the flag, when the browser cannot be opened the CLI stops waiting for the redirect (it can never arrive) and takes the code by hand. The server never infers the mode; the CLI asks for the code page with `code_delivery=page` on the authorize request.
-- **Default unchanged:** loopback redirect. A code pasted while the redirect is awaited also completes the login (whichever comes first wins; the paste reader stops when login returns).
-- **No listener in code-entry mode:** the client still registers a loopback-shaped `redirect_uri` (the server validates it at the exchange) but only reserves the port to name it; nothing listens and the server sends nothing there.
+- **Client-side choice:** without the flag, when the browser cannot be opened the CLI prints only the code-entry address (the default one could not work: its code would go to a loopback address nobody can reach) and takes the code by hand. The server never infers the mode; the CLI asks for the code page with `code_delivery=page` on the authorize request. The loopback listener stays up in this fallback, so a redirect arriving over a forwarded port still completes the login, and a refused paste ends it.
+- **Default unchanged:** loopback redirect. A code pasted while the redirect is awaited also completes the login (whichever comes first wins). A refused paste there is reported and the wait for the redirect goes on.
+- **No listener under `--no-browser`:** the client still registers a loopback-shaped `redirect_uri` (the server validates it at the exchange) but only reserves the port to name it; nothing listens and the server sends nothing there.
 - **Exchange:** the pasted code, trimmed of surrounding whitespace and otherwise opaque (no parsing of its shape), goes to `POST /oauth/token` with the CLI's PKCE verifier and registered `redirect_uri`, exactly as today.
 
 ## Refusals
@@ -18,7 +18,9 @@ Design as built. Governing spec: `cor:aut:030:01`, "A code-entry completion for 
 
 ## Secrets
 
-The code is read without echo (`term.ReadPassword`; the terminal is restored if the wait is abandoned), never printed, logged or put in an error. `--json` output is unchanged.
+The code is read without echo, never printed, logged or put in an error. `--json` output is unchanged.
+
+The terminal read (`readHiddenLine`) polls the descriptor in 100 ms steps and reads only what is already there, so it never blocks in `read(2)`. When the wait ends (the redirect won, the timeout, Ctrl+C) it returns at once, restores echo and has consumed nothing, so the next prompt (install-skills) sees its own answer. `auth login` turns SIGINT/SIGTERM into context cancellation (`signal.NotifyContext`) so Ctrl+C takes that path and ends Cancelled. Windows has no pollable console descriptor: there the read is `term.ReadPassword` in a goroutine, the console mode is restored on abandon, and a line typed afterwards may still be taken by it.
 
 ## Not done
 

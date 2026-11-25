@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,13 +46,21 @@ func printedAuthorizeURL(t *testing.T, errOut string) *url.URL {
 // readingCode answers with code, first checking (while the login is still
 // running, when a listener would still be up) that nothing listens on the
 // redirect address the client registered.
-func readingCode(t *testing.T, as *fakeAS, code string) CodeReader {
+func readingCode(t *testing.T, as *fakeAS, code string, wantListener bool) CodeReader {
 	return func(context.Context) (string, error) {
 		if as.registeredRedirect == "" {
 			t.Errorf("no redirect_uri was registered before the prompt")
-		} else if c, err := net.DialTimeout("tcp", strings.TrimSuffix(strings.TrimPrefix(as.registeredRedirect, "http://"), "/callback"), time.Second); err == nil {
+			return code, nil
+		}
+		c, err := net.DialTimeout("tcp", strings.TrimSuffix(strings.TrimPrefix(as.registeredRedirect, "http://"), "/callback"), time.Second)
+		if err == nil {
 			_ = c.Close()
-			t.Errorf("no loopback listener may run in code-entry mode")
+		}
+		if wantListener && err != nil {
+			t.Errorf("the fallback keeps the loopback listener up for a forwarded port")
+		}
+		if !wantListener && err == nil {
+			t.Errorf("no loopback listener may run under --no-browser")
 		}
 		return code, nil
 	}
@@ -73,7 +82,7 @@ func TestOpenFailureFallsBackToCodeEntry_3180(t *testing.T) {
 		IO:          streams,
 		HTTPClient:  as.server.Client(),
 		OpenBrowser: func(string) error { return errors.New("no display") },
-		ReadCode:    readingCode(t, as, as.authCode+"\n"), // a paste drags its newline along
+		ReadCode:    readingCode(t, as, as.authCode+"\n", true), // a paste drags its newline along
 	})
 	if err != nil {
 		t.Fatalf("login: %v", err)
@@ -86,6 +95,11 @@ func TestOpenFailureFallsBackToCodeEntry_3180(t *testing.T) {
 	}
 	if got := printedAuthorizeURL(t, errOut.String()).Query().Get("code_delivery"); got != "page" {
 		t.Errorf("the address printed after the open failure must ask for the code page, code_delivery=%q", got)
+	}
+	// Only the address that can work is shown: the default one would send the
+	// code to a loopback address nobody can reach (UX P2).
+	if n := strings.Count(errOut.String(), "/oauth/authorize?"); n != 1 {
+		t.Errorf("exactly one authorize address must be printed after an open failure, got %d:\n%s", n, errOut.String())
 	}
 }
 
@@ -102,7 +116,7 @@ func TestCodeEntryFlagExchangesPastedCode_3180(t *testing.T) {
 		HTTPClient:  as.server.Client(),
 		CodeEntry:   true,
 		OpenBrowser: func(string) error { opened = true; return nil },
-		ReadCode:    readingCode(t, as, "  "+as.authCode+"  "),
+		ReadCode:    readingCode(t, as, "  "+as.authCode+"  ", false),
 	})
 	if err != nil {
 		t.Fatalf("login: %v", err)
@@ -206,6 +220,9 @@ func TestCodeEntryWithoutTerminalRefuses_3180(t *testing.T) {
 			if as.tokenCalls != 0 {
 				t.Errorf("nothing may be exchanged")
 			}
+			if name == "flag" && as.discoveryCalls != 0 {
+				t.Errorf("--no-browser without a terminal must refuse before any request, saw %d discovery calls", as.discoveryCalls)
+			}
 		})
 	}
 }
@@ -264,26 +281,126 @@ func TestPasteBeatsRedirectInDefaultMode_3180(t *testing.T) {
 }
 
 // Acceptance 1 and 9, redirect first: the redirect wins, exactly as today, and
-// the paste reader is stopped (its context ends) rather than left reading.
-func TestRedirectBeatsPasteInDefaultMode_3180(t *testing.T) {
+// Login does not return until the paste reader has stopped (and so restored the
+// terminal): a fast exit must never leave echo off (LOCAL P3, BLIND P2).
+func TestRedirectBeatsPasteAndWaitsForReader_3180(t *testing.T) {
 	as := newFakeAS(t)
 	streams, _, _ := output.Test()
-	stopped := make(chan struct{})
+	var stopped atomic.Bool
 	tok, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
 		ServerURL: as.server.URL, IO: streams, HTTPClient: as.server.Client(),
 		OpenBrowser: consentingBrowser(as),
 		ReadCode: func(ctx context.Context) (string, error) {
 			<-ctx.Done()
-			close(stopped)
+			time.Sleep(200 * time.Millisecond) // restoring the terminal takes a moment
+			stopped.Store(true)
 			return "", ctx.Err()
 		},
 	})
 	if err != nil || tok == nil {
 		t.Fatalf("login: %v", err)
 	}
-	select {
-	case <-stopped:
-	case <-time.After(2 * time.Second):
-		t.Errorf("the paste reader must be stopped once the redirect wins")
+	if !stopped.Load() {
+		t.Errorf("Login returned while the paste reader was still running")
+	}
+}
+
+// The fallback has no browser, so the paste is the way in: a refused code ends
+// the login (unlike default mode, where the redirect may still arrive).
+func TestRefusedPasteEndsFallbackLogin_3180(t *testing.T) {
+	as := newFakeAS(t)
+	streams, _, _ := output.Test()
+	tok, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
+		ServerURL: as.server.URL, IO: streams, HTTPClient: as.server.Client(),
+		OpenBrowser: func(string) error { return errors.New("no display") },
+		ReadCode:    staticCode("not-the-code"),
+	})
+	if tok != nil || err == nil || err.Error() != codeRefusal {
+		t.Fatalf("a refused code must end the fallback login with the fixed line, got %+v / %v", tok, err)
+	}
+}
+
+// Default mode, a refused paste: the browser redirect may still arrive, so the
+// refusal is only reported and the login goes on to complete through it.
+func TestRefusedPasteDoesNotEndDefaultLogin_3180(t *testing.T) {
+	as := newFakeAS(t)
+	streams, _, errOut := output.Test()
+	browser := consentingBrowser(as)
+	var addr string // set before the reader starts
+	var redirectOnce bool
+	tok, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
+		ServerURL: as.server.URL, IO: streams, HTTPClient: as.server.Client(),
+		OpenBrowser: func(u string) error { addr = u; return nil }, // the redirect is sent after the paste is refused
+		ReadCode: func(context.Context) (string, error) {
+			if !redirectOnce {
+				redirectOnce = true
+				go func() {
+					time.Sleep(300 * time.Millisecond)
+					_ = browser(addr)
+				}()
+			}
+			return "not-the-code", nil
+		},
+	})
+	if err != nil || tok == nil {
+		t.Fatalf("a refused paste must not end a login the redirect completes: %v", err)
+	}
+	if !strings.Contains(errOut.String(), codeRefusal) {
+		t.Errorf("the refusal must still be reported:\n%s", errOut.String())
+	}
+}
+
+// The fallback keeps the loopback listener for a forwarded port: a redirect
+// arriving there completes the login while the prompt is still waiting.
+func TestFallbackStillTakesAForwardedRedirect_3180(t *testing.T) {
+	as := newFakeAS(t)
+	streams, _, _ := output.Test()
+	var addr string // set before the reader starts
+	tok, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
+		ServerURL: as.server.URL, IO: streams, HTTPClient: as.server.Client(),
+		OpenBrowser: func(u string) error { addr = u; return errors.New("no display") },
+		ReadCode: func(ctx context.Context) (string, error) {
+			go func() { _ = consentingBrowser(as)(addr) }()
+			<-ctx.Done()
+			return "", ctx.Err()
+		},
+	})
+	if err != nil || tok == nil {
+		t.Fatalf("a redirect on the forwarded port must complete the login: %v", err)
+	}
+}
+
+// One wording for "nothing is shown as you type" in both prompts (UX P3).
+func TestPromptsShareOneEchoWording_3180(t *testing.T) {
+	for name, opts := range map[string]LoginOptions{
+		"flag":         {CodeEntry: true},
+		"default mode": {OpenBrowser: func(string) error { return nil }},
+	} {
+		as := newFakeAS(t)
+		streams, _, errOut := output.Test()
+		opts.ServerURL, opts.IO, opts.HTTPClient = as.server.URL, streams, as.server.Client()
+		opts.ReadCode = staticCode(as.authCode)
+		if _, err := (BrowserStrategy{}).Login(loginCtx(t), opts); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !strings.Contains(errOut.String(), "(it is not shown as you type)") {
+			t.Errorf("%s: the prompt must say it is not shown as you type:\n%s", name, errOut.String())
+		}
+	}
+}
+
+// An empty paste is refused with its own usage line and nothing is exchanged.
+func TestEmptyPasteIsRefusedLocally_3180(t *testing.T) {
+	as := newFakeAS(t)
+	streams, _, _ := output.Test()
+	tok, err := BrowserStrategy{}.Login(loginCtx(t), LoginOptions{
+		ServerURL: as.server.URL, IO: streams, HTTPClient: as.server.Client(),
+		CodeEntry: true, ReadCode: staticCode("  \n"),
+	})
+	if tok != nil || exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "no code was entered") {
+		t.Fatalf("want a Usage refusal and no token, got %+v / %v", tok, err)
+	}
+	if as.tokenCalls != 0 {
+		t.Errorf("an empty paste must not reach the server")
 	}
 }
