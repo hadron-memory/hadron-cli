@@ -74,11 +74,11 @@ func newCmdAgentSessionStart(f *cmdutil.Factory) *cobra.Command {
 		Use:   "start <agent> [--external-user <id>] [--timeout-seconds <n>]",
 		Short: "Open an App session with one of the App's Agents",
 		Long: `Open a session between the calling App and <agent>, an Agent installed in that
-App. Needs an App key. <agent> is an Agent ID or a fully-qualified Agent URN
+App. Needs an App key. <agent> is an Agent ID or an Agent URN
 (hrn:agent:<root>:<slug>); it is sent as typed and the server resolves it. A ref
-that names no Agent live in the App (unknown, deleted, or not installed) is
-refused the same way as an uninstalled one (exit 8); a URN that is not fully
-qualified, such as <root>:<slug>, is a usage error (exit 2).
+that names no Agent installed in the App (unknown, deleted, or installed in
+another App) gets the server's one FORBIDDEN answer (exit 8); a ref the server
+cannot read as an Agent URN, such as "acme.com:", is a usage error (exit 2).
 
 --external-user names the App's end user by the App's own user id. If the App
 has no such user, the server creates one only when the App allows implicit user

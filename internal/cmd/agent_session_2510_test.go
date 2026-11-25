@@ -77,6 +77,19 @@ func TestAgentLifecycleHelpStatesServerFacts(t *testing.T) {
 	}
 }
 
+func assertSessionFieldSet(t *testing.T, got map[string]any) {
+	t.Helper()
+	wantFields := []string{"agentId", "appId", "expiresAt", "id", "isLive", "memoryId", "startedAt", "state", "type", "userId"}
+	gotFields := make([]string, 0, len(got))
+	for k := range got {
+		gotFields = append(gotFields, k)
+	}
+	sort.Strings(gotFields)
+	if !reflect.DeepEqual(gotFields, wantFields) {
+		t.Fatalf("session JSON field set drifted: %v, want %v", gotFields, wantFields)
+	}
+}
+
 func TestAgentSessionStartByIDSendsOneMutation(t *testing.T) {
 	calls, out, err := runAgentLifecycle(t, map[string]string{
 		"StartAgentSession": `{"data":{"startAgentSession":` + agentSessionJSON + `}}`,
@@ -100,15 +113,7 @@ func TestAgentSessionStartByIDSendsOneMutation(t *testing.T) {
 	if got["id"] != "ses1" || got["agentId"] != "agt1" || got["state"] != "LIVE" || got["isLive"] != true {
 		t.Fatalf("json: %v", got)
 	}
-	wantFields := []string{"agentId", "appId", "expiresAt", "id", "isLive", "memoryId", "startedAt", "state", "type", "userId"}
-	gotFields := make([]string, 0, len(got))
-	for k := range got {
-		gotFields = append(gotFields, k)
-	}
-	sort.Strings(gotFields)
-	if !reflect.DeepEqual(gotFields, wantFields) {
-		t.Fatalf("session JSON field set drifted: %v, want %v", gotFields, wantFields)
-	}
+	assertSessionFieldSet(t, got)
 }
 
 func TestAgentSessionStartSendsOptionalFlags(t *testing.T) {
@@ -140,14 +145,14 @@ func TestAgentSessionStartSendsURNAsTyped(t *testing.T) {
 
 // cli#2665 A: the server's typed refusals map straight through: one FORBIDDEN
 // for every ref that names no live Agent (exit 8), URN_NOT_QUALIFIED for a
-// shorthand colon ref (exit 2). Each sends exactly one operation.
+// ref the server cannot read as an Agent URN (exit 2). Each sends exactly one operation.
 func TestAgentSessionStartServerRefusalsMapThrough(t *testing.T) {
 	for _, tc := range []struct {
 		name, ref, code string
 		want            int
 	}{
 		{"unknown urn", "hrn:agent:acme.com:nope", "FORBIDDEN", exitcode.Forbidden},
-		{"shorthand colon ref", "acme.com:support-bot", "URN_NOT_QUALIFIED", exitcode.Usage},
+		{"ref that is not an agent urn", "acme.com:", "URN_NOT_QUALIFIED", exitcode.Usage},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls, _, err := runAgentLifecycle(t, map[string]string{
@@ -349,5 +354,38 @@ func TestAgentSessionStartValueContainingKeyIsNotAField(t *testing.T) {
 	var got map[string]any
 	if err := json.Unmarshal([]byte(out), &got); err != nil || got["memoryId"] != "monkey-key-mem" {
 		t.Fatalf("got %v, %v", got, err)
+	}
+	assertSessionFieldSet(t, got)
+}
+
+// cli#2665 N1: the ref is sent byte for byte: no trimming, no case folding.
+func TestAgentSessionStartRefSentByteForByte(t *testing.T) {
+	const ref = "hrn:agent:Acme.com:Support-Bot"
+	calls, _, err := runAgentLifecycle(t, map[string]string{
+		"StartAgentSession": `{"data":{"startAgentSession":` + agentSessionJSON + `}}`,
+	}, "session", "start", ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if v := wantOneOp(t, calls, "StartAgentSession"); v["agentId"] != ref {
+		t.Fatalf("vars: %v", v)
+	}
+}
+
+// cli#2665 F3: the text line names the server's agent id, and falls back to the
+// ref as typed when the server returns none.
+func TestAgentSessionStartTextNamesAgent(t *testing.T) {
+	_, out, err := runAgentLifecycle(t, map[string]string{
+		"StartAgentSession": `{"data":{"startAgentSession":` + agentSessionJSON + `}}`,
+	}, "session", "start", "hrn:agent:acme.com:support-bot")
+	if err != nil || strings.TrimSpace(out) != "✓ started session ses1 for agent agt1 (LIVE)" {
+		t.Fatalf("%v: %q", err, out)
+	}
+	noAgent := strings.Replace(agentSessionJSON, `"agentId":"agt1"`, `"agentId":null`, 1)
+	_, out, err = runAgentLifecycle(t, map[string]string{
+		"StartAgentSession": `{"data":{"startAgentSession":` + noAgent + `}}`,
+	}, "session", "start", "agt9")
+	if err != nil || strings.TrimSpace(out) != "✓ started session ses1 for agent agt9 (LIVE)" {
+		t.Fatalf("%v: %q", err, out)
 	}
 }

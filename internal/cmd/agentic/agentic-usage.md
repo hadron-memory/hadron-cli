@@ -6515,9 +6515,10 @@ sessions with its installed Agents for its end users, NOT worker sessions
 (`team session`). They need an App key as the credential (e.g.
 `HADRON_TOKEN`). `<agent>` is an ID or a fully-qualified `hrn:agent:` URN, sent
 as typed (cli#2665; no read in front: the server resolves it). A ref naming no
-live Agent in the App, including an unknown URN, is the server's one FORBIDDEN
-(exit 8); a shorthand `<root>:<slug>` is URN_NOT_QUALIFIED (exit 2); both were
-exit 4 before. `--external-user` and `--timeout-seconds` unset are omitted; a blank
+Agent installed in the App, including an unknown URN, is the server's one
+FORBIDDEN (exit 8, was 4); a ref the server cannot read as an Agent URN (e.g.
+`acme.com:`) is URN_NOT_QUALIFIED (exit 2). A `<root>:<slug>` ref is accepted
+by the server. `--external-user` and `--timeout-seconds` unset are omitted; a blank
 `--external-user` or a non-positive `--timeout-seconds` is refused locally
 (exit 2, nothing sent). `--json`
 is `{id, agentId, appId, memoryId, userId, type, state, isLive, startedAt,
