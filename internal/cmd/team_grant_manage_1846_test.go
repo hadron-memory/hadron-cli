@@ -426,3 +426,57 @@ func TestGrantListHelpSaysRoleAgentGrantsAreListed1846(t *testing.T) {
 		}
 	}
 }
+
+// BLIND P2 (cli#3192): a null payload from the server is "returned no grant
+// result" (exit 1), never a nil dereference, on every verb that reads one.
+func TestGrantManageNullPayloadIsAnErrorNotAPanic1846(t *testing.T) {
+	for _, tc := range []struct {
+		name, op, root string
+		argv           []string
+	}{
+		{"revoke", "TeamRevokeGrant", "revokeGrant", []string{"team", "grant", "revoke", "g1"}},
+		{"revoke instructed", "TeamRevokeGrantInstructed", "revokeGrant", []string{"team", "grant", "revoke", "g1", "--instruction", "task:t1"}},
+		{"withdraw", "TeamWithdrawGrant", "withdrawGrant", []string{"team", "grant", "withdraw", "g1"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, out, _, err := runManage1846(t, map[string]string{tc.op: `{"data":{"` + tc.root + `":null}}`}, tc.argv...)
+			if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "no grant result") || strings.TrimSpace(out) != "" {
+				t.Fatalf("exit %d out %q err %v", exitCodeFor(err), out, err)
+			}
+		})
+	}
+}
+
+// BLIND P2: an offset past the end is an empty page with a total, which is not
+// the empty answer of an unauthorised caller.
+func TestGrantManageAppListOffsetPastTheEnd1846(t *testing.T) {
+	_, out, _, err := runManage1846(t, map[string]string{"TeamAppGrants": `{"data":{"appGrants":{"total":3,"items":[]}}}`}, "team", "grant", "app-list", "acme.com:eng", "--offset", "40")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(strings.ToLower(out), "authori") || !strings.Contains(out, "offset 40") || !strings.Contains(out, "3 grants") {
+		t.Fatalf("a page past the end must say so, not blame authorisation: %q", out)
+	}
+}
+
+// BLIND F12 (P3): the agent holder, GRANT_NOT_FOUND on revoke, and the
+// instruction's App fallback reach the wire as pinned.
+func TestGrantManageHolderAgentAndRevokeNotFound1846(t *testing.T) {
+	argv := createArgs1846()
+	for i, a := range argv {
+		if a == "worker" {
+			argv[i] = "agent"
+		}
+	}
+	calls, _, _, err := runManage1846(t, map[string]string{"TeamCreateGrant": `{"data":{"createGrant":` + managerGrant1846 + `}}`}, argv...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c := sent1846(t, calls); !strings.Contains(string(c.RawVars), `"holderKind":"AGENT"`) {
+		t.Fatalf("--holder agent: %s", c.RawVars)
+	}
+	_, _, _, err = runManage1846(t, map[string]string{"TeamRevokeGrant": gqlRefusal1846("GRANT_NOT_FOUND")}, "team", "grant", "revoke", "g1")
+	if exitCodeFor(err) != exitcode.NotFound {
+		t.Fatalf("revoke GRANT_NOT_FOUND exit %d: %v", exitCodeFor(err), err)
+	}
+}
