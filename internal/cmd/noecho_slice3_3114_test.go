@@ -62,7 +62,7 @@ func TestSlice3RefusalsNeverShowTheTypedValue3114(t *testing.T) {
 			if strings.Contains(strings.ToLower(seen), low) {
 				t.Errorf("shows the value: %s", seen)
 			}
-			if !strings.Contains(seen, tc.says) || !(strings.Contains(seen, "not shown") || strings.Contains(seen, "neither value is shown")) {
+			if !strings.Contains(seen, tc.says) || (!strings.Contains(seen, "not shown") && !strings.Contains(seen, "neither value is shown")) {
 				t.Errorf("want %q and that the value is not shown: %s", tc.says, seen)
 			}
 		})
@@ -115,5 +115,111 @@ func TestSlice3EnumRefusalsNameTheFormNotTheValue3114(t *testing.T) {
 				t.Errorf("shows the value: %s", seen)
 			}
 		})
+	}
+}
+
+// #3173 F4: the unconfirmed-marker message says which way each edge runs, for the router's outgoing edge
+// and for the mirrored back-edge (the leaf edge is pinned by #2736's own test).
+func TestSlice3PreflightRouteMarkerNamesTheEdgeDirection3114(t *testing.T) {
+	const null = `{"data":{"updateEdge":null}}`
+	_, err := runExisting2736(t, `{"note":"x"}`, null)
+	if err == nil || !strings.Contains(err.Error(), "the route from the router to the target ") {
+		t.Errorf("outgoing edge: %v", err)
+	}
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"GetNodeRaw": {existingRouter2736(`{"note":"x"}`), existingRouter2736(`{"note":"x"}`)},
+		"GetNode":    {existingTarget2736(`{"note":"x"}`)},
+		"ResolveUrn": {`{"data":{"resolveUrn":{"id":"n_target","kind":"node","memoryId":"mem2"}}}`},
+		"UpdateEdge": {updated2736(crossMemoryMarker2736), null},
+		"UpdateNode": {`{"data":{"updateNode":` + newRouteNodeJSON + `}}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs(routeCrossArgs2736(gql.URL, "--cross-memory"))
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "the route from the target to the router ") {
+		t.Errorf("back-edge: %v", err)
+	}
+}
+
+// #3173 F5: a scaffold that fails part-way gives the ids the server returned, top-down; an edge target
+// that cannot be resolved is named by its position.
+func TestSlice3SpecNewPartialFailures3114(t *testing.T) {
+	node := `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+	gql, _ := queueGraphQL(t, map[string][]string{
+		"FindNodes":      {`{"data":{"nodes":[]}}`},
+		"CreateSpecNode": {node, `{"errors":[{"message":"write refused"}]}`},
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "Send", "--no-edges", "-m", specMem, "--server", gql.URL})
+	if err := root.Execute(); err == nil || !strings.Contains(err.Error(), "after creating its first 1 of ") || !strings.Contains(err.Error(), "ids new1)") || strings.Contains(err.Error(), "msg:010") {
+		t.Errorf("partial scaffold: %v", err)
+	}
+
+	gql2, captured := queueGraphQL(t, map[string][]string{
+		"FindNodes":  {`{"data":{"nodes":[` + specNodeList("msg", `["spec"]`) + `]}}`, `{"data":{"nodes":[]}}`},
+		"ResolveUrn": {`{"data":{"resolveUrn":null}}`},
+	})
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs([]string{"spec", "new", "msg:010:01", "--new-path", "--title", "Send", "-m", specMem, "--server", gql2.URL})
+	err := root2.Execute()
+	if err == nil || !strings.Contains(err.Error(), "cannot wire edge 1 of node 1 of ") || len(captured["CreateSpecNode"]) != 0 {
+		t.Errorf("unresolvable edge: %v", err)
+	}
+}
+
+// Sites no flag pin reaches: the live and held refusals of a bind, the lost defect link, and the server URL.
+func TestSlice3HelperOnlyRefusals3114(t *testing.T) {
+	teamGitDir(t)
+	sess := `{"data":{"sessionsPage":{"total":1,"hasMore":false,"items":[` + activeSessionJSON + `]}}}`
+	live := map[string]string{"GetWorkerInApp": `{"data":{"worker":` + withLiveness(heldBy("u-dara"), "true") + `}}`, "TeamSessionsPage": sess, "AuthContext": authContextHolgerJSON, "GetUser": heldHolderUserJSON("u-dara", "Dara", "dara")}
+	run := func(responses map[string]string, argv ...string) string {
+		gql, _ := captureGraphQL(t, responses)
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(argv, "--server", gql.URL))
+		err := root.Execute()
+		if err == nil {
+			t.Fatalf("%v: want a refusal", argv)
+		}
+		return err.Error()
+	}
+	if got := run(live, "team", "session", "start", "--as", "Iris", "--app", "hrn:app:acme.com:eng-team"); strings.Contains(got, "name Iris") || !strings.Contains(got, "worker release wkr1") {
+		t.Errorf("held: %s", got)
+	}
+	if got := run(map[string]string{"TaskLinkDefect": `{"data":{"linkDefectToPullRequest":null}}`}, "team", "task", "link-defect", "AT1.2", "--defect", defect2189); strings.Contains(got, "AT1.2") {
+		t.Errorf("link-defect: %s", got)
+	}
+}
+
+// A --server URL can hold userinfo, so a binding on another server never prints it.
+func TestSlice3ServerMismatchHidesTheServerGiven3114(t *testing.T) {
+	writeTeamBinding(t)
+	setTeamBindingServer(t, "https://bound.example.com")
+	gql, _ := captureGraphQL(t, nil)
+	host := strings.TrimPrefix(gql.URL, "http://")
+	for _, argv := range [][]string{
+		{"team", "session", "end"},
+		{"team", "task", "mine"},
+		{"team", "worker", "update", "Iris", "--title", "x", "--as-worker"},
+	} {
+		f, _ := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetArgs(append(argv, "--server", "http://u:"+pastedUpper3029()+"@"+host))
+		err := root.Execute()
+		if err == nil || strings.Contains(err.Error(), "AbCdEf") || strings.Contains(err.Error(), host) {
+			t.Errorf("%v: %v", argv, err)
+		}
+	}
+}
+
+// host up names neither the host nor the worker typed.
+func TestSlice3HostUpHidesTheHostAndWorker3114(t *testing.T) {
+	fx := newHostUpFixture1389(t)
+	fx.registry = []string{"wkr-iris"}
+	fx.irisRunningJonasMissing()
+	if _, _, err := fx.run("--apply", "--worker", "Nobody"); err == nil || strings.Contains(err.Error(), "Nobody") || strings.Contains(err.Error(), "orca1") || !strings.Contains(err.Error(), "neither is shown") {
+		t.Errorf("--worker: %v", err)
 	}
 }

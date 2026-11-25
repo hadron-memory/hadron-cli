@@ -222,7 +222,7 @@ func runWorkerApproveBatch(cmd *cobra.Command, f *cmdutil.Factory, only []string
 	if err != nil {
 		return err
 	}
-	roster, err = filterOnlyNoting(roster, only, scope.Ref, "nothing was approved")
+	roster, err = filterOnlyNoting(roster, only, "nothing was approved")
 	if err != nil {
 		return err
 	}

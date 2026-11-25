@@ -56,7 +56,7 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 				return err
 			}
 			if memory != "" {
-				return initViaMemory(cmd, f, client, cmdutil.CanonicalMemoryRef(memory), memory)
+				return initViaMemory(cmd, f, client, cmdutil.CanonicalMemoryRef(memory))
 			}
 			b, berr := readBindingOrNilWithApp(ctx, f)
 			if berr != nil {
@@ -117,7 +117,7 @@ chat-message nodeType — D-2026-08-07-004), owned server-side.`,
 // (an already-correct target reporting "created", a fresh one "updated" —
 // PR #437 review). The named memory contributes only the class check and
 // the where-it-landed note.
-func initViaMemory(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, memRef, asTyped string) error {
+func initViaMemory(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, memRef string) error {
 	ctx := cmd.Context()
 	resp, err := gen.GetMemory(ctx, client, memRef)
 	if err != nil {
@@ -126,7 +126,7 @@ func initViaMemory(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client
 	if resp.Memory == nil {
 		return exitcode.Newf(exitcode.NotFound, "memory not found (the ref given is not shown)")
 	}
-	if err := requireAppClass(resp.Memory.Urn, resp.Memory.Class); err != nil {
+	if err := requireAppClass(resp.Memory.Class); err != nil {
 		return err
 	}
 	appRef, err := appForTeamMemory(ctx, client, memRef)
@@ -155,7 +155,7 @@ func sharedMemoryStatus(ctx context.Context, client graphql.Client, appRef strin
 	if pre.App.SharedMemory == nil {
 		return false, "", "", nil
 	}
-	declared, err = worklogDeclared(pre.App.SharedMemory.Urn, pre.App.SharedMemory.Schema)
+	declared, err = worklogDeclared(pre.App.SharedMemory.Schema)
 	return declared, pre.App.SharedMemory.Id, pre.App.SharedMemory.Urn, err
 }
 
@@ -163,7 +163,7 @@ func sharedMemoryStatus(ctx context.Context, client graphql.Client, appRef strin
 // collection. Presence, not content (#401): the definition itself is the
 // server's, and knowing whether one existed is what keeps the three-value
 // `status` contract intact.
-func worklogDeclared(urn string, schema *json.RawMessage) (bool, error) {
+func worklogDeclared(schema *json.RawMessage) (bool, error) {
 	if schema == nil || len(*schema) == 0 || bytes.Equal(*schema, []byte("null")) {
 		return false, nil
 	}
@@ -240,7 +240,7 @@ func convergeAndReport(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Cl
 // memory is read-only from every App that runs it (cor:dmo:050:03), which
 // makes a worklog collection declared there permanently unwritable. Writing
 // it anyway and reporting success is the whole defect.
-func requireAppClass(urn string, class gen.MemoryClass) error {
+func requireAppClass(class gen.MemoryClass) error {
 	if class == gen.MemoryClassApp {
 		return nil
 	}

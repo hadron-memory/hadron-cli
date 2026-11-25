@@ -751,23 +751,6 @@ func soleWorkerForRepo(ctx context.Context, client graphql.Client, bound gen.Wor
 	return found
 }
 
-// appIndependentRef picks the spelling of a worker that resolves with NO App
-// scope: its URN, or its id when the App's URN predates the grammar-v2 arity
-// a worker URN needs and there is none.
-//
-// Never the NAME. A name resolves only within an App (cor:agt:020:02), so a
-// remedy command spelled with one fails not-found for precisely the caller
-// most likely to be reading it — whoever reached this refusal through
-// `--as hrn:worker:…` with no ambient App, which is a supported path and the
-// one `--as`'s own help now recommends for scripts. (PR #511 review, Codex
-// P2 + Copilot, independently.)
-func appIndependentRef(w gen.WorkerFields) string {
-	if w.Urn != nil && *w.Urn != "" {
-		return *w.Urn
-	}
-	return w.Id
-}
-
 // heldRefusal is the WORKER_HELD refusal, in one place because two paths
 // reach it — the pre-flight that reads the hold off the worker row, and the
 // server's own refusal, which is the authority and also covers the race the
@@ -782,7 +765,10 @@ func appIndependentRef(w gen.WorkerFields) string {
 // A remedy is only a remedy if the caller can run it as written, so BOTH
 // commands here name their App scope: `release` through an App-independent
 // ref, and `cast`, which has no such spelling — a worker that does not exist
-// yet cannot be addressed — through an explicit --app placeholder.
+// yet cannot be addressed — through an explicit --app placeholder. The release
+// ref is the server's worker id: it resolves with no App (a name resolves only
+// within one, cor:agt:020:02), and unlike the name or the URN it never holds
+// what the operator typed (cli#3114).
 func heldRefusal(workerID, holder string, heldAt *string) error {
 	who := holder
 	if who == "" {

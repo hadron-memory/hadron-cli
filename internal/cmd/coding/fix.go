@@ -13,6 +13,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // plannedFix is one edge relabel: promote a check's description into an edge
@@ -181,7 +182,7 @@ func applyReviewFix(ctx context.Context, client graphql.Client, f *cmdutil.Facto
 	for _, p := range plan {
 		label := p.NewLabel
 		if _, err := gen.UpdateEdge(ctx, client, p.EdgeID, &label, nil, nil, nil, nil, nil, nil); err != nil {
-			return applied, fmt.Errorf("relabelling edge %s: %w", p.EdgeID, api.MapError(err))
+			return applied, fmt.Errorf("relabelling edge %s: %w", output.SafeCell(p.EdgeID), api.MapError(err))
 		}
 		applied++
 	}

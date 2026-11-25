@@ -144,7 +144,7 @@ func runWorkerCompileBatch(cmd *cobra.Command, f *cmdutil.Factory, opts bootcomp
 	if err != nil {
 		return err
 	}
-	roster, err = filterOnly(roster, opts.Only, scope.Ref)
+	roster, err = filterOnly(roster, opts.Only)
 	if err != nil {
 		return err
 	}
@@ -377,12 +377,12 @@ func scanBootPointers(ctx context.Context, client graphql.Client, appRef string)
 
 // filterOnly keeps the --only workers, refusing before any write when one is
 // not a live worker in the App.
-func filterOnly(rows []batchWorkerRow, only []string, appRef string) ([]batchWorkerRow, error) {
-	return filterOnlyNoting(rows, only, appRef, "nothing was compiled")
+func filterOnly(rows []batchWorkerRow, only []string) ([]batchWorkerRow, error) {
+	return filterOnlyNoting(rows, only, "nothing was compiled")
 }
 
 // filterOnlyNoting is filterOnly with the batch's own "nothing was <done>" note.
-func filterOnlyNoting(rows []batchWorkerRow, only []string, appRef, nothingDone string) ([]batchWorkerRow, error) {
+func filterOnlyNoting(rows []batchWorkerRow, only []string, nothingDone string) ([]batchWorkerRow, error) {
 	if len(only) == 0 {
 		return rows, nil
 	}
