@@ -33,6 +33,7 @@ func TestHelpPagesExplainPRAlarmsAndFindings1054(t *testing.T) {
 		{[]string{"team", "alarm"}, []string{"An alarm is a warning the platform raises when work stalls", "wakes its nearest owner first, and the owners above only while it stays unacknowledged", "hadron team alarms", "hadron team events --alarms", "hadron team alarm ack <eventId>"}, nil},
 		{[]string{"team", "alarm", "ack"}, []string{
 			"<eventId> is the alarm's event id: the ALARM column of \"hadron team alarms\"", "ALARM_ALREADY_ACKNOWLEDGED",
+			"ALARM_NOT_ACKNOWLEDGEABLE (exit 2)", "team.dark",
 			"✓ acknowledged alarm", "a task-less alarm names its worker or coordinator", "--instruction opens the App-manager's held-worker path",
 			"hadron team alarm ack 01a1f0c2d3e4f5a6b7c8d9e0f1a2b3c4", "The full rules are in \"hadron agentic-usage\"",
 		}, []string{"The CLI splits on the first colon only"}},
