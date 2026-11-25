@@ -1183,6 +1183,13 @@ query TeamMetrics(
 fragment TeamMetricsCountFields on TeamMetricsCount {
   total
   ids
+  # server#4992 (cli#3099): one entry per id of ids, same order, the id and its
+  # name (a task title or a worker name), null when no name is readable — so a
+  # client needs no read per id.
+  named {
+    id
+    name
+  }
   truncated
 }
 

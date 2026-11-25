@@ -15,35 +15,37 @@ import (
 )
 
 // metricsFull is a full answer: every report present, a No project bucket whose
-// taskId and title are null, two owners, two statuses under a project.
+// taskId and title are null, two owners, two statuses under a project. Every
+// count carries named (server#4992): one entry per id of ids, same order, null
+// when no name is readable (t2's title is unreadable on purpose).
 const metricsFull = `{
  "appId":"capp100000000000000000000",
  "asOf":"2026-11-22T08:00:00Z",
  "window":{"since":"2026-11-15T08:00:00Z","until":"2026-11-22T08:00:00Z"},
  "startedOwned":{
-  "all":{"total":3,"ids":["t1","t2","t3"],"truncated":false},
+  "all":{"total":3,"ids":["t1","t2","t3"],"named":[{"id":"t1","name":"Ship the metrics command"},{"id":"t2","name":null},{"id":"t3","name":"Roster polish"}],"truncated":false},
   "byOwner":[
    {"owner":{"id":"w1","kind":"WORKER","name":"Eden","urn":"hrn:worker:hadronmemory.com:hadron-dev-team:eden"},
-    "tasks":{"total":2,"ids":["t1","t2"],"truncated":false},
+    "tasks":{"total":2,"ids":["t1","t2"],"named":[{"id":"t1","name":"Ship the metrics command"},{"id":"t2","name":null}],"truncated":false},
     "byProject":[
-     {"project":{"handle":"AT12","noProject":false,"taskId":"p12","title":"Metrics epic"},"tasks":{"total":1,"ids":["t1"],"truncated":false}},
-     {"project":{"handle":"AT0","noProject":true,"taskId":null,"title":null},"tasks":{"total":1,"ids":["t2"],"truncated":false}}],
+     {"project":{"handle":"AT12","noProject":false,"taskId":"p12","title":"Metrics epic"},"tasks":{"total":1,"ids":["t1"],"named":[{"id":"t1","name":"Ship the metrics command"}],"truncated":false}},
+     {"project":{"handle":"AT0","noProject":true,"taskId":null,"title":null},"tasks":{"total":1,"ids":["t2"],"named":[{"id":"t2","name":null}],"truncated":false}}],
     "projectsTruncated":false},
    {"owner":{"id":"u1","kind":"USER","name":"holger","urn":null},
-    "tasks":{"total":1,"ids":["t3"],"truncated":false},
-    "byProject":[{"project":{"handle":"AT12","noProject":false,"taskId":"p12","title":"Metrics epic"},"tasks":{"total":1,"ids":["t3"],"truncated":false}}],
+    "tasks":{"total":1,"ids":["t3"],"named":[{"id":"t3","name":"Roster polish"}],"truncated":false},
+    "byProject":[{"project":{"handle":"AT12","noProject":false,"taskId":"p12","title":"Metrics epic"},"tasks":{"total":1,"ids":["t3"],"named":[{"id":"t3","name":"Roster polish"}],"truncated":false}}],
     "projectsTruncated":false}],
   "ownersTruncated":false},
  "projects":{"items":[
    {"project":{"handle":"AT12","noProject":false,"taskId":"p12","title":"Metrics epic"},
-    "children":[{"status":"STARTED","tasks":{"total":2,"ids":["t1","t3"],"truncated":false}},{"status":"FINISHED","tasks":{"total":4,"ids":["t4","t5","t6","t7"],"truncated":false}}]}],
+    "children":[{"status":"STARTED","tasks":{"total":2,"ids":["t1","t3"],"named":[{"id":"t1","name":"Ship the metrics command"},{"id":"t3","name":"Roster polish"}],"truncated":false}},{"status":"FINISHED","tasks":{"total":4,"ids":["t4","t5","t6","t7"],"named":[{"id":"t4","name":"Names in metrics"},{"id":"t5","name":null},{"id":"t6","name":null},{"id":"t7","name":"Window doc"}],"truncated":false}}]}],
   "truncated":false},
  "workers":{
-  "active":{"total":2,"ids":["w1","w2"],"truncated":false},
-  "idle":{"total":1,"ids":["w3"],"truncated":false},
-  "overdue":{"total":1,"ids":["w2"],"truncated":false},
-  "inop":{"total":1,"ids":["w2"],"truncated":false}},
- "flow":{"completed":{"total":5,"ids":["t4","t5","t6","t7","t8"],"truncated":false},"started":{"total":3,"ids":["t1","t2","t3"],"truncated":false}}
+  "active":{"total":2,"ids":["w1","w2"],"named":[{"id":"w1","name":"Eden"},{"id":"w2","name":"Jonas"}],"truncated":false},
+  "idle":{"total":1,"ids":["w3"],"named":[{"id":"w3","name":"Petra"}],"truncated":false},
+  "overdue":{"total":1,"ids":["w2"],"named":[{"id":"w2","name":"Jonas"}],"truncated":false},
+  "inop":{"total":1,"ids":["w2"],"named":[{"id":"w2","name":"Jonas"}],"truncated":false}},
+ "flow":{"completed":{"total":5,"ids":["t4","t5","t6","t7","t8"],"named":[{"id":"t4","name":"Names in metrics"},{"id":"t5","name":null},{"id":"t6","name":null},{"id":"t7","name":"Window doc"},{"id":"t8","name":"Cold cache sweep"}],"truncated":false},"started":{"total":3,"ids":["t1","t2","t3"],"named":[{"id":"t1","name":"Ship the metrics command"},{"id":"t2","name":null},{"id":"t3","name":"Roster polish"}],"truncated":false}}
 }`
 
 // metricsRosterOnly is a reader who may see the roster but not the tasks: the
@@ -52,18 +54,18 @@ const metricsRosterOnly = `{
  "appId":"capp100000000000000000000","asOf":"2026-11-22T08:00:00Z",
  "window":{"since":"2026-11-15T08:00:00Z","until":"2026-11-22T08:00:00Z"},
  "startedOwned":null,"projects":null,
- "workers":{"active":{"total":0,"ids":[],"truncated":false},"idle":{"total":2,"ids":["w3","w4"],"truncated":false},
-  "overdue":{"total":0,"ids":[],"truncated":false},"inop":{"total":0,"ids":[],"truncated":false}},
+ "workers":{"active":{"total":0,"ids":[],"named":[],"truncated":false},"idle":{"total":2,"ids":["w3","w4"],"named":[{"id":"w3","name":"Petra"},{"id":"w4","name":null}],"truncated":false},
+  "overdue":{"total":0,"ids":[],"named":[],"truncated":false},"inop":{"total":0,"ids":[],"named":[],"truncated":false}},
  "flow":null}`
 
 const metricsEmpty = `{
  "appId":"capp100000000000000000000","asOf":"2026-11-22T08:00:00Z",
  "window":{"since":"2026-11-15T08:00:00Z","until":"2026-11-22T08:00:00Z"},
- "startedOwned":{"all":{"total":0,"ids":[],"truncated":false},"byOwner":[],"ownersTruncated":false},
+ "startedOwned":{"all":{"total":0,"ids":[],"named":[],"truncated":false},"byOwner":[],"ownersTruncated":false},
  "projects":{"items":[],"truncated":false},
- "workers":{"active":{"total":0,"ids":[],"truncated":false},"idle":{"total":0,"ids":[],"truncated":false},
-  "overdue":{"total":0,"ids":[],"truncated":false},"inop":{"total":0,"ids":[],"truncated":false}},
- "flow":{"completed":{"total":0,"ids":[],"truncated":false},"started":{"total":0,"ids":[],"truncated":false}}}`
+ "workers":{"active":{"total":0,"ids":[],"named":[],"truncated":false},"idle":{"total":0,"ids":[],"named":[],"truncated":false},
+  "overdue":{"total":0,"ids":[],"named":[],"truncated":false},"inop":{"total":0,"ids":[],"named":[],"truncated":false}},
+ "flow":{"completed":{"total":0,"ids":[],"named":[],"truncated":false},"started":{"total":0,"ids":[],"named":[],"truncated":false}}}`
 
 func metricsResponses1826(body string) map[string]string {
 	r := taskResponses()
@@ -156,8 +158,8 @@ func TestTeamMetricsTruncatedCountIsKept1826(t *testing.T) {
 	}
 	idsJSON, _ := json.Marshal(ids)
 	body := strings.Replace(metricsEmpty,
-		`"startedOwned":{"all":{"total":0,"ids":[],"truncated":false}`,
-		`"startedOwned":{"all":{"total":350,"ids":`+string(idsJSON)+`,"truncated":true}`, 1)
+		`"startedOwned":{"all":{"total":0,"ids":[],"named":[],"truncated":false}`,
+		`"startedOwned":{"all":{"total":350,"ids":`+string(idsJSON)+`,"named":[],"truncated":true}`, 1)
 	_, out, err := runTeamTask(t, metricsResponses1826(body), "team", "metrics", "--json")
 	if err != nil {
 		t.Fatal(err)
