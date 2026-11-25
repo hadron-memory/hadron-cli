@@ -459,8 +459,9 @@ func TestGrantManageAppListOffsetPastTheEnd1846(t *testing.T) {
 	}
 }
 
-// BLIND F12 (P3): the agent holder, GRANT_NOT_FOUND on revoke, and the
-// instruction's App fallback reach the wire as pinned.
+// BLIND F12 (P3): the agent holder and GRANT_NOT_FOUND on revoke reach the wire
+// as pinned. The instruction's App fallback is pinned by
+// TestGrantManageRevokeInstructionApp3193.
 func TestGrantManageHolderAgentAndRevokeNotFound1846(t *testing.T) {
 	argv := createArgs1846()
 	for i, a := range argv {

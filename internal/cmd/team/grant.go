@@ -37,12 +37,12 @@ WITHDRAWN or HOLDER_GONE), never worked out here; it can disagree with allows (a
 grant whose issuer can no longer issue stops allowing without changing state),
 and both are shown as returned. A dash means the value is unset. --json keeps the
 server values and nulls. list, get and request need a server released on or
-after 2026-11-17 (the state field; every other field they select shipped
-earlier, on 2026-11-10); an older server refuses the read. list and
-get only read; to ask for a grant see 'hadron team grant request'. Organization
-action grants are a different thing: see
-'hadron grant' ('hadron grant list'); 'hadron auth grants' reads the grants held
-by you personally across Apps.`
+after 2026-11-17 (the state field; every other field request selects shipped by
+2026-11-10, and list and get select only some of those); an older server refuses
+the read. list and get only read; to ask for a grant see
+'hadron team grant request'. Organization action grants are a different thing:
+see 'hadron grant' ('hadron grant list'); 'hadron auth grants' reads the grants
+held by you personally across Apps.`
 
 var workerGrantNames = []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows", "state"}
 
