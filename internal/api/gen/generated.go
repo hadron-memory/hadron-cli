@@ -172797,8 +172797,8 @@ mutation IssueSecretReadClient ($input: IssueSecretReadClientInput!) {
 // cli#2631 slice 1: issue a read client for an App secret, and list the read
 // clients the caller issued or holds. Optional input fields are omitted when unset:
 // omitted keeps the server default, an explicit null would be read as a value.
-// The USE-mode arguments the server added (the CLI issues REVEAL clients only, gap #3014): omitted, never
-// sent as null, so the request without them is byte-identical to before the schema refresh (cli#3006).
+// The USE-mode arguments (cli#3014, `secret client issue --mode USE`): omitted, never sent as null, so a
+// REVEAL issue is byte-identical to before they existed.
 func IssueSecretReadClient(
 	ctx_ context.Context,
 	client_ graphql.Client,
