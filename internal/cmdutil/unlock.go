@@ -94,6 +94,9 @@ func ResolveUnlock(ios *output.IOStreams, u UnlockFlags) ([]api.MemoryKey, error
 		if len(refs) != 1 {
 			return nil, exitcode.Newf(exitcode.Usage, "--unlock-passphrase-stdin supplies ONE memory's passphrase (got %d --unlock); use one --unlock-passphrase-file per memory, or the prompt. Nothing was sent", len(refs))
 		}
+		if err := RefuseSecretStdinOnTerminal(ios, "--unlock-passphrase-stdin", "drop the flag to be prompted with no echo, or pass --unlock-passphrase-file"); err != nil {
+			return nil, err
+		}
 		data, err := io.ReadAll(ios.In)
 		if err != nil {
 			return nil, exitcode.Newf(exitcode.Usage, "reading the --unlock passphrase from stdin failed. Nothing was sent")

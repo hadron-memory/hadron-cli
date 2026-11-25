@@ -24,6 +24,18 @@ type secretOptions struct{ noPrompt bool }
 // the empty-value message does not advertise "run interactively" (cli#2654).
 func NoPrompt() SecretOption { return func(o *secretOptions) { o.noPrompt = true } }
 
+// RefuseSecretStdinOnTerminal refuses to read a secret from stdin when stdin
+// is a terminal, which would echo a pasted value into the operator's screen and
+// scrollback (cli#2654, cli#2689). Call it BEFORE any read, prompt or request.
+// source names the flag as the user gave it (for example "--data-key-file -"),
+// instead names the file or prompt alternative. The message carries no input.
+func RefuseSecretStdinOnTerminal(ios *output.IOStreams, source, instead string) error {
+	if !ios.IsInputTerminal() {
+		return nil
+	}
+	return exitcode.Newf(exitcode.Usage, "%s: stdin is a terminal, so a pasted secret would echo to the screen; pipe it on stdin, or %s. Nothing was sent", source, instead)
+}
+
 // ReadSecretInput reads write-only secret material without ever taking it as
 // an argument, where the shell history and the process list would keep it.
 // source is the value of the command's file flag (named by flag, without the

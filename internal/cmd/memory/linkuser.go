@@ -56,8 +56,9 @@ Passing --data-key-file (or --data-key -) additionally encrypts the memory at re
 transaction: every node's content, abstract, and data are rewritten as
 ciphertext and the memory lands private and owned by that user. Like
 ` + "`hadron memory encrypt`" + `, this is ONE-WAY — there is no decrypt command — so
-keep the key. Put it in a file only you can read (` + "`--data-key-file`" + `, "-" reads stdin;
-a file that group or others can access is refused) to keep it out of shell
+keep the key. Put it in a file only you can read (` + "`--data-key-file`" + `, "-" reads piped
+stdin and is refused on a terminal, where a paste would echo; a file that group
+or others can access is refused) to keep it out of shell
 history and process listings; a literal ` + "`--data-key <key>`" + ` still works but is
 DEPRECATED, warns, and will be refused in a later release. The key must be canonical base64 for exactly 32 bytes (43 characters
 plus '='), is sent once in a request header — never in
@@ -94,7 +95,7 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 			// that a silent no-op that leaves content plaintext even though
 			// the caller asked for encryption; Changed() routes the empty
 			// value into readDataKey, which rejects it (review on #301).
-			keyInput, err := newDataKeyInput(cmd, dataKey, dataKeyFile)
+			keyInput, err := newDataKeyInput(cmd, f.IOStreams, dataKey, dataKeyFile)
 			if err != nil {
 				return err
 			}
@@ -210,8 +211,8 @@ Because the promotion is irreversible, this prompts on a terminal and requires
 	}
 	cmd.Flags().StringVar(&externalUser, "external-user", "", "the App's own identifier for the end user (not a Hadron user id) (required)")
 	_ = cmd.MarkFlagRequired("external-user")
-	cmd.Flags().StringVar(&dataKeyFile, "data-key-file", "", `also encrypt the memory at rest with the key in this file (mode 600; "-" reads stdin)`)
-	cmd.Flags().StringVar(&dataKey, "data-key", "", `also encrypt the memory at rest with the key from stdin ("-"); a literal value is deprecated (visible in ps and shell history): use --data-key-file`)
+	cmd.Flags().StringVar(&dataKeyFile, "data-key-file", "", `also encrypt the memory at rest with the key in this file (mode 600; "-" reads piped stdin)`)
+	cmd.Flags().StringVar(&dataKey, "data-key", "", `also encrypt the memory at rest with the key from piped stdin ("-"); a literal value is deprecated (visible in ps and shell history): use --data-key-file`)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd
 }
