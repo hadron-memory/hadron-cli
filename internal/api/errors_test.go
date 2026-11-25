@@ -390,6 +390,11 @@ func TestMapError(t *testing.T) {
 		{"task not assignee", gqlErr("TASK_NOT_ASSIGNEE"), exitcode.Forbidden},
 		{"worked-from refs invalid (cli#2514)", gqlErr("TASK_ROLE_TASK_REFS_INVALID"), exitcode.Usage},
 		{"alarm not in chain", gqlErr("ALARM_NOT_IN_CHAIN"), exitcode.Forbidden},
+		// cli#3099 (server#4531, cor:agt:050:34): a team.dark alarm has no
+		// chain and is never acknowledged — the eventId names an event whose
+		// kind no acknowledgement fits, like NOT_AN_ALARM below, so the caller
+		// fixes it by acking a different alarm, not by waiting or escalating.
+		{"alarm not acknowledgeable (cli#3099)", gqlErr("ALARM_NOT_ACKNOWLEDGEABLE"), exitcode.Usage},
 		{"worker leave alone not permitted", gqlErr("WORKER_LEAVE_ALONE_NOT_PERMITTED"), exitcode.Forbidden},
 		{"availability not permitted", gqlErr("AVAILABILITY_NOT_PERMITTED"), exitcode.Forbidden},
 		// #871: host operations and the host:operate grant.
