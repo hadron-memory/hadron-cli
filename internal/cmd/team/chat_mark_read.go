@@ -47,11 +47,11 @@ where it already is), and a seq beyond the chat's newest message is refused
 (exit 2). --channel names another channel by id or address; the default is the
 App's team chat.
 
-On the team chat, a successful mark also moves this worktree's local read
-watermark (the one ` + "`" + `hadron team session log` + "`" + ` compares against) up to
---through, never backwards; if the server refuses the mark, the local watermark
-stays as it was. A channel given with --channel leaves the local watermark
-alone, because it counts the team chat only.
+On the team chat, a successful mark also moves this worktree's rendering cache
+(the local record that only ` + "`" + `hadron team chat read` + "`" + ` consults) up to --through, never
+backwards; if the server refuses the mark, the cache stays as it was. A channel
+given with --channel leaves the cache alone, because it records the team chat
+only.
 
 Needs a worker session bound to this worktree (` + "`" + `hadron team session start` + "`" + `)
 on this server: the position belongs to the bound worker, and the server only
@@ -103,8 +103,8 @@ accepts it from that worker's own live session.`,
 				return err
 			}
 			channelRef := strings.TrimSpace(channel)
-			// Only the App's team chat is what the binding's local watermark
-			// counts (state.go ChatSeenSeq), so a Channel the caller named is
+			// Only the App's team chat is what the binding's rendering cache
+			// records (state.go ChatSeenSeq), so a Channel the caller named is
 			// never mirrored into it (cli#1854).
 			teamChat := channelRef == ""
 			if channelRef == "" {

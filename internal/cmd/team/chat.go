@@ -571,13 +571,14 @@ Filter the messages:
                      (BAD_USER_INPUT); never an empty transcript.
 
 What counts as read. An ordinary forward read of your own team's chat, with no
-filter, from the point you already reached, records what it returned: it moves
-the local watermark that ` + "`" + `team session log` + "`" + ` counts from and, when the binding
-records this server, marks your worker read on the server up to the same seq.
+filter, from the point you already reached, records what it returned: it
+advances this worktree's rendering cache (a local record that only ` + "`" + `chat read` + "`" + `
+consults; ` + "`" + `team session log` + "`" + ` does not) and, when the binding records this server,
+marks your worker read on the server up to the same seq.
 Messages are marked only after they are printed, so a read that fails partway
 marks nothing. An older server that cannot mark skips the mark; any other mark
 failure prints a note on stderr and the read still succeeds. These reads mark
-nothing and leave the watermark alone: the newest-page read with no cursor (the
+nothing and leave the cache alone: the newest-page read with no cursor (the
 server's count and fetch can race), --before, a window that starts ahead of
 what you have read or past the end of the chat, any filter above, --thread, and
 a read of another team. After one of them, run
