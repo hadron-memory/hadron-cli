@@ -25942,6 +25942,10 @@ type AppRunsResponse struct {
 	//
 	// sortBy / sortDir (#833) order the whole result set server-side, so a client
 	// table is no longer limited to sorting the page it happens to hold.
+	//
+	// appRef, orgRef and parentRunRef share one scalar, ID (#5050,
+	// hrn:node:hadronmemory.com:specs:cor:api:140:01). appRef and orgRef were String until #5050, so a
+	// document that declares either variable as String no longer validates; declare it ID.
 	AppRuns *AppRunsAppRunsAppRunsPage `json:"appRuns"`
 }
 
@@ -155927,7 +155931,7 @@ func AppRun(
 
 // The query executed by AppRuns.
 const AppRuns_Operation = `
-query AppRuns ($appRef: String, $orgRef: String, $status: AppRunStatus, $statuses: [AppRunStatus!], $parentRunId: ID, $sortBy: AppRunSortField, $sortDir: SortDirection, $limit: Int, $offset: Int) {
+query AppRuns ($appRef: ID, $orgRef: ID, $status: AppRunStatus, $statuses: [AppRunStatus!], $parentRunId: ID, $sortBy: AppRunSortField, $sortDir: SortDirection, $limit: Int, $offset: Int) {
 	appRuns(appRef: $appRef, orgRef: $orgRef, status: $status, statuses: $statuses, parentRunRef: $parentRunId, sortBy: $sortBy, sortDir: $sortDir, limit: $limit, offset: $offset) {
 		total
 		items {
