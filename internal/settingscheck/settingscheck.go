@@ -219,6 +219,12 @@ func mainCheckout(dir string) (string, error) {
 	gitdir = absFrom(dir, strings.TrimSpace(gitdir))
 	raw, err = os.ReadFile(filepath.Join(gitdir, "commondir"))
 	if errors.Is(err, os.ErrNotExist) {
+		// No commondir is a submodule only when the gitdir itself exists. A
+		// gitdir that is gone is unreadable, like an unparsable .git file: taking
+		// it as a submodule would skip the repository root's local file (cli#3201).
+		if _, serr := os.Stat(gitdir); serr != nil {
+			return "", serr
+		}
 		return dir, nil
 	}
 	if err != nil {
@@ -281,6 +287,9 @@ func InstalledVersion(bin string) string {
 // AtLeast reports whether version v is floor or later; false when either is
 // not three numbers.
 func AtLeast(v, floor string) bool {
+	// A malformed version answers false, which a caller would show as
+	// VERSION_TOO_OLD. Not reachable today: InstalledVersion answers "" first, so
+	// the caller never reaches this with a malformed one (cli#3201).
 	if !versionRE.MatchString(v) || !versionRE.MatchString(floor) {
 		return false
 	}
