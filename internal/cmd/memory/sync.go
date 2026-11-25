@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"strings"
 	"time"
 
@@ -161,6 +162,7 @@ syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
 	}
 	pull.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required without a terminal)")
 	group.AddCommand(pull)
+	group.AddCommand(newCmdSyncPush(f))
 	group.AddCommand(newCmdSyncSetToken(f))
 	return group
 }
@@ -546,4 +548,112 @@ func syncPullError(err error, ref string, attempted bool) error {
 		return &syncPullFailure{message: safe, cause: api.NewInternalFaultError(fault.RequestID, nil)}
 	}
 	return api.WithServerCode(exitcode.Newf(code, "%s", safe), err)
+}
+
+type syncPushDTO struct {
+	Memory    string `json:"memory"`
+	Operation string `json:"operation"`
+	Pushed    bool   `json:"pushed"`
+}
+
+// newCmdSyncPush writes a memory's live nodes to its configured repository
+// (cli#2513, ruling 0168 (c) lifted 2026-11-22). One PushMemoryToGit, never
+// retried; the server answers only a Boolean, so nothing is reported that the
+// CLI did not learn. No preflight read: the server refuses a memory with no
+// source, and a second request would only widen the window the remote can
+// change in. The stored source URL and token are never read.
+func newCmdSyncPush(f *cmdutil.Factory) *cobra.Command {
+	var yes bool
+	cmd := &cobra.Command{
+		Use: "push <memoryRef>", Short: "Push a memory's nodes to its repository (changes the remote)",
+		Long: `Push writes the memory's current live nodes, data nodes included, to the
+write branch of its configured source repository and pushes it. The remote
+changes. The write branch defaults to main, which is often the branch a pull
+reads, so a push can change what the next pull reads: check the memory's
+read and write branches first (hadron memory get <memory>).
+
+The push asks for confirmation; --yes skips it and is required without a
+terminal (otherwise exit 2, before any request). Needs manage access to the
+memory, a configured source repository and the Hadron GitHub App on it; the
+server checks all three and its refusal is shown. Encrypted memories cannot
+be synced (exit 2). Work the remote refused stays held on the server and is
+never pushed to any remote ref; this command neither lists nor sends it.
+
+The server answers only yes or no: the count of nodes pushed, the commit and
+the branch are not reported, so check the repository for what landed. One
+request is sent and it is never retried. Exit 7 means the push may have
+happened: check the repository before pushing again. A "no" or empty answer
+exits 7 too and never prints "pushed". Server error text is masked for URL
+credentials and well-known token formats (ghp_, github_pat_, glpat-); a token
+of another shape is not recognised. Success prints "pushed memory <ref>". --json:
+{memory,operation:"push",pushed:true}.`,
+		Example: "  hadron memory sync push acme.com:kb --yes\n  hadron memory sync push hrn:mem:acme.com:kb --yes --json",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := validateMemoryRef(args[0]); err != nil {
+				return err
+			}
+			ref := cmdutil.CanonicalMemoryRef(args[0])
+			if err := cmdutil.Confirm(f.IOStreams, yes, "Push memory "+quoteCapped(ref, 300)+" to its repository? The memory's current live nodes, data nodes included, are written to the configured write branch and pushed: the remote changes. The write branch defaults to main, often the branch the sync reads, so the push can change what the next pull reads."); err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.PushMemoryToGit(cmd.Context(), client, ref)
+			if err != nil {
+				return syncPushError(err)
+			}
+			if resp == nil || !resp.PushMemoryToGit {
+				return exitcode.Newf(exitcode.Unavailable, "the server did not confirm the push; it may have happened; check the repository before retrying")
+			}
+			dto := syncPushDTO{Memory: ref, Operation: "push", Pushed: true}
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "pushed memory %s\n", output.SafeLine(ref, 300))
+				return err
+			})
+		},
+	}
+	cmd.Flags().BoolVar(&yes, "yes", false, "skip confirmation (required without a terminal)")
+	return cmd
+}
+
+// syncPushError maps a PushMemoryToGit failure. Server text for a failed push
+// can carry git or URL detail, so every message is masked and made one safe
+// line before it can reach stdout, stderr or --json.
+func syncPushError(err error) error {
+	mapped := api.MapError(err)
+	code := exitcode.FromError(mapped)
+	message := mapped.Error()
+	switch {
+	case api.HasErrorCode(err, "ENCRYPTED_GIT_SYNC_UNAVAILABLE"):
+		code = exitcode.Usage
+		message = "this memory is encrypted and cannot be synced with git"
+	case code == exitcode.Unavailable:
+		message = "no answer; the push may have happened; check the repository before retrying"
+	case api.HasErrorCode(err, "INTERNAL_SERVER_ERROR"):
+		message += "; the server reported an internal error, so check the repository before pushing again"
+	case api.ServerCodeOf(err) == "":
+		message += "; the server gave no refusal code, so check the repository before pushing again"
+	}
+	message = maskPushText(message)
+	safe := output.SafeLine(message, 2000)
+	if fault, ok := api.InternalFaultOf(mapped); ok {
+		return &syncPullFailure{message: safe, cause: api.NewInternalFaultError(fault.RequestID, nil)}
+	}
+	return api.WithServerCode(exitcode.Newf(code, "%s", safe), err)
+}
+
+// bareTokenShapes covers the well-known prefixed token formats a git or
+// provider failure can quote outside a URL: GitHub ghp_/gho_/ghu_/ghs_/ghr_ and
+// github_pat_, GitLab glpat-. maskSyncError only strips URL userinfo, and a
+// token of an unknown shape cannot be recognised at all, so this is a floor,
+// not a guarantee (cli#2513 blind P2).
+var bareTokenShapes = regexp.MustCompile(`\b(?:gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|glpat-[A-Za-z0-9_-]{8,})`)
+
+// maskPushText masks URL credentials and the well-known bare token shapes in
+// server text for a push failure.
+func maskPushText(s string) string {
+	return bareTokenShapes.ReplaceAllString(*maskSyncError(&s), "[redacted]")
 }
