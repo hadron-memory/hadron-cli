@@ -936,7 +936,7 @@ func TestCodingPreflightCreateUnroutedExits1(t *testing.T) {
 }
 
 // The body update is the last step, so its failure still leaves a routed node.
-// It is reported with the exact line to paste, and still exits 1.
+// It is reported with the command that writes the line, and still exits 1.
 func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
 	gql, _ := queueGraphQL(t, map[string][]string{
 		"GetNodeRaw": {
@@ -958,7 +958,7 @@ func TestCodingPreflightCreateBodyUpdateFailureExits1(t *testing.T) {
 		t.Errorf("a missing body line is a partial write (exit 1), got %d", got)
 	}
 	if !strings.Contains(err.Error(), "hadron coding preflight route <loc>") || strings.Contains(err.Error(), "flaky-otp-timer") {
-		t.Errorf("the error must say to add the line by hand, without the loc typed, got %q", err.Error())
+		t.Errorf("the error must name the command that adds the line, without the loc typed, got %q", err.Error())
 	}
 }
 
