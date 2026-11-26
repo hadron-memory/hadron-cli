@@ -1299,6 +1299,13 @@ func codeForExtension(code string) int {
 	case code == "GITHUB_NOT_INSTALLED" || code == "GITHUB_TOKEN_SCOPE_MISMATCH" ||
 		code == "TASK_INTEGRATION_ORG_REQUIRED" || code == "APP_PROPERTIES_CONFLICT":
 		return exitcode.Conflict
+	// cli#3209: finishAgentTask refuses a review-seat task that has no verdict
+	// recorded (hadron-server seatVerdictGate, before any write). It is the
+	// task's state, fixed by recording the verdict and finishing again, like
+	// TASK_ENDED: 5. A literal row, ahead of the _REQUIRED suffix rule's usage
+	// exit below.
+	case code == "SEAT_VERDICT_REQUIRED":
+		return exitcode.Conflict
 	case code == "GITHUB_UNAVAILABLE":
 		return exitcode.Unavailable
 	// S12b defect links (hadron-cli#2189, hadron-server#4280): a caller who may
@@ -1956,6 +1963,11 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "GRANT_NOT_PENDING" || code == "GRANT_EXPIRED" || code == "GRANT_TERMS_UNREPRESENTABLE":
 		return exitcode.Conflict
+	// A selection of grants (requestGrantSelectionSignature, cor:acl:140:07;
+	// cli#3197): the list itself is the caller's input, which it fixes: 2. The
+	// per-grant codes are the one-grant request's, mapped above.
+	case code == "SELECTION_EMPTY" || code == "SELECTION_TOO_LARGE" || code == "SELECTION_DUPLICATE_GRANT" || code == "SELECTION_MIXED_APPS":
+		return exitcode.Usage
 	// cli#2631 (issuing a secret read client): auto-delete needs a window or read
 	// budget: the caller's own input (2). cli#2720: SECRET_AUTO_DELETE_NOT_ALLOWED
 	// (the caller neither manages the App nor wrote the secret's current version) is
