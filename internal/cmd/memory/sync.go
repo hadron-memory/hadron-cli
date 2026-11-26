@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"regexp"
 	"strings"
 	"time"
 
@@ -73,7 +72,9 @@ timestamp is never clean. Exit 7 means the sync may have happened: the failed
 request is not retried, so use memory get to check the recorded state before
 pulling again. --json:
 {memory,operation:"pull",clean,syncStatus,syncError,lastSyncedAt,
-syncReportStatus,syncReport}. URL credentials in sync errors are masked.`,
+syncReportStatus,syncReport}. Sync error text is masked for URL credentials and
+well-known token formats (ghp_, github_pat_, glpat-); a token of another shape
+is not recognised.`,
 		Example: "  hadron memory sync pull acme.com:kb --yes\n  hadron memory sync pull hrn:mem:acme.com:kb --yes --json",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -541,7 +542,7 @@ func syncPullError(err error, ref string, attempted bool) error {
 	} else if api.ServerCodeOf(err) == "" || api.HasErrorCode(err, "INTERNAL_SERVER_ERROR") {
 		message += "; check `hadron memory get " + ref + "` for what was recorded"
 	}
-	message = *maskSyncError(&message)
+	message = maskSyncText(message)
 	safe := output.SafeLine(message, 2000)
 	if fault, ok := api.InternalFaultOf(mapped); ok {
 		// Keep only the bounded request-id metadata, without a raw server cause.
@@ -637,23 +638,10 @@ func syncPushError(err error) error {
 	case api.ServerCodeOf(err) == "":
 		message += "; the server gave no refusal code, so check the repository before pushing again"
 	}
-	message = maskPushText(message)
+	message = maskSyncText(message)
 	safe := output.SafeLine(message, 2000)
 	if fault, ok := api.InternalFaultOf(mapped); ok {
 		return &syncPullFailure{message: safe, cause: api.NewInternalFaultError(fault.RequestID, nil)}
 	}
 	return api.WithServerCode(exitcode.Newf(code, "%s", safe), err)
-}
-
-// bareTokenShapes covers the well-known prefixed token formats a git or
-// provider failure can quote outside a URL: GitHub ghp_/gho_/ghu_/ghs_/ghr_ and
-// github_pat_, GitLab glpat-. maskSyncError only strips URL userinfo, and a
-// token of an unknown shape cannot be recognised at all, so this is a floor,
-// not a guarantee (cli#2513 blind P2).
-var bareTokenShapes = regexp.MustCompile(`\b(?:gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|glpat-[A-Za-z0-9_-]{8,})`)
-
-// maskPushText masks URL credentials and the well-known bare token shapes in
-// server text for a push failure.
-func maskPushText(s string) string {
-	return bareTokenShapes.ReplaceAllString(*maskSyncError(&s), "[redacted]")
 }
