@@ -790,11 +790,11 @@ section between the markers.
 | `billing adjust` |  |  | y | #1184 | 7c0b84d5a924 |  | unread |  |
 | `billing balance` |  |  | y | #1184 | 31e39d981a7a |  | unread |  |
 | `billing grant` |  |  | y | #1184 | c0d572e237ed |  | unread |  |
-| `billing ledger` |  |  | y | #1184 | 1cbbbe8ba6bf |  | unread |  |
+| `billing ledger` |  |  | y | #1184 | b638fc049a7b |  | unread |  |
 | `billing prices` |  |  | y | #1184 | fb30acdcaf4f |  | unread |  |
 | `billing prices get` |  |  | y | #1184 | 52487a9bf12e |  | unread |  |
 | `billing prices set` |  |  | y | #1184 | 08dca1e37d12 |  | unread |  |
-| `billing spend` |  |  | y | #1184 | 15c85478d897 |  | unread |  |
+| `billing spend` |  |  | y | #1184 | 4f1684612687 |  | unread |  |
 | `calendar` |  |  | y | #1184 | c2849191f7cd | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `calendar event` |  |  | n | #1184 | eda97ca71e1c | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `calendar event create` |  |  | y | #1184 | e91f48331fa3 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
