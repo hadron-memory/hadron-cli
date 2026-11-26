@@ -314,7 +314,7 @@ func TestSpec1736AlreadyRetiredAsksTheDoorAndConflicts(t *testing.T) {
 					t.Errorf("outcome/retired = %v/%v", m["outcome"], m["retired"])
 				}
 				all := text1736(out, err)
-				for _, want := range []string{"currently already retired", "nothing written"} {
+				for _, want := range []string{"already retired", "nothing written"} {
 					if !strings.Contains(all, want) {
 						t.Errorf("missing %q:\n%s", want, all)
 					}
@@ -694,8 +694,10 @@ func TestSpec1736LocalCompositionDeleted(t *testing.T) {
 
 func TestSpec1736Help(t *testing.T) {
 	for verb, wants := range map[string][]string{
-		"rescind":   {"retireSpec", "server composes", "exit 5", "exit 0", "manual review", "currently"},
-		"supersede": {"retireSpec", "server composes", "exit 5", "manual review", "resume", "currently"},
+		// cli#3266 item 4: the dry run does not judge eligibility. Item 5: the
+		// flags that carry the historical summary and the successor stay documented.
+		"rescind":   {"retireSpec", "server composes", "exit 5", "exit 0", "manual review", "currently", "does not judge eligibility", "--summary"},
+		"supersede": {"retireSpec", "server composes", "exit 5", "manual review", "resume", "currently", "does not judge eligibility", "--summary", "--by"},
 	} {
 		f, out := testFactory(t)
 		root := NewRootCmd(f)
@@ -813,5 +815,58 @@ func TestSpec1736UnwritableFailureKeepsItsExitAndSuccessor(t *testing.T) {
 		if name == "create" && !strings.Contains(err.Error(), "new1") {
 			t.Errorf("the successor is lost: %v", err)
 		}
+	}
+}
+
+// cli#3266 item 2: the conflict message states the current state once, without
+// "currently already", and its second sentence starts with a capital.
+func TestSpec3266ConflictMessageReadsOnce(t *testing.T) {
+	for name, s := range map[string]*door1736{
+		"retired":     {tags: []string{"spec", "superseded"}, abstract: "SUPERSEDED (2026-01-01) by msg:010:03 (W3); do not apply. Historical: y", reply: refusal1736("NODE_WRITE_CONFLICT")},
+		"not retired": {reply: refusal1736("NODE_WRITE_CONFLICT"), state: spec1736("sp1", door1736Old, "mem1", 9, `["spec"]`, "null", "")},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, err := run1736(t, s, verbBy1736)
+			if err == nil {
+				t.Fatal("a conflict must fail")
+			}
+			msg := err.Error()
+			if strings.Contains(msg, "currently already") {
+				t.Errorf("repeats the state word:\n%s", msg)
+			}
+			if strings.Contains(msg, ". currently") || !strings.Contains(msg, ". Currently ") {
+				t.Errorf("the second sentence must start with a capital:\n%s", msg)
+			}
+		})
+	}
+}
+
+// cli#3266 item 3: a server that omits length or max never makes the message
+// print <nil>; it says the abstract is too long and gives no invented number.
+func TestSpec3266AbstractTooLongFallback(t *testing.T) {
+	for name, ext := range map[string]string{
+		"no length": `"max":2000`,
+		"no max":    `"length":2104`,
+		"neither":   `"x":1`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			reply := `{"data":null,"errors":[{"message":"too long","path":["retireSpec"],"extensions":{"code":"NodeAbstractTooLongError",` + ext + `}}]}`
+			s := &door1736{reply: reply}
+			out, err := run1736(t, s, verbBy1736)
+			if got := exitCodeFor(err); got != exitcode.Usage {
+				t.Fatalf("exit = %d (%v), want the same usage exit as with the numbers", got, err)
+			}
+			all := text1736(out, err)
+			for _, banned := range []string{"<nil>", "%!v", "characters, and the cap is"} {
+				if strings.Contains(all, banned) {
+					t.Errorf("%q in:\n%s", banned, all)
+				}
+			}
+			for _, want := range []string{"too long", "--summary", "--reason"} {
+				if !strings.Contains(all, want) {
+					t.Errorf("missing %q:\n%s", want, all)
+				}
+			}
+		})
 	}
 }
