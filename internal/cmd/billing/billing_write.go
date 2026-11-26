@@ -203,7 +203,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 				return err
 			}
 			in := gen.GrantCreditsInput{
-				OrgRef:           args[0],
+				OrgRef:           &args[0],
 				AmountMicroCents: amount,
 				SourceType:       &sourceType,
 				SourceId:         &sourceID,
@@ -295,7 +295,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 				return err
 			}
 			resp, err := gen.AdjustCredits(cmd.Context(), client, &gen.AdjustCreditsInput{
-				OrgRef:           args[0],
+				OrgRef:           &args[0],
 				AmountMicroCents: amount,
 				SourceType:       sourceType,
 				SourceId:         sourceID,
@@ -323,12 +323,22 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 	return cmd
 }
 
+// organizationID is the owning organization's id. The server leaves it null for
+// a person's ledger (hadron-server#5207), which no command here asks for: each
+// names an organization (hadron-cli#3072 adds the person owner).
+func organizationID(id *string) string {
+	if id == nil {
+		return ""
+	}
+	return *id
+}
+
 // ledgerEntryFrom copies a ledger entry into its stable DTO; money stays the
 // server's string.
 func ledgerEntryFrom(e *gen.CreditLedgerEntryFields) ledgerEntryDTO {
 	return ledgerEntryDTO{
 		ID:               e.Id,
-		OrganizationID:   e.OrganizationId,
+		OrganizationID:   organizationID(e.OrganizationId),
 		Kind:             e.Kind,
 		AmountMicroCents: e.AmountMicroCents,
 		ExpiresAt:        e.ExpiresAt,

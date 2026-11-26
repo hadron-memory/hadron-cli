@@ -1935,9 +1935,9 @@ func (v *AddOrgMemberResponse) GetAddOrgMember() *AddOrgMemberAddOrgMember { ret
 // AdjustCreditsAdjustCreditsCreditLedgerEntry includes the requested fields of the GraphQL type CreditLedgerEntry.
 // The GraphQL type's documentation follows.
 //
-// 046-usage-metering: append-only org credit ledger row. Signed
-// micro-cents as a base-10 integer string (grants +, debits -,
-// adjustments either sign).
+// 046-usage-metering: append-only credit ledger row of an organization or a
+// person (hrn:node:hadronmemory.com:specs:cor:dmo:170:01). Signed micro-cents
+// as a base-10 integer string (grants +, debits -, adjustments either sign).
 type AdjustCreditsAdjustCreditsCreditLedgerEntry struct {
 	CreditLedgerEntryFields `json:"-"`
 }
@@ -1948,7 +1948,7 @@ func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetId() string {
 }
 
 // GetOrganizationId returns AdjustCreditsAdjustCreditsCreditLedgerEntry.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetOrganizationId() string {
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetOrganizationId() *string {
 	return v.CreditLedgerEntryFields.OrganizationId
 }
 
@@ -2020,7 +2020,7 @@ func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) UnmarshalJSON(b []byte) er
 type __premarshalAdjustCreditsAdjustCreditsCreditLedgerEntry struct {
 	Id string `json:"id"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	Kind string `json:"kind"`
 
@@ -2063,7 +2063,7 @@ func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) __premarshalJSON() (*__pre
 	return &retval, nil
 }
 
-// A signed correction on an organization's credit ledger, such as a refund
+// A signed correction on an organization's or a person's credit ledger, such as a refund
 // (hrn:node:hadronmemory.com:specs:cor:dmo:170:03). It is written as a new
 // adjustment entry, never as an edit of another
 // (hrn:node:hadronmemory.com:specs:cor:dmo:170:08).
@@ -2073,8 +2073,10 @@ type AdjustCreditsInput struct {
 	AmountMicroCents string `json:"amountMicroCents"`
 	// Why the correction was made; must not be blank. Kept as long as the
 	// entry: codes and ids, never personal data.
-	Note   string `json:"note"`
-	OrgRef string `json:"orgRef"`
+	Note string `json:"note"`
+	// Exactly one of orgRef and userRef (BAD_USER_INPUT for both or neither).
+	// The organization whose ledger is corrected.
+	OrgRef *string `json:"orgRef"`
 	// The id within sourceType; must not be blank.
 	SourceId string `json:"sourceId"`
 	// Idempotency + provenance pair, e.g. ('refund', <refund id>); neither
@@ -2084,6 +2086,10 @@ type AdjustCreditsInput struct {
 	// types the server writes itself: usage-event, grant-expiry, period-grant,
 	// cost-correction.
 	SourceType string `json:"sourceType"`
+	// The person whose ledger is corrected: an id, a handle or a hrn:user: URN
+	// (hrn:node:hadronmemory.com:specs:cor:api:140:01). A soft-deleted person is
+	// not found.
+	UserRef *string `json:"userRef,omitempty"`
 }
 
 // GetAmountMicroCents returns AdjustCreditsInput.AmountMicroCents, and is useful for accessing the field via an interface.
@@ -2093,7 +2099,7 @@ func (v *AdjustCreditsInput) GetAmountMicroCents() string { return v.AmountMicro
 func (v *AdjustCreditsInput) GetNote() string { return v.Note }
 
 // GetOrgRef returns AdjustCreditsInput.OrgRef, and is useful for accessing the field via an interface.
-func (v *AdjustCreditsInput) GetOrgRef() string { return v.OrgRef }
+func (v *AdjustCreditsInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetSourceId returns AdjustCreditsInput.SourceId, and is useful for accessing the field via an interface.
 func (v *AdjustCreditsInput) GetSourceId() string { return v.SourceId }
@@ -2101,9 +2107,12 @@ func (v *AdjustCreditsInput) GetSourceId() string { return v.SourceId }
 // GetSourceType returns AdjustCreditsInput.SourceType, and is useful for accessing the field via an interface.
 func (v *AdjustCreditsInput) GetSourceType() string { return v.SourceType }
 
+// GetUserRef returns AdjustCreditsInput.UserRef, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsInput) GetUserRef() *string { return v.UserRef }
+
 // AdjustCreditsResponse is returned by AdjustCredits on success.
 type AdjustCreditsResponse struct {
-	// Write a signed adjustment entry on an org's credit ledger, e.g. a refund (hrn:node:hadronmemory.com:specs:cor:dmo:170:03; a correction is a new entry, hrn:node:hadronmemory.com:specs:cor:dmo:170:08). PLATFORM ADMIN or the BILLING platform role only (#5012). Idempotent on (sourceType, sourceId); a different account, amount or kind on that pair is IDEMPOTENCY_CONFLICT.
+	// Write a signed adjustment entry on an organization's or a person's credit ledger (give exactly one of orgRef and userRef), e.g. a refund (hrn:node:hadronmemory.com:specs:cor:dmo:170:03; a correction is a new entry, hrn:node:hadronmemory.com:specs:cor:dmo:170:08). PLATFORM ADMIN or the BILLING platform role only (#5012). Idempotent on (sourceType, sourceId); a different account, amount or kind on that pair is IDEMPOTENCY_CONFLICT.
 	AdjustCredits *AdjustCreditsAdjustCreditsCreditLedgerEntry `json:"adjustCredits"`
 }
 
@@ -28170,7 +28179,7 @@ type AssignHostWorkerInput struct {
 	AppRef         string  `json:"appRef"`
 	// #4230 — the effort, a profile token. Optional.
 	Effort *string `json:"effort,omitempty"`
-	// The model family it runs as there: one a host has a launcher for (claude, codex, glm or kimi).
+	// The model family it runs as there: any family token (letters, digits, . _ or -, starting with a letter or digit, at most 64 characters; case-insensitive and stored lowercase; anthropic is claude and openai is codex). Whether the host can run it is the host's to report: a start it cannot run is reported failed.
 	Family string `json:"family"`
 	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
 	HostId string `json:"hostId"`
@@ -37127,6 +37136,8 @@ type CloneAgentResponse struct {
 	// and grants. A base or import is licensed for the TARGET organization at clone time, or the clone refuses
 	// (CLONE_BASE_UNUSABLE, CLONE_IMPORT_UNUSABLE). A refusal's blocker subjects carry a name only when you can read the
 	// subject; otherwise only a position. The clone's origin is Agent.clonedFromAgentRef.
+	// #5203: an empty or omitted name keeps the source's name. With no slug, the slug is derived from the name and never
+	// refuses the clone: it skips a reserved word and any taken slug, a deleted holder's included, as base, base-2, base-3.
 	CloneAgent *CloneAgentCloneAgent `json:"cloneAgent"`
 }
 
@@ -45374,12 +45385,21 @@ type CreateMemoryInAppResponse struct {
 	// require the App's user-owner or owning-org OWNER/ADMIN. Personal/private
 	// require the caller's actual App membership (the caller becomes the owner),
 	// with no platform-admin membership bypass; they are not yet supported for
-	// a user-owned App. The install is rechecked as live and licensed in the
-	// deciding transaction. Live name collisions are aliased to a free URN.
+	// a user-owned App. Only the signed-in member acting as themselves creates
+	// one: a run principal, worker session, App key or impersonation is refused.
+	// The install is rechecked as live and licensed in the deciding transaction.
+	// Live name collisions of an app or knowledge memory are aliased to a free URN.
 	//
-	// Typed errors: UNSUPPORTED_MEMORY_CLASS, BAD_USER_INPUT (maxRevCount < 1),
-	// APP_UNINSTALLED, AGENT_NOT_INSTALLED, MEMORY_URN_CONFLICT, FORBIDDEN,
-	// UNAUTHENTICATED.
+	// A personal or private memory is always the caller's own (owner and tenant;
+	// its URN roots on their handle). The server derives its slug and display name
+	// as <app slug>-<handle>-<class> (a numeric tail, -2, -3, when taken); a name
+	// argument sets neither. A user holds at most one of each class created this
+	// way per App; a second is refused with APP_USER_MEMORY_ALREADY_EXISTS.
+	// See hrn:node:hadronmemory.com:specs:cor:dmo:060:20.
+	//
+	// Typed errors: UNSUPPORTED_MEMORY_CLASS, BAD_USER_INPUT (maxRevCount < 1, or
+	// no name for an app or knowledge memory), APP_UNINSTALLED, AGENT_NOT_INSTALLED,
+	// MEMORY_URN_CONFLICT, FORBIDDEN, UNAUTHENTICATED, APP_USER_MEMORY_ALREADY_EXISTS.
 	CreateMemoryInApp *CreateMemoryInAppCreateMemoryInAppMemory `json:"createMemoryInApp"`
 }
 
@@ -47827,8 +47847,12 @@ type CreateSecretProtectedResponse struct {
 	// secret exists yet, and the requester's own passkey ceremony at that URL makes
 	// it (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged request lasts
 	// one hour; at most 5 are open per secret name and at most 2 per requester
-	// (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Those numbers are
-	// engineering bounds, not ruled values.
+	// (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Across the App at
+	// most 100 are open (SECRET_CHANGE_APP_LIMIT) and one requester holds at most 20
+	// (SECRET_CHANGE_REQUESTER_LIMIT). A staged create counts open protected creates
+	// toward the App's 500-secret limit and is refused SECRET_LIMIT_REACHED at staging
+	// when there is no room; completion rejudges it. Those numbers are engineering
+	// bounds, not ruled values (hrn:node:hadronmemory.com:specs:cor:sec:070:02).
 	CreateSecret *CreateSecretProtectedCreateSecret `json:"createSecret"`
 }
 
@@ -47855,8 +47879,12 @@ type CreateSecretResponse struct {
 	// secret exists yet, and the requester's own passkey ceremony at that URL makes
 	// it (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged request lasts
 	// one hour; at most 5 are open per secret name and at most 2 per requester
-	// (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Those numbers are
-	// engineering bounds, not ruled values.
+	// (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Across the App at
+	// most 100 are open (SECRET_CHANGE_APP_LIMIT) and one requester holds at most 20
+	// (SECRET_CHANGE_REQUESTER_LIMIT). A staged create counts open protected creates
+	// toward the App's 500-secret limit and is refused SECRET_LIMIT_REACHED at staging
+	// when there is no room; completion rejudges it. Those numbers are engineering
+	// bounds, not ruled values (hrn:node:hadronmemory.com:specs:cor:sec:070:02).
 	CreateSecret *CreateSecretCreateSecret `json:"createSecret"`
 }
 
@@ -49069,7 +49097,8 @@ var AllCreateUserPermission = []CreateUserPermission{
 
 // CreditBalanceCreditBalance includes the requested fields of the GraphQL type CreditBalance.
 type CreditBalanceCreditBalance struct {
-	OrganizationId string `json:"organizationId"`
+	// The organization the balance is of, or null for a person's.
+	OrganizationId *string `json:"organizationId"`
 	// The balance in micro-cents. Never includes credit whose expiry has passed.
 	BalanceMicroCents string `json:"balanceMicroCents"`
 	// What is left of each unexpired grant that expires, soonest first, worked out by the server from the ledger (a
@@ -49079,7 +49108,7 @@ type CreditBalanceCreditBalance struct {
 }
 
 // GetOrganizationId returns CreditBalanceCreditBalance.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CreditBalanceCreditBalance) GetOrganizationId() string { return v.OrganizationId }
+func (v *CreditBalanceCreditBalance) GetOrganizationId() *string { return v.OrganizationId }
 
 // GetBalanceMicroCents returns CreditBalanceCreditBalance.BalanceMicroCents, and is useful for accessing the field via an interface.
 func (v *CreditBalanceCreditBalance) GetBalanceMicroCents() string { return v.BalanceMicroCents }
@@ -49112,9 +49141,10 @@ func (v *CreditBalanceCreditBalanceExpiringExpiringCredit) GetExpiresAt() string
 
 // CreditBalanceResponse is returned by CreditBalance on success.
 type CreditBalanceResponse struct {
-	// One organization's credit balance (spec 046). Org-ADMIN. The sum over the append-only ledger, less what is left of
-	// any grant whose expiry has passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles
-	// the organization's grants that expired more than a minute ago: it may write those settlement entries, once per grant,
+	// One account's credit balance (spec 046): an organization's or a person's. Give exactly one of orgRef and userRef;
+	// gated as creditLedgerEntries. The sum over the append-only ledger, less what is left of any grant whose expiry has
+	// passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles the account's grants
+	// that expired more than a minute ago: it may write those settlement entries, once per grant,
 	// and never does for an impersonated session, which gets the same figure worked out and stored nowhere.
 	CreditBalance *CreditBalanceCreditBalance `json:"creditBalance"`
 }
@@ -49141,9 +49171,9 @@ func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList) GetItems()
 // CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry includes the requested fields of the GraphQL type CreditLedgerEntry.
 // The GraphQL type's documentation follows.
 //
-// 046-usage-metering: append-only org credit ledger row. Signed
-// micro-cents as a base-10 integer string (grants +, debits -,
-// adjustments either sign).
+// 046-usage-metering: append-only credit ledger row of an organization or a
+// person (hrn:node:hadronmemory.com:specs:cor:dmo:170:01). Signed micro-cents
+// as a base-10 integer string (grants +, debits -, adjustments either sign).
 type CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry struct {
 	CreditLedgerEntryFields `json:"-"`
 }
@@ -49154,7 +49184,7 @@ func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditL
 }
 
 // GetOrganizationId returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetOrganizationId() string {
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetOrganizationId() *string {
 	return v.CreditLedgerEntryFields.OrganizationId
 }
 
@@ -49226,7 +49256,7 @@ func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditL
 type __premarshalCreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry struct {
 	Id string `json:"id"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	Kind string `json:"kind"`
 
@@ -49271,7 +49301,7 @@ func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditL
 
 // CreditLedgerEntriesResponse is returned by CreditLedgerEntries on success.
 type CreditLedgerEntriesResponse struct {
-	// One org's append-only credit-ledger page, newest first (spec 046). Org-ADMIN.
+	// One account's append-only credit-ledger page, newest first (spec 046). Give exactly one of orgRef and userRef (BAD_USER_INPUT for both or neither). An organization's: its ADMIN or OWNER, or a platform admin. A person's: that person in their own session, or a platform admin; an impersonated session and an App key are refused, and a caller who is not a platform admin gets FORBIDDEN whether or not the named person exists (hrn:node:hadronmemory.com:specs:cor:dmo:170:01).
 	CreditLedgerEntries *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryList `json:"creditLedgerEntries"`
 }
 
@@ -49283,12 +49313,13 @@ func (v *CreditLedgerEntriesResponse) GetCreditLedgerEntries() *CreditLedgerEntr
 // CreditLedgerEntryFields includes the GraphQL fields of CreditLedgerEntry requested by the fragment CreditLedgerEntryFields.
 // The GraphQL type's documentation follows.
 //
-// 046-usage-metering: append-only org credit ledger row. Signed
-// micro-cents as a base-10 integer string (grants +, debits -,
-// adjustments either sign).
+// 046-usage-metering: append-only credit ledger row of an organization or a
+// person (hrn:node:hadronmemory.com:specs:cor:dmo:170:01). Signed micro-cents
+// as a base-10 integer string (grants +, debits -, adjustments either sign).
 type CreditLedgerEntryFields struct {
-	Id               string  `json:"id"`
-	OrganizationId   string  `json:"organizationId"`
+	Id string `json:"id"`
+	// The owning organization, or null when the entry belongs to a person.
+	OrganizationId   *string `json:"organizationId"`
 	Kind             string  `json:"kind"`
 	AmountMicroCents string  `json:"amountMicroCents"`
 	ExpiresAt        *string `json:"expiresAt"`
@@ -49303,7 +49334,7 @@ type CreditLedgerEntryFields struct {
 func (v *CreditLedgerEntryFields) GetId() string { return v.Id }
 
 // GetOrganizationId returns CreditLedgerEntryFields.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CreditLedgerEntryFields) GetOrganizationId() string { return v.OrganizationId }
+func (v *CreditLedgerEntryFields) GetOrganizationId() *string { return v.OrganizationId }
 
 // GetKind returns CreditLedgerEntryFields.Kind, and is useful for accessing the field via an interface.
 func (v *CreditLedgerEntryFields) GetKind() string { return v.Kind }
@@ -61359,9 +61390,9 @@ func (v *GrantAppKeyScopeResponse) GetGrantAppKeyScope() *GrantAppKeyScopeGrantA
 // GrantCreditsGrantCreditsCreditLedgerEntry includes the requested fields of the GraphQL type CreditLedgerEntry.
 // The GraphQL type's documentation follows.
 //
-// 046-usage-metering: append-only org credit ledger row. Signed
-// micro-cents as a base-10 integer string (grants +, debits -,
-// adjustments either sign).
+// 046-usage-metering: append-only credit ledger row of an organization or a
+// person (hrn:node:hadronmemory.com:specs:cor:dmo:170:01). Signed micro-cents
+// as a base-10 integer string (grants +, debits -, adjustments either sign).
 type GrantCreditsGrantCreditsCreditLedgerEntry struct {
 	CreditLedgerEntryFields `json:"-"`
 }
@@ -61372,7 +61403,7 @@ func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetId() string {
 }
 
 // GetOrganizationId returns GrantCreditsGrantCreditsCreditLedgerEntry.OrganizationId, and is useful for accessing the field via an interface.
-func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetOrganizationId() string {
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetOrganizationId() *string {
 	return v.CreditLedgerEntryFields.OrganizationId
 }
 
@@ -61444,7 +61475,7 @@ func (v *GrantCreditsGrantCreditsCreditLedgerEntry) UnmarshalJSON(b []byte) erro
 type __premarshalGrantCreditsGrantCreditsCreditLedgerEntry struct {
 	Id string `json:"id"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	Kind string `json:"kind"`
 
@@ -61498,7 +61529,9 @@ type GrantCreditsInput struct {
 	// adjustment, not a second grant).
 	ExpiresAt *string `json:"expiresAt,omitempty"`
 	Note      *string `json:"note,omitempty"`
-	OrgRef    string  `json:"orgRef"`
+	// Exactly one of orgRef and userRef (BAD_USER_INPUT for both or neither).
+	// The organization to credit.
+	OrgRef *string `json:"orgRef"`
 	// The id within sourceType; required with it when the mutation runs.
 	SourceId *string `json:"sourceId,omitempty"`
 	// Idempotency + provenance pair, e.g. ('stripe-checkout', <session id>).
@@ -61511,6 +61544,11 @@ type GrantCreditsInput struct {
 	// (trimmed, case-insensitive) are the source types the server writes
 	// itself: usage-event, grant-expiry, period-grant, cost-correction.
 	SourceType *string `json:"sourceType,omitempty"`
+	// The person to credit: an id, a handle or a hrn:user: URN
+	// (hrn:node:hadronmemory.com:specs:cor:api:140:01). A soft-deleted person is
+	// not found. Allowed to the same callers as for an organization: a platform
+	// admin or the BILLING platform role.
+	UserRef *string `json:"userRef,omitempty"`
 }
 
 // GetAmountMicroCents returns GrantCreditsInput.AmountMicroCents, and is useful for accessing the field via an interface.
@@ -61523,7 +61561,7 @@ func (v *GrantCreditsInput) GetExpiresAt() *string { return v.ExpiresAt }
 func (v *GrantCreditsInput) GetNote() *string { return v.Note }
 
 // GetOrgRef returns GrantCreditsInput.OrgRef, and is useful for accessing the field via an interface.
-func (v *GrantCreditsInput) GetOrgRef() string { return v.OrgRef }
+func (v *GrantCreditsInput) GetOrgRef() *string { return v.OrgRef }
 
 // GetSourceId returns GrantCreditsInput.SourceId, and is useful for accessing the field via an interface.
 func (v *GrantCreditsInput) GetSourceId() *string { return v.SourceId }
@@ -61531,9 +61569,12 @@ func (v *GrantCreditsInput) GetSourceId() *string { return v.SourceId }
 // GetSourceType returns GrantCreditsInput.SourceType, and is useful for accessing the field via an interface.
 func (v *GrantCreditsInput) GetSourceType() *string { return v.SourceType }
 
+// GetUserRef returns GrantCreditsInput.UserRef, and is useful for accessing the field via an interface.
+func (v *GrantCreditsInput) GetUserRef() *string { return v.UserRef }
+
 // GrantCreditsResponse is returned by GrantCredits on success.
 type GrantCreditsResponse struct {
-	// Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN or the BILLING platform role only (self-grant risk; #5012); processor top-ups land here.
+	// Mint credits for an organization or a person (give exactly one of orgRef and userRef) - a positive grant ledger row (spec 046). PLATFORM ADMIN or the BILLING platform role only (self-grant risk; #5012); processor top-ups land here.
 	GrantCredits *GrantCreditsGrantCreditsCreditLedgerEntry `json:"grantCredits"`
 }
 
@@ -91435,15 +91476,21 @@ type ResumeSessionInput struct {
 	// #4291: recorded on a session the redemption starts, and refreshed on an open session it resumes. Omitted or null never clears.
 	Effort *EffortLevel `json:"effort,omitempty"`
 	// #3822 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — the worker the caller expects to recover, e.g. the
-	// worker a CLI worktree was last bound to. Narrows the resume to that worker: its claim or live session binds
-	// even when another worker's waits too, and a CHOOSE lists only its candidates. When nothing of that worker's
-	// waits but a claim or live session of another worker of the caller's does, the call refuses RESUME_REFUSED
-	// with extensions reason WORKER_MISMATCH, picked (true when `session` chose that other worker's item),
-	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
-	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
-	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
-	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read. That id-only refusal is built behaviour (#3822), not a rule of hrn:node:hadronmemory.com:specs:cor:agt:020:03, which says only that the caller may name the worker it expects and that a blank one is refused; the field is a known gap against hrn:node:hadronmemory.com:specs:cor:api:140:01, deferred to hadron-server#5163.
-	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
+	// worker a CLI worktree was last bound to. #5163: a worker reference, its id or its fully qualified worker URN,
+	// resolved through the shared worker resolver (hrn:node:hadronmemory.com:specs:cor:api:140:00,
+	// hrn:node:hadronmemory.com:specs:cor:api:140:01); it replaces expectedWorkerId, which is gone with no alias.
+	// Narrows the resume to that worker: its claim or live session binds even when another worker's waits too, and a
+	// CHOOSE lists only its candidates. When nothing of that worker's waits but a claim or live session of another
+	// worker of the caller's does, the call refuses RESUME_REFUSED with extensions reason WORKER_MISMATCH, picked
+	// (true when `session` chose that other worker's item), expectedWorkerId, expectedWorkerName (null unless the
+	// caller may read that worker), foundWorkerId, foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any
+	// write: no claim is consumed and no session is started, ended or touched. expectedWorkerId is the id the caller
+	// sent; for a URN it is the resolved id when the caller may read the worker and null otherwise. A URN naming no
+	// worker and one naming a worker the caller may not read get the same answer (no existence oracle). With nothing
+	// of the caller's waiting the answer stays NOTHING_TO_RESUME. Omitted or null: unchanged. Blank: BAD_USER_INPUT,
+	// before any read (hrn:node:hadronmemory.com:specs:cor:agt:020:03). Neither an id nor a fully qualified worker
+	// URN (a name, a relative URN, another type): URN_NOT_QUALIFIED, before any read.
+	ExpectedWorkerRef *string `json:"expectedWorkerRef,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
 	// Recorded on a session the redemption starts only.
@@ -91464,8 +91511,8 @@ func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
 // GetEffort returns ResumeSessionInput.Effort, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetEffort() *EffortLevel { return v.Effort }
 
-// GetExpectedWorkerId returns ResumeSessionInput.ExpectedWorkerId, and is useful for accessing the field via an interface.
-func (v *ResumeSessionInput) GetExpectedWorkerId() *string { return v.ExpectedWorkerId }
+// GetExpectedWorkerRef returns ResumeSessionInput.ExpectedWorkerRef, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetExpectedWorkerRef() *string { return v.ExpectedWorkerRef }
 
 // GetFamily returns ResumeSessionInput.Family, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetFamily() *string { return v.Family }
@@ -99148,7 +99195,10 @@ func (v *SetAgentModelGroupSetAgentModelGroup) GetPatterns() []string { return v
 func (v *SetAgentModelGroupSetAgentModelGroup) GetUpdatedAt() string { return v.UpdatedAt }
 
 type SetAiModelPriceInput struct {
-	// Defaults to now. Appends a new effective-dated row - never mutates.
+	// When the row takes effect: an ISO 8601 date or date-time (a date alone is midnight UTC, no offset is UTC). It
+	// must be at least 60 seconds from now, so every server applies the row from that instant and no row is ever dated
+	// in the past; an earlier time is BAD_USER_INPUT. Defaults to now plus 60 seconds. Appends a new row: price rows
+	// are never changed or deleted (hrn:node:hadronmemory.com:specs:cor:dmo:170:06).
 	EffectiveAt            *string `json:"effectiveAt,omitempty"`
 	InputMicroCentsPerMTok string  `json:"inputMicroCentsPerMTok"`
 	// Per-tier debit markup in basis points (2500 = 25%); omit to fall
@@ -99184,7 +99234,7 @@ func (v *SetAiModelPriceInput) GetTier() *int { return v.Tier }
 
 // SetAiModelPriceResponse is returned by SetAiModelPrice on success.
 type SetAiModelPriceResponse struct {
-	// Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at.
+	// Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at. The row takes effect at least 60 seconds after it is written and is never changed or deleted (hrn:node:hadronmemory.com:specs:cor:dmo:170:06).
 	SetAiModelPrice *SetAiModelPriceSetAiModelPrice `json:"setAiModelPrice"`
 }
 
@@ -112316,7 +112366,7 @@ type TeamHostAssignInstructedResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
-	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
 	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
 	// already assigned to that host and replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
@@ -112335,7 +112385,7 @@ type TeamHostAssignResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
-	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
 	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
 	// already assigned to that host and replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
@@ -112646,7 +112696,7 @@ type TeamHostAssignWithProfileInstructedResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
-	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
 	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
 	// already assigned to that host and replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
@@ -112665,7 +112715,7 @@ type TeamHostAssignWithProfileResponse struct {
 	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
-	// BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
 	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
 	// already assigned to that host and replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
@@ -126632,6 +126682,14 @@ type UpdateMemoryResponse struct {
 	// it but may not manage it gets the ordinary authorization denial; neither
 	// reaches the organization lookup. An empty string `orgRef: ""` also
 	// answers USE_TRANSFER_MEMORY_OWNERSHIP.
+	//
+	// A `personal` or `private` memory that belongs to an App keeps its slug
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:060:20): any `urn` argument on one,
+	// the current slug included, answers APP_MEMORY_SLUG_FIXED (extension
+	// `memoryClass`) and nothing in the call is applied. This covers memories made
+	// before the rule, attached memories and session memories that carry an App.
+	// The refusal follows the access check, so a caller who may not manage the
+	// memory never receives it. Its display name (`name`) can still be changed.
 	//
 	// Spec 033 FR-026: enabling `vectorIndexEnabled` on an `isEncrypted` memory
 	// requires `acknowledgeVectorInversionRisk: true` in the same call. Without
@@ -151667,6 +151725,7 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 
 // Platform-ADMIN or the BILLING role. Appends a signed adjustment; idempotent on
 // (sourceType, sourceId), a mismatched replay is IDEMPOTENCY_CONFLICT.
+// userRef is omitted for the reason given on GrantCredits.
 func AdjustCredits(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -175698,6 +175757,8 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 // Platform-ADMIN or the BILLING role. Appends a positive grant to an org's ledger. The response
 // has no created/reused flag, so a replay of (sourceType, sourceId) is
 // indistinguishable from a first grant. An omitted optional is not sent.
+// userRef is the person owner (hadron-server#5207), not reached yet
+// (hadron-cli#3072): omitted, never null, so a server without it still accepts.
 func GrantCredits(
 	ctx_ context.Context,
 	client_ graphql.Client,

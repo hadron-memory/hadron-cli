@@ -315,6 +315,7 @@ func TestResumeBlankBindingWorkerSendsNothing(t *testing.T) {
 func TestResumeServerWithoutExpectedWorkerRefusesActionably(t *testing.T) {
 	for _, tc := range []struct{ name, errs string }{
 		{"validation code", `{"errors":[{"message":"Variable \"$input\" got invalid value; Field \"expectedWorkerRef\" is not defined by type \"ResumeSessionInput\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`},
+		{"validation code, other wording", `{"errors":[{"message":"Field \"expectedWorkerRef\" does not exist on \"ResumeSessionInput\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`},
 		{"bad user input", `{"errors":[{"message":"Field \"expectedWorkerRef\" is not defined by type \"ResumeSessionInput\".","extensions":{"code":"BAD_USER_INPUT"}}]}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

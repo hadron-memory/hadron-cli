@@ -336,7 +336,7 @@ grants which have already expired.`,
 				return exitcode.Newf(exitcode.Error, "the server returned no balance for the organization (the org given is not shown)")
 			}
 			dto := balanceDTO{
-				OrganizationID:    resp.CreditBalance.OrganizationId,
+				OrganizationID:    organizationID(resp.CreditBalance.OrganizationId),
 				BalanceMicroCents: resp.CreditBalance.BalanceMicroCents,
 				Expiring:          []expiringDTO{},
 			}

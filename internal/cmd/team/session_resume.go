@@ -137,19 +137,19 @@ func runSessionResume(cmd *cobra.Command, f *cmdutil.Factory, rf resumeFlags) er
 	resp, err := gen.ResumeTeamSession(ctx, client, &gen.ResumeSessionInput{
 		Session:     pick,
 		Description: rf.description, Family: rf.family,
-		ExpectedWorkerId: expectedWorker,
-		Tool:             optStr(rf.tool),
-		Host:             optStr(host),
-		LlmModel:         optStr(rf.model),
-		TranscriptPath:   optStr(rf.transcript),
-		Effort:           rf.effort,
+		ExpectedWorkerRef: expectedWorker,
+		Tool:              optStr(rf.tool),
+		Host:              optStr(host),
+		LlmModel:          optStr(rf.model),
+		TranscriptPath:    optStr(rf.transcript),
+		Effort:            rf.effort,
 	})
 	if err != nil {
 		if m, ok := api.ResumeWorkerMismatch(err); ok {
 			return resumeMismatchRefusal(existing, m, err)
 		}
 		if expectedWorker != nil && rejectsExpectedWorker(err) {
-			return exitcode.New(exitcode.Usage, &causedRefusal{msg: "this server does not know the expected-worker field (it predates hadron-server#3822), so it cannot check that the claim waiting is this worktree's own, " +
+			return exitcode.New(exitcode.Usage, &causedRefusal{msg: "this server does not know the expected-worker field expectedWorkerRef (it needs server 0.48.0 or later, hadron-server#5163), so it cannot check that the claim waiting is this worktree's own, " +
 				"and the resume was not retried without that check. No claim was consumed and nothing was written. " +
 				"Name the worker you mean with `hadron team session start --as <worker>`, or upgrade the server", err: err})
 		}
@@ -428,11 +428,11 @@ func firstNonEmpty(vals ...string) string {
 // field as unknown: a validation or coercion error naming it. Matched on the
 // field name, so an unrelated failure never takes this path.
 func rejectsExpectedWorker(err error) bool {
-	if api.IsGraphQLValidationFor(err, "expectedWorkerId") {
+	if api.IsGraphQLValidationFor(err, "expectedWorkerRef") {
 		return true
 	}
 	for _, m := range api.ServerMessages(err) {
-		if strings.Contains(m, `"expectedWorkerId"`) && (strings.Contains(m, "not defined") || strings.Contains(m, "Unknown")) {
+		if strings.Contains(m, `"expectedWorkerRef"`) && (strings.Contains(m, "not defined") || strings.Contains(m, "Unknown")) {
 			return true
 		}
 	}
