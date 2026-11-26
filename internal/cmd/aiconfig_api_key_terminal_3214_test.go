@@ -18,6 +18,7 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
 var createArgs3214 = []string{"ai-config", "create", "--app", "acme.com:juno-app",
@@ -29,14 +30,29 @@ func TestAIConfigAPIKeyDashOnTerminalRefused3214(t *testing.T) {
 	if err := os.WriteFile(cfg, []byte(`{"app":"acme.com:juno-app","name":"default","provider":"anthropic","model":"claude-opus-4-8"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
+	const (
+		refusal    = "--api-key -: stdin is a terminal, so a pasted secret would echo to the screen; pipe it on stdin, or "
+		wantCreate = refusal + "redirect a key file to it (--api-key - < key.txt), or put the key in the --file JSON config. Nothing was sent"
+		wantUpdate = refusal + "redirect a key file to it (--api-key - < key.txt). Nothing was sent"
+	)
+	missing := filepath.Join(t.TempDir(), "no-such-config.json")
 	for _, c := range []struct {
-		name, remedy string
-		args         []string
+		name, want string
+		args       []string
 	}{
-		{"create", "--file", append(append([]string{}, createArgs3214...), "--api-key", "-")},
-		{"create with a --file path", "--file", []string{"ai-config", "create", "--file", cfg, "--api-key", "-"}},
-		{"update", "< key.txt", []string{"ai-config", "update", "cfg1", "--api-key", "-"}},
-		{"update with other fields", "< key.txt", []string{"ai-config", "update", "cfg1", "--model", "m2", "--api-key", "-"}},
+		{"create", wantCreate, append(append([]string{}, createArgs3214...), "--api-key", "-")},
+		{"create, --api-key=-", wantCreate, append(append([]string{}, createArgs3214...), "--api-key=-")},
+		{"create with a --file path", wantCreate, []string{"ai-config", "create", "--file", cfg, "--api-key", "-"}},
+		// The refusal comes before the --file path is loaded: a missing file
+		// would otherwise answer first (Rook N1).
+		{"create with a missing --file path", wantCreate, []string{"ai-config", "create", "--file", missing, "--api-key", "-"}},
+		// On a terminal the secret rule answers before the --file - document
+		// rule and the both-read-stdin conflict; piped, the conflict still
+		// answers (TestAiConfigCreateFileStdinKeyConflict).
+		{"create with --file -", wantCreate, []string{"ai-config", "create", "--file", "-", "--api-key", "-"}},
+		{"update", wantUpdate, []string{"ai-config", "update", "cfg1", "--api-key", "-"}},
+		{"update, --api-key=-", wantUpdate, []string{"ai-config", "update", "cfg1", "--api-key=-"}},
+		{"update with other fields", wantUpdate, []string{"ai-config", "update", "cfg1", "--model", "m2", "--api-key", "-"}},
 	} {
 		for _, signedIn := range []bool{true, false} {
 			name := c.name
@@ -60,18 +76,20 @@ func TestAIConfigAPIKeyDashOnTerminalRefused3214(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected a refusal")
 				}
-				if exitCodeFor(err) != 2 {
-					t.Fatalf("exit %d, want 2 (%v)", exitCodeFor(err), err)
+				if exitCodeFor(err) != exitcode.Usage {
+					t.Fatalf("exit %d, want %d (%v)", exitCodeFor(err), exitcode.Usage, err)
 				}
-				for _, want := range []string{"--api-key -", "stdin is a terminal", "echo", "pipe", "< key.txt", c.remedy, "Nothing was sent"} {
-					if !strings.Contains(err.Error(), want) {
-						t.Errorf("refusal lacks %q: %v", want, err)
-					}
+				if err.Error() != c.want {
+					t.Errorf("refusal\n got %q\nwant %q", err.Error(), c.want)
 				}
 				if strings.Contains(err.Error()+out.String()+errOut.String(), pasted) {
 					t.Error("the pasted key must never appear")
 				}
-				if rest, _ := io.ReadAll(f.IOStreams.In); string(rest) != pasted+"\n" {
+				rest, rerr := io.ReadAll(f.IOStreams.In)
+				if rerr != nil {
+					t.Fatal(rerr)
+				}
+				if string(rest) != pasted+"\n" {
 					t.Errorf("nothing may be read from stdin; left %q", rest)
 				}
 				if n := requests.Load(); n != 0 {
@@ -133,5 +151,38 @@ func TestAIConfigAPIKeyOtherFormsUnchanged3214(t *testing.T) {
 				t.Errorf("apiKey %v, want %v", got, c.wantKey)
 			}
 		})
+	}
+}
+
+// Gravitus F1: a --file config's apiKey never goes through the stdin reader.
+// A file value of "-" is a literal (stored as given, as before this change),
+// so --file on a terminal cannot reopen the echo: stdin is left unread.
+func TestAIConfigFileAPIKeyDashIsNotAStdinRead3214(t *testing.T) {
+	const pasted = "sk-pasted-must-stay-unread-3214"
+	cfg := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(cfg, []byte(`{"app":"acme.com:juno-app","name":"default","provider":"anthropic","model":"claude-opus-4-8","apiKey":"-"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateAiServiceConfig": `{"data":{"createAiServiceConfig":` + aiCfgJSON + `}}`,
+	})
+	f, out, errOut := testFactoryTTY(t, pasted+"\n")
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"ai-config", "create", "--file", cfg, "--server", gql.URL})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	rest, err := io.ReadAll(f.IOStreams.In)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(rest) != pasted+"\n" {
+		t.Errorf("a file apiKey must never read stdin; left %q", rest)
+	}
+	if got := unmarshalVars(t, captured["CreateAiServiceConfig"])["apiKey"]; got != "-" {
+		t.Errorf("apiKey %v, want the file's literal \"-\"", got)
+	}
+	if strings.Contains(out.String()+errOut.String(), pasted) {
+		t.Error("the pasted text must never appear")
 	}
 }

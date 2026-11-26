@@ -80,7 +80,7 @@ func runDocumentStdinRefusal(t *testing.T, args []string, remedy string, signedI
 // not be what answers it. Since cli#3214 a terminal stdin is refused by the
 // secret rule instead (#2654): exit 2 with that rule's wording, nothing read,
 // nothing on the wire. The full matrix is TestAIConfigAPIKeyDashOnTerminalRefused3214.
-func TestAIConfigAPIKeyStdinIsNotGuardedByTheDocumentRule(t *testing.T) {
+func TestAIConfigAPIKeyTerminalRefusedBySecretRuleNotDocumentRule(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreateAiServiceConfig": `{"data":{"createAiServiceConfig":` + aiCfgJSON + `}}`,
 	})
