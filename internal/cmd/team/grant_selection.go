@@ -19,7 +19,9 @@ import (
 // an assertion, and the ceremony URL is printed as the server returned it.
 
 // The access and exit-code text is the selection's own: its refusals, exit codes
-// and older-server answer differ from the one-grant verbs'.
+// and older-server answer differ from the one-grant verbs'. grantSelectionHelp
+// is what all three verbs share; each adds the refusals it alone can get
+// (cli#3249, checked against hadron-server#5001's resolvers).
 const grantSelectionHelp = `The call carries this worktree's worker session when it is bound. Unbound it is
 sent without one, with a stderr line saying so, and the server decides whether
 you may. A binding on another server, or --app naming another App, is refused
@@ -28,20 +30,30 @@ before anything is sent.
 One touch of a person's passkey on the ceremony page signs the selection; each
 grant activates or fails on its own. This command never signs and never
 activates a grant. These calls need a server that offers selection signing; on
-one without it the command says "does not offer" and exits 2.
+one without it the command says "does not offer" and exits 2.`
 
-A refusal prints the server's message and code, and the grantRef, reason, cap or
-state it sent (--json: serverCode and extensions). A grant id is shown there
-only when it is one you passed.
+const grantSelectionRequestRefusals = `A refusal prints the server's message and code, and the grantRef, reason or cap
+it sent (--json: serverCode and extensions). A grant id is shown there only when
+it is one you passed.
 
 Exit codes: 0 done; 2 usage (a blank id, a binding for another server or App, a
 server without selection signing, SELECTION_EMPTY, SELECTION_TOO_LARGE,
-SELECTION_DUPLICATE_GRANT, SELECTION_MIXED_APPS); 4 GRANT_NOT_FOUND,
-SIGNING_REQUEST_NOT_FOUND, or a selection that is not found or not visible; 5
-GRANT_NOT_PENDING, GRANT_EXPIRED, GRANT_TERMS_UNREPRESENTABLE,
-SIGNING_REQUEST_ENDED; 8 not permitted (SIGNING_REQUEST_NOT_REQUESTER, and
-FORBIDDEN, which the server also answers to asking or withdrawing while
-impersonating).`
+SELECTION_DUPLICATE_GRANT, SELECTION_MIXED_APPS); 4 GRANT_NOT_FOUND; 5
+GRANT_NOT_PENDING, GRANT_EXPIRED, GRANT_TERMS_UNREPRESENTABLE; 8 not permitted
+(FORBIDDEN, which the server also answers to asking while impersonating).`
+
+const grantSelectionGetRefusals = `Exit codes: 0 done; 2 usage (a blank id, a binding for another server or App, a
+server without selection signing); 4 a selection that is not found or not
+visible.`
+
+const grantSelectionWithdrawRefusals = `A refusal prints the server's message and code, and the state it sent (--json:
+serverCode and extensions).
+
+Exit codes: 0 done; 2 usage (a blank id, a binding for another server or App, a
+server without selection signing); 4 SIGNING_REQUEST_NOT_FOUND, or a selection
+that is not found or not visible; 5 SIGNING_REQUEST_ENDED; 8 not permitted
+(SIGNING_REQUEST_NOT_REQUESTER, and FORBIDDEN, which the server also answers to
+withdrawing while impersonating).`
 
 // grantSigningSelectionDTO is the stable --json shape of a selection. Each item
 // is a signing request in the one-grant shape.
@@ -151,7 +163,7 @@ Text mode refuses a URL carrying control or format characters (exit 1); --json
 always carries it. Read it with 'hadron team grant signing-request get-selection
 <selection-id>'.
 
-` + grantSelectionHelp,
+` + grantSelectionHelp + "\n\n" + grantSelectionRequestRefusals,
 		Example: "  hadron team grant request-selection-signature <grant-id> <grant-id>",
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -178,10 +190,10 @@ always carries it. Read it with 'hadron team grant signing-request get-selection
 }
 
 // selectionVerb builds a verb that takes one selection id and prints the selection.
-func selectionVerb(f *cmdutil.Factory, use, short, long, example string, call func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningSelectionFields, error)) *cobra.Command {
+func selectionVerb(f *cmdutil.Factory, use, short, long, refusals, example string, call func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningSelectionFields, error)) *cobra.Command {
 	return &cobra.Command{
 		Use: use, Short: short, Args: cobra.ExactArgs(1), Example: example,
-		Long: long + "\n\n" + grantSelectionHelp,
+		Long: long + "\n\n" + grantSelectionHelp + "\n\n" + refusals,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := requiredID("the selection id", args[0])
 			if err != nil {
@@ -212,6 +224,7 @@ get the same not-found answer.
 
 lastRefusedAt is the latest signing attempt the server observed and refused as
 ineligible, a timestamp only; a dash (null in --json) means none was observed.`,
+		grantSelectionGetRefusals,
 		"  hadron team grant signing-request get-selection <selection-id> --json",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningSelectionFields, error) {
 			resp, err := gen.TeamGrantSigningSelection(ctx, c, id)
@@ -228,6 +241,7 @@ func newCmdTeamGrantSelectionWithdraw(f *cmdutil.Factory) *cobra.Command {
 it. It withdraws the request, not the grants, and is not confirmed: they can be
 asked for again only in a new request. A selection that already ended is refused
 with SIGNING_REQUEST_ENDED and its state.`,
+		grantSelectionWithdrawRefusals,
 		"  hadron team grant signing-request withdraw-selection <selection-id>",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningSelectionFields, error) {
 			resp, err := gen.TeamWithdrawGrantSigningSelection(ctx, c, id)
