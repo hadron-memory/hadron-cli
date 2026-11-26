@@ -34,7 +34,7 @@ const (
 	retirementRescinded = "rescinded"
 )
 
-// rescindKinds is the ONE list of how a spec can say it was retired: the kind
+// rescindKinds is the one list of how a spec can say it was retired: the kind
 // each --json `retirement` word carries and the abstract prefix `spec rescind`
 // writes for it. rescindKind (abstract to kind) and kindOfWord (word to kind)
 // both read it, so a new kind cannot be added to one and dropped from the

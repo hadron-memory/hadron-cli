@@ -35,7 +35,8 @@ func TestRenderSpecApprovalSaysWhereTheApprovalWasRecorded(t *testing.T) {
 }
 
 // cli#3220 item 1: the line beside `Approval: SUPERSEDED` says what the value is, because
-// it reads like "replaced" and is not (cli#1906). It is there for SUPERSEDED only.
+// it reads like "replaced" and is not (cli#1906). It is there for SUPERSEDED only. The SUPERSEDED line
+// asserted here pre-dates cli#3220 (it came with cli#1906), so this test is coverage backfill.
 func TestSupersededApprovalLineSaysItIsNotRetirement3220(t *testing.T) {
 	info := "app:abc"
 	rec := &specApprovalRecordDTO{Revision: 2, ApprovedAt: "2026-10-01T23:00:00Z", ApprovedByInfo: &info}
@@ -45,7 +46,8 @@ func TestSupersededApprovalLineSaysItIsNotRetirement3220(t *testing.T) {
 	if !strings.Contains(sup.String(), "\n"+line) {
 		t.Errorf("SUPERSEDED output lacks the clarifying line, on its own line after the Approval line:\n%s", sup.String())
 	}
-	for _, state := range []string{"APPROVED", "NOT_APPROVED"} {
+	// NOT_APPLICABLE is the early-return branch (an encrypted memory): it must not carry the line either.
+	for _, state := range []string{"APPROVED", "NOT_APPROVED", "NOT_APPLICABLE"} {
 		var b bytes.Buffer
 		renderSpecApproval(&b, &specApprovalDTO{State: state, Approval: rec})
 		if strings.Contains(b.String(), "SUPERSEDED here") || strings.Contains(b.String(), "does not mean the spec was replaced") {

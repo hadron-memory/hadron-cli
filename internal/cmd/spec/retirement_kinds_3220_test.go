@@ -49,4 +49,15 @@ func TestRenderMintHintFollowsTheArgument3220(t *testing.T) {
 	if strings.Contains(asReal.String(), hint) {
 		t.Errorf("a real mint's report must not tell the caller to run without --dry-run:\n%s", asReal.String())
 	}
+	// cli#3250 item 7: with the hint off, the report's own DryRun changes nothing printed, so the
+	// argument is the only DryRun-dependent output.
+	notDry := report
+	notDry.DryRun = false
+	var asNotDry bytes.Buffer
+	if err := renderMint(&asNotDry, notDry, false); err != nil {
+		t.Fatal(err)
+	}
+	if asReal.String() != asNotDry.String() {
+		t.Errorf("DryRun true and false differ with the hint off:\n--- DryRun true\n%s\n--- DryRun false\n%s", asReal.String(), asNotDry.String())
+	}
 }
