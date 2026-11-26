@@ -520,7 +520,7 @@ section between the markers.
 | `team delivery-settings get` |  |  | n | #1054 | 6960f5393bbf | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team delivery-settings set` |  |  | y | #1054 | 3c1f5a386a3f | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7008185278) |
 | `team events` |  |  | n | #1054 | de8a2c0fa357 |  | unread |  |
-| `team grant` |  |  | n | #1054 | 5e1687120c08 |  | unread |  |
+| `team grant` |  |  | n | #1054 | f6dc53ae2887 |  | unread |  |
 | `team grant action` |  |  | y | #1054 | 5b1b449f56b2 |  | unread |  |
 | `team grant actions` |  |  | y | #1054 | 82f0c9a5a075 |  | unread |  |
 | `team grant add` |  |  | y | #1054 | cb7210e017cc |  | unread |  |
@@ -528,15 +528,15 @@ section between the markers.
 | `team grant create` |  |  | y | #1054 | d719af9db0b7 |  | unread |  |
 | `team grant get` |  |  | y | #1054 | cedf605d7e14 |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | 8f90e695128f |  | unread |  |
-| `team grant request` |  |  | y | #1054 | f77bf4276c65 |  | unread |  |
+| `team grant request` |  |  | y | #1054 | e449859c472e |  | unread |  |
 | `team grant request-selection-signature` |  |  | y | #1054 | 9d831f15ea41 |  | unread |  |
-| `team grant request-signature` |  |  | y | #1054 | dd785a61045e |  | unread |  |
+| `team grant request-signature` |  |  | y | #1054 | ef8db04fc545 |  | unread |  |
 | `team grant revoke` |  |  | y | #1054 | f0740bd5515d |  | unread |  |
 | `team grant rm` |  |  | y | #1054 | 3252dd3edcc2 |  | unread |  |
-| `team grant signing-request` |  |  | n | #1054 | 5868f49cc84c |  | unread |  |
-| `team grant signing-request get` |  |  | y | #1054 | a930b7244c63 |  | unread |  |
-| `team grant signing-request get-selection` |  |  | y | #1054 | de04ff7ff745 |  | unread |  |
-| `team grant signing-request withdraw` |  |  | y | #1054 | 5fb35ea50cf1 |  | unread |  |
+| `team grant signing-request` |  |  | n | #1054 | 3bd505f4675f |  | unread |  |
+| `team grant signing-request get` |  |  | y | #1054 | 40928695254a |  | unread |  |
+| `team grant signing-request get-selection` |  |  | y | #1054 | ea92fef00e09 |  | unread |  |
+| `team grant signing-request withdraw` |  |  | y | #1054 | bab869e18832 |  | unread |  |
 | `team grant signing-request withdraw-selection` |  |  | y | #1054 | 9dbda1d3945f |  | unread |  |
 | `team grant withdraw` |  |  | y | #1054 | 5be84801ab44 |  | unread |  |
 | `team health` |  |  | n | #1054 | d1b3825cdd4d | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
