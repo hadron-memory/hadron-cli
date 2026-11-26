@@ -106,7 +106,7 @@ func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "get <taskId>",
 		Short: "Show one task",
 		Long: `Show one task: its status, owner, assignee, priority, blocked state, the
-close-session choice, its result once finished, the first 20 dependencies
+project marker, the close-session choice, its result once finished, the first 20 dependencies
 in each direction (total/hasMore included; ` + "`task dependencies`" + ` pages the
 rest) and its clone links. Check it before a lifecycle command to see what the
 task allows (the table in ` + "`team task --help`" + `).
@@ -118,8 +118,8 @@ is the first page of the tasks made from this one (a clone you cannot read is
 left out), with total and hasMore; page it with --clones-limit/--clones-offset
 (default 20, cap 200). In --json, clonedFrom is an object or null and clones is
 {items, total, hasMore} with items [] when none. Reading the links needs a
-server released on or after 2026-11-02; an older one rejects the document as
-schema skew (exit 2).
+server released on or after 2026-11-24 (the shared task-record read every task
+command uses); an older one rejects the document as schema skew (exit 2).
 
 The task is named by its id or handle (AT0.7, AT1.2). A bare handle is read in
 the App you name with --app, else in the App of this worktree's worker-session
@@ -267,6 +267,14 @@ func renderTaskDetail(w io.Writer, task taskDTO) error {
 				return err
 			}
 		} else if err := line("  parent: %s", output.SafeCell(*task.ParentTaskID)); err != nil {
+			return err
+		}
+	}
+	if task.IsProject {
+		// cli#3109 (cor:agt:150): the marker says the task IS a project,
+		// distinct from which project it sits under ("project: none"/"parent:"
+		// above); a nested project carries both.
+		if err := line("  project marker: yes"); err != nil {
 			return err
 		}
 	}
@@ -457,8 +465,8 @@ none of them the command is refused. No records is []/exit 0.
 WHAT IT PRINTS. A table with one row per task: HANDLE (when any task has one),
 ID, STATUS, PRIORITY (1 = highest), BLOCKED, BLOCKED BY and BLOCKS (counts),
 TITLE, OWNER and ASSIGNEE ("(queued)" for a task waiting with no assignee,
-"—" for none); columns are added when a row has a minimum tier, model groups,
-a finish-by time or a match failure. --json is the list of tasks, each with the
+"—" for none); columns are added when a row has the project marker, a minimum
+tier, model groups, a finish-by time or a match failure. --json is the list of tasks, each with the
 same fields. --limit/--offset page (default 20, cap 200); the server's hasMore
 says whether rows remain past the page, and the continuation names the exact
 --offset.
@@ -489,22 +497,22 @@ reference with exactly that target (never a prefix; the label is ignored), and
 --unresolved narrows to FINISHED tasks with at least one finding without a
 disposition (all four dispositions, including deferred, resolve a finding);
 false or omission does not narrow. It cannot combine with --team, even when
-false, and needs a server released on or after 2026-11-03. It lists finished
-tasks only, so with it the holder lookup above cannot find an active holder.
+false, and needs a server released on or after 2026-11-24 (the shared
+task-record read). It lists finished tasks only, so with it the holder lookup
+above cannot find an active holder.
 --match-failed selects tasks marked by an unsuccessful create --match;
 --match-failed=false selects unmarked tasks; omission keeps the old list. It
 cannot combine with --team (exit 2 before any read). Marked rows show the
 reason and time; JSON adds matchFailure only when present. These need a server
-released on or after 2026-11-03.
+released on or after 2026-11-24 (the shared task-record read).
 
 TIME FILTERS. --overdue lists tasks overdue on the server clock: a pending,
 not-started task whose start-by has passed, or a pending or started task whose
 finish-by has passed. An ended (finished or cancelled) task and a backlog task
 are never overdue, and neither is a task with neither time. Blocking is
-ignored and a person-assigned task counts like any other; --overdue=false lists
-all other tasks. It is a filter, not an alarm (the stall.finish-by deadline
-alarm is separate). The finish-by arm needs a server released on or after
-2026-11-17; an older one filters by start-by only.
+ignored and a person-assigned task counts like any other; --overdue=false
+lists all other tasks. It is a filter, not an alarm (the stall.finish-by
+deadline alarm is separate).
 --created-/--started-/--finished-after and -before take RFC 3339 times with Z
 or an offset and are inclusive bounds; a task with no start or finish time
 never matches a range on it. A malformed time is a usage error (exit 2) and
@@ -930,14 +938,19 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		withFinishBy := false
 		withGroups := false
 		withFailure := false
+		withProject := false
 		for _, task := range tasks {
 			withFinishBy = withFinishBy || task.FinishBy != nil
 			withFailure = withFailure || task.MatchFailure != nil
 			withGroups = withGroups || (task.Requirements != nil && len(task.Requirements.ModelGroupIn)+len(task.Requirements.ModelGroupNotIn) > 0)
 			withMinTier = withMinTier || (task.Requirements != nil && task.Requirements.MinTier != nil)
 			withHandle = withHandle || task.Handle != ""
+			withProject = withProject || task.IsProject
 		}
 		headers := handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")
+		if withProject {
+			headers = append(headers, "PROJECT")
+		}
 		if withMinTier {
 			headers = append(headers, "MIN TIER")
 		}
@@ -959,6 +972,13 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 				assignee = partyCell(task.Assignee)
 			}
 			cells := handleCells(withHandle, task.Handle, output.SafeCell(task.ID), output.SafeCell(task.Status), strconv.Itoa(task.Priority), strconv.FormatBool(task.Blocked), dependencySummary(task.BlockedBy), dependencySummary(task.Blocks), output.SafeCell(task.Title), output.SafeCell(partyCell(task.Owner)), output.SafeCell(assignee))
+			if withProject {
+				marked := "—"
+				if task.IsProject {
+					marked = "yes"
+				}
+				cells = append(cells, marked)
+			}
 			if withMinTier {
 				tier := ""
 				if task.Requirements != nil && task.Requirements.MinTier != nil {

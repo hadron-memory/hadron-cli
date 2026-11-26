@@ -112,7 +112,7 @@ A person, or a worker acting on its own authority, leaves it out. The full rules
 ` + taskInstructionHelp + `
 
 Server needs: task-record commands (every command that returns a task) require a
-server released on or after 2026-11-17; an older server fails each of them with
+server released on or after 2026-11-24; an older server fails each of them with
 exit 2 (schema skew), even when you pass no model-group flag (--model-group,
 --model-group-not). ` + "`task dependencies`" + ` runs its own query, which reads
 only each task's id, handle, title and status, so an older server answers it. Ask the
@@ -233,7 +233,7 @@ func newCmdTeamTaskCreate(f *cmdutil.Factory) *cobra.Command {
 	var requireRoles []string
 	var match bool
 	var excludeWorkers []string
-	var closeSession, noCloseSession, project bool
+	var closeSession, noCloseSession, project, isProject bool
 	var batchFile, rawInstruction string
 	var distinctAssignees bool
 	cmd := &cobra.Command{
@@ -263,7 +263,7 @@ Who goes on it:
   go unchanged to the server for validation. Groups resolve live at match time:
   editing a group can change matches without a task edit. They are matching
   inputs only, never authorization. All task-record reads and mutation receipts
-  require a server released on or after 2026-11-17, even with no group flag
+  require a server released on or after 2026-11-24, even with no group flag
   (see team task --help).
   Comma splitting keeps each item verbatim; the server trims and drops empty items.
 - --status backlog parks it instead: no assignee (the server refuses both),
@@ -272,6 +272,10 @@ Who goes on it:
 
 Where it lands: without --parent the task goes under AT0, the reserved
 "no project", as AT0.<n>. --project makes a top-level project AT<n> instead.
+--is-project marks the task itself a project (the project marker), whatever
+its parent: a nested task can carry it too. The marker is set at creation and
+never edited. Where the two disagree — --project with --is-project=false —
+the server refuses the create and the CLI shows that refusal as it comes.
 --parent <task> makes a child (AT1.<n> under the project AT1, AT1.2.<n> under
 AT1.2); the parent needs an assignee first, and that assignee creates the
 children. --blocked-by <task> makes it wait for another task (see
@@ -320,12 +324,10 @@ task released or reassigned after its start-by gets a fresh window.
 stall windows do not apply; stall.finish-by is the deadline alarm for an
 unfinished task (a backlog task raises none, a blocked task waits for
 release). Once the finish-by passes, ` + "`task list --overdue`" + ` also lists the
-task, pending or started, until it ends — the same filter, not an alarm (this
-arm needs a server released on or after 2026-11-17; an older one filters by
-start-by only). The server refuses a past value or one earlier than start-by
-(BAD_USER_INPUT, exit 2); equal times are allowed. It owns the clock
-and all alarm behavior. With no flag the key is omitted. Change or
-clear it with task update.
+task, pending or started, until it ends — the same filter, not an alarm. The
+server refuses a past value or one earlier than start-by (BAD_USER_INPUT,
+exit 2); equal times are allowed. It owns the clock and all alarm behavior.
+With no flag the key is omitted. Change or clear it with task update.
 
 --family, --model or --tier, and --effort set the task's run settings: what to
 launch, not whom to match (that is --family-in and --min-tier). --model and
@@ -383,10 +385,10 @@ PROPERTIES_SCHEMA_UNUSABLE). Change it later with ` + "`task update --properties
 The server owns eligibility, authority and matching; the CLI never selects a
 worker. Every task command reads fields that older servers lack, whichever flags
 you pass: the run settings, the finish-by time, the matching metadata, the
-minimum tier and the model-group records. The newest of them needs a server
-released on or after 2026-11-17, which is the floor for every task command. A
-server that lacks any one of them refuses every task command, even a plain
-create; there is no fallback.
+minimum tier, the model-group records and the project marker. The newest of
+them needs a server released on or after 2026-11-24, which is the floor for
+every task command. A server that lacks any one of them refuses every task
+command, even a plain create; there is no fallback.
 
 Several at once: --batch-file <path|-> creates 1 to 25 tasks in one call, all or
 none (a path, or - for piped stdin). The file is a JSON array; each item is
@@ -568,6 +570,15 @@ warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 			// presence, not value, is what is sent (cor:agt:050:01).
 			if cmd.Flags().Changed("project") {
 				input.Project = &project
+			}
+			// cli#3109 (hadron-server#4997, cor:agt:150): the explicit project
+			// marker, set at creation only, on any task — nested and under AT0
+			// included. Presence, not value: --is-project=false is sent as
+			// false; a contradiction with --project is the server's refusal,
+			// shown verbatim (BAD_USER_INPUT, exit 2), never re-implemented
+			// here.
+			if cmd.Flags().Changed("is-project") {
+				input.IsProject = &isProject
 			}
 			if cmd.Flags().Changed("properties") {
 				p, err := parsePropertiesFlag(properties)
@@ -751,6 +762,7 @@ warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 	cmd.Flags().StringVar(&familyNotIn, "family-not-in", "", "comma list of model families to exclude")
 	cmd.Flags().StringSliceVar(&excludeWorkers, "exclude-worker", nil, "worker (name, URN or id) the matcher must not pick (repeatable)")
 	cmd.Flags().BoolVar(&project, "project", false, "make a top-level project (AT1, AT2, …) instead of a task under the reserved project AT0 (\"no project\"); not with --parent")
+	cmd.Flags().BoolVar(&isProject, "is-project", false, "mark the task itself a project (the project marker; any task can carry it, nested or not); set at creation, never edited; --is-project=false is sent as given")
 	cmd.Flags().StringVar(&status, "status", "", "create-time status: backlog (parked) or pending (the default)")
 	addTaskInstructionFlag(cmd, &rawInstruction)
 	cmd.Flags().BoolVar(&closeSession, "close-session", false, "finishing or cancelling asks the assignee to end its worker session")
@@ -1196,8 +1208,10 @@ unpaired surrogate escapes, null/non-array roots and trailing JSON. File input i
 exit 2 before any mutation and never echo input text.
 
 Omitting this flag keeps the ordinary finish request and output unchanged;
-explicit [] is a present empty list. Only opt-in findings finish and the new
-findings read need a server released on or after 2026-11-02.
+explicit [] is a present empty list. The findings read (team task findings)
+keeps its own narrow query and needs a server released on or after
+2026-11-02. Findings finish rides the shared task-record read like every
+task command, so it needs a server released on or after 2026-11-24.
 Opt-in finish sends one mutation and shows its first page (20) with total and
 hasMore; use team task findings for continuation, never task get or a finish
 retry. JSON keeps the task/warnings shape and adds result.findings as a page.
@@ -1292,7 +1306,7 @@ and in --json as result.workedFromRoleTaskRefs [{nodeId, urn, revision}].`,
 	cmd.Flags().StringVar(&outcome, "outcome", "", "one-word result, e.g. succeeded or failed (required)")
 	cmd.Flags().StringVar(&summary, "summary", "", "one-line result summary")
 	cmd.Flags().StringVar(&evidence, "evidence", "", "URL or node URN backing the result")
-	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "JSON findings array file, or - for piped stdin (needs a server from 2026-11-02)")
+	cmd.Flags().StringVar(&findingsFile, "findings-file", "", "JSON findings array file, or - for piped stdin (needs a server from 2026-11-24)")
 	cmd.Flags().StringArrayVar(&workedFrom, "worked-from", nil, "role task node id or URN you followed; repeat for each, at most 10 (live, runnable, readable, no repeats)")
 	return cmd
 }
