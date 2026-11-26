@@ -1,0 +1,156 @@
+# cli#3223: the --slug variants of the agent create documents (server#5203 S1).
+# The slug travels in the create call itself. They are separate documents because
+# GraphQL validates the whole document before execution: a create WITHOUT --slug
+# must keep validating against a server that lacks the argument, so the three
+# documents it uses (CreateAgent, CreateAgentWithLifecycle,
+# CreateAgentWithContextCap) stay slug-free and the CLI picks a variant only when
+# --slug is given. Without --slug, a duplicate name now creates under a suffixed
+# slug on a server with S3 (hadron-server#5203) instead of AGENT_URN_TAKEN.
+
+mutation CreateAgentSlug(
+  $name: String!
+  $slug: String!
+  # @genqlient(omitempty: true)
+  $orgRef: ID
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $agentType: AgentType
+  # @genqlient(omitempty: true)
+  $visibility: AgentVisibility
+  # @genqlient(omitempty: true)
+  $systemMemoryRef: ID
+  # @genqlient(omitempty: true)
+  $surfaces: [String!]
+  # @genqlient(omitempty: true)
+  $personaRole: String
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
+  # cli#58 slice 2: omitted takes the server default (usesTasks true, reset
+  # false); an explicit false is a value, so both carry omitempty.
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
+) {
+  createAgent(
+    name: $name
+    slug: $slug
+    orgRef: $orgRef
+    description: $description
+    type: $agentType
+    visibility: $visibility
+    systemMemoryRef: $systemMemoryRef
+    surfaces: $surfaces
+    personaRole: $personaRole
+    memberRoles: $memberRoles
+    usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
+  ) {
+    ...AgentFields
+  }
+}
+
+mutation CreateAgentWithLifecycleSlug(
+  $name: String!
+  $slug: String!
+  # @genqlient(omitempty: true)
+  $lifecycle: AgentLifecycle
+  # @genqlient(omitempty: true)
+  $orgRef: ID
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $agentType: AgentType
+  # @genqlient(omitempty: true)
+  $visibility: AgentVisibility
+  # @genqlient(omitempty: true)
+  $systemMemoryRef: ID
+  # @genqlient(omitempty: true)
+  $surfaces: [String!]
+  # @genqlient(omitempty: true)
+  $personaRole: String
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
+  # cli#58 slice 2: omitted takes the server default (usesTasks true, reset
+  # false); an explicit false is a value, so both carry omitempty.
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
+) {
+  createAgent(
+    name: $name
+    slug: $slug
+    lifecycle: $lifecycle
+    orgRef: $orgRef
+    description: $description
+    type: $agentType
+    visibility: $visibility
+    systemMemoryRef: $systemMemoryRef
+    surfaces: $surfaces
+    personaRole: $personaRole
+    memberRoles: $memberRoles
+    usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
+  ) {
+    ...AgentFields
+    lifecycle
+  }
+}
+
+mutation CreateAgentWithContextCapSlug(
+  $name: String!
+  $slug: String!
+  # @genqlient(omitempty: true)
+  $lifecycle: AgentLifecycle
+  # @genqlient(omitempty: true)
+  $orgRef: ID
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true)
+  $agentType: AgentType
+  # @genqlient(omitempty: true)
+  $visibility: AgentVisibility
+  # @genqlient(omitempty: true)
+  $systemMemoryRef: ID
+  # @genqlient(omitempty: true)
+  $surfaces: [String!]
+  # @genqlient(omitempty: true)
+  $personaRole: String
+  # @genqlient(omitempty: true)
+  $memberRoles: [String!]
+  # cli#58 slice 2: omitted takes the server default (usesTasks true, reset
+  # false); an explicit false is a value, so both carry omitempty.
+  # @genqlient(omitempty: true)
+  $usesTasks: Boolean
+  # @genqlient(omitempty: true)
+  $resetContextAfterTask: Boolean
+  # #4225 (hadron-server#4258): THREE states. omitted preserves (update) or means no
+  # cap (create); a number sets; an explicit null clears. The variable is bound to
+  # gqltypes.ContextCapInput, whose MarshalJSON emits the null; omitempty drops only
+  # the nil pointer. Never default it.
+  # @genqlient(omitempty: true, bind: "*github.com/hadron-memory/hadron-cli/internal/api/gqltypes.ContextCapInput")
+  $contextCap: Int
+) {
+  createAgent(
+    contextCap: $contextCap
+    name: $name
+    slug: $slug
+    lifecycle: $lifecycle
+    orgRef: $orgRef
+    description: $description
+    type: $agentType
+    visibility: $visibility
+    systemMemoryRef: $systemMemoryRef
+    surfaces: $surfaces
+    personaRole: $personaRole
+    memberRoles: $memberRoles
+    usesTasks: $usesTasks
+    resetContextAfterTask: $resetContextAfterTask
+  ) {
+    ...AgentFields
+    lifecycle
+    contextCap
+  }
+}

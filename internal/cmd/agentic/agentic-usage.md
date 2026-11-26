@@ -1220,11 +1220,13 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   free-standing URN slug is kebab-derived from
   `--name` on create (`"Project KB"` → `project-kb`) unless you pass
   `--slug <bare-slug>` to set it explicitly; on update, `--slug` renames
-  the memory (its URN — and every node URN under it — changes). Because
-  `createMemory` has no slug input, `--slug` on create is a create plus a
-  rename: if the rename fails the memory still exists under its derived
-  slug and the command exits non-zero (a partial write). App-scoped create
-  rejects `--slug`: App-class URNs are name-derived by the server, while
+  the memory (its URN — and every node URN under it — changes). On create
+  `--slug` is sent as `createMemory(slug:)` in the one call (cli#3223,
+  hadron-server#5203): a taken or reserved slug is the server's refusal and
+  nothing is written, and no rename follows. Without `--slug`, once the server
+  iterates derived slugs (#5203 S3), a second `--name "Project KB"` creates
+  `project-kb-…` with a suffix instead of being refused; the output echoes the
+  URN. App-scoped create rejects `--slug`: App-class URNs are name-derived by the server, while
   personal/private URNs use a per-owner opaque id.
 - `memory set --app <ref> --class app --name <name>` with NO `--agent` adds a
   new free-standing app memory to an App that has an installed Agent
@@ -2728,12 +2730,18 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   --public [--type <t>]` is the separate cross-org marketplace slice — every
   live PUBLIC agent, readable without org membership, so you can grab a foreign
   agent's URN to subscribe/install (`--org`/`--visibility` don't apply to it).
-  `agent get <ref>` (ID or URN); `agent create --name <n>` creates a
+  `agent get <ref>` (ID or URN); `agent create --name <n> [--slug <s>]` creates a
   user-owned agent — pass `--owner-me` to say so explicitly, or `--org <id>`
   for an org-owned agent (the two are mutually exclusive). A user-owned agent is
   PERSONAL/owner-only in v1 (spec 047; the server derives the `@handle:<slug>`
   URN and rejects a non-PERSONAL visibility). A new agent is in NO App's cast
   pool, so it cannot be cast as a worker until it is installed somewhere —
+  `agent create --slug <bare-slug>` (cli#3223) chooses the URN slug in the
+  create call itself; a taken or reserved one is refused. Without it, once the
+  server iterates derived slugs (hadron-server#5203 S3) a duplicate name creates
+  under a suffixed slug instead of `AGENT_URN_TAKEN`; read the URN the output
+  echoes. `--slug` needs a server with #5203 S1 (2026-11-26 or later); a create
+  without it still works on an older one.
   `agent create --install-into <app>` does that second step in the same run
   (#535), and without it the create notes on **stderr** that the agent is not
   yet installed. It is deliberately not spelled `--app`: that is the persistent

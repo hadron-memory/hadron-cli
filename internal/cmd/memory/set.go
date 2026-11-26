@@ -49,7 +49,11 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		Long: `Create a memory, or change one.
 
 To create one for your organization, give --org and --name. The URN's slug
-comes from the name ("Project KB" becomes project-kb) unless you give --slug.
+comes from the name ("Project KB" becomes project-kb) unless you give --slug,
+which is sent with the create, so a taken or reserved slug is refused and
+nothing is created. Without --slug a name that is already in use is no longer
+refused once the server iterates derived slugs: the memory is created under a
+suffixed slug (project-kb-2, say), so read the URN the output shows.
 The output shows the new URN, class and visibility:
 
   hadron memory set --org acme.com --name "Project KB"
@@ -212,26 +216,45 @@ Apps:
 			// validate it. Omitting a variable alone does not hide an argument.
 			ca := settings.createArgs(cmd)
 			createFreeStanding := func(orgID *string, memoryClass *gen.MemoryClass) (memoryDTO, error) {
-				if draftCorpus {
-					resp, err := gen.CreateMemoryDraft(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
-						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch)
-					if err != nil {
-						return memoryDTO{}, api.MapError(err)
+				// cli#3223: a --slug rides in the create call itself (hadron-server#5203
+				// S1), in its own document so a create without --slug still validates
+				// on a server that lacks the argument. No follow-up rename is sent, so
+				// a refused slug writes nothing.
+				var res memoryResult
+				var err error
+				switch {
+				case draftCorpus && slug != "":
+					var resp *gen.CreateMemoryDraftWithSlugResponse
+					if resp, err = gen.CreateMemoryDraftWithSlug(cmd.Context(), client, orgID, name, slug, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
+						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch); err == nil && resp != nil && resp.CreateMemory != nil {
+						res = resp.CreateMemory
 					}
-					if resp == nil || resp.CreateMemory == nil {
-						return memoryDTO{}, exitcode.Newf(exitcode.Error, "server returned no memory")
+				case slug != "":
+					var resp *gen.CreateMemoryWithSlugResponse
+					if resp, err = gen.CreateMemoryWithSlug(cmd.Context(), client, orgID, name, slug, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
+						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch); err == nil && resp != nil && resp.CreateMemory != nil {
+						res = resp.CreateMemory
 					}
-					return dtoFromMemory(resp.CreateMemory), nil
+				case draftCorpus:
+					var resp *gen.CreateMemoryDraftResponse
+					if resp, err = gen.CreateMemoryDraft(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
+						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch); err == nil && resp != nil && resp.CreateMemory != nil {
+						res = resp.CreateMemory
+					}
+				default:
+					var resp *gen.CreateMemoryResponse
+					if resp, err = gen.CreateMemory(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
+						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch); err == nil && resp != nil && resp.CreateMemory != nil {
+						res = resp.CreateMemory
+					}
 				}
-				resp, err := gen.CreateMemory(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
-					ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch)
 				if err != nil {
 					return memoryDTO{}, api.MapError(err)
 				}
-				if resp == nil || resp.CreateMemory == nil {
+				if res == nil {
 					return memoryDTO{}, exitcode.Newf(exitcode.Error, "server returned no memory")
 				}
-				return dtoFromMemory(resp.CreateMemory), nil
+				return dtoFromMemory(res), nil
 			}
 
 			var m memoryDTO
@@ -371,18 +394,13 @@ Apps:
 						return werr
 					}
 				}
-				// createMemory/createMemoryInApp take neither a slug (free-standing
-				// derives it from --name) nor a schema, so apply either in one
-				// follow-up updateMemory. If it fails, the memory still exists under
-				// its derived slug with no schema: keep m as-is, record the error,
-				// and report it as a partial write below.
-				needSlug := !appScoped && slug != "" && !memorySlugIs(m.URN, slug)
-				if needSlug || schemaArg != nil {
-					var urnPtr *string
-					if needSlug {
-						urnPtr = &slug
-					}
-					if resp, rerr := updateMemory(cmd, client, m.ID, nil, nil, nil, nil, nil, nil, urnPtr, nil, schemaArg, nil, updateSettingArgs{}); rerr != nil {
+				// createMemory/createMemoryInApp take no schema, so apply one in a
+				// follow-up updateMemory. If it fails, the memory still exists with
+				// no schema: keep m as-is, record the error, and report it as a
+				// partial write below. The slug is NOT part of this step (cli#3223):
+				// it was sent in the create call.
+				if schemaArg != nil {
+					if resp, rerr := updateMemory(cmd, client, m.ID, nil, nil, nil, nil, nil, nil, nil, nil, schemaArg, nil, updateSettingArgs{}); rerr != nil {
 						postCreateErr = api.MapError(rerr)
 					} else if resp == nil || resp.UpdateMemory == nil {
 						postCreateErr = exitcode.Newf(exitcode.Error, "server returned no memory on the post-create update")
@@ -455,16 +473,9 @@ Apps:
 			// non-zero so a script doesn't read a clean success (matches node import
 			// --with-edges).
 			if postCreateErr != nil {
-				var pending []string
-				if !appScoped && slug != "" && !memorySlugIs(m.URN, slug) {
-					pending = append(pending, fmt.Sprintf("slug %q", slug))
-				}
-				if schemaArg != nil {
-					pending = append(pending, "schema")
-				}
 				return exitcode.Newf(exitcode.Error,
-					"memory created as %s, but applying %s failed: %v — retry against the created memory (hadron memory set %s ...)",
-					m.URN, strings.Join(pending, " + "), postCreateErr, m.URN)
+					"memory created as %s, but applying schema failed: %v — retry against the created memory (hadron memory set %s ...)",
+					m.URN, postCreateErr, m.URN)
 			}
 			return nil
 		},
@@ -480,7 +491,7 @@ Apps:
 	cmd.Flags().StringVar(&short, "short", "", "short description")
 	cmd.Flags().StringVar(&description, "description", "", "long description")
 	cmd.Flags().StringVar(&visibility, "visibility", "", "who can read a knowledge memory: ORGANIZATION (default) or PUBLIC; GROUP for a group memory")
-	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): set it on free-standing create instead of deriving from --name; renames the memory on update")
+	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): on create, chosen instead of derived from --name and sent with the create; on update, renames the memory")
 	cmd.Flags().StringVar(&app, "app", "", "App ID or URN (create only; with --agent an App-scoped memory, alone with --class app a free-standing app memory)")
 	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent ID or URN (App-scoped create only; requires --app; omit it for --app --class app)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable; replaces tags on update)")
@@ -536,18 +547,4 @@ func resolveSchema(schema, schemaFile string) (*json.RawMessage, error) {
 	}
 	msg := json.RawMessage(raw)
 	return &msg, nil
-}
-
-// memorySlugIs reports whether urn's slug equals slug, case-insensitively — the
-// server lower-cases derived slugs, so a case-only difference isn't a real
-// rename worth a second call. It parses via the shared memory-ref parser so it
-// recognizes BOTH the org form (hrn:mem:<org>::<slug>) and the flat user-owned
-// form (hrn:mem:<handle>:<slug>) — otherwise an --owner-me create whose derived
-// slug already matches would fire a redundant UpdateMemory (#279 review).
-func memorySlugIs(urn, slug string) bool {
-	_, s, ok := cmdutil.MemoryParts(urn)
-	if !ok {
-		return false
-	}
-	return strings.EqualFold(s, slug)
 }

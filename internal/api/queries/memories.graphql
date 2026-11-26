@@ -255,6 +255,186 @@ mutation CreateMemoryDraft(
   }
 }
 
+# cli#3223: the --slug variants. The slug travels in the create call itself
+# (server#5203 S1), so no follow-up rename can fail after a suffixed create. They
+# are separate documents because GraphQL validates the whole document before
+# execution: a create WITHOUT --slug must keep validating against a server that
+# lacks the argument, so the ordinary and draft documents above stay slug-free.
+mutation CreateMemoryWithSlug(
+  # spec 047 — orgRef is OPTIONAL: omit it (nil pointer) for a user-owned
+  # memory in the caller's own @handle namespace (organizationId NULL,
+  # ownerUserId = caller). omitempty so a nil pointer is omitted, not sent as
+  # an explicit null. The server derives the bare <handle>:<slug> URN; never
+  # construct or prefix it client-side.
+  # @genqlient(omitempty: true)
+  $orgRef: ID
+  $name: String!
+  $slug: String!
+  # @genqlient(omitempty: true)
+  $memoryClass: MemoryClass
+  # @genqlient(omitempty: true)
+  $shortDescription: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # bound to *[]string so an explicitly-passed empty list still
+  # serializes as [] (clear) — omitempty on a plain slice would drop it.
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $tags: [String!]
+  # @genqlient(omitempty: true)
+  $visibility: MemoryVisibility
+  # #621 — per-node revision-history cap (min 1). Omitted = server default.
+  # @genqlient(omitempty: true)
+  $maxRevCount: Int
+  # cli#1340 — the memory's settings. Each is omitted unless its flag was
+  # passed; on create an explicit null is the same as omitted.
+  # @genqlient(omitempty: true)
+  $category0: String
+  # @genqlient(omitempty: true)
+  $category1: String
+  # @genqlient(omitempty: true)
+  $category2: String
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $embeddingSource: EmbeddingSource
+  # @genqlient(omitempty: true)
+  $vectorIndexEnabled: Boolean
+  # @genqlient(omitempty: true)
+  $license: String
+  # @genqlient(omitempty: true)
+  $iconUrl: String
+  # @genqlient(omitempty: true)
+  $heroUrl: String
+  # @genqlient(omitempty: true)
+  $homeUrl: String
+  # @genqlient(omitempty: true)
+  $source: String
+  # @genqlient(omitempty: true)
+  $readBranch: String
+  # @genqlient(omitempty: true)
+  $writeBranch: String
+) {
+  createMemory(
+    orgRef: $orgRef
+    name: $name
+    slug: $slug
+    memoryClass: $memoryClass
+    shortDescription: $shortDescription
+    description: $description
+    tags: $tags
+    visibility: $visibility
+    maxRevCount: $maxRevCount
+    category0: $category0
+    category1: $category1
+    category2: $category2
+    data: $data
+    embeddingSource: $embeddingSource
+    vectorIndexEnabled: $vectorIndexEnabled
+    license: $license
+    iconUrl: $iconUrl
+    heroUrl: $heroUrl
+    homeUrl: $homeUrl
+    source: $source
+    readBranch: $readBranch
+    writeBranch: $writeBranch
+  ) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
+mutation CreateMemoryDraftWithSlug(
+  # @genqlient(omitempty: true)
+  $orgRef: ID
+  $name: String!
+  $slug: String!
+  # @genqlient(omitempty: true)
+  $memoryClass: MemoryClass
+  # @genqlient(omitempty: true)
+  $shortDescription: String
+  # @genqlient(omitempty: true)
+  $description: String
+  # @genqlient(omitempty: true, bind: "*[]string")
+  $tags: [String!]
+  # @genqlient(omitempty: true)
+  $visibility: MemoryVisibility
+  # @genqlient(omitempty: true)
+  $maxRevCount: Int
+  # cli#1340 — the memory's settings. Each is omitted unless its flag was
+  # passed; on create an explicit null is the same as omitted.
+  # @genqlient(omitempty: true)
+  $category0: String
+  # @genqlient(omitempty: true)
+  $category1: String
+  # @genqlient(omitempty: true)
+  $category2: String
+  # @genqlient(omitempty: true)
+  $data: JSON
+  # @genqlient(omitempty: true)
+  $embeddingSource: EmbeddingSource
+  # @genqlient(omitempty: true)
+  $vectorIndexEnabled: Boolean
+  # @genqlient(omitempty: true)
+  $license: String
+  # @genqlient(omitempty: true)
+  $iconUrl: String
+  # @genqlient(omitempty: true)
+  $heroUrl: String
+  # @genqlient(omitempty: true)
+  $homeUrl: String
+  # @genqlient(omitempty: true)
+  $source: String
+  # @genqlient(omitempty: true)
+  $readBranch: String
+  # @genqlient(omitempty: true)
+  $writeBranch: String
+) {
+  createMemory(
+    orgRef: $orgRef
+    name: $name
+    slug: $slug
+    memoryClass: $memoryClass
+    shortDescription: $shortDescription
+    description: $description
+    tags: $tags
+    visibility: $visibility
+    maxRevCount: $maxRevCount
+    category0: $category0
+    category1: $category1
+    category2: $category2
+    data: $data
+    embeddingSource: $embeddingSource
+    vectorIndexEnabled: $vectorIndexEnabled
+    license: $license
+    iconUrl: $iconUrl
+    heroUrl: $heroUrl
+    homeUrl: $homeUrl
+    source: $source
+    readBranch: $readBranch
+    writeBranch: $writeBranch
+    draftCorpus: true
+  ) {
+    id
+    urn
+    name
+    shortDescription
+    class
+    visibility
+    organizationId
+    isEncrypted
+    maxRevCount
+    updatedAt
+  }
+}
+
 # Create a new App-scoped app/personal/private memory. The server owns URN
 # composition: app-class URNs are name-derived; personal/private use opaque
 # per-owner identities, so this mutation intentionally has no slug argument.
