@@ -2644,15 +2644,18 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   key material, only a preview. `ai-config create|update|rm` manage the
   underlying provider configs: `create` needs an owner (exactly one of
   `--app`/`--agent`/`--org`, ID or URN) plus `--name`/`--provider`/`--model`;
-  the API key is a secret read via `--api-key -` (stdin) and never echoed back.
+  the API key is a secret read via `--api-key -` (piped or redirected stdin,
+  e.g. `--api-key - < key.txt`) and never echoed back.
   App, Agent, and Organization configs require a stored key on current servers.
   `--file <path>` (or `--file -` for stdin) reads the whole config — key
   included — from a JSON object (keys mirror the flags: app/agent/org, name,
   provider, model, endpoint, apiStyle, apiKey, params, enabled), keeping the secret out of argv;
   an explicit flag overrides the matching file field. `--file -` is for a PIPE
-  and is refused (exit 2) from an interactive terminal (#648); `--api-key -` is
-  a secret, not a document, so that document refusal does not apply to it, and it
-  still reads from a terminal, where a paste echoes (cli#3214).
+  and is refused (exit 2) from an interactive terminal (#648). `--api-key -` on
+  `create` and `update` is refused (exit 2) from an interactive terminal too,
+  because a pasted key would echo to the screen: nothing is read and nothing is
+  sent (cli#3214, the #2654 secret rule). Pipe the key, redirect a key file to
+  stdin, or (create) put it in the `--file` config.
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `--endpoint <url>` stores a provider base URL; on update,
@@ -4680,12 +4683,17 @@ Orca it refuses with exit 2 before any queue submission.
 `--apply` submits only typed `worktree.create` then `worker.start`, with
 server-side authority checks (starting requires the App manager; `--as-person`
 uses your own authority). It reuses identical operations on retry, and reports
-failed operations instead of reissuing them. Only two host-local steps follow:
-roster entry and Orca display name. `--timeout` (1s–30m) bounds each queue
+failed operations instead of reissuing them. Once both operations succeed,
+`--apply` also writes the worker's roster entry and sets the Orca display name,
+and adds each to `verified` as it is done. After a successful run no host-local
+step is left to you. `--timeout` (1s–30m) bounds each queue
 operation. Routing is unverified: team router is retired (hadron-server#2027), so
 nothing confirms this roster entry is read. This command starts no replacement
 router (cli#935); `verified` never claims routing, and `humanRemainder` ends with
-that sentence. Onboard never casts, binds a session or writes a register row.
+that sentence. Routing means whether the worker's mentions reach its terminal.
+Check it yourself: mention the worker in team chat and watch for its pickup, or
+watch the delivery events of `team host run` on its host. Onboard never casts,
+binds a session or writes a register row.
 
 `--json` returns `appId`, `appRef`, `dryRun`, `workerId`, `worktree`, `operations` (type/args),
 `queue` (known id/type/status), `verified`, `humanRemainder`, and nullable `error`.
@@ -7225,7 +7233,7 @@ answer, exits 7 ("may have happened; check the repository before retrying")
 and never prints "pushed". Encrypted memories exit 2; not found 4; no manage
 access 8; other server refusals keep their mapped code. Server text is masked
 for URL credentials and the well-known token formats (ghp_, github_pat_, glpat-;
-an unrecognised token shape is not caught) and made one safe line. Work the remote refused stays held
+an unrecognised token shape is not caught) and made one safe line. Work that the remote refused stays held
 on the server and is never pushed or shown by the CLI.
 
 ### Worker terminal display label

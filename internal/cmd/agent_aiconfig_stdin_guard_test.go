@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -77,29 +76,27 @@ func runDocumentStdinRefusal(t *testing.T, args []string, remedy string, signedI
 }
 
 // NARROWNESS, the aiconfig half of TestDataKeyStdinIsNotGuardedByTheDocumentRule.
-// `--api-key -` reads a SECRET from a terminal deliberately — it is how a key
-// is handed over without entering argv or shell history — so the document
-// guard must not touch it. Asserting SUCCESS, and that the key reached the
-// wire, is what makes this a real control: the read has to have happened.
-func TestAIConfigAPIKeyStdinIsNotGuardedByTheDocumentRule(t *testing.T) {
+// `--api-key -` is a SECRET, not a document, so the document guard (#648) must
+// not be what answers it. Since cli#3214 a terminal stdin is refused by the
+// secret rule instead (#2654): exit 2 with that rule's wording, nothing read,
+// nothing on the wire. The full matrix is TestAIConfigAPIKeyDashOnTerminalRefused3214.
+func TestAIConfigAPIKeyTerminalRefusedBySecretRuleNotDocumentRule(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreateAiServiceConfig": `{"data":{"createAiServiceConfig":` + aiCfgJSON + `}}`,
 	})
-	f, _, errOut := testFactoryTTY(t, "sk-typed-at-a-terminal\n")
+	f, _, _ := testFactoryTTY(t, "sk-typed-at-a-terminal\n")
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"ai-config", "create", "--app", "acme.com:juno-app",
 		"--name", "default", "--provider", "anthropic", "--model", "claude-opus-4-8",
 		"--api-key", "-", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		_ = renderError(f, err)
-		t.Fatalf("a secret read from a terminal must SUCCEED: %v\n%s", err, errOut.String())
+	err := root.Execute()
+	if err == nil || exitCodeFor(err) != exitcode.Usage {
+		t.Fatalf("a secret read from a terminal must be refused with exit 2, got %v", err)
 	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateAiServiceConfig"], &vars)
-	if vars["apiKey"] != "sk-typed-at-a-terminal" {
-		t.Errorf("the key typed at the terminal must reach the wire, got %v", vars["apiKey"])
+	if msg := err.Error(); !strings.Contains(msg, "stdin is a terminal") || strings.Contains(msg, "interactive terminal") {
+		t.Errorf("the secret rule, not the document rule, must answer: %v", err)
 	}
-	if strings.Contains(errOut.String(), "interactive terminal") {
-		t.Errorf("a SECRET read from a terminal must not hit the document guard:\n%s", errOut.String())
+	if _, sent := captured["CreateAiServiceConfig"]; sent {
+		t.Error("the refusal must send nothing")
 	}
 }

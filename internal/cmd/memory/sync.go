@@ -517,13 +517,13 @@ func escapedSpellings(token string) []string {
 	return out
 }
 
-type syncPullFailure struct {
+type syncFailure struct {
 	message string
 	cause   error
 }
 
-func (e *syncPullFailure) Error() string { return e.message }
-func (e *syncPullFailure) Unwrap() error { return e.cause }
+func (e *syncFailure) Error() string { return e.message }
+func (e *syncFailure) Unwrap() error { return e.cause }
 
 func syncPullError(err error, ref string, attempted bool) error {
 	mapped := api.MapError(err)
@@ -546,7 +546,7 @@ func syncPullError(err error, ref string, attempted bool) error {
 	safe := output.SafeLine(message, 2000)
 	if fault, ok := api.InternalFaultOf(mapped); ok {
 		// Keep only the bounded request-id metadata, without a raw server cause.
-		return &syncPullFailure{message: safe, cause: api.NewInternalFaultError(fault.RequestID, nil)}
+		return &syncFailure{message: safe, cause: api.NewInternalFaultError(fault.RequestID, nil)}
 	}
 	return api.WithServerCode(exitcode.Newf(code, "%s", safe), err)
 }
@@ -577,7 +577,7 @@ The push asks for confirmation; --yes skips it and is required without a
 terminal (otherwise exit 2, before any request). Needs manage access to the
 memory, a configured source repository and the Hadron GitHub App on it; the
 server checks all three and its refusal is shown. Encrypted memories cannot
-be synced (exit 2). Work the remote refused stays held on the server and is
+be synced (exit 2). Work that the remote refused stays held on the server and is
 never pushed to any remote ref; this command neither lists nor sends it.
 
 The server answers only yes or no: the count of nodes pushed, the commit and
@@ -641,7 +641,7 @@ func syncPushError(err error) error {
 	message = maskSyncText(message)
 	safe := output.SafeLine(message, 2000)
 	if fault, ok := api.InternalFaultOf(mapped); ok {
-		return &syncPullFailure{message: safe, cause: api.NewInternalFaultError(fault.RequestID, nil)}
+		return &syncFailure{message: safe, cause: api.NewInternalFaultError(fault.RequestID, nil)}
 	}
 	return api.WithServerCode(exitcode.Newf(code, "%s", safe), err)
 }
