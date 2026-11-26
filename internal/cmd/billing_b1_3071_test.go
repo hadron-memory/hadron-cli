@@ -55,11 +55,24 @@ func compactJSON3071(t *testing.T, s string) string {
 	if err := json.Unmarshal([]byte(s), &raw); err != nil {
 		t.Fatalf("--json: %v\n%s", err, s)
 	}
-	inString := false
+	inString, escaped := false, false
 	for i := 0; i < len(raw); i++ {
 		c := raw[i]
-		if c == '"' && (i == 0 || raw[i-1] != '\\') {
-			inString = !inString
+		if inString {
+			// A backslash escapes the next byte only, so an escaped backslash then a quote closes the string.
+			switch {
+			case escaped:
+				escaped = false
+			case c == '\\':
+				escaped = true
+			case c == '"':
+				inString = false
+			}
+			b.WriteByte(c)
+			continue
+		}
+		if c == '"' {
+			inString = true
 		}
 		if !inString && strings.ContainsRune(" \n\t\r", rune(c)) {
 			continue
@@ -118,10 +131,8 @@ func TestBillingSpendTableKeepsCostAndChargedApart(t *testing.T) {
 	if want := []string{"(none)", "2", "5", "6", "unpriced", "2", "0"}; !slices.Equal(unpriced, want) {
 		t.Errorf("unpriced row: want %v, got %v", want, unpriced)
 	}
-	for _, banned := range []string{"due", "owed"} {
-		if strings.Contains(strings.ToLower(out), banned) {
-			t.Errorf("a cost is never what is %q:\n%s", banned, out)
-		}
+	if m := owedOrDue3207.FindString(out); m != "" {
+		t.Errorf("a cost is never what is %q:\n%s", m, out)
 	}
 }
 

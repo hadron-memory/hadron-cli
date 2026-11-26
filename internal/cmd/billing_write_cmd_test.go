@@ -162,7 +162,7 @@ func TestBillingGrantForwardsOptionalsAndPair(t *testing.T) {
 	}
 }
 
-func TestBillingGrantRefusesHalfAnIdempotencyPairBeforeAnyRequest(t *testing.T) {
+func TestBillingGrantRefusesAMissingSourceHalfBeforeAnyRequest(t *testing.T) {
 	for _, extra := range [][]string{{"--source-type", "t"}, {"--source-id", "i"}, {"--source-type", "", "--source-id", "i"}} {
 		_, captured, err := runBilling(t, map[string]string{"GrantCredits": grantResponse},
 			append([]string{"billing", "grant", "acme", "--amount", "5", "--yes"}, extra...)...)
