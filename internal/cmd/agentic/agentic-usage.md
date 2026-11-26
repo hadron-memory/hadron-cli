@@ -7232,7 +7232,10 @@ The server answers only a Boolean, so the count, commit and branch are not
 reported: check the repository. Success prints `pushed memory <ref>`; JSON is
 `{memory,operation:"push",pushed:true}`. A false or empty answer, or no
 answer, exits 7 ("may have happened; check the repository before retrying")
-and never prints "pushed". Encrypted memories exit 2; not found 4; no manage
+and never prints "pushed". An `INTERNAL_SERVER_ERROR`, or a server error with no
+code, exits 1 (cli#898: the server answered, so never 7), and the push may also
+have happened then: exit 7 is not the only code after which it may have, so check
+the repository before pushing again. Encrypted memories exit 2; not found 4; no manage
 access 8; other server refusals keep their mapped code. Server text is masked
 for URL credentials and the well-known token formats (gh[pousr]_, github_pat_,
 glpat-; an unrecognised token shape is not caught) and made one safe line. Work
