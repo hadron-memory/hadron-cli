@@ -63,7 +63,11 @@ func inboxReason(err error) (string, inboxPublicMessage, bool) {
 }
 func inboxFailure(err error, message string) error {
 	if reason, m, ok := inboxReason(err); ok {
-		return exitcode.Newf(m.exit, "%s: %s", reason, m.text)
+		text := m.text
+		if r := api.SessionNotLiveReason(err); reason == "SESSION_NOT_LIVE" && r != "" {
+			text += " (" + r + ": " + api.SessionNotLiveNextStep(r) + ")"
+		}
+		return api.WithSessionNotLiveReason(exitcode.Newf(m.exit, "%s: %s", reason, text), err)
 	}
 	return exitcode.Newf(exitcode.FromError(api.MapError(err)), "%s", message)
 }
