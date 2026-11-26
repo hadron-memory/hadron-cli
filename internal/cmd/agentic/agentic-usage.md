@@ -4679,12 +4679,17 @@ Orca it refuses with exit 2 before any queue submission.
 `--apply` submits only typed `worktree.create` then `worker.start`, with
 server-side authority checks (starting requires the App manager; `--as-person`
 uses your own authority). It reuses identical operations on retry, and reports
-failed operations instead of reissuing them. Only two host-local steps follow:
-roster entry and Orca display name. `--timeout` (1s–30m) bounds each queue
+failed operations instead of reissuing them. Once both operations succeed,
+`--apply` also writes the worker's roster entry and sets the Orca display name,
+and adds each to `verified` as it is done. After a successful run no host-local
+step is left to you. `--timeout` (1s–30m) bounds each queue
 operation. Routing is unverified: team router is retired (hadron-server#2027), so
 nothing confirms this roster entry is read. This command starts no replacement
 router (cli#935); `verified` never claims routing, and `humanRemainder` ends with
-that sentence. Onboard never casts, binds a session or writes a register row.
+that sentence. Routing means whether the worker's mentions reach its terminal.
+Check it yourself: mention the worker in team chat and watch for its pickup, or
+watch the delivery events of `team host run` on its host. Onboard never casts,
+binds a session or writes a register row.
 
 `--json` returns `appId`, `appRef`, `dryRun`, `workerId`, `worktree`, `operations` (type/args),
 `queue` (known id/type/status), `verified`, `humanRemainder`, and nullable `error`.

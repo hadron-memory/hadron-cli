@@ -105,7 +105,9 @@ Starting a worker requires the App manager. By default the operations go out as
 the bound worker; --as-person sends them as you instead. Server authority
 checks apply either way.
 
-Only two host-local steps follow: roster entry and Orca display name.
+Once both operations succeed, --apply also writes the worker's roster entry
+and sets the Orca display name, and reports each as it is done. After a
+successful run no host-local step is left to you.
 Routing is not verified: team router is retired.
 Routing means whether the worker's mentions reach its terminal. Check it
 yourself: mention the worker in team chat and watch for its pickup, or watch

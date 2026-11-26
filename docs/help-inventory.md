@@ -677,7 +677,7 @@ section between the markers.
 | `team worker held` |  |  | y | #1054 | 0473a1c6a70e |  | unread |  |
 | `team worker leave-alone` |  |  | y | #1054 | 5e374e052dfe |  | unread |  |
 | `team worker list` | ls |  | y | #1054 | e7047796bd62 |  | unread |  |
-| `team worker onboard` |  |  | y | #1054 | acc0fa9e66b4 |  | unread |  |
+| `team worker onboard` |  |  | y | #1054 | 682a8798b604 |  | unread |  |
 | `team worker release` |  |  | y | #1054 | 8eb38abed75a |  | unread |  |
 | `team worker retire` |  |  | y | #1054 | 9c700f8cd752 |  | unread |  |
 | `team worker rm` | delete |  | y | #1054 | 9a66b4aba134 |  | unread |  |
