@@ -4374,6 +4374,9 @@ hadron node update hrn:node:acme.com:research:competitors:acme --properties '{"t
 # find returns 20 per page by default (--limit up to 200). "shown" is THIS
 # page's count, never cumulative: advance --offset by each page's shown and
 # stop when offset + shown >= total (or a page shows 0; total can be null).
+# A strict collection refuses --match/--where/--sort on a field it does not
+# declare: exit 2 with the server's message (FIELD_NOT_DECLARED). Elsewhere an
+# undeclared field stays queryable; the CLI sends it unchecked.
 # {"f":null} keeps the key with a null value (drop a key by replacing the bag:
 # node update <ref> --properties). A soft delete is
 # undone by `node restore <id|urn>`; --hard is final.
