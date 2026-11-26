@@ -45,8 +45,15 @@ func TestSyncMaskerOnPullStoredError3210(t *testing.T) {
 				args = append(args, "--json")
 			}
 			root.SetArgs(args)
-			_ = root.Execute()
-			assertNoSentinel(t, "pull "+tc.name, out.String(), errOut.String())
+			err := root.Execute()
+			if tc.status == "ERROR" && err == nil {
+				t.Errorf("pull %s json=%v: want a non-OK exit", tc.name, asJSON)
+			}
+			errText := ""
+			if err != nil {
+				errText = err.Error()
+			}
+			assertNoSentinel(t, "pull "+tc.name, out.String(), errOut.String(), errText)
 			if !strings.Contains(out.String(), "[redacted]") {
 				t.Errorf("pull %s json=%v: nothing was masked: %s", tc.name, asJSON, out.String())
 			}
@@ -55,17 +62,23 @@ func TestSyncMaskerOnPullStoredError3210(t *testing.T) {
 }
 
 func TestSyncMaskerOnPullRefusal3210(t *testing.T) {
-	gql, _ := captureSyncPull60(t, map[string]string{"SyncMemory": `{"errors":[{"message":"` + sentinelText + `","extensions":{"code":"SYNC_FAILED"}}]}`})
-	f, out := testFactory(t)
-	errOut := &strings.Builder{}
-	f.IOStreams.ErrOut = errOut
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--server", gql.URL})
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("want error")
+	for _, asJSON := range []bool{false, true} {
+		gql, _ := captureSyncPull60(t, map[string]string{"SyncMemory": `{"errors":[{"message":"` + sentinelText + `","extensions":{"code":"SYNC_FAILED"}}]}`})
+		f, out := testFactory(t)
+		errOut := &strings.Builder{}
+		f.IOStreams.ErrOut = errOut
+		root := NewRootCmd(f)
+		args := []string{"memory", "sync", "pull", "acme.com:kb", "--yes", "--server", gql.URL}
+		if asJSON {
+			args = append(args, "--json")
+		}
+		root.SetArgs(args)
+		err := root.Execute()
+		if err == nil {
+			t.Fatal("want error")
+		}
+		assertNoSentinel(t, "pull refusal", out.String(), errOut.String(), err.Error())
 	}
-	assertNoSentinel(t, "pull refusal", out.String(), errOut.String(), err.Error())
 }
 
 func TestSyncMaskerOnMemoryGet3210(t *testing.T) {
@@ -94,5 +107,42 @@ func TestSyncMaskerOnPush3210(t *testing.T) {
 			t.Fatal("want error")
 		}
 		assertNoSentinel(t, "push", out, errOut, err.Error())
+	}
+}
+
+// cli#3244: memory get masks the stored source URL's userinfo, in text and
+// --json, and only that: an accepted spelling prints unchanged, even when the
+// repository name looks like a token.
+func TestMemoryGetMasksSourceUserinfo3244(t *testing.T) {
+	for _, asJSON := range []bool{false, true} {
+		memory := syncMemoryJSON(t, sp("https://user:SRCSENTINEL@github.com/acme/kb"), sp(syncedAt), nil, nil, "OK")
+		out, err := runMemoryGetSync(t, memory, asJSON)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(out, "SRCSENTINEL") {
+			t.Errorf("memory get json=%v leaked the source userinfo: %s", asJSON, out)
+		}
+		if asJSON && !strings.Contains(out, "https://[redacted]@github.com/acme/kb") {
+			t.Errorf("memory get json: masked source not printed: %s", out)
+		}
+	}
+}
+
+func TestMemoryGetLeavesAcceptedSourcesUnchanged3244(t *testing.T) {
+	for _, src := range []string{
+		"https://github.com/acme/kb",
+		"git@github.com:acme/kb",
+		"https://github.com/acme/ghp_notatoken1234",
+		"git@github.com:acme/glpat-notatoken1234",
+	} {
+		memory := syncMemoryJSON(t, sp(src), sp(syncedAt), nil, nil, "OK")
+		out, err := runMemoryGetSync(t, memory, true)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, src) {
+			t.Errorf("source %q was altered: %s", src, out)
+		}
 	}
 }

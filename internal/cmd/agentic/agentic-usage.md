@@ -7212,10 +7212,11 @@ outcome. For OK status, a partial, unknown or unavailable report exits 0 with
 clean:false and a stderr warning; inspect the report, not the exit code, to
 decide whether the apply was clean. A stored failed outcome exits 1. Sync
 error text (pull, push and the stored `syncError` of `memory get`) goes through
-one masker: URL credentials and the well-known token formats (ghp_, github_pat_,
-glpat-) are redacted; a token of another shape is not recognised (cli#3210). Exit 7 after sending the mutation means
-no usable answer: the sync may have happened. Check `hadron memory get <memory>`
-before retrying. A failed preflight instead says no sync mutation was sent.
+one masker: URL credentials and the well-known token formats (gh[pousr]_,
+github_pat_, glpat-) are redacted; a token of another shape is not recognised
+(cli#3210). `memory get` also masks URL credentials in the stored `source`
+(cli#3244). Exit 7 after sending the mutation means no usable answer: the sync
+may have happened. Check `hadron memory get <memory>` before retrying. A failed preflight instead says no sync mutation was sent.
 
 ### Push a memory to its repository
 
@@ -7231,9 +7232,10 @@ reported: check the repository. Success prints `pushed memory <ref>`; JSON is
 answer, exits 7 ("may have happened; check the repository before retrying")
 and never prints "pushed". Encrypted memories exit 2; not found 4; no manage
 access 8; other server refusals keep their mapped code. Server text is masked
-for URL credentials and the well-known token formats (ghp_, github_pat_, glpat-;
-an unrecognised token shape is not caught) and made one safe line. Work that the remote refused stays held
-on the server and is never pushed or shown by the CLI.
+for URL credentials and the well-known token formats (gh[pousr]_, github_pat_,
+glpat-; an unrecognised token shape is not caught) and made one safe line. Work
+that the remote refused stays held on the server and is never pushed or shown by
+the CLI.
 
 ### Worker terminal display label
 

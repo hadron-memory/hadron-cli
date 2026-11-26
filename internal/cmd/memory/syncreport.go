@@ -211,6 +211,18 @@ func maskSyncError(s *string) *string {
 	return &m
 }
 
+// maskSourceURL strips URL userinfo from a stored source URL and nothing else:
+// maskSyncText's token pattern would rewrite a repository path that merely looks
+// like a token (cli#3244). The server accepts only userinfo-free sources today,
+// so this is defence in depth against an older or directly written value.
+func maskSourceURL(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	m := urlUserinfo.ReplaceAllString(*s, "${1}[redacted]@")
+	return &m
+}
+
 // writeSyncBlock prints the text-mode sync lines. The summary never claims
 // more than the stored facts: a null report reads as clean only after a
 // completed OK sync, and never for a memory that has not synced.
