@@ -131,6 +131,8 @@ mutation SetAiModelPrice(
 # @genqlient(for: "GrantCreditsInput.note", omitempty: true)
 # @genqlient(for: "GrantCreditsInput.sourceId", omitempty: true)
 # @genqlient(for: "GrantCreditsInput.sourceType", omitempty: true)
+# The person ledger (hadron-server#5258 snapshot) is not driven by this command: never send userRef.
+# @genqlient(for: "GrantCreditsInput.userRef", omitempty: true)
 mutation GrantCredits(
   $input: GrantCreditsInput!
 ) {
@@ -141,6 +143,8 @@ mutation GrantCredits(
 
 # Platform-ADMIN or the BILLING role. Appends a signed adjustment; idempotent on
 # (sourceType, sourceId), a mismatched replay is IDEMPOTENCY_CONFLICT.
+# The person ledger is not driven by this command: never send userRef.
+# @genqlient(for: "AdjustCreditsInput.userRef", omitempty: true)
 mutation AdjustCredits(
   $input: AdjustCreditsInput!
 ) {

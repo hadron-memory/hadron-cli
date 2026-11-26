@@ -336,7 +336,7 @@ grants which have already expired.`,
 				return exitcode.Newf(exitcode.Error, "the server returned no balance for the organization (the org given is not shown)")
 			}
 			dto := balanceDTO{
-				OrganizationID:    resp.CreditBalance.OrganizationId,
+				OrganizationID:    stringOrEmpty(resp.CreditBalance.OrganizationId),
 				BalanceMicroCents: resp.CreditBalance.BalanceMicroCents,
 				Expiring:          []expiringDTO{},
 			}
@@ -417,4 +417,14 @@ hrn:org:acme.com).`,
 	}
 	page.register(cmd)
 	return cmd
+}
+
+// stringOrEmpty reads a field the server made nullable when a ledger can belong
+// to a person: an organization's ledger always has a value, so its output is
+// unchanged (hadron-server#5258 snapshot).
+func stringOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
