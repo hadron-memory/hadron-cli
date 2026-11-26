@@ -529,15 +529,15 @@ section between the markers.
 | `team grant get` |  |  | y | #1054 | cedf605d7e14 |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | 8f90e695128f |  | unread |  |
 | `team grant request` |  |  | y | #1054 | e449859c472e |  | unread |  |
-| `team grant request-selection-signature` |  |  | y | #1054 | 9d831f15ea41 |  | unread |  |
+| `team grant request-selection-signature` |  |  | y | #1054 | 4ca92c639882 |  | unread |  |
 | `team grant request-signature` |  |  | y | #1054 | ef8db04fc545 |  | unread |  |
 | `team grant revoke` |  |  | y | #1054 | f0740bd5515d |  | unread |  |
 | `team grant rm` |  |  | y | #1054 | 3252dd3edcc2 |  | unread |  |
 | `team grant signing-request` |  |  | n | #1054 | 3bd505f4675f |  | unread |  |
 | `team grant signing-request get` |  |  | y | #1054 | 40928695254a |  | unread |  |
-| `team grant signing-request get-selection` |  |  | y | #1054 | ea92fef00e09 |  | unread |  |
+| `team grant signing-request get-selection` |  |  | y | #1054 | e2c82dfe8d03 |  | unread |  |
 | `team grant signing-request withdraw` |  |  | y | #1054 | bab869e18832 |  | unread |  |
-| `team grant signing-request withdraw-selection` |  |  | y | #1054 | 9dbda1d3945f |  | unread |  |
+| `team grant signing-request withdraw-selection` |  |  | y | #1054 | 4f29225ca5ae |  | unread |  |
 | `team grant withdraw` |  |  | y | #1054 | 5be84801ab44 |  | unread |  |
 | `team health` |  |  | n | #1054 | d1b3825cdd4d | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health install` |  |  | y | #1054 | 7daf7a368a8f | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |

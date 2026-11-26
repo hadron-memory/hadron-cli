@@ -7389,7 +7389,11 @@ These verbs make no local worker check. With no worker binding in the worktree t
 
 `--json` is `{id, state, payloadVersion, requestedBy{userId,appId,workerId,sessionId}, createdAt, expiresAt, endedAt, lastRefusedAt, ceremonyUrl, items:[]}`; each item has the one-grant signing request's fields (an item's `ceremonyUrl` is the selection's page). Text prints the fields, `ceremonyUrl` verbatim, `items: N`, then a GRANT / REQUEST / VERSION / STATE / ENDED table; a URL carrying control or format characters is refused in text (exit 1, `--json` carries it). `state` is the server's word (OPEN, COMPLETED, DECLINED, EXPIRED, WITHDRAWN; a selection has no STALE state, a grant that changes ends only its own item). An unknown and an unreadable selection give the same not-found answer (exit 4), which does not show the id.
 
-Refusals keep the server's message; text appends `(CODE; grantRef: …; reason: …; cap: …; state: …)` with whichever of those the server sent, and `--json` carries `serverCode` and `extensions`. A `grantRef` is shown only when it is one of the ids passed. Exit codes: `SELECTION_EMPTY`, `SELECTION_TOO_LARGE`, `SELECTION_DUPLICATE_GRANT`, `SELECTION_MIXED_APPS` 2; `GRANT_NOT_FOUND`, `SIGNING_REQUEST_NOT_FOUND` 4; `GRANT_NOT_PENDING`, `GRANT_EXPIRED`, `GRANT_TERMS_UNREPRESENTABLE`, `SIGNING_REQUEST_ENDED` 5; `SIGNING_REQUEST_NOT_REQUESTER`, `FORBIDDEN` (also asking or withdrawing while impersonating) 8.
+Refusals keep the server's message; text appends `(CODE; grantRef: …; reason: …; cap: …; state: …)` with whichever of those the server sent, and `--json` carries `serverCode` and `extensions`. A `grantRef` is shown only when it is one of the ids passed to `request-selection-signature`; the other two verbs pass no grant id. Each verb's refusals and exit codes (all three also exit 2 on a blank id, a binding for another server or `--app`, or a server without selection signing):
+
+- `request-selection-signature`: `SELECTION_EMPTY`, `SELECTION_TOO_LARGE`, `SELECTION_DUPLICATE_GRANT`, `SELECTION_MIXED_APPS` 2; `GRANT_NOT_FOUND` 4; `GRANT_NOT_PENDING`, `GRANT_EXPIRED`, `GRANT_TERMS_UNREPRESENTABLE` 5; `FORBIDDEN` (also asking while impersonating) 8.
+- `get-selection`: no refusal of its own; a selection that is not found or not visible is exit 4.
+- `withdraw-selection`: `SIGNING_REQUEST_NOT_FOUND`, or a selection that is not found or not visible, 4; `SIGNING_REQUEST_ENDED` 5; `SIGNING_REQUEST_NOT_REQUESTER`, `FORBIDDEN` (also withdrawing while impersonating) 8.
 
 ### Managing an App's grants (cli#1846)
 
