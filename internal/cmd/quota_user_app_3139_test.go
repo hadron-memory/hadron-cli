@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
@@ -405,6 +406,9 @@ func TestQuotaBlankRefMessageDoesNotSuggestLeavingTheOnlyRefOut3139(t *testing.T
 // IMPERSONATION_READ_ONLY and the message below, before any resolver runs, for every form. The reply
 // is that real shape, so the help's exit code is checked against what the CLI does with it.
 func TestQuotaSetImpersonatedRefusalExitsOneForEveryForm3189(t *testing.T) {
+	// The message and the 403 payload below are copied from hadron-server's
+	// src/api/graphql/impersonationReadOnlyPlugin.ts (the pre-resolver refusal), so a change there is
+	// where this fixture goes stale (cli#3216 item 5).
 	const message = "This is a read-only impersonation session; mutations are disabled."
 	forms := map[string][]string{
 		"org":        {"--org", "acme.com"},
@@ -414,9 +418,9 @@ func TestQuotaSetImpersonatedRefusalExitsOneForEveryForm3189(t *testing.T) {
 	}
 	for name, flags := range forms {
 		t.Run(name, func(t *testing.T) {
-			var requests int
+			var requests atomic.Int32 // the handler runs on the server goroutine
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				requests++
+				requests.Add(1)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusForbidden)
 				_, _ = w.Write([]byte(`{"errors":[{"message":"` + message + `","extensions":{"code":"IMPERSONATION_READ_ONLY","blockedFields":["setQuotaLimit"]}}]}`))
@@ -429,8 +433,8 @@ func TestQuotaSetImpersonatedRefusalExitsOneForEveryForm3189(t *testing.T) {
 			if err == nil || exitCodeFor(err) != exitcode.Error || !strings.Contains(err.Error(), "read-only impersonation session") {
 				t.Errorf("want exit 1 carrying the server's read-only message: %v", err)
 			}
-			if requests != 1 {
-				t.Errorf("one request, then the refusal: %d", requests)
+			if n := requests.Load(); n != 1 {
+				t.Errorf("one request, then the refusal: %d", n)
 			}
 		})
 	}
