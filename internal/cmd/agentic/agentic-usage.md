@@ -1192,7 +1192,7 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   created: the slug is derived from `--name` and the server cannot rename a
   user-owned memory.
   App-scoped create requires `--app <ref> --agent <ref> --class
-  app|personal|private --name <name>`; both refs accept an ID or URN, and the
+  app|personal|private`, plus `--name <name>` for `--class app`; both refs accept an ID or URN, and the
   Agent must be installed in the App. Only fields passed as flags change. The
   free-standing URN slug is kebab-derived from
   `--name` on create (`"Project KB"` → `project-kb`) unless you pass
@@ -1203,8 +1203,17 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   nothing is written, and no rename follows. Without `--slug`, once the server
   iterates derived slugs (#5203 S3), a second `--name "Project KB"` creates
   `project-kb-…` with a suffix instead of being refused; the output echoes the
-  URN. App-scoped create rejects `--slug`: App-class URNs are name-derived by the server, while
-  personal/private URNs use a per-owner opaque id.
+  URN. App-scoped create rejects `--slug`: App-class URNs are name-derived by the server.
+  An App-scoped `--class personal|private` create needs no `--name` (cli#3184,
+  hadron-server#5183): the server derives the slug and the display name from the App
+  and your handle (`<app>-<handle>-<class>`, a numeric tail on a collision), ignores a
+  name, and allows one memory of each class per App for you; the command prints the
+  derived URN and name (`--json` carries them). `--name` is still sent when given, so an
+  older server uses it, and `--class app` with `--agent` still requires it (exit 2, nothing
+  sent). A second create of the same class exits 5 (`APP_USER_MEMORY_ALREADY_EXISTS`),
+  and a create whose derived name kept colliding (`MEMORY_URN_CONFLICT`, no URN
+  shown) also exits 5, each with the server's message and `serverCode` under `--json`. An
+  older server refuses an omitted name as schema skew (exit 2).
 - `memory set --app <ref> --class app --name <name>` with NO `--agent` adds a
   new free-standing app memory to an App that has an installed Agent
   (`createAppMemory`, cli#1176): only an admin/owner of the App's org (or, for

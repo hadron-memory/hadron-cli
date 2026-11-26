@@ -203,7 +203,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 				return err
 			}
 			in := gen.GrantCreditsInput{
-				OrgRef:           args[0],
+				OrgRef:           &args[0],
 				AmountMicroCents: amount,
 				SourceType:       &sourceType,
 				SourceId:         &sourceID,
@@ -295,7 +295,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 				return err
 			}
 			resp, err := gen.AdjustCredits(cmd.Context(), client, &gen.AdjustCreditsInput{
-				OrgRef:           args[0],
+				OrgRef:           &args[0],
 				AmountMicroCents: amount,
 				SourceType:       sourceType,
 				SourceId:         sourceID,
@@ -328,7 +328,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 func ledgerEntryFrom(e *gen.CreditLedgerEntryFields) ledgerEntryDTO {
 	return ledgerEntryDTO{
 		ID:               e.Id,
-		OrganizationID:   e.OrganizationId,
+		OrganizationID:   orgIDOrEmpty(e.OrganizationId),
 		Kind:             e.Kind,
 		AmountMicroCents: e.AmountMicroCents,
 		ExpiresAt:        e.ExpiresAt,

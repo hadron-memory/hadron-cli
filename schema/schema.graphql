@@ -36,6 +36,11 @@ enum AccessSource {
   """personal-class cross-user grant (MemoryShare)."""
   MEMORY_SHARE
 
+  """
+  cross-org MemorySubscription (#329): the subscribing org's live subscription — read at any membership role, write only for knowledge at CONTRIBUTOR+ membership AND subscription. role is the EFFECTIVE level conferred (READER, or CONTRIBUTOR where write holds), never the subscription row's own role. via is the subscribing org's URN.
+  """
+  MEMORY_SUBSCRIPTION
+
   """node inherits its memory's access."""
   NODE_INHERITED
 
@@ -349,7 +354,7 @@ type AddMemoryMemberPayload {
 }
 
 """
-A signed correction on an organization's credit ledger, such as a refund
+A signed correction on an organization's or a person's credit ledger, such as a refund
 (hrn:node:hadronmemory.com:specs:cor:dmo:170:03). It is written as a new
 adjustment entry, never as an edit of another
 (hrn:node:hadronmemory.com:specs:cor:dmo:170:08).
@@ -366,7 +371,12 @@ input AdjustCreditsInput {
   entry: codes and ids, never personal data.
   """
   note: String!
-  orgRef: String!
+
+  """
+  Exactly one of orgRef and userRef (BAD_USER_INPUT for both or neither).
+  The organization whose ledger is corrected.
+  """
+  orgRef: String
 
   """The id within sourceType; must not be blank."""
   sourceId: String!
@@ -380,6 +390,13 @@ input AdjustCreditsInput {
   cost-correction.
   """
   sourceType: String!
+
+  """
+  The person whose ledger is corrected: an id, a handle or a hrn:user: URN
+  (hrn:node:hadronmemory.com:specs:cor:api:140:01). A soft-deleted person is
+  not found.
+  """
+  userRef: ID
 }
 
 """
@@ -2429,6 +2446,13 @@ type App {
   appType: AppType!
 
   """
+  #5185 — the memories linked to this App with 'attachMemoryToApp'. You see only entries whose memory you can read in your
+  own right; others are absent and not counted. 'active' is whether the link counts right now (its attacher still reads the
+  memory in their own right, the App is installed, and a personal or private memory is the App owner's and was linked by the owner).
+  """
+  attachedMemories: [AppAttachedMemory!]!
+
+  """
   #2171 (R211): the member roles this App offers: the union over its installed Agents, primary first.
   """
   availableMemberRoles: [String!]!
@@ -2576,6 +2600,18 @@ type App {
   urn: String!
 
   """
+  #5218 (hrn:node:hadronmemory.com:specs:cor:dmo:060:20) — the classes, personal and private, that the signed-in viewer
+  may still create in this App through createMemoryInApp: a class is listed when that mutation's checks on the caller, the
+  App and the one-per-class limit would admit it through at least one installed Agent. Read from the viewer's own rows
+  only, so nothing another user holds changes it. Empty for a caller who is not a member of the App, a request with no user, an App key, an impersonated
+  session, an AppRun and a request bound to a worker session; for an uninstalled App, an App with no usable installed
+  Agent, and a user-owned App while createMemoryInApp refuses those classes there. It reserves nothing: a later create
+  is judged again, and two refusals about the memory's name are not predicted (the caller's own deleted memory at that
+  name that cannot be removed, and no free name left).
+  """
+  viewerAppUserMemoryClasses: [MemoryClass!]!
+
+  """
   #2109 — whether the current caller manages this App: its owner, an owner-role
   member, a live ADMIN or OWNER of its organization, or a platform admin for an
   organization-owned App. A known fact for an App the caller can read, so false
@@ -2663,6 +2699,20 @@ type AppAgent {
   installMethod: InstallMethod
   updatedAt: DateTime
   updatedBy: String
+}
+
+"""#5185 — one link of a memory to an App."""
+type AppAttachedMemory {
+  """Whether the link counts right now."""
+  active: Boolean!
+  attachedByHandle: String
+
+  """
+  The user who attached it. null means WITHHELD from this caller, as the App's member list is (#2089).
+  """
+  attachedById: ID
+  createdAt: DateTime!
+  memory: Memory!
 }
 
 """
@@ -3598,7 +3648,7 @@ input AssignHostWorkerInput {
   effort: String
 
   """
-  The model family it runs as there: one a host has a launcher for (claude, codex, glm or kimi).
+  The model family it runs as there: any family token (letters, digits, . _ or -, starting with a letter or digit, at most 64 characters; case-insensitive and stored lowercase; anthropic is claude and openai is codex). Whether the host can run it is the host's to report: a start it cannot run is reported failed.
   """
   family: String!
 
@@ -5598,13 +5648,18 @@ type CreditBalance {
   the balance when credit that never expires is below zero (hrn:node:hadronmemory.com:specs:cor:dmo:170:11).
   """
   expiring: [ExpiringCredit!]!
-  organizationId: ID!
+
+  """The organization the balance is of, or null for a person's."""
+  organizationId: ID
+
+  """The person the balance is of, or null for an organization's."""
+  ownerUserId: ID
 }
 
 """
-046-usage-metering: append-only org credit ledger row. Signed
-micro-cents as a base-10 integer string (grants +, debits -,
-adjustments either sign).
+046-usage-metering: append-only credit ledger row of an organization or a
+person (hrn:node:hadronmemory.com:specs:cor:dmo:170:01). Signed micro-cents
+as a base-10 integer string (grants +, debits -, adjustments either sign).
 """
 type CreditLedgerEntry {
   amountMicroCents: String!
@@ -5614,7 +5669,14 @@ type CreditLedgerEntry {
   id: ID!
   kind: String!
   note: String
-  organizationId: ID!
+
+  """The owning organization, or null when the entry belongs to a person."""
+  organizationId: ID
+
+  """
+  The owning person, or null when the entry belongs to an organization. An account merge moves a merged-away person's entries to the survivor.
+  """
+  ownerUserId: ID
   sourceId: String
   sourceType: String
 }
@@ -6686,7 +6748,12 @@ input GrantCreditsInput {
   """
   expiresAt: String
   note: String
-  orgRef: String!
+
+  """
+  Exactly one of orgRef and userRef (BAD_USER_INPUT for both or neither).
+  The organization to credit.
+  """
+  orgRef: String
 
   """The id within sourceType; required with it when the mutation runs."""
   sourceId: String
@@ -6703,6 +6770,14 @@ input GrantCreditsInput {
   itself: usage-event, grant-expiry, period-grant, cost-correction.
   """
   sourceType: String
+
+  """
+  The person to credit: an id, a handle or a hrn:user: URN
+  (hrn:node:hadronmemory.com:specs:cor:api:140:01). A soft-deleted person is
+  not found. Allowed to the same callers as for an organization: a platform
+  admin or the BILLING platform role.
+  """
+  userRef: ID
 }
 
 """
@@ -9036,7 +9111,7 @@ type Mutation {
   ): OrgMember!
 
   """
-  Write a signed adjustment entry on an org's credit ledger, e.g. a refund (hrn:node:hadronmemory.com:specs:cor:dmo:170:03; a correction is a new entry, hrn:node:hadronmemory.com:specs:cor:dmo:170:08). PLATFORM ADMIN or the BILLING platform role only (#5012). Idempotent on (sourceType, sourceId); a different account, amount or kind on that pair is IDEMPOTENCY_CONFLICT.
+  Write a signed adjustment entry on an organization's or a person's credit ledger (give exactly one of orgRef and userRef), e.g. a refund (hrn:node:hadronmemory.com:specs:cor:dmo:170:03; a correction is a new entry, hrn:node:hadronmemory.com:specs:cor:dmo:170:08). PLATFORM ADMIN or the BILLING platform role only (#5012). Idempotent on (sourceType, sourceId); a different account, amount or kind on that pair is IDEMPOTENCY_CONFLICT.
   """
   adjustCredits(input: AdjustCreditsInput!): CreditLedgerEntry!
 
@@ -9199,7 +9274,7 @@ type Mutation {
   (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), or a held worker on its holder's instruction; never an App key.
   A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
   Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
-  BAD_LAUNCHER_PROFILE (a family no host has a launcher for, or a model, effort or accountProfile that is not a
+  BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
   profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
   already assigned to that host and replace is not set. A refusal writes nothing.
   """
@@ -9211,18 +9286,21 @@ type Mutation {
   assignReviewSeat(head: String!, slot: String!, supersedes: ID, taskRef: ID!): PrProtocolResult!
 
   """
-  Attach an EXISTING free-standing memory to an App.
+  #5185 — LINK a memory you can read to an App. The memory is not changed: same owner, class, App, Agent, URN and name. The
+  App's key and its userless runs may then READ it (never write it) for as long as you can read it in your own right (not
+  through any App); when you lose read the link goes inert, and it works again if you regain it. A user, with or without the
+  App selected, gains nothing from a link. For a 'personal' or 'private' memory the key reads it only when the memory's owner
+  is the App's owner (a user-owned App whose owner linked their own memory); in an organization's App the link is inert for
+  the key. Any class except 'system', in any tenant. One memory may be linked into several Apps. A link you already hold is
+  success and writes nothing. 'agentRef' is accepted and ignored (deployed clients keep working).
   
-  Applies only to 'personal'/'private' memories owned by the caller (an
-  'app'-class memory can't be free-standing, so there is nothing to attach).
-  Sets the App and Agent scope; the memory's URN, class, and owner are
-  unchanged. memoryRef/appRef/agentRef accept an ID, bare URN, or prefixed
-  URN; the Agent must be installed in the App. Requires App membership.
-  
-  Typed errors: UNSUPPORTED_MEMORY_CLASS, MEMORY_ALREADY_APP_SCOPED,
-  APP_UNINSTALLED, AGENT_NOT_INSTALLED, FORBIDDEN, ORGANIZATION_MISMATCH.
+  Person only: a signed-in user acting as themselves, and a member of the App. Typed errors, judged in this order before any
+  write: UNAUTHENTICATED (no signed-in user); FORBIDDEN (an App key, run, worker session or impersonation; also an unknown or
+  deleted App, or a caller who is not a member, one identical answer); MEMORY_NOT_FOUND (unknown, deleted or not readable by
+  you in your own right, one identical answer); UNSUPPORTED_MEMORY_CLASS ('memoryClass: system'); APP_UNINSTALLED.
+  No longer answered: MEMORY_ALREADY_APP_SCOPED, ORGANIZATION_MISMATCH, AGENT_NOT_INSTALLED.
   """
-  attachMemoryToApp(agentRef: ID!, appRef: ID!, memoryRef: ID!): Memory!
+  attachMemoryToApp(agentRef: ID, appRef: ID!, memoryRef: ID!): Memory!
 
   """
   #2162 — the single stop grant per claim; a replay returns the same grant. The host signals only within stopLeaseMs of
@@ -9479,6 +9557,8 @@ type Mutation {
   and grants. A base or import is licensed for the TARGET organization at clone time, or the clone refuses
   (CLONE_BASE_UNUSABLE, CLONE_IMPORT_UNUSABLE). A refusal's blocker subjects carry a name only when you can read the
   subject; otherwise only a position. The clone's origin is Agent.clonedFromAgentRef.
+  #5203: an empty or omitted name keeps the source's name. With no slug, the slug is derived from the name and never
+  refuses the clone: it skips a reserved word and any taken slug, a deleted holder's included, as base, base-2, base-3.
   """
   cloneAgent(name: String, slug: String, source: ID!, target: ID!): Agent!
 
@@ -9527,9 +9607,9 @@ type Mutation {
   only the authored tag and nothing is created.
   
   Authorization: the SOURCE side requires (personal/private →
-  owner only; knowledge/group → source-org memory.clone grant). When `targetUrn` names a
-  DIFFERENT org, the caller must additionally be a non-reader member of that
-  target org. system/app-class sources and encrypted memories are rejected.
+  owner only; knowledge/group → source-org memory.clone grant). The caller must also be a
+  non-reader member of the target org (any target, the source's own org included);
+  reusing the URN of a soft-deleted org-owned memory additionally requires memory.create there. system/app-class sources and encrypted memories are rejected.
   """
   cloneMemory(ref: ID!, targetUrn: String!): Memory!
 
@@ -9617,7 +9697,7 @@ type Mutation {
     resetContextAfterTask: Boolean
 
     """
-    #5203: the slug to store, when the caller chose one. It is validated, not derived: a reserved word or a malformed slug is BAD_USER_INPUT and a taken one is refused as before. Omitted or null: the slug is derived from name.
+    #5203: the slug to store, when the caller chose one. It is validated, not derived: a reserved word or a malformed slug is BAD_USER_INPUT and a taken one is refused as before. Omitted or null: the slug is derived from name, and a derived slug never refuses the create: it skips a reserved word and any taken slug, a deleted holder's included, as base, base-2, base-3 (an empty or blank name is BAD_USER_INPUT; a name that yields no slug uses the base untitled).
     """
     slug: String
     surfaces: [String!]
@@ -9830,6 +9910,12 @@ type Mutation {
     sessionTimeoutSeconds: Int
     surfaces: [String!]
     trainingMode: Boolean
+
+    """
+    #5203: the App's slug, when the caller chose one; a taken one is refused CONFLICT. Omitted: the slug is derived
+    from name and never refuses the create: it skips a reserved word and any taken slug, a deleted holder's included,
+    as base, base-2, base-3 (an empty or blank name is BAD_USER_INPUT; a name that yields no slug uses the base untitled).
+    """
     urn: String
   ): App!
 
@@ -9963,8 +10049,10 @@ type Mutation {
   (023-app-shape US4; the caller is auto-added as the first owner),
   or memoryClass: personal | private for an owner-only memory the
   caller owns (free-standing, no app/agent). An org-anchored personal/private
-  memory requires actual membership of that org container; the org-less
-  owner-only path requires no org membership. system- and app-class
+  memory requires actual membership of that org container, and reusing the
+  name of a deleted organization-owned memory there also requires the org's
+  memory.create grant; the org-less owner-only path requires no org
+  membership. system- and app-class
   memories are NOT created here — they auto-provision via
   Agent.systemMemoryId / the App install path.
   """
@@ -10014,7 +10102,7 @@ type Mutation {
     shortDescription: String
 
     """
-    #5203: the slug to store, when the caller chose one. It is validated, not derived: a reserved word or a malformed slug is BAD_USER_INPUT and a taken one is refused as before. Omitted or null: the slug is derived from name.
+    #5203: the slug to store, when the caller chose one. It is validated, not derived: a reserved word or a malformed slug is BAD_USER_INPUT and a taken one is refused as before. Omitted or null: the slug is derived from name, and a derived slug never refuses the create: it skips a reserved word and any taken slug, a deleted holder's included, as base, base-2, base-3 (an empty or blank name is BAD_USER_INPUT; a name that yields no slug uses the base untitled).
     """
     slug: String
     source: String
@@ -10055,14 +10143,40 @@ type Mutation {
   require the App's user-owner or owning-org OWNER/ADMIN. Personal/private
   require the caller's actual App membership (the caller becomes the owner),
   with no platform-admin membership bypass; they are not yet supported for
-  a user-owned App. The install is rechecked as live and licensed in the
-  deciding transaction. Live name collisions are aliased to a free URN.
+  a user-owned App. Only the signed-in member acting as themselves creates
+  one: a run principal, worker session, App key or impersonation is refused.
+  The install is rechecked as live and licensed in the deciding transaction.
+  Live name collisions of an app or knowledge memory are aliased to a free URN.
   
-  Typed errors: UNSUPPORTED_MEMORY_CLASS, BAD_USER_INPUT (maxRevCount < 1),
-  APP_UNINSTALLED, AGENT_NOT_INSTALLED, MEMORY_URN_CONFLICT, FORBIDDEN,
-  UNAUTHENTICATED.
+  A personal or private memory is always the caller's own (owner and tenant;
+  its URN roots on their handle). The server derives its slug and display name
+  as <app slug>-<handle>-<class> (a numeric tail, -2, -3, when taken); a name
+  argument sets neither. A user holds at most one of each class created this
+  way per App; a second is refused with APP_USER_MEMORY_ALREADY_EXISTS.
+  See hrn:node:hadronmemory.com:specs:cor:dmo:060:20.
+  
+  Typed errors: UNSUPPORTED_MEMORY_CLASS, BAD_USER_INPUT (maxRevCount < 1, or
+  no name for an app or knowledge memory), APP_UNINSTALLED, AGENT_NOT_INSTALLED,
+  MEMORY_URN_CONFLICT, FORBIDDEN, UNAUTHENTICATED, APP_USER_MEMORY_ALREADY_EXISTS.
   """
-  createMemoryInApp(agentRef: ID!, appRef: ID!, data: JSON, description: String, embeddingSource: EmbeddingSource, maxRevCount: Int, memoryClass: MemoryClass!, name: String!, shortDescription: String, tags: [String!], vectorIndexEnabled: Boolean): Memory!
+  createMemoryInApp(
+    agentRef: ID!
+    appRef: ID!
+    data: JSON
+    description: String
+    embeddingSource: EmbeddingSource
+    maxRevCount: Int
+    memoryClass: MemoryClass!
+
+    """
+    The display name of an 'app' or 'knowledge' memory (required for those classes). Ignored for 'personal' and
+    'private': the server derives both the slug and the display name.
+    """
+    name: String
+    shortDescription: String
+    tags: [String!]
+    vectorIndexEnabled: Boolean
+  ): Memory!
 
   """
   023-app-shape US3 — asymmetric cross-user grant on a personal-class
@@ -10270,8 +10384,12 @@ type Mutation {
   secret exists yet, and the requester's own passkey ceremony at that URL makes
   it (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged request lasts
   one hour; at most 5 are open per secret name and at most 2 per requester
-  (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Those numbers are
-  engineering bounds, not ruled values.
+  (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Across the App at
+  most 100 are open (SECRET_CHANGE_APP_LIMIT) and one requester holds at most 20
+  (SECRET_CHANGE_REQUESTER_LIMIT). A staged create counts open protected creates
+  toward the App's 500-secret limit and is refused SECRET_LIMIT_REACHED at staging
+  when there is no room; completion rejudges it. Those numbers are engineering
+  bounds, not ruled values (hrn:node:hadronmemory.com:specs:cor:sec:070:02).
   """
   createSecret(kind: String!, metadata: JSON, name: String!, ownerRef: ID, ownerType: String!, protected: Boolean, value: JSON!): Secret!
 
@@ -10828,6 +10946,16 @@ type Mutation {
   deleteWorker(confirmNoExternalAttribution: Boolean, instruction: ActInstructionInput, workerRef: ID!): Boolean!
 
   """
+  #5185 — remove the link of a memory to an App; the memory is never changed. The person who attached it removes their own
+  link (even after losing read); the memory's owner and the person who manages the App remove every link of that memory in
+  that App. No link to remove is success. The memory is judged first. A caller who cannot read it gets MEMORY_NOT_FOUND
+  (the same answer as an unknown memory) whatever the App, so the App side tells them nothing. A caller who can read it gets FORBIDDEN when they have no authority over the link, and the
+  same FORBIDDEN for an unknown or deleted App. The links of a soft-deleted memory cannot be detached; they sit inert
+  until it is restored. Person only, as 'attachMemoryToApp'.
+  """
+  detachMemoryFromApp(appRef: ID!, memoryRef: ID!): Boolean!
+
+  """
   #2663: finished tasks only, their assigners only; never an App key or impersonation. Records a new disposition value, never clears it; omitted/null reference means no reference on the new value. Unknown finding TASK_FINDING_NOT_FOUND; open task TASK_NOT_FINISHED; non-assigner TASK_NOT_OWNER; unreadable task TASK_NOT_FOUND; result unchanged (hrn:node:hadronmemory.com:specs:cor:agt:050:30). #3323: the App-manager arm also admits the manager's held worker on an instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12), recorded as one app.manager-act event, ids only.
   """
   disposeAgentTaskFinding(disposition: AgentTaskFindingDispositionCode!, findingId: String!, instruction: ActInstructionInput, reference: AgentTaskReferenceInput, taskRef: ID!): AgentTask!
@@ -11045,7 +11173,7 @@ type Mutation {
   NODE_NOT_FOUND). For knowledge/group sources the caller needs the SOURCE
   org's memory.clone grant (an export) AND the destination org's memory.create
   (plus a non-reader membership for a cross-org drop); a personal/private
-  extract instead requires the owner to be a member of the destination org.
+  extract instead requires the owner to be a non-reader member of the destination org; reusing the URN of a soft-deleted org-owned memory additionally requires memory.create there.
   'move' additionally requires source write access and must leave a live
   node outside the extracted subtree; otherwise it would empty the source
   (clone + deleteMemory instead). The guard uses node membership, not the
@@ -11114,7 +11242,7 @@ type Mutation {
   grantAppKeyScope(hostId: String, id: ID!, scope: String!): AppKey!
 
   """
-  Mint credits for an org - a positive grant ledger row (spec 046). PLATFORM ADMIN or the BILLING platform role only (self-grant risk; #5012); processor top-ups land here.
+  Mint credits for an organization or a person (give exactly one of orgRef and userRef) - a positive grant ledger row (spec 046). PLATFORM ADMIN or the BILLING platform role only (self-grant risk; #5012); processor top-ups land here.
   """
   grantCredits(input: GrantCreditsInput!): CreditLedgerEntry!
 
@@ -12317,7 +12445,7 @@ type Mutation {
   setAgentTaskStallSchedule(appRef: ID!, input: AgentTaskStallScheduleInput!, instruction: ActInstructionInput): AgentTaskStallSchedule!
 
   """
-  Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at.
+  Append an effective-dated provider rate row (spec 046). PLATFORM ADMIN - org admins must never set the prices they are billed at. The row takes effect at least 60 seconds after it is written and is never changed or deleted (hrn:node:hadronmemory.com:specs:cor:dmo:170:06).
   """
   setAiModelPrice(input: SetAiModelPriceInput!): AiModelPrice!
 
@@ -13043,6 +13171,14 @@ type Mutation {
   reaches the organization lookup. An empty string `orgRef: ""` also
   answers USE_TRANSFER_MEMORY_OWNERSHIP.
   
+  A `personal` or `private` memory that belongs to an App keeps its slug
+  (hrn:node:hadronmemory.com:specs:cor:dmo:060:20): any `urn` argument on one,
+  the current slug included, answers APP_MEMORY_SLUG_FIXED (extension
+  `memoryClass`) and nothing in the call is applied. This covers memories made
+  before the rule, attached memories and session memories that carry an App.
+  The refusal follows the access check, so a caller who may not manage the
+  memory never receives it. Its display name (`name`) can still be changed.
+  
   Spec 033 FR-026: enabling `vectorIndexEnabled` on an `isEncrypted` memory
   requires `acknowledgeVectorInversionRisk: true` in the same call. Without
   the flag, an `EncryptedVectorIndexNotAcknowledgedError` is thrown carrying
@@ -13302,6 +13438,15 @@ type Mutation {
   of a Secret, and nothing changes until the requester completes the passkey
   ceremony (hrn:node:hadronmemory.com:specs:cor:sec:070:02). The expiry and the two
   caps are as for createSecret.
+  Legacy webfetch-auth rows (written before metadata.type was derived from
+  the value) recover differently per owner kind, because only org and user
+  rows are re-validated against their own decrypted stored value. There, any
+  edit — metadata-only included — re-derives the type. An App row keeps its
+  value in versions, which a metadata-only edit does not decrypt: rewriting
+  the VALUE re-validates the (metadata, value) pair and re-derives the type,
+  while a metadata-only edit of such a row is refused (the stored type is
+  unavailable) until a value rewrite restores it. This holds for protected
+  and unprotected App rows alike; it is not part of the passkey rules above.
   """
   updateSecret(metadata: JSON, protected: Boolean, ref: ID!, value: JSON): Secret!
 
@@ -16399,17 +16544,21 @@ type Query {
   contextReset(appRef: String!, resetId: ID!): ContextReset!
 
   """
-  One organization's credit balance (spec 046). Org-ADMIN. The sum over the append-only ledger, less what is left of
-  any grant whose expiry has passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles
-  the organization's grants that expired more than a minute ago: it may write those settlement entries, once per grant,
+  One account's credit balance (spec 046): an organization's or a person's. Give exactly one of orgRef and userRef;
+  gated as creditLedgerEntries. The sum over the append-only ledger, less what is left of any grant whose expiry has
+  passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles the account's grants
+  that expired more than a minute ago: it may write those settlement entries, once per grant,
   and never does for an impersonated session, which gets the same figure worked out and stored nowhere.
+  Where the deployment sets a default monthly grant (hrn:node:hadronmemory.com:specs:cor:dmo:170:12), the read also
+  writes the account's grant for the current UTC month if it has none yet, once per account and month; an impersonated
+  session writes none, and its figure includes the grant still due. A failed grant write never fails the read.
   """
-  creditBalance(orgRef: String!): CreditBalance!
+  creditBalance(orgRef: String, userRef: ID): CreditBalance!
 
   """
-  One org's append-only credit-ledger page, newest first (spec 046). Org-ADMIN.
+  One account's append-only credit-ledger page, newest first (spec 046). Give exactly one of orgRef and userRef (BAD_USER_INPUT for both or neither). An organization's: its ADMIN or OWNER, or a platform admin. A person's: that person in their own session, or a platform admin; an impersonated session and an App key are refused, and a caller who is not a platform admin gets FORBIDDEN whether or not the named person exists (hrn:node:hadronmemory.com:specs:cor:dmo:170:01).
   """
-  creditLedgerEntries(limit: Int, offset: Int, orgRef: String!): CreditLedgerEntryList!
+  creditLedgerEntries(limit: Int, offset: Int, orgRef: String, userRef: ID): CreditLedgerEntryList!
 
   """
   #797 — data for each of the caller's PLACED widgets, in position order, one entry per placement built from its own config. Empty for a non-user caller.
@@ -20114,7 +20263,9 @@ type SecretChangeRequest {
   """The change request id."""
   id: ID!
 
-  """The requested operation."""
+  """
+  The requested operation: STORE, DELETE, SET_PROTECTED or CLEAR_PROTECTED. STORE is staged by createSecret and updateSecret (a create, a new value version, a metadata edit or a protection change); DELETE by deleteSecret; the protection pair by setSecretProtected.
+  """
   operation: String!
 
   """
@@ -20167,7 +20318,7 @@ type SecretReadClient {
   grantId: ID!
 
   """
-  The worker holder was held by the actual signer at issuance (R22); null for a pending or legacy client, sealed once captured.
+  Whether the holder is the actual signer's own worker (#3999 R22): the marker is written when the read client is activated in the passkey issuance flow and judged against the worker's hold at that moment (not the hold at any earlier time). true — a worker the signer held then; false — a person-held client, a worker another person held, or a worker with no live hold then; null — not captured (pending) or a legacy row. Sealed once captured.
   """
   issuedToOwnWorker: Boolean
   maxReads: Int
@@ -20188,7 +20339,7 @@ type SecretReadClientIssued {
   grantId: ID!
 
   """
-  The worker holder was held by the actual signer at issuance (R22); null for a pending or legacy client, sealed once captured.
+  Whether the holder is the actual signer's own worker (#3999 R22): the marker is written when the read client is activated in the passkey issuance flow and judged against the worker's hold at that moment (not the hold at any earlier time). true — a worker the signer held then; false — a person-held client, a worker another person held, or a worker with no live hold then; null — not captured (pending) or a legacy row. Sealed once captured.
   """
   issuedToOwnWorker: Boolean
   secretName: String!
@@ -20765,7 +20916,12 @@ input SetAgentAssetUploadEnabledInput {
 }
 
 input SetAiModelPriceInput {
-  """Defaults to now. Appends a new effective-dated row - never mutates."""
+  """
+  When the row takes effect: an ISO 8601 date or date-time (a date alone is midnight UTC, no offset is UTC). It
+  must be at least 60 seconds from now, so every server applies the row from that instant and no row is ever dated
+  in the past; an earlier time is BAD_USER_INPUT. Defaults to now plus 60 seconds. Appends a new row: price rows
+  are never changed or deleted (hrn:node:hadronmemory.com:specs:cor:dmo:170:06).
+  """
   effectiveAt: String
   inputMicroCentsPerMTok: String!
 

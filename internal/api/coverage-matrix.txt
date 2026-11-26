@@ -279,7 +279,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 375: 346 command, 12 gap, 17 excluded
+[Mutation] 376: 346 command, 13 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -421,6 +421,7 @@ deleteTicker  command ticker delete
 deleteUser  command user delete
 deleteUserApiKey  command auth token delete
 deleteWorker  command team worker rm
+detachMemoryFromApp  gap #3277
 disposeAgentTaskFinding  command team task dispose-finding
 editComment  command comment edit
 emailCategorizeMessage  command email categorize
@@ -656,18 +657,22 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 14: 1 gap, 13 excluded
+[Arguments] 18: 5 gap, 13 excluded
+Mutation.adjustCredits(input.userRef)  gap #3072
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
+Mutation.grantCredits(input.userRef)  gap #3072
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership); Proposed class unruled under #1334 (33-row review)
+Query.creditBalance(userRef)  gap #3072
+Query.creditLedgerEntries(userRef)  gap #3072
 Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); Proposed class unruled under #1334 (33-row review)
 Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); Proposed class unruled under #1334 (33-row review)
