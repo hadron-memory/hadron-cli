@@ -37,12 +37,12 @@ WITHDRAWN or HOLDER_GONE), never worked out here; it can disagree with allows (a
 grant whose issuer can no longer issue stops allowing without changing state),
 and both are shown as returned. A dash means the value is unset. --json keeps the
 server values and nulls. list, get and request need a server released on or
-after 2026-11-17 (the state field; every other field they select shipped
-earlier, on 2026-11-10); an older server refuses the read. list and
-get only read; to ask for a grant see 'hadron team grant request'. Organization
-action grants are a different thing: see
-'hadron grant' ('hadron grant list'); 'hadron auth grants' reads the grants held
-by you personally across Apps.`
+after 2026-11-17 (the state field; every other field request selects shipped by
+2026-11-10, and list and get select only some of those); an older server refuses
+the read. list and get only read; to ask for a grant see
+'hadron team grant request'. Organization action grants are a different thing:
+see 'hadron grant' ('hadron grant list'); 'hadron auth grants' reads the grants
+held by you personally across Apps.`
 
 var workerGrantNames = []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows", "state"}
 
@@ -54,9 +54,10 @@ withholds. Three groups of commands live here:
                         (TICKER_SUBSCRIBE_WORKERS, WORKERS_STAFF, APP_MEMBERS)
                         for a worker in an App. Done by a person who manages
                         the App.
-  worker action grants  request, request-signature, signing-request, list, get:
-                        a worker asks for a grant of one action, a PERSON signs
-                        it, and the worker reads the result.
+  worker action grants  request, request-signature, request-selection-signature,
+                        signing-request, list, get: a worker asks for a grant of
+                        one action, a PERSON signs it (one grant, or a selection
+                        at once), and the worker reads the result.
   manager verbs         create, app-list, revoke, withdraw: a person who manages
                         an App creates, lists and revokes its grants, and the
                         requester withdraws a pending one.
@@ -70,11 +71,12 @@ action and its PARAMETERS; (2) 'hadron team grant request --action <name>
 it to a person, who signs on that page (nothing here signs); (4) 'hadron team
 grant signing-request get <request-id>' shows whether it was signed, and
 'hadron team grant get <grant-id>' shows the grant, where allows says whether it
-can be used now. 'list' and 'get' read the worker's own grants, so they need a
-worker session that a person is driving (a worktree bound with 'hadron team
-session start'). Organization action grants are managed with 'hadron grant'
-('hadron grant list'), not here; 'hadron auth grants' reads the grants you hold
-personally across Apps.`}
+can be used now. To have several pending grants signed at once, step (3) is
+'hadron team grant request-selection-signature <grant-id>...'. 'list' and 'get'
+read the worker's own grants, so they need a worker session that a person is
+driving (a worktree bound with 'hadron team session start'). Organization action
+grants are managed with 'hadron grant' ('hadron grant list'), not here; 'hadron
+auth grants' reads the grants you hold personally across Apps.`}
 	var limit, offset int
 	list := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one page of worker grants", Long: "List this worker's own grants: what it holds, and its requests still waiting\nto be signed.\n\n" + workerGrantAccess + `
 
@@ -176,7 +178,7 @@ not visible here.
 			return nil
 		})
 	}}
-	group.AddCommand(newCmdAppGrant(f, false), newCmdAppGrant(f, true), list, get, newCmdTeamGrantRequest(f), newCmdTeamGrantCreate(f), newCmdTeamGrantAppList(f), newCmdTeamGrantRevoke(f), newCmdTeamGrantWithdraw(f), newCmdTeamGrantRequestSignature(f), newCmdTeamGrantSigningRequest(f), newCmdTeamGrantActions(f), newCmdTeamGrantAction(f))
+	group.AddCommand(newCmdAppGrant(f, false), newCmdAppGrant(f, true), list, get, newCmdTeamGrantRequest(f), newCmdTeamGrantCreate(f), newCmdTeamGrantAppList(f), newCmdTeamGrantRevoke(f), newCmdTeamGrantWithdraw(f), newCmdTeamGrantRequestSignature(f), newCmdTeamGrantRequestSelectionSignature(f), newCmdTeamGrantSigningRequest(f), newCmdTeamGrantActions(f), newCmdTeamGrantAction(f))
 	return group
 }
 

@@ -17,7 +17,7 @@ func TestRenderMintNotApprovedNamesTarget(t *testing.T) {
 	}}
 	before, _ := json.Marshal(d)
 	var b bytes.Buffer
-	if err := renderMint(&b, d); err != nil {
+	if err := renderMint(&b, d, d.DryRun); err != nil {
 		t.Fatal(err)
 	}
 	out := b.String()

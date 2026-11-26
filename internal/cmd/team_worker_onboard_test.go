@@ -58,6 +58,43 @@ func TestTeamWorkerOnboardAgenticUsageRoutingUnverified935(t *testing.T) {
 	}
 }
 
+// cli#3215: --apply writes the roster entry and sets the Orca display name
+// itself, so neither text may list them as host-local steps that follow; both
+// say routing is unverified and how to check it.
+func TestTeamWorkerOnboardNoHostLocalStepsFollow3215(t *testing.T) {
+	_, help, err := runTeamTask(t, hostResponses(), "team", "worker", "onboard", "--help")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile("agentic/agentic-usage.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	doc := string(data)
+	start := strings.Index(doc, "## Orca worker onboarding")
+	end := strings.Index(doc, "\n## Host up\n")
+	if start < 0 || end < start {
+		t.Fatal("agentic-usage has no Orca worker onboarding section")
+	}
+	for name, text := range map[string]string{"help": help, "agentic-usage": doc[start:end]} {
+		flat := strings.Join(strings.Fields(text), " ")
+		if strings.Contains(flat, "host-local steps follow") {
+			t.Errorf("%s still says host-local steps follow --apply", name)
+		}
+		for _, want := range []string{
+			"also writes the worker's roster entry and sets the Orca display name",
+			"no host-local step is left to you",
+			"team router is retired",
+			"mention the worker in team chat and watch for its pickup",
+			"delivery events of",
+		} {
+			if !strings.Contains(flat, want) {
+				t.Errorf("%s lacks %q", name, want)
+			}
+		}
+	}
+}
+
 // cli#935: the line every onboard result ends its humanRemainder with.
 const onboardRoutingUnverified935 = "Routing is unverified: team router is retired (hadron-server#2027), so nothing confirms this roster entry is read. This command starts no replacement router."
 

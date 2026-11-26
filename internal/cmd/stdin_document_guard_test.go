@@ -150,48 +150,6 @@ func TestNodeContentFileWorksFromATerminal(t *testing.T) {
 	}
 }
 
-// NARROWNESS. The guard is on DOCUMENT reads, not on "stdin is a terminal".
-//
-// `memory encrypt --data-key -` reads a SECRET from a terminal deliberately —
-// that is the recommended form, precisely so the key never enters argv or
-// shell history — and a key is short and single-line. Guarding it would break
-// the safe path it exists to offer, which is why cmdutil.ReadDocumentStdin is
-// opt-in per call site rather than applied to every `-`.
-//
-// This test is what keeps that distinction true: a later sweep that wired the
-// helper into every `-` reader would turn it red. It asserts only that the
-// DOCUMENT refusal is absent — the command may still fail for its own reasons,
-// which is not what is under test here.
-func TestDataKeyStdinIsNotGuardedByTheDocumentRule(t *testing.T) {
-	gql, captured := captureGraphQL(t, map[string]string{
-		"MemoryEncryptionPrincipal": `{"data":{"authContext":{"principalType":"USER"}}}`,
-		"EncryptMemory":             `{"data":{"encryptMemory":{"id":"m1","urn":"acme.com::kb","name":"KB","isEncrypted":true}}}`,
-		"GetMemory":                 `{"data":{"memory":{"id":"m1","urn":"acme.com::kb","name":"KB","shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1","isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-09-20T00:00:00Z"}}}`,
-	})
-	f, _, errOut := testFactoryTTY(t, "SGVsbG9LZXlIZWxsb0tleQ==\n")
-	root := NewRootCmd(f)
-	// --yes is load-bearing HERE, not boilerplate. Without it the command
-	// prompts, testFactoryTTY's script is consumed as the CONFIRMATION answer,
-	// the non-affirmative reply aborts the command, and stdin is never read —
-	// so this test would stay green even if the document guard were wired into
-	// the secret path. It was written that way and @copilot caught it (#647):
-	// a false-negative control in the one test whose only job is to fail when
-	// a future sweep goes too far.
-	root.SetArgs([]string{"memory", "encrypt", "acme.com::kb", "--data-key", "-", "--yes", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		_ = renderError(f, err)
-		t.Fatalf("a secret read from a terminal must SUCCEED: %v\n%s", err, errOut.String())
-	}
-	// Asserting success is what makes this a real control: the read has to have
-	// happened for the mutation to be able to break it.
-	if _, ran := captured["EncryptMemory"]; !ran {
-		t.Error("the encrypt mutation must have run, i.e. stdin was actually read")
-	}
-	if msg := errOut.String(); strings.Contains(msg, "interactive terminal") {
-		t.Errorf("a SECRET read from a terminal must not hit the document guard:\n%s", msg)
-	}
-}
-
 // #648 — `hadron api -` reads a GraphQL DOCUMENT, so it takes the same
 // terminal refusal as `--content -`: before any request, exit 2, naming the
 // --input remedy as a phrase.

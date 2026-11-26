@@ -1299,6 +1299,13 @@ func codeForExtension(code string) int {
 	case code == "GITHUB_NOT_INSTALLED" || code == "GITHUB_TOKEN_SCOPE_MISMATCH" ||
 		code == "TASK_INTEGRATION_ORG_REQUIRED" || code == "APP_PROPERTIES_CONFLICT":
 		return exitcode.Conflict
+	// cli#3209: finishAgentTask refuses a review-seat task that has no verdict
+	// recorded (hadron-server seatVerdictGate, before any write). It is the
+	// task's state, fixed by recording the verdict and finishing again, like
+	// TASK_ENDED: 5. A literal row, ahead of the _REQUIRED suffix rule's usage
+	// exit below.
+	case code == "SEAT_VERDICT_REQUIRED":
+		return exitcode.Conflict
 	case code == "GITHUB_UNAVAILABLE":
 		return exitcode.Unavailable
 	// S12b defect links (hadron-cli#2189, hadron-server#4280): a caller who may
@@ -1461,6 +1468,12 @@ func codeForExtension(code string) int {
 	// #1669: invalid App action code/current slug is caller-correctable input.
 	case code == "APP_ACTION_CODE_INVALID":
 		return exitcode.Usage
+	// A filter or sort naming a field a strict collection does not declare
+	// (hadron-server#5196, cor:api:170:03, cli#3200): the path can only be a
+	// mistake in the caller's input. A literal row, since no suffix rule
+	// matches. The server's message passes through; the CLI checks no schema.
+	case code == "FIELD_NOT_DECLARED":
+		return exitcode.Usage
 	// Bulk template target cap is caller-correctable input, never truncation (#1701).
 	case code == "BULK_TARGETS_TOO_MANY" || code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
 		code == "AiConfigValidationError" || code == "UnknownAiProviderError" ||
@@ -1577,6 +1590,12 @@ func codeForExtension(code string) int {
 	case code == "TEAM_CHAT_SEARCH_QUERY_LENGTH" || code == "TEAM_CHAT_SEARCH_CURSOR_INVALID":
 		return exitcode.Usage
 	case code == "TEAM_CHAT_SEARCH_ENCRYPTED":
+		return exitcode.Conflict
+	// A ledger source pair already recorded with a different account, amount or
+	// kind (hadron-server#5007, cli#3071): no retry of the same call can succeed.
+	// A literal row: there is no _CONFLICT suffix rule, because some _CONFLICT
+	// codes are the caller's own arguments (exit 2, above).
+	case code == "IDEMPOTENCY_CONFLICT":
 		return exitcode.Conflict
 	// Transfer state refusals require a fresh preview or a change to the
 	// source/destination state; retrying the same apply cannot help.
@@ -1944,6 +1963,11 @@ func codeForExtension(code string) int {
 		return exitcode.Usage
 	case code == "GRANT_NOT_PENDING" || code == "GRANT_EXPIRED" || code == "GRANT_TERMS_UNREPRESENTABLE":
 		return exitcode.Conflict
+	// A selection of grants (requestGrantSelectionSignature, cor:acl:140:07;
+	// cli#3197): the list itself is the caller's input, which it fixes: 2. The
+	// per-grant codes are the one-grant request's, mapped above.
+	case code == "SELECTION_EMPTY" || code == "SELECTION_TOO_LARGE" || code == "SELECTION_DUPLICATE_GRANT" || code == "SELECTION_MIXED_APPS":
+		return exitcode.Usage
 	// cli#2631 (issuing a secret read client): auto-delete needs a window or read
 	// budget: the caller's own input (2). cli#2720: SECRET_AUTO_DELETE_NOT_ALLOWED
 	// (the caller neither manages the App nor wrote the secret's current version) is

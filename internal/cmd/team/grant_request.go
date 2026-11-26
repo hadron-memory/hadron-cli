@@ -21,9 +21,21 @@ import (
 // or activates a grant (cor:acl:140:07: a person signs, on the ceremony page),
 // and the CLI never reproduces the server's worker gate (cor:api:240:01).
 
-const grantRequestHelp = `The server answers only for a worker session driven by a person, in its own App.
-This command sends that session when this worktree is bound. Run unbound it
-still asks, without a worker session, and prints the server's refusal (it makes
+// grantRequestWorkerHelp is 'team grant request' alone: it names no App ref, so
+// the server's person arm of createGrant is not reachable through it.
+const grantRequestWorkerHelp = `The server answers only for a worker session driven by a person, in its own App.`
+
+// grantSigningCallersHelp is who the server answers for a signing request, as the
+// schema describes requestGrantSignature, grantSigningRequest and the withdraw.
+const grantSigningCallersHelp = `The server decides who is answered. A signing request is asked for and read by
+a bound worker session in its own App; a person acting as themselves (no worker
+binding, not impersonating) who manages the grant's live, installed App; and,
+for the grant behind a secret read client, the person who issued the client,
+while a participant of the App. Asking or reading what you may not read is
+answered as an unknown id is. Only the account that asked may withdraw it.`
+
+const grantRequestHelp = `This command sends the worker session when this worktree is bound. Run unbound it
+still asks, without a worker session, and prints the server's answer (it makes
 no local refusal, except that 'hadron team grant request' with no holder id
 refuses first); a stderr line says so. A binding on another server, or --app
 naming another App, is refused before anything is sent.
@@ -160,7 +172,7 @@ as an App manager does, and every field it selects shipped by then.
 Next step: 'hadron team grant request-signature <id>', then give the URL to a
 person.
 
-` + grantRequestHelp,
+` + grantRequestWorkerHelp + "\n\n" + grantRequestHelp,
 		Example: "  hadron team grant request --action bootprompt.source.edit --values '{\"sourceNode\":\"<node-id>\"}' --reason 'fix a typo in my prompt'",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -255,7 +267,7 @@ person.
 func signingRequestVerb(f *cmdutil.Factory, use, short, what, example string, call func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error)) *cobra.Command {
 	return &cobra.Command{
 		Use: use, Short: short, Args: cobra.ExactArgs(1), Example: example,
-		Long: what + "\n\n" + grantSigningRefusedHelp + "\n\n" + grantRequestHelp,
+		Long: what + "\n\n" + grantSigningRefusedHelp + "\n\n" + grantSigningCallersHelp + "\n\n" + grantRequestHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := requiredID("the id", args[0])
 			if err != nil {
@@ -298,7 +310,7 @@ func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
-	group := &cobra.Command{Use: "signing-request <command>", Short: "Read or withdraw a grant signing request", Long: "Read or withdraw a signing request this worker made.\n\n" + grantSigningRefusedHelp + "\n\n" + grantRequestHelp}
+	group := &cobra.Command{Use: "signing-request <command>", Short: "Read or withdraw a grant signing request", Long: "Read or withdraw a grant signing request. 'get' and 'withdraw' take\na one-grant request; 'get-selection' and 'withdraw-selection' take a selection\nmade by 'hadron team grant request-selection-signature'.\n\n" + grantSigningRefusedHelp + "\n\n" + grantSigningCallersHelp + "\n\n" + grantRequestHelp}
 	get := signingRequestVerb(f, "get <request-id>", "Read a grant signing request",
 		"Shows whether the URL you handed over was signed. <request-id> is the id printed\nby 'hadron team grant request-signature'. state is the server's own word,\nprinted as sent:\n  OPEN       not signed yet: the person can still sign; ask them, or wait\n  COMPLETED  signed and recorded: read the grant with 'hadron team grant get\n             <grant-id>' (the id 'hadron team grant request' printed)\n  DECLINED   the signer turned it down: change the request or ask someone else\n  EXPIRED    its lifetime passed (24 hours by default): run\n             'hadron team grant request-signature <grant-id>' again\n  STALE      the grant was revoked, its holder went, or its terms changed:\n             request again\n  WITHDRAWN  the requester withdrew it: run request-signature again if still\n             wanted",
 		"  hadron team grant signing-request get <request-id> --json",
@@ -310,7 +322,7 @@ func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 			return &resp.GrantSigningRequest.TeamGrantSigningRequestFields, nil
 		})
 	withdraw := signingRequestVerb(f, "withdraw <request-id>", "Withdraw an open grant signing request",
-		"Ends a signing request this worker made, so its URL can no longer be signed.\nIt withdraws the request, not the grant, and is not confirmed: it can be asked\nagain only as a new request.",
+		"Ends a signing request you asked for, so its URL can no longer be signed.\nIt withdraws the request, not the grant, and is not confirmed: it can be asked\nagain only as a new request.",
 		"  hadron team grant signing-request withdraw <request-id>",
 		func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningRequestFields, error) {
 			resp, err := gen.TeamWithdrawGrantSigningRequest(ctx, c, id)
@@ -322,6 +334,6 @@ func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 			}
 			return &resp.WithdrawGrantSigningRequest.TeamGrantSigningRequestFields, nil
 		})
-	group.AddCommand(get, withdraw)
+	group.AddCommand(get, withdraw, newCmdTeamGrantSelectionGet(f), newCmdTeamGrantSelectionWithdraw(f))
 	return group
 }

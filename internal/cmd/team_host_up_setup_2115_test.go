@@ -165,3 +165,21 @@ func TestHostUpIgnoresOtherHostDuplicateAssignments2115(t *testing.T) {
 	}
 	wantItems1389(t, "applied", dto.Applied, "Jonas worker.start NO_SESSION")
 }
+
+// cli#3189 item 3: the duplicate-assignment refusal prints the server's worker id, so a control or
+// bidi character in it is neutralised like every other server string in host up's output.
+func TestHostUpDuplicateAssignmentRefusalNeutralisesTheWorkerId3189(t *testing.T) {
+	const evil = "wkr-\x1b[2Jjonas\u202e"
+	fx := newHostUpFixture1389(t)
+	fx.present("Jonas", 0)
+	fx.serverState("APPLY", serverWorker1389("wkr-jonas", "Jonas", "RUNNING", "HOLDS_TASK", "", "hadron-cli/jonas"))
+	a := strings.ReplaceAll(assignment2085("hadron-cli/jonas", "claude"), "wkr-jonas", `wkr-\u001b[2Jjonas\u202e`)
+	fx.setup2085("SERVER", a, a)
+	_, _, err := fx.run("--apply")
+	if err == nil {
+		t.Fatal("a duplicate assignment must abort")
+	}
+	if strings.ContainsAny(err.Error(), "\x1b\u202e") || !strings.Contains(err.Error(), "duplicate assignments for worker wkr-") {
+		t.Errorf("the worker id reaches the error unsanitised: %q (raw id %q)", err.Error(), evil)
+	}
+}

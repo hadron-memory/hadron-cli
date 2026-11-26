@@ -49,11 +49,12 @@ func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 		Long: `Create an AI service config owned by an App, Agent, or Organization.
 
 The API key is a secret. To keep it out of argv and shell history you can:
-  - pass it on stdin with --api-key - ; or
+  - pass it on stdin with --api-key -, from a pipe or a redirected file
+    (--api-key - < key.txt); it is refused from an interactive terminal,
+    where a pasted key would echo to the screen; or
   - put the whole config, key included, in a JSON file and pass --file <path>
     (--file - reads the JSON from a pipe; it is refused from an interactive
-    terminal, which can truncate it — to type the key at a terminal, use
-    --api-key - instead).
+    terminal, which can truncate it).
 
 --file seeds every field; an explicit flag overrides the file's value. The file
 keys mirror the flags: app, agent, org, name, provider, model, endpoint, apiStyle, apiKey, params
@@ -75,6 +76,10 @@ stored apiStyle and effectiveApiStyle, plus the masked config and endpoints.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
+			if err := refuseAPIKeyStdinOnTerminal(f.IOStreams, apiKey,
+				"redirect a key file to it (--api-key - < key.txt), or put the key in the --file JSON config"); err != nil {
+				return err
+			}
 
 			var spec createFileSpec
 			if changed("file") {
@@ -82,9 +87,8 @@ stored apiStyle and effectiveApiStyle, plus the masked config and endpoints.`,
 					return exitcode.Newf(exitcode.Usage, "--file - and --api-key - both read stdin; put the key in the file")
 				}
 				// The config is a DOCUMENT (#648): a JSON object, refused from an
-				// interactive terminal like any other. --api-key - is NOT: it is
-				// the secret-at-a-terminal path, so key material never enters
-				// argv, and it stays unguarded (TestAIConfigAPIKeyStdinIsNotGuardedByTheDocumentRule).
+				// interactive terminal like any other. --api-key - is a secret,
+				// refused on a terminal above by the secret rule instead (cli#3214).
 				if file == "-" {
 					if err := cmdutil.RefuseDocumentStdinFromTerminal(f.IOStreams.IsInputTerminal(), "--file -", "--file"); err != nil {
 						return err
@@ -220,7 +224,7 @@ stored apiStyle and effectiveApiStyle, plus the masked config and endpoints.`,
 	cmd.Flags().StringVar(&model, "model", "", "model identifier")
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", "provider base URL; omit for the server default")
 	cmd.Flags().StringVar(&apiStyle, "api-style", "", "OpenAI-compatible wire protocol: CHAT_COMPLETIONS or RESPONSES; omit for provider default")
-	cmd.Flags().StringVar(&apiKey, "api-key", "", `provider API key ("-" reads stdin)`)
+	cmd.Flags().StringVar(&apiKey, "api-key", "", `provider API key ("-" reads piped or redirected stdin; refused on a terminal)`)
 	cmd.Flags().StringVar(&file, "file", "", `read the config (key included) from a JSON file ("-" reads piped stdin, refused from a terminal)`)
 	cmd.Flags().StringArrayVar(&params, "param", nil, "provider param key=value (repeatable; value parsed as JSON or string)")
 	cmd.Flags().BoolVar(&disabled, "disabled", false, "create the config disabled")

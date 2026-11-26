@@ -33,6 +33,16 @@ By default every matching spec is listed (the query is paged to
 exhaustion). Pass --limit (with optional --offset) to display one page
 after merging both spec markers.
 
+A retired spec is marked after its name: "(replaced by <loc>)" when a readable
+successor is recorded, "(withdrawn)" or "(rescinded)" when the spec's own
+abstract says so, and the neutral "(retired)" when neither can be read. A
+readable successor wins: a spec with both a successor and a rescind prefix reads
+"(replaced by <loc>)". JSON adds retirement (replaced, withdrawn, rescinded or
+retired; null when live).
+The APPROVAL column is the approval state of the current text and is not the
+marker: SUPERSEDED there means the text changed since the last approval, even
+on a rescinded spec.
+
 With --role spec.rule, the server returns that role and its dotted descendants
 (such as spec.rule.detail). The value is passed verbatim; only that
 provider-filtered stream is listed: legacy tag-only specs are not
@@ -215,6 +225,10 @@ the normal tag/role union. An empty --role is refused.`,
 			for i, sp := range specs {
 				r := repl[specIDs[i]]
 				listed[i] = specListDTO{specDTO: sp, Governed: governedByID[specIDs[i]], Replaced: r.Replaced, ReplacedBy: r.By}
+				if r.Replaced {
+					w := r.word()
+					listed[i].Retirement = &w
+				}
 				marked[i] = sp
 				marked[i].Name += replacedMarker(r, "")
 				if !listed[i].Governed {
@@ -246,6 +260,10 @@ type specListDTO struct {
 	Governed   bool    `json:"governed"`
 	Replaced   bool    `json:"replaced"`
 	ReplacedBy *string `json:"replacedBy"`
+	// Retirement is how a retired spec was retired: replaced, withdrawn,
+	// rescinded or the neutral retired; null for a live spec (cli#1906). The
+	// replaced flag above keeps its meaning (true for any retired spec).
+	Retirement *string `json:"retirement"`
 }
 
 // Only this listing has an approval column. Other callers of writeSpecTable

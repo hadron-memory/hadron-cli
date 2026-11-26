@@ -83,36 +83,51 @@ func TestDataKeyFileExclusiveWithDataKeyAndPassphraseFile1657(t *testing.T) {
 	}
 }
 
-// --data-key-file - reads stdin, and the confirmation prompt is answered BEFORE
-// stdin is consumed as the key (Confirm reads line by line).
-func TestDataKeyFileStdinConfirmsBeforeReading1657(t *testing.T) {
+// --data-key-file - reads piped stdin only after the confirmation gate: without
+// --yes a pipe is refused with the key still unread, and with --yes the piped
+// key is sent. (A terminal is refused outright: cli#2689.)
+func TestDataKeyFileStdinRequiresYesAndStaysUnread1657(t *testing.T) {
 	for _, c := range dataKeyCases1657() {
 		t.Run(c.name, func(t *testing.T) {
-			gql, reqs := captureLinkUserGraphQL(t, c.responses)
-			f, out, _ := testFactoryTTY(t, "")
-			f.IOStreams.In = iotest.OneByteReader(strings.NewReader("y\n" + linkUserDataKey + "\n"))
-			args := []string{}
+			base := []string{}
 			for _, a := range c.base {
 				if a != "--yes" {
-					args = append(args, a)
+					base = append(base, a)
 				}
 			}
-			root := NewRootCmd(f)
-			root.SetArgs(append(args, "--data-key-file", "-", "--server", gql.URL))
-			if err := root.Execute(); err != nil {
-				t.Fatalf("the prompt must be answered before the key is read: %v", err)
-			}
-			if len(*reqs) == 0 || !strings.Contains(out.String(), "{") {
-				t.Fatalf("no request/output: reqs=%d out=%q", len(*reqs), out.String())
-			}
-			sent := false
-			for _, r := range *reqs {
-				if r.OpKey == linkUserDataKey || strings.Contains(r.MemoryKeys, linkUserDataKey) || strings.Contains(r.Body, linkUserDataKey) {
-					sent = true
+			for _, yes := range []bool{false, true} {
+				gql, reqs := captureLinkUserGraphQL(t, c.responses)
+				f, out := testFactory(t)
+				stdin := strings.NewReader(linkUserDataKey + "\n")
+				f.IOStreams.In = stdin
+				args := append(append([]string{}, base...), "--data-key-file", "-", "--server", gql.URL)
+				if yes {
+					args = append(args, "--yes")
 				}
-			}
-			if !sent {
-				t.Fatalf("the key read from stdin after the answer was not sent: %+v", *reqs)
+				root := NewRootCmd(f)
+				root.SetArgs(args)
+				err := root.Execute()
+				if !yes {
+					if err == nil || !strings.Contains(err.Error(), "--yes") || stdin.Len() != len(linkUserDataKey)+1 {
+						t.Fatalf("without --yes the key must stay unread: err=%v unread=%d", err, stdin.Len())
+					}
+					continue
+				}
+				if err != nil {
+					t.Fatalf("a piped key with --yes: %v", err)
+				}
+				if len(*reqs) == 0 || !strings.Contains(out.String(), "{") {
+					t.Fatalf("no request/output: reqs=%d out=%q", len(*reqs), out.String())
+				}
+				sent := false
+				for _, r := range *reqs {
+					if r.OpKey == linkUserDataKey || strings.Contains(r.MemoryKeys, linkUserDataKey) || strings.Contains(r.Body, linkUserDataKey) {
+						sent = true
+					}
+				}
+				if !sent {
+					t.Fatalf("the key read from stdin was not sent: %+v", *reqs)
+				}
 			}
 		})
 	}

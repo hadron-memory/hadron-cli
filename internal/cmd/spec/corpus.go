@@ -346,7 +346,9 @@ open it (` + "`hadron spec get <citation>`" + `), fix the old citation in its te
 to confirm nothing still points at the old one.
 
 If any node in the moved subtree is minted, the renumber refuses with
-NODE_MINTED (exit 5). Supersede that spec instead.`,
+NODE_MINTED (exit 5) and prints how to go on: ` + "`hadron node move`" + ` moves a minted
+node and keeps its old address resolving, and ` + "`hadron spec supersede`" + ` replaces
+what a rule means.`,
 		Example: `  hadron spec renumber pas:010:04 pas:010:02 -m hrn:mem:micromentor.org:specs-draft --dry-run
   hadron spec renumber pas:010:04 pas:010:02 --json`,
 		Args: cobra.ExactArgs(2),
@@ -372,6 +374,9 @@ NODE_MINTED (exit 5). Supersede that spec instead.`,
 			}
 			resp, err := gen.RenumberSpec(cmd.Context(), client, memID, from, to, dryRun)
 			if err != nil {
+				if api.HasErrorCode(err, "NODE_MINTED") {
+					return renumberMintedError(err)
+				}
 				return api.MapError(err)
 			}
 			r := resp.RenumberSpec
@@ -688,13 +693,17 @@ are refused until the server supports their mint scan.`,
 			// With --json, stdout carries only the final document, so the report
 			// goes to stderr, where the prompt is — and only when a prompt
 			// follows (--yes asks nothing).
+			// The report is the dry run's, but this call is a real one: it must
+			// not tell the caller to "run without --dry-run" (cli#1906), so the
+			// hint is switched off by the explicit argument, not by editing a
+			// copy of the report (cli#3220).
 			switch {
 			case !f.JSON:
-				if err := renderMint(f.IOStreams.Out, report); err != nil {
+				if err := renderMint(f.IOStreams.Out, report, false); err != nil {
 					return err
 				}
 			case !yes:
-				if err := renderMint(f.IOStreams.ErrOut, report); err != nil {
+				if err := renderMint(f.IOStreams.ErrOut, report, false); err != nil {
 					return err
 				}
 			}
@@ -728,11 +737,13 @@ are refused until the server supports their mint scan.`,
 
 func writeMint(f *cmdutil.Factory, d mintDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		return renderMint(w, d)
+		return renderMint(w, d, d.DryRun)
 	})
 }
 
-func renderMint(w io.Writer, d mintDTO) error {
+// renderMint prints the mint report. dryRunHint says whether a mintable report ends
+// with "run without --dry-run to mint": true only when the report IS a dry run.
+func renderMint(w io.Writer, d mintDTO, dryRunHint bool) error {
 	fmt.Fprintf(w, "Mint report — %s\n", d.Memory)
 	if d.MintLocs != nil {
 		fmt.Fprintf(w, "  eligible nodes: %d", len(*d.MintLocs))
@@ -789,7 +800,7 @@ func renderMint(w io.Writer, d mintDTO) error {
 		}
 	case d.Blocked:
 		fmt.Fprintf(w, "✗ not mintable: %d blocker(s) remain\n", len(d.Blockers))
-	case d.DryRun:
+	case dryRunHint:
 		fmt.Fprintln(w, "✓ mintable — run without --dry-run to mint")
 	}
 	return nil
@@ -963,4 +974,14 @@ func placeholderLabel(s specDTO) string {
 		return s.Name + "  [placeholder]"
 	}
 	return s.Name
+}
+
+// renumberMintedError adds the CLI's own recovery to the server's NODE_MINTED
+// refusal. The server text says "Move it instead" and is shared with GraphQL, MCP
+// and the portal, so it names no command; `spec` has no move verb, and the
+// command that moves a node is `hadron node move` (cli#1906). The code and the
+// exit stay the mapped ones.
+func renumberMintedError(err error) error {
+	mapped := api.MapError(err)
+	return api.WithServerCode(exitcode.Newf(exitcode.FromError(mapped), "%s\nA minted spec cannot be renumbered. To move it so its old address keeps resolving, use `hadron node move`; to change what a rule means, use `hadron spec supersede`.", output.SafeLine(mapped.Error(), 2000)), err)
 }

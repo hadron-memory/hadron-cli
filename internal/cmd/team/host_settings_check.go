@@ -93,8 +93,9 @@ REASONS for drift (a worktree may have several):
   MANAGED_ON        managed settings set true; no other file can change that
   INVALID           the deciding file is not valid JSON, or the key in it is
                     not true or false
-  UNREADABLE        the deciding file or directory, or the worktree's .git,
-                    could not be read
+  UNREADABLE        the deciding file or directory, or the worktree's .git
+                    file or the gitdir it names (missing included), could not
+                    be read
   ACCOUNT_UNKNOWN   the account is not known and the accounts disagree
   VERSION_TOO_OLD   the installed Claude Code is older than 2.1.290
   VERSION_UNKNOWN   --claude-bin is not a link to a versions/<version> file

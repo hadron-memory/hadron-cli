@@ -38,18 +38,22 @@ This is ONE-WAY: there is no decrypt command, and the server never stores the
 key, so keep it safe. If you lose it, the content is lost.
 
 Give exactly one of:
-  --data-key-file  a file holding a key ("-" reads stdin): 32 random bytes
+  --data-key-file  a file holding a key ("-" reads piped stdin): 32 random bytes
                    written in base64 (44 characters, ending in =). Make one
                    with openssl rand -base64 32 > key, chmod 600 key, and keep
                    it safe. A file that group or others can access is refused.
-  --data-key       the same key on stdin (--data-key -). A literal key in the
+  --data-key       the same key on piped stdin (--data-key -). A literal key in the
                    argument is DEPRECATED: it shows in process listings and
                    shell history, so it warns now and a later release refuses it.
-  --passphrase-file  a file holding a passphrase ("-" reads stdin). The server
+  --passphrase-file  a file holding a passphrase ("-" reads piped stdin). The server
                    derives the key from it and stores only the salt, never the
                    key. A trailing newline is dropped; the passphrase is never
                    printed. Files accessible by group or others are refused (chmod 600).
-                   On Windows, use stdin ("-"): file permission checks are unsupported.
+                   On Windows, pipe it ("-"): file permission checks are unsupported.
+
+"-" reads PIPED stdin only. On a terminal, where a pasted secret would echo to
+the screen, every "-" above, and --unlock-passphrase-stdin, is refused (exit 2)
+before any read or prompt.
 
 What changes afterwards:
   - Content is read back only with the passphrase: add --unlock <memoryRef>
@@ -88,12 +92,17 @@ exit 2).`,
 				return exitcode.Newf(exitcode.Usage, "--data-key-file and --passphrase-file are mutually exclusive: give one. Nothing was sent")
 			}
 			// The key file is read, and its mode checked, before any request.
-			key, err := newDataKeyInput(cmd, dataKey, dataKeyFile)
+			key, err := newDataKeyInput(cmd, f.IOStreams, dataKey, dataKeyFile)
 			if err != nil {
 				return err
 			}
 			if usePassphrase && strings.TrimSpace(passphraseFile) == "" {
 				return exitcode.Newf(exitcode.Usage, "--passphrase-file is empty: name a file, or - for stdin. Nothing was sent")
+			}
+			if usePassphrase && passphraseFile == "-" {
+				if err := cmdutil.RefuseSecretStdinOnTerminal(f.IOStreams, "--passphrase-file -", "pass a passphrase file path"); err != nil {
+					return err
+				}
 			}
 			if !usePassphrase && !key.fileSet && dataKey == "" {
 				return exitcode.Newf(exitcode.Usage, "a data key is required, or a passphrase — pass --data-key-file <file|-> or --passphrase-file <file|->")
@@ -188,9 +197,9 @@ exit 2).`,
 			})
 		},
 	}
-	cmd.Flags().StringVar(&dataKeyFile, "data-key-file", "", `file holding the key: base64 of 32 random bytes (mode 600; "-" reads stdin)`)
-	cmd.Flags().StringVar(&dataKey, "data-key", "", `the key from stdin ("-"); a literal value is deprecated (visible in ps and shell history): use --data-key-file`)
-	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", `file holding a passphrase to derive the key from ("-" reads stdin)`)
+	cmd.Flags().StringVar(&dataKeyFile, "data-key-file", "", `file holding the key: base64 of 32 random bytes (mode 600; "-" reads piped stdin)`)
+	cmd.Flags().StringVar(&dataKey, "data-key", "", `the key from piped stdin ("-"); a literal value is deprecated (visible in ps and shell history): use --data-key-file`)
+	cmd.Flags().StringVar(&passphraseFile, "passphrase-file", "", `file holding a passphrase to derive the key from ("-" reads piped stdin)`)
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt (required non-interactively)")
 	return cmd
 }

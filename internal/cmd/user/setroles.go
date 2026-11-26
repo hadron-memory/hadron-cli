@@ -32,7 +32,7 @@ type setRolesDTO struct {
 // platformRoles is the server's Role enum. Validating here turns a typo into
 // a usage error naming the valid set, instead of a GraphQL enum-coercion
 // error from the wire.
-var platformRoles = []gen.Role{gen.RoleOwner, gen.RoleAdmin, gen.RoleContributor, gen.RoleReader}
+var platformRoles = []gen.Role{gen.RoleOwner, gen.RoleAdmin, gen.RoleContributor, gen.RoleReader, gen.RoleBilling}
 
 func newCmdSetRoles(f *cmdutil.Factory) *cobra.Command {
 	var roles []string
@@ -47,10 +47,14 @@ user should keep must be passed, because any role you omit is removed. The
 command reads the current roles first and shows before → after, so the
 replacement is visible before you confirm it.
 
-Platform roles (owner, admin, contributor, reader) are global standing on the
-Hadron platform, NOT membership in an organization or a memory. To change what
+Platform roles (owner, admin, contributor, reader, billing) are global standing
+on the Hadron platform, NOT membership in an organization or a memory. To change what
 someone can do inside one org or memory, use ` + "`hadron org member set-role`" + ` or
 ` + "`hadron memory member set-role`" + ` instead.
+
+billing is for a payment service's user: it may write credit grants and
+adjustments and nothing else. It is held alone; the server refuses it together
+with any other role.
 
 Requires the platform ADMIN role; every other caller is refused by the server.
 
@@ -149,7 +153,7 @@ updateUserRoles takes a raw id and does no ref resolution of its own.`,
 		},
 	}
 	cmd.Flags().StringArrayVar(&roles, "role", nil,
-		"a role to set (repeatable): owner, admin, contributor, or reader — the flags together REPLACE the user's roles (required)")
+		"a role to set (repeatable): owner, admin, contributor, reader, or billing (held alone) — the flags together REPLACE the user's roles (required)")
 	_ = cmd.MarkFlagRequired("role")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
 	return cmd

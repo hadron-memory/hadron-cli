@@ -101,10 +101,25 @@ func resolveOwner(app, agent, org string) (gen.AiConfigOwnerType, string, error)
 	return t, id, nil
 }
 
+// refuseAPIKeyStdinOnTerminal refuses --api-key - when stdin is a terminal,
+// where a pasted key would echo to the screen and scrollback (cli#3214, the
+// #2654 posture). Callers run it first in RunE, before any read, credential
+// lookup or request. value is the --api-key flag as given; instead is the
+// remedy clause, naming the other key forms this command accepts.
+func refuseAPIKeyStdinOnTerminal(ios *output.IOStreams, value, instead string) error {
+	if value != "-" {
+		return nil
+	}
+	return cmdutil.RefuseSecretStdinOnTerminal(ios, "--api-key -", instead)
+}
+
 // resolveSecret reads a secret value: "-" pulls it from stdin (trimmed), so a
 // key never has to appear in argv or shell history. An empty stdin is rejected:
 // otherwise an unset `$KEY` piped in would silently send "" — which on `update`
 // *clears* the stored key. To clear deliberately, use --api-key "".
+//
+// It has no terminal check of its own: every caller must run
+// refuseAPIKeyStdinOnTerminal first, or a pasted key echoes (cli#3214).
 func resolveSecret(v string, stdin io.Reader) (string, error) {
 	if v == "-" {
 		data, err := io.ReadAll(stdin)

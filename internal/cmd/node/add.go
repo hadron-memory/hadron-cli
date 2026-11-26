@@ -271,8 +271,7 @@ Details:
 
 // resolveContent reads the node body from --content, --content-file, or stdin.
 // The stdin path goes through cmdutil.ReadDocumentStdin, which refuses an
-// interactive terminal — see there for why a node body is a document read and
-// `--data-key -` is not (#643).
+// interactive terminal — see there for why a node body is a document read (#643).
 //
 // A zero-byte --content-file (or empty piped `--content-file -`) is refused
 // unless allowEmpty (#1035): it is the signature of a failed upstream command,

@@ -469,8 +469,9 @@ func renderError(f *cmdutil.Factory, err error) int {
 			}
 		}
 		// #1327/#936: chat-search and team-tag refusals span exits, so they are keyed
-		// on the code itself rather than the exit.
-		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED", "TEAM_CHAT_TEAM_HEAD_INVALID", "TEAM_CHAT_TEAM_METADATA_FORBIDDEN"} {
+		// on the code itself rather than the exit; a ledger replay conflict (#3071)
+		// is told apart from other conflicts the same way.
+		for _, serverCode := range []string{"TEAM_CHAT_SEARCH_QUERY_LENGTH", "TEAM_CHAT_SEARCH_CURSOR_INVALID", "TEAM_CHAT_SEARCH_ENCRYPTED", "TEAM_CHAT_TEAM_HEAD_INVALID", "TEAM_CHAT_TEAM_METADATA_FORBIDDEN", "IDEMPOTENCY_CONFLICT"} {
 			if api.HasErrorCode(err, serverCode) {
 				failure["serverCode"] = serverCode
 				break
@@ -533,6 +534,12 @@ func renderError(f *cmdutil.Factory, err error) int {
 		}
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
+		}
+		// cli#3197: a refused grant selection names the extensions the server sent
+		// that the command chose to show; absent for every other refusal.
+		var refused interface{ RefusalExtensions() map[string]any }
+		if details == nil && errors.As(err, &refused) {
+			details = refused.RefusalExtensions()
 		}
 		// A comment-add reply error names its intended thread, including when
 		// the outcome is unknown, without changing the reply's own metadata.

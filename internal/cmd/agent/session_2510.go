@@ -74,8 +74,11 @@ func newCmdAgentSessionStart(f *cmdutil.Factory) *cobra.Command {
 		Use:   "start <agent> [--external-user <id>] [--timeout-seconds <n>]",
 		Short: "Open an App session with one of the App's Agents",
 		Long: `Open a session between the calling App and <agent>, an Agent installed in that
-App. Needs an App key. The server looks the Agent up by ID, so when <agent> is
-a URN the CLI first reads the Agent to find its ID, then sends that.
+App. Needs an App key. <agent> is an Agent ID or an Agent URN
+(hrn:agent:<root>:<slug>); it is sent as typed and the server resolves it. A ref
+that names no Agent installed in the App (unknown, deleted, or installed in
+another App) gets the server's one FORBIDDEN answer (exit 8); a ref the server
+cannot read as an Agent URN, such as "acme.com:", is a usage error (exit 2).
 
 --external-user names the App's end user by the App's own user id. If the App
 has no such user, the server creates one only when the App allows implicit user
@@ -96,7 +99,7 @@ session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
 				return err
 			}
 			// cli#2895 F1/F2: flag values the help already rules out are
-			// refused locally, before the URN read or any mutation, so a bad
+			// refused locally, before any request, so a bad
 			// invocation sends zero requests.
 			if cmd.Flags().Changed("timeout-seconds") && timeoutSeconds <= 0 {
 				return exitcode.Newf(exitcode.Usage, "--timeout-seconds must be positive")
@@ -116,18 +119,7 @@ session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
 			if err != nil {
 				return err
 			}
-			agentID := ref
-			if strings.Contains(ref, ":") {
-				r, err := gen.AgentSessionAgentID(cmd.Context(), client, ref)
-				if err != nil {
-					return api.MapError(err)
-				}
-				if r.Agent == nil {
-					return exitcode.Newf(exitcode.NotFound, "agent not found, or this credential cannot read it (the ref given is not shown); pass the agent ID instead")
-				}
-				agentID = r.Agent.Id
-			}
-			resp, err := gen.StartAgentSession(cmd.Context(), client, agentID, userPtr, timeoutPtr)
+			resp, err := gen.StartAgentSession(cmd.Context(), client, ref, userPtr, timeoutPtr)
 			if err != nil {
 				return api.MapError(err)
 			}
@@ -139,9 +131,13 @@ session: {"id", "agentId", "appId", "memoryId", "userId", "type", "state",
 				ID: s.Id, AgentID: s.AgentId, AppID: s.AppId, MemoryID: s.MemoryId, UserID: s.UserId,
 				Type: s.Type, State: string(s.State), IsLive: s.IsLive, StartedAt: s.StartedAt, ExpiresAt: s.ExpiresAt,
 			}
+			agentShown := ref
+			if dto.AgentID != nil {
+				agentShown = *dto.AgentID
+			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				_, err := fmt.Fprintf(w, "✓ started session %s for agent %s (%s)\n",
-					output.SafeCell(dto.ID), output.SafeCell(agentID), output.SafeCell(dto.State))
+					output.SafeCell(dto.ID), output.SafeCell(agentShown), output.SafeCell(dto.State))
 				return err
 			})
 		},

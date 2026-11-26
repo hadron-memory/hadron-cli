@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 250: 215 command, 10 gap, 25 excluded
+[Query] 250: 217 command, 8 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -60,7 +60,7 @@ aiModelPrices  command billing prices
 aiProviderEndpoints  command ai-config endpoints
 aiServiceConfig  command ai-config get
 aiServiceConfigs  command ai-config list
-aiSpend  gap #3071
+aiSpend  command billing spend
 app  command app get
 appAIConfig  excluded internal: returns DECRYPTED provider keys to a runtime that makes LLM calls; a person reads the masked config with `ai-config get`
 appDeliverySettings  command team delivery-settings set
@@ -138,7 +138,7 @@ globalSearch  command find
 grant  command team grant get
 grantActions  command team grant actions
 grantSigningRequest  command team grant signing-request get
-grantSigningSelection  gap #3197
+grantSigningSelection  command team grant signing-request get-selection
 grants  command team grant list
 heldWorkers  command team worker held
 homeAssistantInstance  command ha get
@@ -279,7 +279,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 375: 341 command, 17 gap, 17 excluded
+[Mutation] 375: 345 command, 13 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -290,7 +290,7 @@ addAgentToApp  excluded deprecated: @deprecated: Use installAgentIntoApp (spec 0
 addMemoryMember  command memory member add
 addMemoryToAgent  command agent memory add
 addOrgMember  command org member add
-adjustCredits  gap #3071
+adjustCredits  command billing adjust
 advanceChannelReadState  command channel mark-read
 allocateSpecNode  command spec new
 amendQuestion  command question amend
@@ -472,7 +472,7 @@ processChatResponse  gap #64
 publishAgentImport  command agent import publish
 publishRevision  command agent revision publish
 purgeUnansweredQuestion  command question purge
-pushMemoryToGit  gap #2513
+pushMemoryToGit  command memory sync push
 reAdoptAutomation  command automation re-adopt
 reassignAgentTask  command team task reassign
 recordAgentTaskProgress  command team task progress
@@ -508,7 +508,7 @@ reportContextResetRelaunchFailed  excluded host-protocol: relaunch-failure repor
 reportContextResetRelaunched  excluded host-protocol: relaunch reporting went with the removed host-side handler (cli#3017); a reset op is answered FAILED, so no relaunch is reported
 reportExternalTasks  gap #3039
 reportHostOperation  command team host run
-requestGrantSelectionSignature  gap #3197
+requestGrantSelectionSignature  command team grant request-selection-signature
 requestGrantSignature  command team grant request-signature
 requestNodeSignature  command node sign
 reserveSpecCitation  command spec reserve
@@ -650,14 +650,15 @@ updateUserRoles  command user set-roles
 updateWorker  command team worker update
 withdrawGrant  command team grant withdraw
 withdrawGrantSigningRequest  command team grant signing-request withdraw
-withdrawGrantSigningSelection  gap #3197
+withdrawGrantSigningSelection  command team grant signing-request withdraw-selection
 withdrawQuestion  command question withdraw
 withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 17: 4 gap, 13 excluded
+[Arguments] 19: 6 gap, 13 excluded
 Mutation.cloneAgentTask(input.isProject)  gap #3109
+Mutation.createAgent(slug)  gap #3223
 Mutation.createAgentTask(input.isProject)  gap #3109
 Mutation.createAgentTasks(tasks.task.isProject)  gap #3109
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -665,6 +666,7 @@ Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
+Mutation.createMemory(slug)  gap #3223
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)

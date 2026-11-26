@@ -181,13 +181,41 @@ func quoteCapped(s string, max int) string {
 
 // urlUserinfo matches the credentials part of a URL (`scheme://user:pass@`),
 // up to the LAST @ before the host so an unencoded @ in a password is masked
-// whole. syncError is a server-stored message; the server already replaces git
-// failures with a fixed text, and this keeps any other error that quotes an
-// authenticated remote from printing its token. Scheme-less scp-style remotes
-// (`user:token@host:path`) are not masked: the mask covers URL remotes only.
+// whole. Scheme-less scp-style remotes (`user:token@host:path`) are not masked:
+// the mask covers URL remotes only.
 var urlUserinfo = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/\s?#]+@`)
 
+// bareTokenShapes covers the well-known prefixed token formats a git or
+// provider failure can quote outside a URL: GitHub ghp_/gho_/ghu_/ghs_/ghr_ and
+// github_pat_, GitLab glpat-. A token of any other shape cannot be recognised
+// by any mask, so this is a floor, not a guarantee (cli#2513, cli#3210).
+var bareTokenShapes = regexp.MustCompile(`\b(?:gh[pousr]_[A-Za-z0-9_]{8,}|github_pat_[A-Za-z0-9_]{8,}|glpat-[A-Za-z0-9_-]{8,})`)
+
+// maskSyncText is the one masker for every surface that prints the server's
+// sync text: pull's stored syncError and its refusals, memory get's stored
+// syncError, and push's refusals (cli#3210). It strips URL userinfo and redacts
+// the well-known bare token shapes. syncError is a server-stored message; the
+// server already replaces git failures with a fixed text, and this keeps any
+// other error that quotes an authenticated remote or a token from printing it.
+func maskSyncText(s string) string {
+	m := urlUserinfo.ReplaceAllString(s, "${1}[redacted]@")
+	return bareTokenShapes.ReplaceAllString(m, "[redacted]")
+}
+
+// maskSyncError is maskSyncText for a nullable stored field.
 func maskSyncError(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	m := maskSyncText(*s)
+	return &m
+}
+
+// maskSourceURL strips URL userinfo from a stored source URL and nothing else:
+// maskSyncText's token pattern would rewrite a repository path that merely looks
+// like a token (cli#3244). The server accepts only userinfo-free sources today,
+// so this is defence in depth against an older or directly written value.
+func maskSourceURL(s *string) *string {
 	if s == nil {
 		return nil
 	}

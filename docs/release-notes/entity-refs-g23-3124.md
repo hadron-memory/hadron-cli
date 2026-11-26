@@ -3,10 +3,9 @@
 Unreleased (cli#3124, the companion of hadron-server#5080 and #5081, hard
 renames with no alias: cor:api:140:01, ruling 0274).
 
-**Minimum server version: 0.41.0** (`HADRON_SERVER_VERSION`; hadron-server#5081
-ships in 0.40.0 and #5080 in 0.41.0, and this CLI needs both, so a server at or
-above 0.41.0). If the two server PRs merge in the other order, the second one
-takes the next minor and this line must follow it before the release.
+**Minimum server version: 0.43.0** (`HADRON_SERVER_VERSION`). hadron-server#5081
+deployed in 0.42.0 and #5080 in 0.43.0, and this CLI needs both, so a server at
+or above 0.43.0.
 This CLI works only with
 a server at or above it, and a CLI older than this release is refused on the
 affected commands once that server deploys.

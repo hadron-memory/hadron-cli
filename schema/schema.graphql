@@ -9615,6 +9615,11 @@ type Mutation {
     orgRef: ID
     personaRole: String
     resetContextAfterTask: Boolean
+
+    """
+    #5203: the slug to store, when the caller chose one. It is validated, not derived: a reserved word or a malformed slug is BAD_USER_INPUT and a taken one is refused as before. Omitted or null: the slug is derived from name.
+    """
+    slug: String
     surfaces: [String!]
     systemMemoryRef: ID
     type: AgentType
@@ -10007,6 +10012,11 @@ type Mutation {
     orgRef: ID
     readBranch: String
     shortDescription: String
+
+    """
+    #5203: the slug to store, when the caller chose one. It is validated, not derived: a reserved word or a malformed slug is BAD_USER_INPUT and a taken one is refused as before. Omitted or null: the slug is derived from name.
+    """
+    slug: String
     source: String
     tags: [String!]
 
@@ -15537,7 +15547,7 @@ type Query {
   nothing; a retired worker is no party to name, so it matches nothing). creator is
   the task's creator as createdBy projects it: a worker, or a person for a task they created
   themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
-  take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
+  take precedence over status and parentTaskRef respectively. limit defaults to 20 (cap 200).
   Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
   without a session binding (#1755).
   An App you do not participate in answers APP_NOT_FOUND, exactly like an
@@ -15963,7 +15973,7 @@ type Query {
   result; this is not every memory linked to any installed Agent.
   
   Accepts the App's ID or fully qualified URN. NodeFilter narrows node fields,
-  including objectType, approvalState and minted. Nonempty memoryIds or
+  including objectType, approvalState and minted. Nonempty memoryRefs or
   memoryClasses are rejected with BAD_USER_INPUT: the App scope is authoritative.
   where and childrenOf are rejected with BAD_USER_INPUT too (#3427, #2832); use findNodes.
   Unlike findNodes, system-node types are not excluded by default. Deleted
@@ -15981,7 +15991,7 @@ type Query {
   but total counts every node appNodes would return for the filter and hasMore says whether rows
   remain past this page. Ordered by loc, then id, so the order is stable across the App's memories.
   Default page 20, limit: 0 is count-only, a negative limit is 0, a limit over 200 is served as 200,
-  a negative offset is 0. The filter's memoryIds, memoryClasses, where and childrenOf are refused, as on appNodes.
+  a negative offset is 0. The filter's memoryRefs, memoryClasses, where and childrenOf are refused, as on appNodes.
   
   Accepts the App's ID or URN.
   """
@@ -16513,14 +16523,16 @@ type Query {
   The uniform single-edge read (#473) — edges are first-class, loc-addressed
   peers of nodes (spec 037). 'ref' accepts a primary key or a
   fully-qualified edge URN (`hrn:edge:<root>:<memory>:<loc>`; the edge's
-  memory is its SOURCE node's memory). Access: the edge's memory must be in
-  the caller's readable set; denied and missing are both null.
+  memory is its SOURCE node's memory). Access: the edge's memory and the memory
+  of each of its nodes must be in the caller's readable set; denied and missing
+  are both null.
   """
   edge(ref: ID!): Edge
 
   """
   Uniform paginated edge list (#473). Scope: edges whose (denormalized,
-  source-side) memory the caller can read, AND-narrowed by the filter.
+  source-side) memory, and the memory of each of whose nodes, the caller can
+  read, AND-narrowed by the filter.
   orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> scope, non-member -> empty page,
   no disclosure, no admin bypass). Deterministic loc-ascending order
   (id tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
@@ -16647,7 +16659,7 @@ type Query {
     query: String
 
     """
-    Spec 049 (D-2026-09-13-002): search under a named scope — a scope id, a bare scope name (needs appRef), 'app' (the App's attached memories; needs appRef), or 'global' (the active organization's view — orgRef, or your single membership). The scope's memories are intersected with your access (a lens never grants; the rest is disclosed as scope.droppedCount) and filter.memoryIds narrows WITHIN it. Omitted: the pre-049 behaviour — your accessible set, optionally narrowed by orgRef.
+    Spec 049 (D-2026-09-13-002): search under a named scope — a scope id, a bare scope name (needs appRef), 'app' (the App's attached memories; needs appRef), or 'global' (the active organization's view — orgRef, or your single membership). The scope's memories are intersected with your access (a lens never grants; the rest is disclosed as scope.droppedCount) and filter.memoryRefs narrows WITHIN it. Omitted: the pre-049 behaviour — your accessible set, optionally narrowed by orgRef.
     """
     scope: String
     sort: NodeSort
@@ -23943,9 +23955,10 @@ type Worker {
   terminal: WorkerTerminal
 
   """
-  #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus-class),
-  mid (sonnet-class), low (haiku-class); null when the model is unmapped (no guessed equivalence for another
-  family). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
+  #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus- or
+  fable-class), mid (sonnet-class), low (haiku-class), with the glm, gpt and deepseek lines placed by their vendor's
+  positioning; null when the model is unmapped (no guessed tier for a model nobody has
+  placed). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
   """
   tier: String
 

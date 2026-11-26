@@ -24,11 +24,11 @@ import (
 // terminal, so this refuses only an undocumented use whose one outcome is
 // corruption.
 //
-// NOT every `-` reader should call this. `memory encrypt --data-key -` and
-// `secret set --value -` read a SECRET from a terminal deliberately, so it
-// never enters argv or shell history, and they are short and single-line —
-// guarding them would break the safe path they exist to offer. The test is
-// whether the value is a DOCUMENT, not whether the stream is a TTY.
+// NOT every `-` reader should call this: the test is whether the value is a
+// DOCUMENT. Secret readers refuse a terminal for their own reason, an echoed
+// paste: ReadSecretInput (cli#2654) and, on memory encrypt, link-user and
+// --unlock and `ai-config create|update --api-key -`,
+// RefuseSecretStdinOnTerminal (cli#2689, cli#3214).
 //
 // flag names the source in the diagnostic (e.g. `--content -`), and fileFlag
 // the companion that reads a path (e.g. `--content-file`), so the remedy is

@@ -9,6 +9,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
 // dataKeyInput is where `memory encrypt` and `memory link-user` get their data
@@ -30,8 +31,9 @@ type dataKeyInput struct {
 // --data-key-file are mutually exclusive, an empty --data-key-file= is refused
 // (presence, not emptiness: cli#1340), and a key file is read, and its mode
 // checked, BEFORE any request. "-" (stdin) is read later, after the
-// confirmation, because it consumes the same stream the prompt is answered on.
-func newDataKeyInput(cmd *cobra.Command, literal, filePath string) (*dataKeyInput, error) {
+// confirmation, because it consumes the same stream the prompt is answered on;
+// on a terminal it is refused here, before that prompt (cli#2689).
+func newDataKeyInput(cmd *cobra.Command, ios *output.IOStreams, literal, filePath string) (*dataKeyInput, error) {
 	d := &dataKeyInput{
 		literal: literal, literalSet: cmd.Flags().Changed("data-key"),
 		filePath: filePath, fileSet: cmd.Flags().Changed("data-key-file"),
@@ -41,6 +43,16 @@ func newDataKeyInput(cmd *cobra.Command, literal, filePath string) (*dataKeyInpu
 	}
 	if d.fileSet && strings.TrimSpace(filePath) == "" {
 		return nil, exitcode.Newf(exitcode.Usage, "--data-key-file is empty: name a file, or - for stdin. Nothing was sent")
+	}
+	if d.fileSet && filePath == "-" {
+		if err := cmdutil.RefuseSecretStdinOnTerminal(ios, "--data-key-file -", "pass a key file path to --data-key-file"); err != nil {
+			return nil, err
+		}
+	}
+	if d.literalSet && literal == "-" {
+		if err := cmdutil.RefuseSecretStdinOnTerminal(ios, "--data-key -", "pass a key file with --data-key-file"); err != nil {
+			return nil, err
+		}
 	}
 	if d.fileSet && filePath != "-" {
 		data, err := cmdutil.ReadSecretFile(filePath, "--data-key-file")

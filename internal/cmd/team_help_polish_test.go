@@ -7,6 +7,7 @@ package cmd
 // every existing one.
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -157,19 +158,28 @@ func TestEventsHandleSentenceIsTight(t *testing.T) {
 	}
 }
 
+// onOrAfterWords matches the floor phrase with whatever whitespace separates its words.
+var onOrAfterWords = regexp.MustCompile(`on(\s+)or(\s+)after`)
+
 // The events floor sentence is in the TASK-cell paragraph, which is not a
 // TestHelpParagraphsAreWrapped case, and eventsHandleSentence flattens
 // whitespace, so neither would see a re-wrap that splits "on or after". Read the
 // raw help: no line break may fall inside the phrase, on either page (cli#3170).
 func TestFloorOnOrAfterIsNotSplitAcrossLines(t *testing.T) {
-	for _, page := range [][]string{{"team", "events"}, {"team", "register"}} {
+	// cli#3216 item 6: also the task pages that carry the phrase (taskclone.go, taskread.go).
+	for _, page := range [][]string{{"team", "events"}, {"team", "register"}, {"team", "task", "clone"}, {"team", "task", "get"}, {"team", "task", "list"},
+		{"team", "task"}, {"team", "task", "create"}, {"team", "task", "finish"}, {"team", "task", "link-defect"}} {
 		raw := cmdHelpOut(t, page...)
-		if !strings.Contains(raw, "on or after") {
+		// Presence uses the same whitespace-tolerant pattern as the split check, so a re-wrapped phrase
+		// is reported as split, not as missing.
+		if !onOrAfterWords.MatchString(raw) {
 			t.Fatalf("%v: no \"on or after\" floor wording on the raw help:\n%s", page, raw)
 		}
-		for _, split := range []string{"on\nor after", "on or\nafter"} {
-			if strings.Contains(raw, split) {
-				t.Errorf("%v: the floor splits \"on or after\" across two lines (%q)", page, split)
+		// Any whitespace run holding a line break splits the phrase, indented continuation lines
+		// included (cli#3189 item 6); a plain two-form substring check missed "on or\n    after".
+		for _, m := range onOrAfterWords.FindAllStringSubmatch(raw, -1) {
+			if strings.Contains(m[1], "\n") || strings.Contains(m[2], "\n") {
+				t.Errorf("%v: the floor splits \"on or after\" across two lines (%q)", page, m[0])
 			}
 		}
 	}

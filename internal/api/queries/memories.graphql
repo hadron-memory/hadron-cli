@@ -730,7 +730,7 @@ query VerifyMemoryNodes($memoryRef: String!) {
   }
 }
 
-# cli#60 slice A v2: pull only; push remains gap #60 (ruling 0168).
+# cli#60 slice A v2: pull. Push is the separate PushMemoryToGit (cli#2513).
 mutation SyncMemory($ref: ID!) {
   syncMemory(ref: $ref) {
     syncStatus
@@ -738,6 +738,12 @@ mutation SyncMemory($ref: ID!) {
     lastSyncedAt
     lastSyncReport
   }
+}
+
+# cli#2513: push the memory's live nodes to its configured repository. The
+# server answers only a Boolean: no count, commit or branch.
+mutation PushMemoryToGit($ref: ID!) {
+  pushMemoryToGit(ref: $ref)
 }
 
 # cli#60 P2: internal prerequisites only, read after confirmation.

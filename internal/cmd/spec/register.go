@@ -313,7 +313,7 @@ func applyReplacements(dto *ledgerDTO, cands []replacedCandidate, repl map[strin
 			fe.ReplacedRules = []ledgerReplacedRuleDTO{}
 			for _, rule := range fe.Rules {
 				if r, ok := byLoc[m.Module+":"+fe.Feature+":"+rule]; ok {
-					fe.ReplacedRules = append(fe.ReplacedRules, ledgerReplacedRuleDTO{Rule: rule, Replaced: true, ReplacedBy: r.By})
+					fe.ReplacedRules = append(fe.ReplacedRules, ledgerReplacedRuleDTO{Rule: rule, Replaced: true, ReplacedBy: r.By, Retirement: r.word()})
 				}
 			}
 		}
@@ -325,7 +325,7 @@ func applyReplacements(dto *ledgerDTO, cands []replacedCandidate, repl map[strin
 func ruleLabels(featureLoc string, fe ledgerFeatureDTO) []string {
 	marked := map[string]replacement{}
 	for _, r := range fe.ReplacedRules {
-		marked[r.Rule] = replacement{Replaced: r.Replaced, By: r.ReplacedBy}
+		marked[r.Rule] = replacement{Replaced: r.Replaced, By: r.ReplacedBy, Kind: kindOfWord(r.Retirement)}
 	}
 	out := make([]string, 0, len(fe.Rules))
 	for _, rule := range fe.Rules {

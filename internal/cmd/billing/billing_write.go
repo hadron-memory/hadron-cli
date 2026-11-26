@@ -13,15 +13,14 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
-// The write cut (cli#215): setAiModelPrice and grantCredits, both
-// PLATFORM-ADMIN. A money write is never retried by the CLI, and is confirmed
+// The writes: setAiModelPrice (platform admin, cli#215), grantCredits and
+// adjustCredits (platform admin or the billing role, cli#3071). A money write is never retried by the CLI, and is confirmed
 // (--yes when not on a terminal) before anything is sent.
 //
 // Money flags are opaque strings: the CLI neither parses nor range-checks them
 // (no float, no int64, no positivity rule of its own — cor:api:240:01, the
-// server owns the domain, cor:dmo:100:04). What the CLI does check is request
-// shape: a required flag is present and non-empty, and the idempotency pair is
-// given whole.
+// server owns the domain, cor:dmo:170:03). What the CLI does check is request
+// shape: a required flag is present and non-empty.
 
 // promptValue renders an operative value inside a confirmation prompt: control
 // and format characters are neutralised (no forged line, no terminal tricks) but
@@ -147,22 +146,21 @@ func newCmdGrant(f *cmdutil.Factory) *cobra.Command {
 	var amount, sourceType, sourceID, expiresAt, note string
 	var yes bool
 	cmd := &cobra.Command{
-		Use:   "grant <org> --amount <micro-cents> [--source-type <t> --source-id <i>] [--expires-at <time>] [--note <text>]",
-		Short: "Grant credit to an organization (platform admin)",
-		Long: `Add credit to an organization's ledger. Platform admin only. It really credits
-the organization: use it deliberately.
+		Use:   "grant <org> --amount <micro-cents> --source-type <t> --source-id <i> [--expires-at <time>] [--note <text>]",
+		Short: "Grant credit to an organization (platform admin or billing role)",
+		Long: `Add credit to an organization's ledger. For platform admins and the billing
+role. It really credits the organization: use it deliberately.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example
 hrn:org:acme.com). --amount is micro-cents (100000000 micro-cents = 1 USD), a whole number sent to the server exactly as typed. The
 CLI does not check it: the server requires a positive whole number and says so
 if it refuses.
 
---source-type and --source-id go together or not at all (the command refuses
-one without the other). When both are given, the server treats the pair as an
-idempotency key: granting the same pair again returns the entry that already
-exists instead of crediting twice. Without the pair there is no such
-protection, and running the command again credits again, so a retry after a
-timeout can double-credit. The CLI never retries by itself.
+--source-type and --source-id are both required: every ledger entry names its
+source. The pair is also an idempotency key: granting the same pair, amount and
+organization again returns the entry that already exists instead of crediting
+twice, and any other entry on that pair is refused (exit 5). The server refuses
+the source types it writes itself. The CLI never retries by itself.
 
 The server's answer does not say whether the entry is new or was already
 there, so the command prints the returned ledger entry the same way either
@@ -170,10 +168,15 @@ time. On success it prints "Ledger entry <id>: <amount> micro-cents to
 organization <org id>" (--json: the ledger entry). "hadron billing ledger <org>"
 shows the ledger.
 
---expires-at is recorded on the entry; it is not enforced.
+--expires-at must be later than now. From that instant what is left of the
+grant stops counting, and the server removes it with a settling ledger entry.
+Granting the same pair again does not change a stored expiry.
+
+--note is kept for good with the entry and must not hold personal data: use
+codes and ids.
 
 It asks before sending (or pass --yes; without a terminal --yes is required).`,
-		Example: `  hadron billing grant hrn:org:acme.com --amount 500000000 --note "trial" --yes
+		Example: `  hadron billing grant hrn:org:acme.com --amount 500000000 --source-type trial --source-id t-1 --expires-at 2027-06-01T00:00:00Z --yes
   hadron billing grant hrn:org:acme.com --amount 500000000 \
     --source-type stripe-checkout --source-id cs_123 --yes --json`,
 		Args: cobra.ExactArgs(1),
@@ -184,16 +187,12 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 			if err := requireFlag(cmd, "amount", amount); err != nil {
 				return err
 			}
-			st, err := optionalFlag(cmd, "source-type", &sourceType)
-			if err != nil {
-				return err
-			}
-			si, err := optionalFlag(cmd, "source-id", &sourceID)
-			if err != nil {
-				return err
-			}
-			if (st == nil) != (si == nil) {
-				return exitcode.Newf(exitcode.Usage, "--source-type and --source-id go together: give both or neither")
+			// The SDL keeps the pair nullable; the server requires it at run
+			// time (hadron-server#5007), so the CLI does too.
+			for _, r := range []struct{ name, val string }{{"source-type", sourceType}, {"source-id", sourceID}} {
+				if err := requireFlag(cmd, r.name, r.val); err != nil {
+					return err
+				}
 			}
 			exp, err := optionalFlag(cmd, "expires-at", &expiresAt)
 			if err != nil {
@@ -206,8 +205,8 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 			in := gen.GrantCreditsInput{
 				OrgRef:           args[0],
 				AmountMicroCents: amount,
-				SourceType:       st,
-				SourceId:         si,
+				SourceType:       &sourceType,
+				SourceId:         &sourceID,
 				ExpiresAt:        exp,
 				Note:             nt,
 			}
@@ -235,10 +234,91 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 		},
 	}
 	cmd.Flags().StringVar(&amount, "amount", "", "micro-cents to grant, a whole number (required)")
-	cmd.Flags().StringVar(&sourceType, "source-type", "", "idempotency pair, with --source-id: what kind of source")
-	cmd.Flags().StringVar(&sourceID, "source-id", "", "idempotency pair, with --source-type: the source's id; a repeated pair returns the existing entry rather than crediting twice")
-	cmd.Flags().StringVar(&expiresAt, "expires-at", "", "recorded on the entry; not enforced (ISO-8601)")
-	cmd.Flags().StringVar(&note, "note", "", "a note on the entry")
+	cmd.Flags().StringVar(&sourceType, "source-type", "", "what kind of source the credit comes from (required)")
+	cmd.Flags().StringVar(&sourceID, "source-id", "", "the source's id (required); repeating the same grant returns the existing entry rather than crediting twice")
+	cmd.Flags().StringVar(&expiresAt, "expires-at", "", "when what is left of the grant stops counting (ISO-8601, later than now); unset never expires")
+	cmd.Flags().StringVar(&note, "note", "", "a note on the entry; kept for good, must not hold personal data")
+	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
+	return cmd
+}
+
+func newCmdAdjust(f *cmdutil.Factory) *cobra.Command {
+	var amount, sourceType, sourceID, note string
+	var yes bool
+	cmd := &cobra.Command{
+		Use:   "adjust <org> --amount <signed micro-cents> --source-type <t> --source-id <i> --note <text>",
+		Short: "Correct an organization's credit, up or down (platform admin or billing role)",
+		Long: `Write a signed correction, such as a refund, on an organization's ledger. For
+platform admins and the billing role. It really changes the balance. An entry is
+never edited: a correction is a new entry.
+
+<org> is an organization ID or its URN, hrn:org:<root> (for example
+hrn:org:acme.com). --amount is micro-cents (100000000 micro-cents = 1 USD), a
+whole number sent to the server exactly as typed; a leading minus lowers the
+balance. The CLI does not check it: the server refuses zero and anything that is
+not a whole number.
+
+--source-type and --source-id name what caused the correction. The pair is also
+an idempotency key: the same pair, amount and organization again returns the
+entry that already exists, and any other entry on that pair, a grant included,
+is refused (exit 5). The server refuses the source types it writes itself. The
+CLI never retries by itself.
+
+--note says why. It is kept for good with the entry and must not hold personal
+data: use codes and ids.
+
+The server's answer does not say whether the entry is new or was already there.
+On success it prints "Ledger entry <id>: <amount> micro-cents on organization
+<org id>" (--json: the ledger entry, as in "hadron billing ledger").
+
+It asks before sending (or pass --yes; without a terminal --yes is required).`,
+		Example: `  hadron billing adjust hrn:org:acme.com --amount -300 \
+    --source-type refund --source-id r-1 --note "refund r-1" --yes
+  hadron billing adjust hrn:org:acme.com --amount 5000000 \
+    --source-type correction --source-id c-7 --note "ticket c-7" --yes --json`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if args[0] == "" {
+				return exitcode.Newf(exitcode.Usage, "the organization is empty")
+			}
+			for _, r := range []struct{ name, val string }{{"amount", amount}, {"source-type", sourceType}, {"source-id", sourceID}, {"note", note}} {
+				if err := requireFlag(cmd, r.name, r.val); err != nil {
+					return err
+				}
+			}
+			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Adjust the credit of %s by %s micro-cents (source %s / %s)?",
+				promptValue(args[0]), promptValue(amount), promptValue(sourceType), promptValue(sourceID))); err != nil {
+				return err
+			}
+			client, err := f.GraphQLClient()
+			if err != nil {
+				return err
+			}
+			resp, err := gen.AdjustCredits(cmd.Context(), client, &gen.AdjustCreditsInput{
+				OrgRef:           args[0],
+				AmountMicroCents: amount,
+				SourceType:       sourceType,
+				SourceId:         sourceID,
+				Note:             note,
+			})
+			if err != nil {
+				return api.MapError(err)
+			}
+			if resp.AdjustCredits == nil {
+				return exitcode.Newf(exitcode.Error, "the server returned no ledger entry")
+			}
+			dto := ledgerEntryFrom(&resp.AdjustCredits.CreditLedgerEntryFields)
+			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
+				_, err := fmt.Fprintf(w, "Ledger entry %s: %s micro-cents on organization %s\n",
+					output.SafeCell(dto.ID), output.SafeCell(dto.AmountMicroCents), output.SafeCell(dto.OrganizationID))
+				return err
+			})
+		},
+	}
+	cmd.Flags().StringVar(&amount, "amount", "", "signed micro-cents, a whole number; a leading minus lowers the balance (required)")
+	cmd.Flags().StringVar(&sourceType, "source-type", "", "what kind of source caused the correction (required)")
+	cmd.Flags().StringVar(&sourceID, "source-id", "", "the source's id (required); repeating the same adjustment returns the existing entry")
+	cmd.Flags().StringVar(&note, "note", "", "why (required); kept for good, must not hold personal data")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
 	return cmd
 }

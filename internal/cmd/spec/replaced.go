@@ -21,6 +21,68 @@ type replacement struct {
 	// readable, it lies in another memory, or the edges disagree. An identity is
 	// never guessed (cli#1145).
 	By *string
+	// Kind is the spec's own statement of how it was retired when it carries a
+	// rescind prefix on its abstract: retirementWithdrawn or retirementRescinded,
+	// "" otherwise (cli#1906). The abstract prefix is the spec-fixed signal
+	// (cor:spc:010:01); the absence of a readable edge is not, because the
+	// caller may simply not be able to read a successor.
+	Kind string
+}
+
+const (
+	retirementWithdrawn = "withdrawn"
+	retirementRescinded = "rescinded"
+)
+
+// rescindKinds is the ONE list of how a spec can say it was retired: the kind
+// each --json `retirement` word carries and the abstract prefix `spec rescind`
+// writes for it. rescindKind (abstract to kind) and kindOfWord (word to kind)
+// both read it, so a new kind cannot be added to one and dropped from the
+// other (cli#3220).
+var rescindKinds = []struct{ kind, prefixWord string }{
+	{retirementWithdrawn, withdrawnWord},
+	{retirementRescinded, rescindedWord},
+}
+
+// rescindKind reads the rescind prefix (`spec rescind` writes "WITHDRAWN (<date>);"
+// or "RESCINDED (<date>);") off an abstract.
+func rescindKind(abstract string) string {
+	a := strings.TrimSpace(abstract)
+	for _, k := range rescindKinds {
+		if strings.HasPrefix(a, k.prefixWord+" (") {
+			return k.kind
+		}
+	}
+	return ""
+}
+
+// kindOfWord maps the --json retirement word back to a rescind kind, so the
+// human register label reads the same state the DTO carries.
+func kindOfWord(w string) string {
+	for _, k := range rescindKinds {
+		if w == k.kind {
+			return k.kind
+		}
+	}
+	return ""
+}
+
+// word is the one-word state for the additive --json `retirement` key: a
+// readable successor is "replaced", the spec's own rescind prefix is
+// "withdrawn" or "rescinded", and where neither settles it the neutral
+// "retired" says no more than is known. A spec that was not replaced has no
+// retirement word at all: "" (cli#3220; the callers only ask for a retired one).
+// A readable successor wins over a rescind prefix.
+func (r replacement) word() string {
+	switch {
+	case !r.Replaced:
+		return ""
+	case r.By != nil:
+		return "replaced"
+	case r.Kind != "":
+		return r.Kind
+	}
+	return "retired"
 }
 
 // replacedCandidate is what a listing knows about a node before any edge read.
@@ -65,9 +127,14 @@ func loadReplacements(ctx context.Context, client graphql.Client, cands []replac
 		if n == nil {
 			continue
 		}
-		if by, ok := replacedByLoc(n.MemoryId, n.OutgoingEdges); ok {
-			out[n.Id] = replacement{Replaced: true, By: &by}
+		r := out[n.Id]
+		if n.Abstract != nil {
+			r.Kind = rescindKind(*n.Abstract)
 		}
+		if by, ok := replacedByLoc(n.MemoryId, n.OutgoingEdges); ok {
+			r.By = &by
+		}
+		out[n.Id] = r
 	}
 	return out, nil
 }
@@ -94,13 +161,19 @@ func replacedByLoc(memoryID string, edges []*gen.NodeBatchNodeBatchNodeBatchResu
 	return found, found != ""
 }
 
-// replacedMarker is the human suffix: "(replaced by <loc>)" or "(replaced)".
+// replacedMarker is the human suffix: "(replaced by <loc>)" for a readable
+// successor, "(withdrawn)" / "(rescinded)" from the spec's own rescind prefix,
+// and the neutral "(retired)" where neither settles it (cli#1906). It never
+// says "replaced" without a successor to name, and never guesses one.
 func replacedMarker(r replacement, shortenTo string) string {
 	if !r.Replaced {
 		return ""
 	}
 	if r.By == nil {
-		return " (replaced)"
+		if r.Kind != "" {
+			return " (" + r.Kind + ")"
+		}
+		return " (retired)"
 	}
 	by := *r.By
 	if shortenTo != "" && strings.HasPrefix(by, shortenTo+":") {
