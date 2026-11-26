@@ -239,10 +239,11 @@ func TestTaskListShowsProjectMarker3109(t *testing.T) {
 	// and the header must END with IS PROJECT, which pins the marker as the
 	// final column before any cell is read — a column appended later fails
 	// that pin loudly instead of misreading whatever became the last cell.
-	// (The header OFFSET of IS PROJECT is not a usable slice bound:
-	// tabwriter pads a column to its widest cell, so a data cell wider than
-	// its header — TITLE's, here — shifts later columns past the header's
-	// own offsets.)
+	// (Header and rows share one tabwriter.Writer, so the header's column
+	// offsets do stay aligned with every row's — offset slicing would
+	// work. It is not used because it would re-encode tabwriter's padding
+	// rules in the test; matching cells against the ID column needs no
+	// offset arithmetic.)
 	rowCells := func(line string) []string {
 		return tableCellSplit.Split(strings.TrimRight(line, " "), -1)
 	}
