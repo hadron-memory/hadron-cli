@@ -279,7 +279,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 375: 345 command, 13 gap, 17 excluded
+[Mutation] 375: 346 command, 12 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -519,7 +519,7 @@ restoreNode  command node restore
 restoreNodeRevision  command node revision restore
 restoreRevision  command agent revision restore
 resumeSession  command team session start
-retireSpec  gap #1736
+retireSpec  command spec rescind
 retireWorker  command team worker retire
 retractQuestionAnswer  command question retract
 retryFailedEmbeddings  command memory reembed-failed

@@ -741,9 +741,9 @@ section between the markers.
 | `spec register` | reg |  | y | #1055 | 2f690e3f6081 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 | `spec renumber` |  |  | y | #1055 | 43dc3d74075e |  | unread |  |
 | `spec replace` |  |  | y | #1055 | d439a9b4acd9 |  | unread |  |
-| `spec rescind` |  |  | y | #1055 | 02b9356a538d |  | unread |  |
+| `spec rescind` |  |  | y | #1055 | 76ac51309d6d |  | unread |  |
 | `spec reserve` |  |  | y | #1055 | e0a161474772 |  | unread |  |
-| `spec supersede` |  |  | y | #1055 | 46a9e2cb42be |  | unread |  |
+| `spec supersede` |  |  | y | #1055 | 07e1311988f6 |  | unread |  |
 | `spec unresolved` |  |  | y | #1055 | 40818f13665c |  | unread |  |
 | `spec use` | set-active |  | y | #1055 | ceb876a40351 | Cloe | pass | hrn:node:hadronmemory.com:hadron-dev-team-cloe:sprints:sprint-2:reviews:hadron-cli-1055:cloe-pass2 |
 <!-- group:1055 end -->

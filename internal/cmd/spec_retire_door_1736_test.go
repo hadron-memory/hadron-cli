@@ -53,12 +53,12 @@ func edge1736(targetID, loc, memory string) string {
 
 const unreadableEdge1736 = `{"name":"superseded-by","target":null}`
 
-func success1736(form string) string {
+func success1736(form, successor string) string {
 	abstract := "RESCINDED (2026-11-26); do not apply. why Historical: old"
 	edge := "null"
 	if form == "SUPERSEDE" {
 		abstract = "SUPERSEDED (2026-11-26) by msg:010:03 (W3); do not apply. Historical: old"
-		edge = `{"id":"e1","name":"superseded-by","target":{"id":"sp3","loc":"msg:010:03","name":"msg:010:03 — W3","tags":["spec","p2"]}}`
+		edge = `{"id":"e1","name":"superseded-by","target":{"id":"` + successor + `","loc":"msg:010:03","name":"msg:010:03 — W3","tags":["spec","p2"]}}`
 	}
 	return `{"data":{"retireSpec":{"node":{"id":"sp1","loc":"msg:010:02","revision":8,"tags":["spec","superseded"],"abstract":"` + abstract + `"},"successorEdge":` + edge + `}}}`
 }
@@ -118,7 +118,8 @@ func (s *door1736) serve() *httptest.Server {
 			if reply == "" {
 				in, _ := body.Variables["input"].(map[string]any)
 				form, _ := in["form"].(string)
-				reply = success1736(form)
+				successor, _ := in["successorRef"].(string)
+				reply = success1736(form, successor)
 			}
 			_, _ = w.Write([]byte(reply))
 		case "GetSpecRetireState":
@@ -204,8 +205,11 @@ func assertNoHistoryClaims1736(t *testing.T, text string) {
 				break
 			}
 			before := rest[:i]
-			if j := strings.LastIndexAny(before, ".;:\n("); j >= 0 {
-				before = before[j+1:]
+			// The clause the claim sits in: a colon inside a citation does not end one.
+			for _, end := range []string{". ", "; ", ": ", "\n", " ("} {
+				if j := strings.LastIndex(before, end); j >= 0 {
+					before = before[j+len(end):]
+				}
 			}
 			if !strings.Contains(before, "currently") {
 				t.Errorf("%q must be labelled current:\n%s", claim, text)

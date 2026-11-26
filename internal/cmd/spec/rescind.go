@@ -4,12 +4,9 @@ import (
 	"fmt"
 	"io"
 	"strings"
-	"time"
 
-	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
-	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -19,11 +16,9 @@ import (
 // cli#809 (split A, Vera 2026-10-31): retire a spec WITHOUT a successor.
 //
 // `supersede` always means a successor exists; `rescind` always means none. The
-// citation stays and is never renumbered; the node is tagged `superseded` so
-// retrieval filters treat it as not live; the banner (body) and the abstract
-// prefix say why. One guarded write: the immutable node id and the revision the
-// read saw, so a concurrent change is refused (NODE_WRITE_CONFLICT) with nothing
-// written. No edge, no allocation, no mint, no inheritance-edge change.
+// citation stays and is never renumbered. cli#1736: the retirement is ONE
+// retireSpec request (retire_door.go); the server tags the spec, composes its
+// banner and abstract, and refuses what may not be retired.
 
 const (
 	rescindedWord = "RESCINDED"
@@ -35,20 +30,30 @@ type rescindResultDTO struct {
 	Loc      string `json:"loc"`
 	MemoryID string `json:"memoryId"`
 	NodeID   string `json:"nodeId"`
-	// Revision is the revision the write was (or, with --dry-run, would be) guarded on.
+	// Revision is the revision the request was (or, with --dry-run, would be)
+	// guarded on: the one this command read.
 	Revision int `json:"revision"`
-	// Retired is true once the spec verifiably carries the superseded tag and the
-	// RESCINDED/WITHDRAWN prefix; false when it verifiably does not (a dry run, a refused
-	// write); null when a write got no answer and a re-read could not settle it.
-	Retired *bool  `json:"retired"`
-	Wording string `json:"wording"`
-	// Abstract is the abstract this command writes (or, with --dry-run, would write); for an
-	// already-rescinded spec it is the STORED abstract.
-	Abstract         string   `json:"abstract"`
-	Withdrawn        bool     `json:"withdrawn"`
-	DryRun           bool     `json:"dryRun"`
-	AlreadyRescinded bool     `json:"alreadyRescinded"`
-	Tags             []string `json:"tags"`
+	// Retired is true after a success and false for a dry run. After a refused or
+	// unanswered request it is what the re-read showed (see Current), null when
+	// that is unknown.
+	Retired *bool `json:"retired"`
+	// Wording and Abstract are the server's, from its answer to a successful
+	// retirement; null otherwise, because only the server composes them.
+	Wording   *string `json:"wording"`
+	Abstract  *string `json:"abstract"`
+	Withdrawn bool    `json:"withdrawn"`
+	DryRun    bool    `json:"dryRun"`
+	// AlreadyRescinded is always false: the server refuses an already retired
+	// spec (exit 5). The key stays for readers of the earlier shape.
+	AlreadyRescinded bool              `json:"alreadyRescinded"`
+	Tags             []string          `json:"tags"`
+	Form             string            `json:"form"`
+	Reason           *string           `json:"reason"`
+	Summary          *string           `json:"summary"`
+	Outcome          string            `json:"outcome"`
+	Current          *retireCurrentDTO `json:"current"`
+	// Note says, on a dry run, that the server composes the text; null otherwise.
+	Note *string `json:"note"`
 }
 
 func newCmdRescind(f *cmdutil.Factory) *cobra.Command {
@@ -60,26 +65,28 @@ func newCmdRescind(f *cmdutil.Factory) *cobra.Command {
 		Long: `Retire a spec that has no successor: a rule that was in force and is withdrawn
 (Rescinded), or a draft that never took effect (--withdrawn).
 
-The spec stays at its citation, which is never renumbered or deleted. One guarded
-update, bound to the node's id and the revision this command read, sets together:
-  - the "superseded" tag, so retrieval filters treat it as not live;
-  - a banner at the top of the body ("Rescinded (<UTC date>, <reason>), no successor",
-    or "Withdrawn, never in force");
-  - the abstract: "RESCINDED (<date>); do not apply. <reason> Historical: <summary>"
-    (WITHDRAWN for --withdrawn).
-No edge is written: a spec retired in favour of another one uses ` + "`hadron spec supersede`" + `.
-Nothing is allocated, minted or re-linked, and the specs that cite this one are not
-rewritten (that is a corpus task).
+The spec stays at its citation, which is never renumbered or deleted. The command
+reads the spec for its revision, then sends one retireSpec request. In one
+transaction the server tags it "superseded", writes the banner and the abstract,
+and ends its approval. The server composes that text; the CLI sends only --reason
+and --summary. No edge is written: a spec retired in favour of another one uses
+` + "`hadron spec supersede`" + `. Nothing is allocated, minted or re-linked, and
+the specs that cite this one are not rewritten (that is a corpus task).
 
 --reason and --summary are required; there is no inferred "in force" status, so say
---withdrawn yourself for a draft. Rescinding an in-force Decided spec needs a recorded
-ruling: name it in --reason. The abstract is hashed content, so rescinding ends the
-spec's approval; re-approval or re-mint is a separate step.
+--withdrawn yourself for a draft. Rescinding an in-force Decided spec needs a
+recorded ruling: name it in --reason.
 
-A stale revision is refused with exit 5 and nothing is written; rerun to start from a
-fresh read. Rerunning on a spec that is already rescinded writes nothing. A write that
-gets no answer is checked by re-reading, and the output says "unknown" when that cannot
-settle it. --dry-run reads only and prints the planned tag, banner, abstract, node id
+The server refuses a stale revision, a spec that is already retired and a spec
+that already has a successor with exit 5, and writes nothing. A rerun on a retired
+spec is exit 5, never a success (earlier releases returned exit 0). A spec linked to a
+successor but not retired also exits 5: it needs manual review, and the CLI makes
+no automatic repair. After such a refusal, or a request that got no usable answer
+(its outcome is unknown, and it is not resent), the command reads the spec once and
+reports what it currently shows, which is not proof of what this request did.
+
+A server without retireSpec is refused; there is no fallback to separate writes.
+--dry-run reads only and prints what would be sent: the spec, form, reason, summary
 and revision.`,
 		Example: `  hadron spec rescind msg:010:02 -m hrn:mem:micromentor.org:platform-specs --reason "ruling 0099 A" --summary "Placeholders were once confined to drafts." --yes
   hadron spec rescind msg:010:09 -m hrn:mem:acme.com:specs --withdrawn --reason "draft dropped" --summary-file why.md --dry-run`,
@@ -102,16 +109,6 @@ and revision.`,
 			if body == "" {
 				return exitcode.Newf(exitcode.Usage, "--summary is required and must not be empty: one line of what the spec used to say")
 			}
-			// One line each, so the abstract stays a single paragraph.
-			reason, body = oneLine(reason), oneLine(body)
-			now := time.Now().UTC().Format("2006-01-02")
-			plan := rescindPlan(now, reason, body, withdrawn)
-			// Checked before any request: the server rejects a longer abstract after the read.
-			// The server counts the abstract in UTF-16 code units (`.length`), so a rune count would admit an
-			// emoji-heavy abstract it rejects: the lint's own count is used, and the refusal is before any request.
-			if n := abstractLength(&plan.abstractPrefixAndText); n > abstractHardMax {
-				return exitcode.Newf(exitcode.Usage, "the abstract would be %d characters (counted as the server counts them); the cap is %d — shorten --reason or --summary", n, abstractHardMax)
-			}
 
 			client, err := f.GraphQLClient()
 			if err != nil {
@@ -121,50 +118,18 @@ and revision.`,
 			if err != nil {
 				return err
 			}
-
-			// Read 1: the structure (edges). A spec that already names a successor is the
-			// supersede case, never rescinded.
-			shape, err := fetchSpecTaggedNode(cmd, client, memURN, loc)
+			node, err := fetchForRetire(cmd, client, memURN, loc)
 			if err != nil {
 				return err
-			}
-			if succ := supersededByTargets(shape); len(succ) > 0 {
-				return exitcode.Newf(exitcode.Usage,
-					"the spec (the citation given is not shown) already has a %q edge to %s, so it is superseded, not rescinded; use `hadron spec supersede` for a spec with a successor (nothing was written)",
-					supersededByLabel, strings.Join(succ, ", "))
-			}
-			// Read 2: the stored body, abstract and revision, the snapshot the write is bound to.
-			node, err := fetchSpecForEdit(cmd, client, memURN, loc)
-			if err != nil {
-				return err
-			}
-			if node.Id != shape.Id {
-				return exitcode.Newf(exitcode.Conflict,
-					"the citation given (not shown) resolved to a different node between the two reads (%s, then %s), so nothing was written; rerun this command", shape.Id, node.Id)
 			}
 			result := rescindResultDTO{
 				Loc: node.Loc, MemoryID: node.MemoryId, NodeID: node.Id, Revision: node.Revision,
-				Retired: boolRef(false), Wording: plan.banner, Abstract: plan.abstractPrefixAndText, Withdrawn: withdrawn, DryRun: dryRun,
-				Tags: specTags(rescindTags(node.Tags)),
+				Retired: boolRef(false), Withdrawn: withdrawn, DryRun: dryRun, Tags: tagsOrEmpty(node.Tags),
+				Form: string(gen.RetireSpecFormRescind), Reason: &reason, Summary: &body, Outcome: retireOutcomePlanned,
 			}
-			// Already rescinded: the tag AND the RESCINDED/WITHDRAWN prefix. A rerun writes nothing.
-			if hasTag(node.Tags, supersededTag) {
-				if isRescindedAbstract(node.Abstract) {
-					// Report what is STORED, never the flags of this run: a rerun with different
-					// wording or --withdrawn must not read as if it had applied them.
-					result.AlreadyRescinded, result.Retired, result.Tags = true, boolRef(true), specTags(tagsOrEmpty(node.Tags))
-					result.Abstract = derefStr(node.Abstract)
-					result.Wording = storedWording(result.Abstract)
-					result.Withdrawn = strings.HasPrefix(strings.TrimSpace(result.Abstract), withdrawnWord+" (")
-					return output.Write(f.IOStreams, f.JSON, result, func(w io.Writer) error { return renderRescind(w, result, plan) })
-				}
-				return exitcode.Newf(exitcode.Conflict,
-					"the spec (the citation given is not shown) is tagged %q but is not recorded as rescinded or withdrawn (its abstract has no %s/%s prefix) and has no successor edge; review it before retiring it, nothing was written",
-					supersededTag, rescindedWord, withdrawnWord)
-			}
-			newBody := withBanner(derefStr(node.Content), plan.banner)
-			render := func(w io.Writer) error { return renderRescind(w, result, plan) }
+			render := func(w io.Writer) error { return renderRescind(w, result) }
 			if dryRun {
+				result.Note = noteRef(dryRunNote)
 				if err := cmdutil.RequireWriteAccessForDryRun(cmd, client, memURN); err != nil {
 					return err
 				}
@@ -175,42 +140,35 @@ and revision.`,
 				return err
 			}
 
-			rev, id := node.Revision, node.Id
-			tags := rescindTags(node.Tags)
-			abstract := plan.abstractPrefixAndText
-			in := gen.UpdateNodeInput{AuthoredWith: cmdutil.AuthoredWith(cmd.Context()), Ref: &id, ExpectedRevision: &rev, Tags: tags, Content: &newBody, Abstract: &abstract}
-			resp, werr := gen.UpdateSpecNode(cmd.Context(), client, &in)
-			if werr != nil {
-				switch {
-				case api.HasErrorCode(werr, "NODE_WRITE_CONFLICT"):
-					return exitcode.Newf(exitcode.Conflict,
-						"the spec (the citation given is not shown) changed since revision %d, which this rescind was based on — nothing was written by this command, though the server may have recorded out-of-band drift as a revision; rerun to start from a fresh read",
-						rev)
-				case unsupportedGuard(werr):
-					return exitcode.Newf(exitcode.Usage,
-						"this server does not support guarded saves (UpdateNodeInput.expectedRevision, hadron-server#1352), so the spec (the citation given is not shown) cannot be rescinded without risking a silent overwrite of a concurrent change — nothing was written")
-				case exitcode.FromError(api.MapError(werr)) == exitcode.Unavailable:
-					// No answer: it may still have committed. Re-read; the tag AND the prefix prove it.
-					result.Retired = rescindLanded(cmd, client, node.Id)
-					if result.Retired != nil && *result.Retired {
-						return output.Write(f.IOStreams, f.JSON, result, render)
+			// The claim is the operator's --authored-with pair (cli#2018), nil without it.
+			in := &gen.RetireSpecInput{
+				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
+				Ref:          node.Id, Form: gen.RetireSpecFormRescind, Withdrawn: &withdrawn,
+				ExpectedRevision: node.Revision, Reason: &reason, Summary: &body,
+			}
+			retired, failure := sendRetire(cmd, client, in)
+			if failure != nil {
+				report := reportRetireFailure(cmd, client, in, failure, "")
+				result.Outcome, result.Current, result.Retired = report.outcome, report.current, nil
+				if report.current != nil {
+					result.Retired = report.current.Retired
+					if werr := output.Write(f.IOStreams, f.JSON, result, render); werr != nil {
+						return werr
 					}
-					_ = output.Write(f.IOStreams, f.JSON, result, render)
-					return exitcode.Newf(exitcode.Error,
-						"the rescind (the citation given is not shown) got no answer (%v) and re-reading it did not confirm it, so whether it was rescinded is unknown; check `hadron spec get <citation> -m <memory>` for the %q tag and a %s/%s abstract prefix, then rerun",
-						api.MapError(werr), supersededTag, rescindedWord, withdrawnWord)
-				default:
-					return api.MapError(werr)
 				}
+				return report.err
 			}
-			if resp == nil || resp.UpdateSpecNode == nil {
-				return exitcode.Newf(exitcode.Error, "updateSpecNode returned no node (the citation given is not shown) — the write can't be confirmed; check with `hadron spec get <citation> -m <memory>`")
+			result.Retired, result.Outcome = boolRef(true), retireOutcomeRetired
+			result.Tags = tagsOrEmpty(retired.Node.Tags)
+			result.Abstract = retired.Node.Abstract
+			if retired.Node.Abstract != nil {
+				w := storedWording(*retired.Node.Abstract)
+				result.Wording = &w
 			}
-			result.Retired = boolRef(true)
 			if werr := output.Write(f.IOStreams, f.JSON, result, render); werr != nil {
-				// The write LANDED: do not let a failed stdout read as a failed rescind (or a clean one).
-				return exitcode.Newf(exitcode.Error, "the spec (the citation given is not shown) was rescinded (one guarded update, revision %d), but its result could not be written to the output: %v; check `hadron spec get <citation> -m <memory>`",
-					node.Revision, werr)
+				// The server answered success: a failed stdout must not read as a failed rescind (or a clean one).
+				return exitcode.Newf(exitcode.Error, "the spec (the citation given is not shown) was rescinded (the server answered at revision %d), but its result could not be written to the output: %v; check `hadron spec get <citation> -m <memory>`",
+					retired.Node.Revision, werr)
 			}
 			return nil
 		},
@@ -219,33 +177,14 @@ and revision.`,
 	cmd.Flags().StringVar(&reason, "reason", "", "why it is retired, and the ruling for an in-force Decided spec (required)")
 	cmd.Flags().StringVar(&summary, "summary", "", "one line of what the spec used to say, kept in the abstract (required); \"-\" reads stdin")
 	cmd.Flags().StringVar(&summaryFile, "summary-file", "", "read --summary from this file")
-	cmd.Flags().BoolVar(&withdrawn, "withdrawn", false, "a draft that never took effect: \"Withdrawn, never in force\" instead of \"Rescinded\"")
+	cmd.Flags().BoolVar(&withdrawn, "withdrawn", false, "a draft that never took effect, instead of a rule that was in force")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "read only: print the planned tag, banner, abstract, node id and revision (exit 8 if you cannot write to the memory, as the real run)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "read only: print what would be sent (exit 8 if you cannot write to the memory)")
 	return cmd
 }
 
-type rescindText struct {
-	banner                string // the body banner, one blockquote line
-	abstractPrefixAndText string // the whole new abstract
-}
-
-func rescindPlan(date, reason, summary string, withdrawn bool) rescindText {
-	word, banner := rescindedWord, fmt.Sprintf("> **⚠️ Rescinded** (%s, %s), no successor. **Do not apply.** Retained as a tombstone; the citation is never renumbered.", date, reason)
-	if withdrawn {
-		word, banner = withdrawnWord, fmt.Sprintf("> **⚠️ Withdrawn, never in force** (%s, %s). **Do not apply.** Retained as a tombstone; the citation is never renumbered.", date, reason)
-	}
-	return rescindText{
-		banner:                banner,
-		abstractPrefixAndText: fmt.Sprintf("%s (%s); do not apply. %s Historical: %s", word, date, reason, summary),
-	}
-}
-
-// oneLine collapses internal whitespace/newlines so the abstract stays one paragraph.
-func oneLine(s string) string { return strings.Join(strings.Fields(s), " ") }
-
-// storedWording is the stored abstract's own statement ("RESCINDED (<date>); do not apply."),
-// the part of it that states the retirement, for an already-rescinded spec.
+// storedWording is the abstract's own statement ("RESCINDED (<date>); do not apply."),
+// the part of the server's text that states the retirement.
 func storedWording(abstract string) string {
 	a := strings.TrimSpace(abstract)
 	if i := strings.Index(a, "do not apply."); i >= 0 {
@@ -254,67 +193,25 @@ func storedWording(abstract string) string {
 	return a
 }
 
-// isRescindedAbstract reports whether an abstract already carries the rescind prefix.
-func isRescindedAbstract(a *string) bool {
-	if a == nil {
-		return false
-	}
-	s := strings.TrimSpace(*a)
-	return strings.HasPrefix(s, rescindedWord+" (") || strings.HasPrefix(s, withdrawnWord+" (")
-}
-
-// withBanner puts the banner after the body's first H1 line, or at the top without one.
-func withBanner(body, banner string) string {
-	lines := strings.SplitN(body, "\n", 2)
-	if strings.HasPrefix(lines[0], "# ") {
-		rest := ""
-		if len(lines) == 2 {
-			rest = strings.TrimLeft(lines[1], "\n")
+func renderRescind(w io.Writer, r rescindResultDTO) error {
+	say, failed := sayer(w)
+	switch r.Outcome {
+	case retireOutcomePlanned:
+		say("would rescind %s (no successor, withdrawn: %t)\n", r.Loc, r.Withdrawn)
+		renderInputs(say, gen.RetireSpecFormRescind, r.Loc, r.NodeID, r.Revision, r.Reason, r.Summary)
+	case retireOutcomeRetired:
+		say("✓ rescinded %s (no successor)\n", r.Loc)
+		if r.Wording != nil {
+			say("  %s\n", output.SafeLine(*r.Wording, 200))
 		}
-		return lines[0] + "\n\n" + banner + "\n\n" + rest
-	}
-	return banner + "\n\n" + body
-}
-
-// rescindTags is the spec's own tags plus superseded, never replacing what is there.
-func rescindTags(tags []string) []string {
-	out := append([]string{}, tags...)
-	if !hasTag(out, supersededTag) {
-		out = append(out, supersededTag)
-	}
-	return out
-}
-
-// rescindLanded re-reads the node after a write with no answer. It is true only when
-// the tag AND the RESCINDED/WITHDRAWN prefix are both seen; false/unknown never claim it.
-func rescindLanded(cmd *cobra.Command, client graphql.Client, nodeID string) *bool {
-	resp, err := gen.GetSpecNodeForEdit(cmd.Context(), client, nodeID)
-	if err != nil || resp.Node == nil {
-		return nil
-	}
-	if hasTag(resp.Node.Tags, supersededTag) && isRescindedAbstract(resp.Node.Abstract) {
-		return boolRef(true)
-	}
-	return nil
-}
-
-func renderRescind(w io.Writer, r rescindResultDTO, p rescindText) error {
-	var err error
-	say := func(format string, a ...any) {
-		if err == nil {
-			_, err = fmt.Fprintf(w, format, a...)
-		}
-	}
-	switch {
-	case r.AlreadyRescinded:
-		say("already rescinded: %s (nothing written)\n", r.Loc)
-	case r.DryRun:
-		say("would rescind %s (no successor)\n  guarded on node %s at revision %d\n  tag: %s\n  banner: %s\n  abstract: %s\n", r.Loc, r.NodeID, r.Revision, supersededTag, p.banner, p.abstractPrefixAndText)
-		say("dry run: nothing was written. Applying rescinds the spec and ends its approval; re-approval or re-mint is a separate step.\n")
-	case r.Retired != nil && *r.Retired:
-		say("✓ rescinded %s (no successor)\n  tagged %q; banner and abstract set in one guarded update (revision %d)\n  its approval has ended; re-approval or re-mint is a separate step\n", r.Loc, supersededTag, r.Revision)
+		say("  tags: %v\n  its approval has ended; re-approval or re-mint is a separate step\n", r.Tags)
+	case retireOutcomeRefused:
+		say("✗ retirement refused: %s\n", r.Loc)
 	default:
-		say("✗ not confirmed: %s\n", r.Loc)
+		say("? retirement outcome unknown: %s\n", r.Loc)
 	}
-	return err
+	if r.Current != nil {
+		say("  %s\n", r.Current.Statement)
+	}
+	return failed()
 }

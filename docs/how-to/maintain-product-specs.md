@@ -470,38 +470,39 @@ product in the same memory, use `--by` instead of creating a new citation:
 hadron spec supersede app:sch:020 -m "$M" --by srv:sch:030 --yes
 ```
 
-That mode creates no node and preserves the old body. It refuses non-spec,
-retired, placeholder, deleted, self, cross-memory or cyclic targets, and cannot
-combine with the new-replacement flags. Both paths lead the retired abstract
-with `SUPERSEDED (<UTC date>) by <citation> (<name>); do not apply. Historical: <summary>`.
-The history is the stored old abstract verbatim, or `--summary` if supplied;
-the update re-fingerprints it. Use a shorter summary if the lead would exceed
-the abstract cap. A same-successor lead is a no-op on rerun; a different one
-is refused. The --by retirement update uses the source revision and refuses a
-concurrent source edit. Target validation and the separate edge write are not
-atomic. After a lost retirement response, success requires read-back of both
-the tag and the requested abstract; a visible tag alone leaves an error.
+That mode creates no node. It takes any citation in the same memory (across
+modules and products), cannot combine with the new-replacement flags, and accepts
+`--reason` and `--summary`.
 
-`spec supersede` refuses a RESCINDED or WITHDRAWN spec (an abstract lead, or the
-`rescinded`/`withdrawn` tag) with exit 5 and no write, `--dry-run` included: such a
-spec has no successor (cor:spc:010:01), so do not "repair" it with a supersession.
-If it becomes one after the edge or replacement landed, the retirement is refused,
-the link stays and is reported, and a rerun gets the early refusal.
+### What retiring does
+
+`spec supersede` (both modes) and `spec rescind` (a rule with no successor) read
+the spec for its revision and send one `retireSpec` request
+(hadron-server#3429, cor:spc:010:02). In one transaction the server tags the spec
+`superseded`, writes its banner and abstract and, for a supersede, adds the
+`superseded-by` edge. The server composes that text; `--dry-run` shows only what
+would be sent. The summary of a supersede defaults to the stored abstract.
+
+The server owns every refusal, and the CLI adds none from what it read. A stale
+revision, a spec that is already retired or already has a successor, and an
+unusable successor (itself, another memory, retired) are exit 5 with nothing
+written by that request. A rerun on a retired spec is a refusal, not a no-op. A
+server without `retireSpec` is refused, with no fallback to separate writes.
 
 The replacement keeps the old `spec.*` subrole, if present. A legacy spec
 recognized by its tag alone gets the base `spec` role.
 
-The replacement is created together with its table-of-contents and inheritance
-edges. The `superseded-by` edge leaves the *old* spec, so it is a second write.
-If that write errors, supersede re-reads the old spec first, because a lost
-response looks like a refusal. If the edge shows up, it finishes the
-retirement. If it doesn't, that still isn't proof: a read can lag. So the error
-says to check with `hadron spec get <old> -m $M`. If the edge is still missing
-after a minute, run the
-`hadron spec link <old> <new> -m $M --label superseded-by` it names.
-Once `spec get` shows the edge, rerunning the same `spec supersede` finishes the
-retirement. Don't rerun it *before*: with no edge to find, it mints a second
-replacement.
+In create mode the replacement is created first, together with its
+table-of-contents and inheritance edges, and then the retirement is requested. The
+two are not one transaction. If the retirement is refused or gets no answer, the
+new spec **stays**: the command names it and reports what a re-read currently
+shows, and it does not delete it, retry or create another. Once the cause is
+fixed, retire to it with `hadron spec supersede <old> -m $M --by <new>`. After an
+unanswered request, check `hadron spec get <old> -m $M` first.
+
+A spec that is linked to a successor but not retired (left by an earlier release's
+multi-request supersede) cannot be finished by the CLI: the server refuses it, and
+it needs manual review. The CLI makes no automatic repair.
 
 ## Building a new corpus as a draft
 
@@ -613,15 +614,7 @@ when a spec carries the `superseded` tag but its abstract does not describe
 retirement. Existing RESCINDED and WITHDRAWN leads are accepted; do not rewrite
 those tombstones into supersessions.
 
-For a legacy supersession, inspect `hadron spec get <old> -m <memory>` and
-its sole readable successor first. Then run
-`hadron spec supersede <old> -m <memory> --by <successor>` to retain the raw
-body and add the current retirement lead with a revision-guarded update.
-It creates no replacement node. Use `--summary` for a shorter history if the
-lead exceeds the abstract cap; explicit `--summary ""` deliberately keeps an
-empty historical summary. A matching lead leaves the abstract unchanged,
-but missing edge/tag facts are completed before a full no-op is reported.
-Conflicting/unreadable successor facts still refuse; inspect them rather than
-rewriting history automatically. There is no automatic corpus backfill.
-Existing create-mode “already retired without a usable successor” refusals
-now use Conflict (exit 5) instead of Usage (exit 2).
+`retireSpec` refuses a spec that already carries the `superseded` tag or a
+successor edge, so `spec supersede` cannot add a missing abstract to a legacy
+retirement. Such a spec needs manual review. There is no automatic corpus
+backfill.

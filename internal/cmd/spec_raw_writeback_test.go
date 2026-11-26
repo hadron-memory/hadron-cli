@@ -2,9 +2,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"io"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -29,14 +26,13 @@ func withContent(body string) string {
 
 func supersedeRawMocks(rendered, stored string) map[string]string {
 	return map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetNode":        withContent(rendered),
-		"GetSpecNodeRaw": withContent(stored),
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":      `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
-		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+		"ResolveUrn":         resolveSpecJSON,
+		"GetNode":            withContent(rendered),
+		"GetSpecNodeRaw":     withContent(stored),
+		"GetSpecNodeForEdit": forEditFixture(withContent(stored)),
+		"NodeBatch":          specLintRawBodyStub(cleanSpecDetail),
+		"FindNodes":          `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
+		"CreateSpecNode":     `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
 	}
 }
 
@@ -66,25 +62,6 @@ func sentContent(t *testing.T, captured map[string]json.RawMessage, op string) s
 		t.Fatalf("%s sent no content (err %v): %s", op, err, captured[op])
 	}
 	return *in.Input.Content
-}
-
-// Retiring appends a note to the old spec's body and writes it back: the
-// stored body, placeholders intact, not the rendered one.
-func TestSpecSupersedeRetiresTheStoredBody(t *testing.T) {
-	stored := cleanSpecDetailContent + "\n" + storedLine
-	captured := runSupersede(t, supersedeRawMocks(cleanSpecDetailContent+"\n"+renderedLine, stored))
-	got := sentContent(t, captured, "UpdateSpecNode")
-	if want := stored + "\n\n> Superseded by msg:010:03."; got != want {
-		t.Errorf("retirement wrote:\n%q\nwant the stored body plus the note:\n%q", got, want)
-	}
-}
-
-// Control: a body with no template syntax retires exactly as before.
-func TestSpecSupersedeRetiresAPlainBodyUnchanged(t *testing.T) {
-	captured := runSupersede(t, supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent))
-	if got, want := sentContent(t, captured, "UpdateSpecNode"), cleanSpecDetailContent+"\n\n> Superseded by msg:010:03."; got != want {
-		t.Errorf("retirement wrote %q, want %q", got, want)
-	}
 }
 
 // --copy-body seeds the successor with the old body: the stored one.
@@ -162,7 +139,7 @@ func TestSpecSupersedeCopyBodyCopiesOneSnapshot(t *testing.T) {
 	m := supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent)
 	stale := `"abstract":"Win back users who never engaged after signup."`
 	m["GetNode"] = strings.Replace(m["GetNode"], stale, `"abstract":"The abstract as first read."`, 1)
-	m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], stale, `"abstract":"The abstract as stored now."`, 1)
+	m["GetSpecNodeForEdit"] = strings.Replace(m["GetSpecNodeForEdit"], stale, `"abstract":"The abstract as stored now."`, 1)
 	captured := runSupersede(t, m, "--copy-body")
 	var in struct {
 		Input struct {
@@ -174,82 +151,6 @@ func TestSpecSupersedeCopyBodyCopiesOneSnapshot(t *testing.T) {
 	}
 	if *in.Input.Abstract != "The abstract as stored now." {
 		t.Errorf("the successor's abstract = %q, want the one read with the body", *in.Input.Abstract)
-	}
-}
-
-// A retirement whose stored-body read gets NO ANSWER wrote nothing: it is a
-// definite "not retired", never "the update got no answer" (#743 review,
-// Codex).
-func TestSpecSupersedeFailedRawReadIsADefiniteNotRetired(t *testing.T) {
-	scan := `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`
-	responses := map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
-		"FindNodes":      scan,
-		"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-		"CreateEdge":     `{"data":{"createEdge":{"id":"e2","label":"superseded-by","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
-	}
-	gets, updated := 0, false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body struct {
-			OperationName string          `json:"operationName"`
-			Variables     json.RawMessage `json:"variables"`
-		}
-		raw, _ := io.ReadAll(r.Body)
-		_ = json.Unmarshal(raw, &body)
-		w.Header().Set("Content-Type", "application/json")
-		switch body.OperationName {
-		case "GetSpecNodeRaw":
-			w.WriteHeader(http.StatusBadGateway)
-			_, _ = w.Write([]byte("upstream went away"))
-		case "UpdateSpecNode":
-			updated = true
-			_, _ = w.Write([]byte(`{"errors":[{"message":"no write expected"}]}`))
-		case "GetNode":
-			gets++
-			if gets == 1 {
-				_, _ = w.Write([]byte(`{"data":{"node":` + cleanSpecDetail + `}}`))
-				return
-			}
-			_, _ = w.Write([]byte(withSupersededByEdge(`{"data":{"node":`+cleanSpecDetail+`}}`, "new1", "msg:010:03")))
-		default:
-			_, _ = w.Write([]byte(translateFindNodesAt(offsetOfVars(body.Variables), body.OperationName, responses[body.OperationName])))
-		}
-	}))
-	t.Cleanup(srv.Close)
-
-	f, _ := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
-	err := root.Execute()
-	if err == nil {
-		t.Fatal("a retirement that could not read the stored body must fail")
-	}
-	if updated {
-		t.Error("the retirement update must not be sent without the stored body")
-	}
-	if msg := err.Error(); !strings.Contains(msg, "failed to tag the old spec as retired") || strings.Contains(msg, "got no answer") {
-		t.Errorf("want a definite not-retired, never 'the update got no answer'; got: %s", msg)
-	}
-}
-
-// The retirement writes content AND tags (replace-all), so both come from the
-// one raw snapshot: a tag an intervening edit added survives (#743 review,
-// Codex).
-func TestSpecSupersedeRetiresTheSnapshotsTags(t *testing.T) {
-	m := supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent)
-	m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","added-meanwhile"]`, 1)
-	captured := runSupersede(t, m)
-	var in struct {
-		Input struct {
-			Tags []string `json:"tags"`
-		} `json:"input"`
-	}
-	if err := json.Unmarshal(captured["UpdateSpecNode"], &in); err != nil {
-		t.Fatal(err)
-	}
-	if !contains(in.Input.Tags, "added-meanwhile") || !contains(in.Input.Tags, "superseded") {
-		t.Errorf("retirement tags = %v, want the raw snapshot's tags plus superseded", in.Input.Tags)
 	}
 }
 
@@ -292,7 +193,7 @@ func TestSpecExtractStripMissExplainsPlaceholders(t *testing.T) {
 // body and abstract (#743 review, Copilot).
 func TestSpecSupersedeCopyBodyTagsComeFromTheSnapshot(t *testing.T) {
 	m := supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent)
-	m["GetSpecNodeRaw"] = strings.Replace(m["GetSpecNodeRaw"], `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","added-meanwhile"]`, 1)
+	m["GetSpecNodeForEdit"] = strings.Replace(m["GetSpecNodeForEdit"], `"tags":["spec","p1","messaging"]`, `"tags":["spec","p1","messaging","added-meanwhile"]`, 1)
 	captured := runSupersede(t, m, "--copy-body")
 	var in struct {
 		Input struct {

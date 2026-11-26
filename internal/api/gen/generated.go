@@ -58142,97 +58142,8 @@ type GetSpecNodeRawResponse struct {
 // GetNode returns GetSpecNodeRawResponse.Node, and is useful for accessing the field via an interface.
 func (v *GetSpecNodeRawResponse) GetNode() *GetSpecNodeRawNode { return v.Node }
 
-// GetSpecSupersedeTargetNode includes the requested fields of the GraphQL type Node.
-type GetSpecSupersedeTargetNode struct {
-	Id       string `json:"id"`
-	MemoryId string `json:"memoryId"`
-	Loc      string `json:"loc"`
-	Name     string `json:"name"`
-	// #1201 — what this node is FOR, as an OPEN string. A closed governed
-	// subset has dedicated authoring doors; memory role rules can additionally
-	// constrain arbitrary roles.
-	//
-	// NOT 'nodeType' (the platform-kind axis, load-bearing for retrieval) and NOT
-	// 'objectType' (the collection discriminator, schema-validated). This field
-	// does not change default retrieval or ranking; NodeFilter.role explicitly
-	// selects its exact dotted family (#1322).
-	//
-	// A GOVERNED family routes the write to that kind's own authoring door, and
-	// the generic node surface is refused: 'review' / 'review.*' and 'spec' /
-	// 'spec.*' and 'question' / 'question.*', alongside the task kind, which is
-	// gated on 'isRunnable'
-	// rather than on any label because a label can be omitted and a capability
-	// cannot. Other roles do not invoke a governed door, but can still be
-	// constrained by memory role rules and selected by explicit role filters.
-	Role *string  `json:"role"`
-	Tags []string `json:"tags"`
-	// #1450 — a server-recorded placeholder awaiting authored content, such as a
-	// RESERVED spec citation created by reserveSpecCitation. A placeholder may
-	// exist in any memory; it is never inferred from an empty body. Writing real
-	// nonblank content through the spec door or shared mirror write path clears
-	// it. Placeholders block minting.
-	IsPlaceholder bool `json:"isPlaceholder"`
-	// Deletion marker. Ordinary reads still omit tombstones; explicit recovery is writer-only.
-	DeletedAt     *string                                        `json:"deletedAt"`
-	OutgoingEdges []*GetSpecSupersedeTargetNodeOutgoingEdgesEdge `json:"outgoingEdges"`
-}
-
-// GetId returns GetSpecSupersedeTargetNode.Id, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetId() string { return v.Id }
-
-// GetMemoryId returns GetSpecSupersedeTargetNode.MemoryId, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetMemoryId() string { return v.MemoryId }
-
-// GetLoc returns GetSpecSupersedeTargetNode.Loc, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetLoc() string { return v.Loc }
-
-// GetName returns GetSpecSupersedeTargetNode.Name, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetName() string { return v.Name }
-
-// GetRole returns GetSpecSupersedeTargetNode.Role, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetRole() *string { return v.Role }
-
-// GetTags returns GetSpecSupersedeTargetNode.Tags, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetTags() []string { return v.Tags }
-
-// GetIsPlaceholder returns GetSpecSupersedeTargetNode.IsPlaceholder, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetIsPlaceholder() bool { return v.IsPlaceholder }
-
-// GetDeletedAt returns GetSpecSupersedeTargetNode.DeletedAt, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetDeletedAt() *string { return v.DeletedAt }
-
-// GetOutgoingEdges returns GetSpecSupersedeTargetNode.OutgoingEdges, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNode) GetOutgoingEdges() []*GetSpecSupersedeTargetNodeOutgoingEdgesEdge {
-	return v.OutgoingEdges
-}
-
-// GetSpecSupersedeTargetNodeOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
-type GetSpecSupersedeTargetNodeOutgoingEdgesEdge struct {
-	// Free-form relationship name (e.g. imports, depends_on). Optional since
-	// spec 037 — loc is the identity. (Was the required 'label'.)
-	Name *string `json:"name"`
-	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
-	Target *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode `json:"target"`
-}
-
-// GetName returns GetSpecSupersedeTargetNodeOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdge) GetName() *string { return v.Name }
-
-// GetTarget returns GetSpecSupersedeTargetNodeOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdge) GetTarget() *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode {
-	return v.Target
-}
-
-// GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
-type GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode struct {
-	Id string `json:"id"`
-}
-
-// GetId returns GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetNodeOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
-
-// GetSpecSupersedeTargetResponse is returned by GetSpecSupersedeTarget on success.
-type GetSpecSupersedeTargetResponse struct {
+// GetSpecRetireStateResponse is returned by GetSpecRetireState on success.
+type GetSpecRetireStateResponse struct {
 	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
 	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
 	//
@@ -58254,11 +58165,218 @@ type GetSpecSupersedeTargetResponse struct {
 	// memory by memoryRef or a full node URN, a loc with no local node may read
 	// through to an eligible inherited node under its own address; overrides and
 	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
-	Node *GetSpecSupersedeTargetNode `json:"node"`
+	Spec *GetSpecRetireStateSpecNode `json:"spec"`
+	// The uniform single-node read (#473) — subsumes the former nodeById(id:)
+	// and node(loc:, memory:) split. 'ref' accepts, in dispatch order:
+	//
+	// 1. a primary key (the unambiguous read — the old nodeById),
+	// 2. a fully-qualified node URN (`hrn:node:<root>:<memory>:<loc>`,
+	// legacy `urn:` scheme accepted),
+	// 3. a bare loc — scoped by 'memoryRef' (an ID or URN) when given; unscoped,
+	// it resolves across every readable memory and a cross-memory loc
+	// collision is REJECTED with extensions.code AMBIGUOUS_NODE_LOC
+	// (listing the candidate memoryIds) rather than silently returning
+	// one (#335). An unprefixed 3+-segment ref whose first two segments
+	// name a live memory is treated as form 2 (a full URN); pass
+	// 'memoryRef' to force loc interpretation.
+	//
+	// raw: true selects stored content without include or variable resolution.
+	// Soft-deleted nodes do not resolve. Access uses the caller's readable-memory
+	// set. A denied or missing node returns null; an explicit memoryRef that is
+	// missing or unreadable raises MEMORY_NOT_FOUND. When addressed in a system
+	// memory by memoryRef or a full node URN, a loc with no local node may read
+	// through to an eligible inherited node under its own address; overrides and
+	// boot prompts are excluded. An unscoped bare loc does not search inheritance.
+	Successor *GetSpecRetireStateSuccessorNode `json:"successor"`
 }
 
-// GetNode returns GetSpecSupersedeTargetResponse.Node, and is useful for accessing the field via an interface.
-func (v *GetSpecSupersedeTargetResponse) GetNode() *GetSpecSupersedeTargetNode { return v.Node }
+// GetSpec returns GetSpecRetireStateResponse.Spec, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateResponse) GetSpec() *GetSpecRetireStateSpecNode { return v.Spec }
+
+// GetSuccessor returns GetSpecRetireStateResponse.Successor, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateResponse) GetSuccessor() *GetSpecRetireStateSuccessorNode {
+	return v.Successor
+}
+
+// GetSpecRetireStateSpecNode includes the requested fields of the GraphQL type Node.
+type GetSpecRetireStateSpecNode struct {
+	SpecRetireState `json:"-"`
+}
+
+// GetId returns GetSpecRetireStateSpecNode.Id, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSpecNode) GetId() string { return v.SpecRetireState.Id }
+
+// GetMemoryId returns GetSpecRetireStateSpecNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSpecNode) GetMemoryId() string { return v.SpecRetireState.MemoryId }
+
+// GetLoc returns GetSpecRetireStateSpecNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSpecNode) GetLoc() string { return v.SpecRetireState.Loc }
+
+// GetRevision returns GetSpecRetireStateSpecNode.Revision, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSpecNode) GetRevision() int { return v.SpecRetireState.Revision }
+
+// GetTags returns GetSpecRetireStateSpecNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSpecNode) GetTags() []string { return v.SpecRetireState.Tags }
+
+// GetAbstract returns GetSpecRetireStateSpecNode.Abstract, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSpecNode) GetAbstract() *string { return v.SpecRetireState.Abstract }
+
+// GetOutgoingEdges returns GetSpecRetireStateSpecNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSpecNode) GetOutgoingEdges() []*SpecRetireStateOutgoingEdgesEdge {
+	return v.SpecRetireState.OutgoingEdges
+}
+
+func (v *GetSpecRetireStateSpecNode) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetSpecRetireStateSpecNode
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetSpecRetireStateSpecNode = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SpecRetireState)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetSpecRetireStateSpecNode struct {
+	Id string `json:"id"`
+
+	MemoryId string `json:"memoryId"`
+
+	Loc string `json:"loc"`
+
+	Revision int `json:"revision"`
+
+	Tags []string `json:"tags"`
+
+	Abstract *string `json:"abstract"`
+
+	OutgoingEdges []*SpecRetireStateOutgoingEdgesEdge `json:"outgoingEdges"`
+}
+
+func (v *GetSpecRetireStateSpecNode) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetSpecRetireStateSpecNode) __premarshalJSON() (*__premarshalGetSpecRetireStateSpecNode, error) {
+	var retval __premarshalGetSpecRetireStateSpecNode
+
+	retval.Id = v.SpecRetireState.Id
+	retval.MemoryId = v.SpecRetireState.MemoryId
+	retval.Loc = v.SpecRetireState.Loc
+	retval.Revision = v.SpecRetireState.Revision
+	retval.Tags = v.SpecRetireState.Tags
+	retval.Abstract = v.SpecRetireState.Abstract
+	retval.OutgoingEdges = v.SpecRetireState.OutgoingEdges
+	return &retval, nil
+}
+
+// GetSpecRetireStateSuccessorNode includes the requested fields of the GraphQL type Node.
+type GetSpecRetireStateSuccessorNode struct {
+	SpecRetireState `json:"-"`
+}
+
+// GetId returns GetSpecRetireStateSuccessorNode.Id, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSuccessorNode) GetId() string { return v.SpecRetireState.Id }
+
+// GetMemoryId returns GetSpecRetireStateSuccessorNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSuccessorNode) GetMemoryId() string { return v.SpecRetireState.MemoryId }
+
+// GetLoc returns GetSpecRetireStateSuccessorNode.Loc, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSuccessorNode) GetLoc() string { return v.SpecRetireState.Loc }
+
+// GetRevision returns GetSpecRetireStateSuccessorNode.Revision, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSuccessorNode) GetRevision() int { return v.SpecRetireState.Revision }
+
+// GetTags returns GetSpecRetireStateSuccessorNode.Tags, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSuccessorNode) GetTags() []string { return v.SpecRetireState.Tags }
+
+// GetAbstract returns GetSpecRetireStateSuccessorNode.Abstract, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSuccessorNode) GetAbstract() *string { return v.SpecRetireState.Abstract }
+
+// GetOutgoingEdges returns GetSpecRetireStateSuccessorNode.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *GetSpecRetireStateSuccessorNode) GetOutgoingEdges() []*SpecRetireStateOutgoingEdgesEdge {
+	return v.SpecRetireState.OutgoingEdges
+}
+
+func (v *GetSpecRetireStateSuccessorNode) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*GetSpecRetireStateSuccessorNode
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.GetSpecRetireStateSuccessorNode = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SpecRetireState)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalGetSpecRetireStateSuccessorNode struct {
+	Id string `json:"id"`
+
+	MemoryId string `json:"memoryId"`
+
+	Loc string `json:"loc"`
+
+	Revision int `json:"revision"`
+
+	Tags []string `json:"tags"`
+
+	Abstract *string `json:"abstract"`
+
+	OutgoingEdges []*SpecRetireStateOutgoingEdgesEdge `json:"outgoingEdges"`
+}
+
+func (v *GetSpecRetireStateSuccessorNode) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *GetSpecRetireStateSuccessorNode) __premarshalJSON() (*__premarshalGetSpecRetireStateSuccessorNode, error) {
+	var retval __premarshalGetSpecRetireStateSuccessorNode
+
+	retval.Id = v.SpecRetireState.Id
+	retval.MemoryId = v.SpecRetireState.MemoryId
+	retval.Loc = v.SpecRetireState.Loc
+	retval.Revision = v.SpecRetireState.Revision
+	retval.Tags = v.SpecRetireState.Tags
+	retval.Abstract = v.SpecRetireState.Abstract
+	retval.OutgoingEdges = v.SpecRetireState.OutgoingEdges
+	return &retval, nil
+}
 
 // GetTeamSessionResponse is returned by GetTeamSession on success.
 type GetTeamSessionResponse struct {
@@ -91710,6 +91828,176 @@ func (v *ResumeTeamSessionResumeSessionResumeSessionResultSession) __premarshalJ
 	return &retval, nil
 }
 
+// #3429 - the two ways to retire a spec.
+type RetireSpecForm string
+
+const (
+	// Retire a spec that has no successor.
+	RetireSpecFormRescind RetireSpecForm = "RESCIND"
+	// Retire a spec in favour of a successor that already exists, in the same memory.
+	RetireSpecFormSupersede RetireSpecForm = "SUPERSEDE"
+)
+
+var AllRetireSpecForm = []RetireSpecForm{
+	RetireSpecFormRescind,
+	RetireSpecFormSupersede,
+}
+
+// #3429 - the input of retireSpec.
+type RetireSpecInput struct {
+	AuthoredWith *AuthoredWithInput `json:"authoredWith,omitempty"`
+	// Required: the spec's revision as the caller read it. A mismatch is NODE_WRITE_CONFLICT and nothing is written.
+	ExpectedRevision int            `json:"expectedRevision"`
+	Form             RetireSpecForm `json:"form"`
+	// Required (not blank) with RESCIND, optional with SUPERSEDE.
+	Reason *string `json:"reason,omitempty"`
+	// The spec: its node id or URN.
+	Ref string `json:"ref"`
+	// SUPERSEDE only, required: the existing successor's node id or URN. Given with RESCIND is BAD_USER_INPUT.
+	SuccessorRef *string `json:"successorRef,omitempty"`
+	// Required (not blank) with RESCIND; with SUPERSEDE it defaults to the spec's stored abstract.
+	Summary *string `json:"summary,omitempty"`
+	// RESCIND only (default false): word it as a draft that never took effect. A SUPERSEDE with true is BAD_USER_INPUT.
+	Withdrawn *bool `json:"withdrawn,omitempty"`
+}
+
+// GetAuthoredWith returns RetireSpecInput.AuthoredWith, and is useful for accessing the field via an interface.
+func (v *RetireSpecInput) GetAuthoredWith() *AuthoredWithInput { return v.AuthoredWith }
+
+// GetExpectedRevision returns RetireSpecInput.ExpectedRevision, and is useful for accessing the field via an interface.
+func (v *RetireSpecInput) GetExpectedRevision() int { return v.ExpectedRevision }
+
+// GetForm returns RetireSpecInput.Form, and is useful for accessing the field via an interface.
+func (v *RetireSpecInput) GetForm() RetireSpecForm { return v.Form }
+
+// GetReason returns RetireSpecInput.Reason, and is useful for accessing the field via an interface.
+func (v *RetireSpecInput) GetReason() *string { return v.Reason }
+
+// GetRef returns RetireSpecInput.Ref, and is useful for accessing the field via an interface.
+func (v *RetireSpecInput) GetRef() string { return v.Ref }
+
+// GetSuccessorRef returns RetireSpecInput.SuccessorRef, and is useful for accessing the field via an interface.
+func (v *RetireSpecInput) GetSuccessorRef() *string { return v.SuccessorRef }
+
+// GetSummary returns RetireSpecInput.Summary, and is useful for accessing the field via an interface.
+func (v *RetireSpecInput) GetSummary() *string { return v.Summary }
+
+// GetWithdrawn returns RetireSpecInput.Withdrawn, and is useful for accessing the field via an interface.
+func (v *RetireSpecInput) GetWithdrawn() *bool { return v.Withdrawn }
+
+// RetireSpecResponse is returned by RetireSpec on success.
+type RetireSpecResponse struct {
+	// #3429 (hrn:node:hadronmemory.com:specs:cor:spc:010:02, rulings 0212-0214, 0218-0220) - retire a spec in ONE transaction: either RESCIND it (no
+	// successor) or SUPERSEDE it by a successor that already exists in the SAME memory. Under the spec memory's channel
+	// key, the spec's loc key and its row lock, it refuses a spec that is already retired or already has a
+	// superseded-by* link (live edge or non-deleted pending edge), and for a supersede an unreadable, missing, deleted,
+	// self, other-memory, retired or already-linked successor. Then it writes the superseded tag, the banner under the
+	// title and the retirement abstract (composed by the server, so the text is the same on every surface), through the
+	// same writer updateSpecNode uses (same authority, authoring check and one revision), and for a supersede inserts
+	// the one superseded-by edge. Nothing is written on any refusal. expectedRevision is REQUIRED: a stale read is
+	// NODE_WRITE_CONFLICT. A refused spec or successor you cannot read answers NODE_NOT_FOUND; an unusable readable
+	// successor and every state conflict answer NODE_WRITE_CONFLICT with no edge identity. A composed abstract over the
+	// 2000-character cap is NodeAbstractTooLongError. The door adds no authority. A raw createEdge or updateEdge of a
+	// superseded-by* edge outside the door is not a lifecycle verb, and a snapshot restore that commits after a
+	// retirement can un-retire the spec (hadron-server#3587).
+	RetireSpec *RetireSpecRetireSpecRetireSpecResult `json:"retireSpec"`
+}
+
+// GetRetireSpec returns RetireSpecResponse.RetireSpec, and is useful for accessing the field via an interface.
+func (v *RetireSpecResponse) GetRetireSpec() *RetireSpecRetireSpecRetireSpecResult {
+	return v.RetireSpec
+}
+
+// RetireSpecRetireSpecRetireSpecResult includes the requested fields of the GraphQL type RetireSpecResult.
+// The GraphQL type's documentation follows.
+//
+// #3429 - what retireSpec did.
+type RetireSpecRetireSpecRetireSpecResult struct {
+	// The retired spec, at its new revision.
+	Node *RetireSpecRetireSpecRetireSpecResultNode `json:"node"`
+	// The superseded-by edge a SUPERSEDE inserted; null for a RESCIND.
+	SuccessorEdge *RetireSpecRetireSpecRetireSpecResultSuccessorEdge `json:"successorEdge"`
+}
+
+// GetNode returns RetireSpecRetireSpecRetireSpecResult.Node, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResult) GetNode() *RetireSpecRetireSpecRetireSpecResultNode {
+	return v.Node
+}
+
+// GetSuccessorEdge returns RetireSpecRetireSpecRetireSpecResult.SuccessorEdge, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResult) GetSuccessorEdge() *RetireSpecRetireSpecRetireSpecResultSuccessorEdge {
+	return v.SuccessorEdge
+}
+
+// RetireSpecRetireSpecRetireSpecResultNode includes the requested fields of the GraphQL type Node.
+type RetireSpecRetireSpecRetireSpecResultNode struct {
+	Id  string `json:"id"`
+	Loc string `json:"loc"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int      `json:"revision"`
+	Tags     []string `json:"tags"`
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract *string `json:"abstract"`
+}
+
+// GetId returns RetireSpecRetireSpecRetireSpecResultNode.Id, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultNode) GetId() string { return v.Id }
+
+// GetLoc returns RetireSpecRetireSpecRetireSpecResultNode.Loc, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultNode) GetLoc() string { return v.Loc }
+
+// GetRevision returns RetireSpecRetireSpecRetireSpecResultNode.Revision, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultNode) GetRevision() int { return v.Revision }
+
+// GetTags returns RetireSpecRetireSpecRetireSpecResultNode.Tags, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultNode) GetTags() []string { return v.Tags }
+
+// GetAbstract returns RetireSpecRetireSpecRetireSpecResultNode.Abstract, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultNode) GetAbstract() *string { return v.Abstract }
+
+// RetireSpecRetireSpecRetireSpecResultSuccessorEdge includes the requested fields of the GraphQL type Edge.
+type RetireSpecRetireSpecRetireSpecResultSuccessorEdge struct {
+	Id string `json:"id"`
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
+	Target *RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode `json:"target"`
+}
+
+// GetId returns RetireSpecRetireSpecRetireSpecResultSuccessorEdge.Id, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdge) GetId() string { return v.Id }
+
+// GetName returns RetireSpecRetireSpecRetireSpecResultSuccessorEdge.Name, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdge) GetName() *string { return v.Name }
+
+// GetTarget returns RetireSpecRetireSpecRetireSpecResultSuccessorEdge.Target, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdge) GetTarget() *RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode {
+	return v.Target
+}
+
+// RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode struct {
+	Id   string   `json:"id"`
+	Loc  string   `json:"loc"`
+	Name string   `json:"name"`
+	Tags []string `json:"tags"`
+}
+
+// GetId returns RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode) GetLoc() string { return v.Loc }
+
+// GetName returns RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode.Name, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode) GetName() string { return v.Name }
+
+// GetTags returns RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode.Tags, and is useful for accessing the field via an interface.
+func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode) GetTags() []string {
+	return v.Tags
+}
+
 // RetireWorkerInstructedResponse is returned by RetireWorkerInstructed on success.
 type RetireWorkerInstructedResponse struct {
 	// #974 — retire a Worker (cor:agt:020:02): end the casting while reserving
@@ -103916,6 +104204,75 @@ var AllSpecReferenceProblem = []SpecReferenceProblem{
 	SpecReferenceProblemMissing,
 	SpecReferenceProblemPlaceholder,
 }
+
+// SpecRetireState includes the GraphQL fields of Node requested by the fragment SpecRetireState.
+type SpecRetireState struct {
+	Id       string `json:"id"`
+	MemoryId string `json:"memoryId"`
+	Loc      string `json:"loc"`
+	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
+	Revision int      `json:"revision"`
+	Tags     []string `json:"tags"`
+	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
+	Abstract      *string                             `json:"abstract"`
+	OutgoingEdges []*SpecRetireStateOutgoingEdgesEdge `json:"outgoingEdges"`
+}
+
+// GetId returns SpecRetireState.Id, and is useful for accessing the field via an interface.
+func (v *SpecRetireState) GetId() string { return v.Id }
+
+// GetMemoryId returns SpecRetireState.MemoryId, and is useful for accessing the field via an interface.
+func (v *SpecRetireState) GetMemoryId() string { return v.MemoryId }
+
+// GetLoc returns SpecRetireState.Loc, and is useful for accessing the field via an interface.
+func (v *SpecRetireState) GetLoc() string { return v.Loc }
+
+// GetRevision returns SpecRetireState.Revision, and is useful for accessing the field via an interface.
+func (v *SpecRetireState) GetRevision() int { return v.Revision }
+
+// GetTags returns SpecRetireState.Tags, and is useful for accessing the field via an interface.
+func (v *SpecRetireState) GetTags() []string { return v.Tags }
+
+// GetAbstract returns SpecRetireState.Abstract, and is useful for accessing the field via an interface.
+func (v *SpecRetireState) GetAbstract() *string { return v.Abstract }
+
+// GetOutgoingEdges returns SpecRetireState.OutgoingEdges, and is useful for accessing the field via an interface.
+func (v *SpecRetireState) GetOutgoingEdges() []*SpecRetireStateOutgoingEdgesEdge {
+	return v.OutgoingEdges
+}
+
+// SpecRetireStateOutgoingEdgesEdge includes the requested fields of the GraphQL type Edge.
+type SpecRetireStateOutgoingEdgesEdge struct {
+	// Free-form relationship name (e.g. imports, depends_on). Optional since
+	// spec 037 — loc is the identity. (Was the required 'label'.)
+	Name *string `json:"name"`
+	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
+	Target *SpecRetireStateOutgoingEdgesEdgeTargetNode `json:"target"`
+}
+
+// GetName returns SpecRetireStateOutgoingEdgesEdge.Name, and is useful for accessing the field via an interface.
+func (v *SpecRetireStateOutgoingEdgesEdge) GetName() *string { return v.Name }
+
+// GetTarget returns SpecRetireStateOutgoingEdgesEdge.Target, and is useful for accessing the field via an interface.
+func (v *SpecRetireStateOutgoingEdgesEdge) GetTarget() *SpecRetireStateOutgoingEdgesEdgeTargetNode {
+	return v.Target
+}
+
+// SpecRetireStateOutgoingEdgesEdgeTargetNode includes the requested fields of the GraphQL type Node.
+type SpecRetireStateOutgoingEdgesEdgeTargetNode struct {
+	Id       string `json:"id"`
+	Loc      string `json:"loc"`
+	MemoryId string `json:"memoryId"`
+}
+
+// GetId returns SpecRetireStateOutgoingEdgesEdgeTargetNode.Id, and is useful for accessing the field via an interface.
+func (v *SpecRetireStateOutgoingEdgesEdgeTargetNode) GetId() string { return v.Id }
+
+// GetLoc returns SpecRetireStateOutgoingEdgesEdgeTargetNode.Loc, and is useful for accessing the field via an interface.
+func (v *SpecRetireStateOutgoingEdgesEdgeTargetNode) GetLoc() string { return v.Loc }
+
+// GetMemoryId returns SpecRetireStateOutgoingEdgesEdgeTargetNode.MemoryId, and is useful for accessing the field via an interface.
+func (v *SpecRetireStateOutgoingEdgesEdgeTargetNode) GetMemoryId() string { return v.MemoryId }
 
 // #1449 — state of one node's reference rewrite in a renumber.
 type SpecRewriteStatus string
@@ -142455,13 +142812,21 @@ type __GetSpecNodeRawInput struct {
 // GetRef returns __GetSpecNodeRawInput.Ref, and is useful for accessing the field via an interface.
 func (v *__GetSpecNodeRawInput) GetRef() string { return v.Ref }
 
-// __GetSpecSupersedeTargetInput is used internally by genqlient
-type __GetSpecSupersedeTargetInput struct {
-	Ref string `json:"ref"`
+// __GetSpecRetireStateInput is used internally by genqlient
+type __GetSpecRetireStateInput struct {
+	Ref           string `json:"ref"`
+	SuccessorRef  string `json:"successorRef"`
+	WithSuccessor bool   `json:"withSuccessor"`
 }
 
-// GetRef returns __GetSpecSupersedeTargetInput.Ref, and is useful for accessing the field via an interface.
-func (v *__GetSpecSupersedeTargetInput) GetRef() string { return v.Ref }
+// GetRef returns __GetSpecRetireStateInput.Ref, and is useful for accessing the field via an interface.
+func (v *__GetSpecRetireStateInput) GetRef() string { return v.Ref }
+
+// GetSuccessorRef returns __GetSpecRetireStateInput.SuccessorRef, and is useful for accessing the field via an interface.
+func (v *__GetSpecRetireStateInput) GetSuccessorRef() string { return v.SuccessorRef }
+
+// GetWithSuccessor returns __GetSpecRetireStateInput.WithSuccessor, and is useful for accessing the field via an interface.
+func (v *__GetSpecRetireStateInput) GetWithSuccessor() bool { return v.WithSuccessor }
 
 // __GetTeamSessionInput is used internally by genqlient
 type __GetTeamSessionInput struct {
@@ -145174,6 +145539,14 @@ type __ResumeTeamSessionInput struct {
 
 // GetInput returns __ResumeTeamSessionInput.Input, and is useful for accessing the field via an interface.
 func (v *__ResumeTeamSessionInput) GetInput() *ResumeSessionInput { return v.Input }
+
+// __RetireSpecInput is used internally by genqlient
+type __RetireSpecInput struct {
+	Input *RetireSpecInput `json:"input,omitempty"`
+}
+
+// GetInput returns __RetireSpecInput.Input, and is useful for accessing the field via an interface.
+func (v *__RetireSpecInput) GetInput() *RetireSpecInput { return v.Input }
 
 // __RetireWorkerInput is used internally by genqlient
 type __RetireWorkerInput struct {
@@ -174100,44 +174473,55 @@ func GetSpecNodeRaw(
 	return data_, err_
 }
 
-// The query executed by GetSpecSupersedeTarget.
-const GetSpecSupersedeTarget_Operation = `
-query GetSpecSupersedeTarget ($ref: ID!) {
-	node(ref: $ref) {
-		id
-		memoryId
-		loc
+// The query executed by GetSpecRetireState.
+const GetSpecRetireState_Operation = `
+query GetSpecRetireState ($ref: ID!, $successorRef: ID!, $withSuccessor: Boolean!) {
+	spec: node(ref: $ref) {
+		... SpecRetireState
+	}
+	successor: node(ref: $successorRef) @include(if: $withSuccessor) {
+		... SpecRetireState
+	}
+}
+fragment SpecRetireState on Node {
+	id
+	memoryId
+	loc
+	revision
+	tags
+	abstract
+	outgoingEdges {
 		name
-		role
-		tags
-		isPlaceholder
-		deletedAt
-		outgoingEdges {
-			name
-			target {
-				id
-			}
+		target {
+			id
+			loc
+			memoryId
 		}
 	}
 }
 `
 
-// Existing-successor admission and superseded-by graph walk (#579). No body or
-// list scan: explicit provider facts, never placeholder inference from text.
-func GetSpecSupersedeTarget(
+// The ONE current-state read after a refused or unanswered retirement. It
+// describes the spec (and a supersede's successor) as they are now; it is never
+// proof of what that request did.
+func GetSpecRetireState(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	ref string,
-) (data_ *GetSpecSupersedeTargetResponse, err_ error) {
+	successorRef string,
+	withSuccessor bool,
+) (data_ *GetSpecRetireStateResponse, err_ error) {
 	req_ := &graphql.Request{
-		OpName: "GetSpecSupersedeTarget",
-		Query:  GetSpecSupersedeTarget_Operation,
-		Variables: &__GetSpecSupersedeTargetInput{
-			Ref: ref,
+		OpName: "GetSpecRetireState",
+		Query:  GetSpecRetireState_Operation,
+		Variables: &__GetSpecRetireStateInput{
+			Ref:           ref,
+			SuccessorRef:  successorRef,
+			WithSuccessor: withSuccessor,
 		},
 	}
 
-	data_ = &GetSpecSupersedeTargetResponse{}
+	data_ = &GetSpecRetireStateResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -185773,6 +186157,60 @@ func ResumeTeamSession(
 	}
 
 	data_ = &ResumeTeamSessionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RetireSpec.
+const RetireSpec_Operation = `
+mutation RetireSpec ($input: RetireSpecInput!) {
+	retireSpec(input: $input) {
+		node {
+			id
+			loc
+			revision
+			tags
+			abstract
+		}
+		successorEdge {
+			id
+			name
+			target {
+				id
+				loc
+				name
+				tags
+			}
+		}
+	}
+}
+`
+
+// The retire door (cli#1736, hadron-server#3429, cor:spc:010:02): one
+// transaction that sets the tag, banner and abstract and, for SUPERSEDE, inserts
+// the superseded-by edge. The server composes the text and owns every refusal.
+// Success is rendered from this answer alone; nothing is re-read after it.
+func RetireSpec(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *RetireSpecInput,
+) (data_ *RetireSpecResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RetireSpec",
+		Query:  RetireSpec_Operation,
+		Variables: &__RetireSpecInput{
+			Input: input,
+		},
+	}
+
+	data_ = &RetireSpecResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

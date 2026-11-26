@@ -48,6 +48,8 @@ const abstractSoftMax = 1600
 // here only so the lint can report DISTANCE to it.
 const abstractHardMax = 2000
 
+var supersededWord = regexp.MustCompile(`(?i)\bsuperseded\b`)
+
 // abstractTightHeadroom is how little room left counts as "you cannot edit this
 // abstract any more" — roughly one sentence.
 //
@@ -1300,11 +1302,10 @@ func nearCapMessage(l int, title string, c Citation, legacy, draft bool) string 
 			l, abstractHardMax, remedy)
 	default:
 		// The claim is about ABSTRACT REPLACEMENTS, not about updates (@codex).
-		// UpdateNodeInput preserves omitted fields, and `spec supersede` retires
-		// a node by sending only tags and content — so the broader wording said
-		// the very remedy this message recommends would itself be rejected.
+		// UpdateNodeInput preserves omitted fields, so a body-only edit goes
+		// through while an abstract replacement over the cap does not.
 		msg = fmt.Sprintf(
-			"abstract is %d chars — already past the %d-char hard cap, so any update that REPLACES the abstract is rejected unless it brings it to %d or fewer; an update that leaves the abstract alone (a body-only edit, including the one `spec supersede` writes) still succeeds.%s",
+			"abstract is %d chars — already past the %d-char hard cap, so any update that REPLACES the abstract is rejected unless it brings it to %d or fewer; an update that leaves the abstract alone (a body-only edit) still succeeds. `spec supersede` writes a new abstract, so give it a short --summary.%s",
 			l, abstractHardMax, abstractHardMax, remedy)
 	}
 	// A feature titled "workers and their names" is not telling you to split it

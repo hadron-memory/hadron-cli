@@ -410,32 +410,10 @@ message. Text the server sends back is passed through as the server wrote it.
 
 A **partial write** exits non-zero (generic failure, 1): a command that creates
 the primary entity but cannot wire one or more of its edges — `node import
---with-edges` (see `unwiredEdges`), and `spec supersede` when the old spec's
-`superseded-by` edge can't be confirmed (that edge's `status` is `unknown`) — reports the
-detail on stdout/stderr and
+--with-edges` (see `unwiredEdges`) — reports the detail on stdout/stderr and
 still exits 1, so a
 caller branching on the exit code never reads a partial success as complete. The
-node/spec exists but is under-linked; fix the target(s) and wire the edge(s).
-For supersede, the old spec is **re-read after every `superseded-by` write**,
-successful or not, before anything is retired or prescribed:
-- **Another replacement also supersedes it** (a concurrent supersede, whose
-  edge to a different target succeeded too): supersede **exits 5 (conflict)**,
-  retires nothing and prescribes no write. The message names both
-  replacements, and which one stands is a human call. It narrows the race; it
-  cannot close it, since that needs a server-side conditional retirement.
-- **The write errored but the edge landed** (a lost response): the run finishes.
-- **The write errored and the re-read doesn't show the edge, or fails**:
-  status `unknown`, because a read can lag a committed write, so this is never
-  proof of absence. Exit 1. The error says to check with `spec get <old>`.
-  If after a minute there is still no edge, link it with the exact `spec link`
-  it names. Once `spec get` shows the link, rerun the supersede to finish the
-  retirement. Don't rerun it first: with no edge to find, a rerun mints a
-  second replacement.
-- **The write succeeded but the re-read failed, or doesn't show the link
-  yet**: status `created`, exit 1, and the spec is **not** retired. It retires
-  only on a link it has *seen* to be the sole successor. **Rerun only once
-  `spec get <old>` shows that `superseded-by` edge.** A rerun that still
-  can't see it takes the new-supersede path and mints a *second* replacement.
+node exists but is under-linked; fix the target(s) and wire the edge(s).
 
 `spec edit|new|rescind|supersede|extract --dry-run` and `node update --dry-run`
 (cli#1912, cli#1938) answer a caller who cannot write to the
@@ -446,79 +424,76 @@ the real run's not-found. A credential with no user (an App key) is not asked; i
 run is the plan as before. Auth/access lookup failures are errors, never a plan.
 This does not change `spec renumber` or `spec replace`, whose plans are server-computed.
 
-`spec supersede` (both modes, `--dry-run` too) refuses a RESCINDED or WITHDRAWN
-source (lead or `rescinded`/`withdrawn` tag, cor:spc:010:01) with exit 5 and no
-write. If the source becomes one after the link or replacement landed, the
-retirement is refused (exit 5), that link stays and is reported, and no rerun is
-advised: a rerun gets the early refusal.
+**Retiring a spec (cli#1736).** `spec rescind` (no successor) and both `spec
+supersede` modes read the spec once, for its revision, then send **one**
+`retireSpec` request (hadron-server#3429, cor:spc:010:02). In one transaction the
+server tags the spec `superseded`, writes the banner and abstract and, for a
+supersede, adds the `superseded-by` edge. **The server composes that text and owns
+every refusal**: the CLI stops on nothing it read, has no successor type or
+placeholder rule, writes no node update or edge for a retirement, and has **no
+fallback** on a server without `retireSpec` (exit 2, "does not support
+retireSpec"). `rescind` requires `--reason` and `--summary`; `supersede` sends
+them only when given (a blank one is exit 2 before any request; the server's
+default summary is the stored abstract). `--authored-with` is sent on the create
+and on `retireSpec`, never inferred.
 
-`spec supersede <old> --by <existing-citation>` creates no node and does not
-rewrite the old body. It links and tags the old spec to an existing written,
-live spec in the SAME memory (cross-module and cross-product allowed). It
-refuses a missing/unreadable, non-spec, placeholder, deleted, retired, self or
-cyclic target before writing. --by conflicts with --title, --to, --feature,
---rule-after, --copy-body and --reason; blank --by is usage, not omission. It rechecks
-both source and target after confirmation. Its retirement update targets the
-source ID with expectedRevision; a concurrent source edit is refused, without
-an unguarded fallback. Target validation and edge creation are not atomic.
-Unknown/partial link writes are inspected before retry;
---by never allocates a second replacement node.
+`spec supersede <old> --by <existing-citation>` creates no node. `--by` conflicts
+with `--title`, `--to`, `--feature`, `--rule-after` and `--copy-body`; blank
+`--by` is usage. Create mode (`--title`) creates the successor first, then asks.
+The two are not one transaction: **if the retirement is refused or unanswered the
+new successor stays**; the output names it (`created`, and its id in the error),
+and the CLI never deletes it, retries or creates another. Retire to it with `--by`
+once the cause is fixed. On a server without `retireSpec` create mode therefore
+leaves the successor it created. A create that gets no answer (exit 7) asks for no
+retirement: check `spec get` for the replacement before rerunning.
 
-Both supersede paths rewrite the old abstract to
-`SUPERSEDED (<YYYY-MM-DD UTC>) by <citation> (<successor name>); do not apply. Historical: <summary>`.
-The history defaults to its stored abstract verbatim; --summary replaces it.
-The abstract replacement re-fingerprints the body in that update. The existing
-create path retains its retirement body note and subrole behavior.
-A same-successor lead leaves the abstract unchanged; missing edge/tag facts
-are completed. Only a matching lead plus tag and edge is a full no-op
-(JSON adds `unchanged:true`);
-a different-successor lead is refused. Existing-target results add
-`existingSuccessor:true`; existing keys/edge status and retired semantics stay.
-After a lost retirement response, success requires both the tag and exact
-requested abstract on read-back; a visible tag alone returns an error.
-A lead/history exceeding 2000 UTF-16 units is refused; supply a shorter
---summary instead of truncating history. `spec lint` warns with rule
-`superseded-abstract` if the tag says superseded but the abstract never mentions
-it or carry a RESCINDED/WITHDRAWN lead. Strict lint promotes this warning to
-exit 5, including on legacy supersessions. Inspect the sole successor, then
-rerun --by to repair a legacy abstract under the source revision guard;
-never rewrite a rescinded/withdrawn tombstone as a supersession. Explicit
---summary "" keeps empty history. Already-retired conflicting state is exit 5
-(previously 2 on the create path). No automatic backfill runs. This rule is
-independent of existing length, body-fingerprint and other lint.
+Refusals, one request each, never resent:
+- `NODE_WRITE_CONFLICT`, **exit 5**: this request wrote nothing. A stale revision,
+  an already retired spec, a spec that already has a successor, or an unusable
+  successor. The CLI re-reads the spec **once** and words what it **currently**
+  shows: already retired; linked to a successor but not retired (needs manual
+  review, the CLI makes no automatic repair); changed since read; successor can't
+  be used; or "the cause isn't visible to this read".
+- the server's abstract cap (`NodeAbstractTooLongError`), exit 2, with the
+  server's `length` and `max`: shorten `--summary` or `--reason`.
+- any other coded refusal (not found, forbidden, authoring attestation, bad
+  input) keeps its own exit code and message; no re-read.
+- **no usable answer** (transport failure, exit 7; an internal fault, a partial or
+  malformed reply, exit 1): the outcome is **unknown**. One re-read reports the
+  current state or "unknown". It is never proof of what that request did.
 
-A `superseded-by` edge whose target you cannot read still counts as a
-successor, so it blocks retirement rather than vanishing from the count.
+**Changed in this release:** a rerun on an already retired spec now exits **5**
+(`rescind` used to exit 0 with `alreadyRescinded: true`; `supersede` exited 0
+`unchanged`). The **resume of a half-finished supersede is removed**: a spec
+linked by a `superseded-by` edge but not retired is refused (exit 5) and needs
+manual review. `supersede --by` now accepts `--reason`.
 
-A rerun on a spec that already has a `superseded-by` edge finishes the
-retirement, but only when there is exactly **one** successor. With more than
-one, even on a spec already tagged `superseded`, it exits 5 and retires
-nothing.
+`--dry-run` writes nothing and prints inputs only: spec, form, successor, reason,
+summary, the read revision and (create mode) the planned successor and edges. No
+server text is composed or previewed.
 
-Edge `status` values are `planned` (dry run), `created` and `unknown`. There is
-no `failed`: no answer this command gets can prove an edge is absent.
-The result's `retired` is `true` only once the old spec has actually been
-tagged `superseded`, `false` when the update was refused outright, and `null`
-when that can't be known (the retirement update got no answer, and the re-read
-didn't show the tag, which may just be a stale read). Branch on it, not on the edge list: a partial run can have created
-everything and still not retired anything. A retirement update that gets no
-answer is re-read before it is reported, so a committed retirement is never
-reported as `false`.
+`--json` (both verbs) adds `form` (`RESCIND`|`SUPERSEDE`), `reason`, `summary`,
+`outcome` (`planned`|`retired`|`refused`|`unknown`), `abstract` (the server's,
+only after success, else `null`), `note` (dry run only) and `current`:
+`null`, or `{retired, linkedTo, revision, statement}` from the one re-read
+(`retired`/`linkedTo`/`revision` are `null` when unknown; `linkedTo` is `[]` when
+the read shows no link). Top-level `retired` is `true` on success, `false` on a
+dry run, and otherwise what that re-read showed (`null` when unknown). A refusal
+with nothing re-read and nothing created prints no result, only the error.
+`spec rescind` also has `loc`, `memoryId`, `nodeId`, `revision`, `wording` (the
+server's statement after success, else `null`), `withdrawn`, `dryRun`,
+`alreadyRescinded` (always `false` now; kept for readers) and `tags` (the spec's).
+`spec supersede` has `old`, `new`, `memoryId`, `nodeId`, `revision`, `name`,
+`tags` (the successor's; with `--by`, `""` and `[]` unless the server answered
+success), `successorId`, `created` (`{id, loc}` or `null`), `dryRun`,
+`existingSuccessor` (`--by`), and `edges` with status `planned`, `created`,
+`refused` or `unknown`. `unchanged` no longer appears.
 
-`spec rescind` (cli#809) retires a spec **without a successor** (`supersede` always means one
-exists): the `superseded` tag, a `Rescinded ... no successor` banner at the top of the body
-(`--withdrawn`: `Withdrawn, never in force`) and a `RESCINDED (<date>); do not apply. <reason>
-Historical: <summary>` abstract, in **one** guarded `updateNode` (node id + the revision read), with
-no edge, allocation or mint. It refuses before any write a non-spec node, a spec that already has a
-`superseded-by` edge (exit 2, naming the successor and `spec supersede`), a spec tagged `superseded`
-whose abstract carries no RESCINDED/WITHDRAWN prefix (exit 5), an abstract past 2000 characters (counted as the server counts them, in UTF-16 code units), and a
-missing `--reason` or empty `--summary` (exit 2, before any request). A stale revision exits **5**
-(`NODE_WRITE_CONFLICT`) with nothing written; rerun to start from a fresh read. Rerunning on an
-already-rescinded spec writes nothing and reports `alreadyRescinded: true`. A write that gets no answer
-is re-read: the tag **and** the prefix prove it (`retired: true`), anything less exits 1 with `retired:
-null` ("unknown"). `--json`: `loc`, `memoryId`, `nodeId`, `revision` (the revision the write is guarded
-on), `retired`, `wording`, `abstract` (the one written, or planned with `--dry-run`; the STORED one for an already-rescinded spec, whose `wording` and `withdrawn` are the stored ones too), `withdrawn`, `dryRun`, `alreadyRescinded`, `tags`. A result that cannot be written to stdout exits non-zero (when the write landed, the error says so and names the `spec get` check). Rescinding ends the node's
-approval (the abstract is hashed content); re-approval or re-mint is a separate step.
+A result that cannot be written to stdout after a success exits non-zero and says
+the spec was retired. `spec lint` warns with rule `superseded-abstract` if the tag
+says superseded but the abstract never mentions it or carries a
+RESCINDED/WITHDRAWN lead; strict lint promotes this warning to exit 5. A retired
+spec is never renumbered or deleted; retirement ends its approval.
 
 `spec new`, `spec extract` and `spec supersede` cannot leave a spec without its
 table-of-contents / inheritance edges unless told to: without `--no-edges`
@@ -2376,8 +2351,8 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   headroom; at exactly the cap, any edit that lengthens it (an equal-length
   rewrite still succeeds); past it (legacy data only), any update that REPLACES
   the abstract without bringing it to 2000 or fewer — an update that leaves the
-  abstract alone, such as a body-only edit, still succeeds. Supersede now
-  replaces the abstract too; use a shorter --summary for its retirement lead. Distilling is the wrong remedy in all three — on a
+  abstract alone, such as a body-only edit, still succeeds. Retiring a spec
+  composes a new abstract too (on the server); give it a short --summary. Distilling is the wrong remedy in all three — on a
   spec whose sentences are all on-subject, cutting one drops a contract, so the
   fix is a supersede-level split. `spec lint --unwired` (opt-in, #687) is
   the repair report for specs whose edges were never written: for each
@@ -7311,8 +7286,7 @@ clearing mutation; ordinary clearing keeps its existing document.
 When extraction has succeeded but --strip-source is refused, do not rerun
 spec extract. Load the required authoring task and finish the source edit
 separately with spec edit; the warning gives task/load advice, not a retry
-fragment. Supersede with an existing sole successor edge resumes retirement
-without creating another replacement.
+fragment.
 
 **Effective boot prompt preview (cli#1655).** `app agent list` and `team worker
 get` show what the next bind would be served now, not the current session's

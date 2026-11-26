@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -477,8 +478,10 @@ func supersedeToServer(t *testing.T, oldLoc, toLoc string, oldRole ...string) (s
 	if len(oldRole) > 0 {
 		old = strings.Replace(old, `"tags":["spec"],`, `"tags":[],"role":"`+oldRole[0]+`",`, 1)
 	}
-	resolves, gets := 0, 0
-	gql, captured := captureGraphQLFunc(t, func(op string) string {
+	resolves := 0
+	var gql *httptest.Server
+	var captured map[string]json.RawMessage
+	gql, captured = captureGraphQLFunc(t, func(op string) string {
 		switch op {
 		case "ResolveUrn":
 			resolves++
@@ -486,20 +489,12 @@ func supersedeToServer(t *testing.T, oldLoc, toLoc string, oldRole ...string) (s
 				return notFoundResolve
 			}
 			return `{"data":{"resolveUrn":{"id":"id-` + oldLoc + `","kind":"node","memoryId":"mem1"}}}`
-		case "GetNode":
-			gets++
-			if gets > 1 {
-				return withSupersededByEdge(old, "new1", toLoc)
-			}
-			return old
-		case "GetSpecNodeRaw": // the retirement's stored-body read (cli#742)
-			return old
+		case "GetSpecNodeForEdit":
+			return forEditFixture(old)
 		case "CreateSpecNode":
 			return `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"` + toLoc + `","name":"x","nodeType":"info","tags":["spec"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
-		case "CreateEdge":
-			return `{"data":{"createEdge":{"id":"e1","label":"superseded-by","priority":0,"source":{"id":"id-` + oldLoc + `","loc":"` + oldLoc + `"},"target":{"id":"new1","loc":"` + toLoc + `"}}}}`
-		case "UpdateSpecNode":
-			return `{"data":{"updateSpecNode":{"id":"id-` + oldLoc + `","memoryId":"mem1","loc":"` + oldLoc + `","name":"x","nodeType":"info","tags":["spec","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
+		case "RetireSpec":
+			return strings.ReplaceAll(retiredAnswer(captured["RetireSpec"]), `"loc":"msg:010:03"`, `"loc":"`+toLoc+`"`)
 		}
 		return ""
 	})
@@ -528,15 +523,6 @@ func TestSpecSupersedePreservesDottedRole(t *testing.T) {
 			}
 			if created.Input.Role == nil || *created.Input.Role != role {
 				t.Errorf("successor role = %v, want %s", created.Input.Role, role)
-			}
-			var retired struct {
-				Input map[string]json.RawMessage `json:"input"`
-			}
-			if err := json.Unmarshal(captured["UpdateSpecNode"], &retired); err != nil {
-				t.Fatal(err)
-			}
-			if _, sent := retired.Input["role"]; sent {
-				t.Error("retiring the old spec must preserve its dotted role by omission")
 			}
 		})
 	}
@@ -572,13 +558,13 @@ func TestSpecSupersedeToAnyLoc(t *testing.T) {
 			}
 			var retire struct {
 				Input struct {
-					Loc  string   `json:"loc"`
-					Tags []string `json:"tags"`
+					Ref          string `json:"ref"`
+					SuccessorRef string `json:"successorRef"`
 				} `json:"input"`
 			}
-			_ = json.Unmarshal(captured["UpdateSpecNode"], &retire)
-			if retire.Input.Loc != c.old || !contains(retire.Input.Tags, "superseded") {
-				t.Errorf("retire = %+v, want the old loc kept and tagged superseded", retire.Input)
+			_ = json.Unmarshal(captured["RetireSpec"], &retire)
+			if retire.Input.Ref != "id-"+c.old || retire.Input.SuccessorRef != "new1" {
+				t.Errorf("retire = %+v, want the old spec retired to the created node", retire.Input)
 			}
 			if !strings.Contains(out.String(), `"new": "`+c.to+`"`) || !strings.Contains(out.String(), `"retired": true`) {
 				t.Errorf("result:\n%s", out.String())
@@ -614,8 +600,8 @@ func TestSpecSupersedeOutsideLegacyNeedsTo(t *testing.T) {
 func TestSpecSupersedeToRefusals(t *testing.T) {
 	t.Run("occupied", func(t *testing.T) {
 		gql, captured := captureGraphQL(t, map[string]string{
-			"ResolveUrn": `{"data":{"resolveUrn":{"id":"x","kind":"node","memoryId":"mem1"}}}`,
-			"GetNode":    hierarchyNeutralDetail("onboarding:mentor"),
+			"ResolveUrn":         `{"data":{"resolveUrn":{"id":"x","kind":"node","memoryId":"mem1"}}}`,
+			"GetSpecNodeForEdit": forEditFixture(hierarchyNeutralDetail("onboarding:mentor")),
 		})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
@@ -701,59 +687,6 @@ func TestSpecRegisterOutsideNumberingIsNeverNull(t *testing.T) {
 	if !strings.Contains(out.String(), `"outsideNumbering": []`) {
 		t.Errorf("want outsideNumbering: []:\n%s", out.String())
 	}
-}
-
-// A resumed supersede (the old spec already carries a superseded-by edge from
-// an earlier run) finishes against THAT successor. A --to naming a different
-// one is refused as a conflict with nothing written; a --to naming the same one
-// finishes (@codex on #710).
-func TestSpecSupersedeResumeHonoursTo(t *testing.T) {
-	const old, earlier = "onboarding:mentor", "onboarding:mentor-v2"
-	resumeServer := func(t *testing.T) (string, map[string]json.RawMessage) {
-		t.Helper()
-		withEdge := withSupersededByEdge(hierarchyNeutralDetail(old), "new1", earlier)
-		gql, captured := captureGraphQLFunc(t, func(op string) string {
-			switch op {
-			case "ResolveUrn":
-				return `{"data":{"resolveUrn":{"id":"id-` + old + `","kind":"node","memoryId":"mem1"}}}`
-			case "GetNode":
-				return withEdge
-			case "GetSpecNodeRaw": // the retirement's stored-body read (cli#742)
-				return withEdge
-			case "UpdateSpecNode":
-				return `{"data":{"updateSpecNode":{"id":"id-` + old + `","memoryId":"mem1","loc":"` + old + `","name":"x","nodeType":"info","tags":["spec","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`
-			}
-			return ""
-		})
-		return gql.URL, captured
-	}
-	t.Run("a different --to is refused", func(t *testing.T) {
-		url, captured := resumeServer(t)
-		f, _ := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"spec", "supersede", old, "--to", "somewhere:else", "-m", specMem, "--title", "v2", "--yes", "--server", url})
-		err := root.Execute()
-		if got := exitCodeFor(err); got != exitcode.Conflict || !strings.Contains(err.Error(), earlier) {
-			t.Fatalf("exit %d, err %v: want a Conflict naming the earlier successor", got, err)
-		}
-		for _, op := range []string{"UpdateSpecNode", "CreateSpecNode", "CreateEdge"} {
-			if _, wrote := captured[op]; wrote {
-				t.Errorf("%s was sent: nothing may be retired or created against a --to that was ignored", op)
-			}
-		}
-	})
-	t.Run("the same --to finishes", func(t *testing.T) {
-		url, captured := resumeServer(t)
-		f, out := testFactory(t)
-		root := NewRootCmd(f)
-		root.SetArgs([]string{"spec", "supersede", old, "--to", earlier, "-m", specMem, "--title", "v2", "--yes", "--json", "--server", url})
-		if err := root.Execute(); err != nil {
-			t.Fatalf("execute: %v", err)
-		}
-		if _, retired := captured["UpdateSpecNode"]; !retired || !strings.Contains(out.String(), `"retired": true`) {
-			t.Errorf("a matching --to must finish the retirement:\n%s", out.String())
-		}
-	})
 }
 
 // extract allocates in the legacy numbering, so it stays a legacy adapter: a

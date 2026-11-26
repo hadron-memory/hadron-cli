@@ -259,10 +259,8 @@ func TestAuthoredCommandFlows1685(t *testing.T) {
 				"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 				"FindNodes":      `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 				"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-				"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-				"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
 			})
-			run(t, inner, []string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes"}, "", "CreateSpecNode", "UpdateSpecNode")
+			run(t, inner, []string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes"}, "", "CreateSpecNode", "RetireSpec")
 		})
 		t.Run(fmt.Sprintf("%t/replace", claim), func(t *testing.T) {
 			inner, _ := queueGraphQL(t, map[string][]string{"SearchReplaceInNodes": {searchReplaceDryJSON, searchReplaceRealJSON}})
@@ -523,8 +521,7 @@ func TestAuthoredSupersedePartialRefusal1685(t *testing.T) {
 					"NodeBatch":      specLintRawBodyStub(cleanSpecDetail),
 					"FindNodes":      `{"data":{"nodes":[` + specNodeList("msg", `["spec","p1"]`) + `,` + specNodeList("msg:010", `["spec","p1"]`) + `,` + specNodeList("msg:010:00", `["spec","p1"]`) + `,` + specNodeList("msg:010:02", `["spec","p1"]`) + `]}}`,
 					"CreateSpecNode": `{"data":{"createSpecNode":{"id":"new1","memoryId":"mem1","loc":"msg:010:03","name":"msg:010:03 — W2 v2","nodeType":"info","tags":["spec","p1"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-					"UpdateSpecNode": refusal,
-					"CreateEdge":     `{"data":{"createEdge":{"id":"e1","label":"x","priority":0,"source":{"id":"sp1","loc":"msg:010:02"},"target":{"id":"new1","loc":"msg:010:03"}}}}`,
+					"RetireSpec":     refusal,
 				})
 				f, out := testFactory(t)
 				var stderr bytes.Buffer
@@ -539,15 +536,15 @@ func TestAuthoredSupersedePartialRefusal1685(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected retirement refusal")
 				}
-				if exitCodeFor(err) != 1 {
-					t.Fatalf("partial exit changed: %v", err)
+				if exitCodeFor(err) == 0 {
+					t.Fatalf("a refused retirement cannot exit 0: %v", err)
 				}
-				if !strings.Contains(err.Error(), "linked") {
+				if !strings.Contains(err.Error(), "created the successor") {
 					t.Fatalf("partial status lost: %v", err)
 				}
 				renderFailure(f, args, err)
 				text := out.String() + stderr.String()
-				if !strings.Contains(text, "linked") {
+				if !strings.Contains(text, "created the successor") {
 					t.Fatalf("rendered partial status lost: %s", text)
 				}
 				if access == "READABLE" {
@@ -579,52 +576,6 @@ func TestAuthoredBlankTaskBeforeRequest1685(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestAuthoredSupersedeResume1685(t *testing.T) {
-	oldWithEdge := `{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2",` +
-		`"description":null,"abstract":"Win back users who never engaged after signup.","abstractOriginHash":null,` +
-		`"nodeType":"info","tags":["spec","p1"],` +
-		`"content":"# msg:010:02 — W2\n\n## What invalidates this spec\nChanges.\n",` +
-		`"data":{"version":"0.0.1"},"seq":null,"createdAt":"2026-06-10T00:00:00Z","updatedAt":"2026-06-14T00:00:00Z",` +
-		`"outgoingEdges":[{"id":"e2","name":"superseded-by","loc":"msg:010:02:superseded-by:msg:010:03","isRunnable":false,"priority":0,"target":{"id":"new1","loc":"msg:010:03","memoryId":"mem1"}}],` +
-		`"incomingEdges":[]}`
-	gql, captured := captureGraphQL(t, map[string]string{
-		"ResolveUrn":     resolveSpecJSON,
-		"GetNode":        `{"data":{"node":` + oldWithEdge + `}}`,
-		"GetSpecNodeRaw": `{"data":{"node":` + oldWithEdge + `}}`,
-		"UpdateSpecNode": `{"data":{"updateSpecNode":{"id":"sp1","memoryId":"mem1","loc":"msg:010:02","name":"msg:010:02 — W2","nodeType":"info","tags":["spec","p1","superseded"],"updatedAt":"2026-06-14T00:00:00Z"}}}`,
-	})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", gql.URL, "--authored-with", "task1", "--authored-revision", "4"})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("retry should finish old-node retirement: %v\n%s", err, out.String())
-	}
-	if _, ok := captured["CreateSpecNode"]; ok {
-		t.Fatal("retry with existing superseded-by edge must not create another replacement")
-	}
-	if _, ok := captured["CreateEdge"]; ok {
-		t.Fatal("retry with existing superseded-by edge must not create another retirement edge")
-	}
-	if !strings.Contains(out.String(), `"new": "msg:010:03"`) {
-		t.Fatalf("retry output should name existing successor:\n%s", out.String())
-	}
-	if !strings.Contains(out.String(), `"name": "msg:010:03 — W2 v2"`) {
-		t.Fatalf("retry output should format the successor name with the successor citation:\n%s", out.String())
-	}
-	var sent struct {
-		Input struct {
-			AuthoredWith struct {
-				Task     string
-				Revision int
-			}
-		}
-	}
-	if json.Unmarshal(captured["UpdateSpecNode"], &sent) != nil || sent.Input.AuthoredWith.Task != "task1" || sent.Input.AuthoredWith.Revision != 4 {
-		t.Fatalf("resumed retirement lost claim: %s", captured["UpdateSpecNode"])
-	}
-
 }
 
 func TestAuthoredWrappedExitClasses1685(t *testing.T) {

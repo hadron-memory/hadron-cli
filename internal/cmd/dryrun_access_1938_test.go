@@ -20,7 +20,7 @@ type dryCase1938 struct {
 
 func dryCases1938() []dryCase1938 {
 	cases := []dryCase1938{
-		{"supersede", []string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--dry-run"}, func() map[string]string { return supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent) }, "GetNode", "hrn:mem:micromentor.org:platform-specs"},
+		{"supersede", []string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--dry-run"}, func() map[string]string { return supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent) }, "GetSpecNodeForEdit", "hrn:mem:micromentor.org:platform-specs"},
 		{"extract", []string{"spec", "extract", "cor:dmo:060:02", "-m", specMem, "--to-feature", "020", "--title", "Node type", "--dry-run"}, extractMocks, "GetSpecNodeRaw", "hrn:mem:micromentor.org:platform-specs"},
 		{"node", []string{"node", "update", testNodeURN, "--name", "Renamed", "--dry-run"}, func() map[string]string {
 			m := bodyOnlyStubs(delimiterBody)
@@ -34,8 +34,6 @@ func dryCases1938() []dryCase1938 {
 	by.mocks = func() map[string]string {
 		m := supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent)
 		m["ResolveUrn:2"] = `{"data":{"resolveUrn":{"id":"new1","kind":"node","memoryId":"mem1"}}}`
-		target, _ := json.Marshal(node579("new1", "msg:010:03"))
-		m["GetSpecSupersedeTarget"] = `{"data":{"node":` + string(target) + `}}`
 		return m
 	}
 	cases = append(cases, by)
@@ -48,33 +46,6 @@ func dryCases1938() []dryCase1938 {
 		return m
 	}
 	cases = append(cases, direct)
-	for _, done := range []bool{false, true} {
-		resumed := cases[0]
-		resumed.name = "supersede-resume"
-		if done {
-			resumed.name = "supersede-unchanged"
-		}
-		resumed.mocks = func() map[string]string {
-			m := supersedeRawMocks(cleanSpecDetailContent, cleanSpecDetailContent)
-			var envelope map[string]any
-			if err := json.Unmarshal([]byte(m["GetNode"]), &envelope); err != nil {
-				panic(err)
-			}
-			old := envelope["data"].(map[string]any)["node"].(map[string]any)
-			old["outgoingEdges"] = []any{map[string]any{"id": "edge1", "name": "superseded-by", "target": map[string]any{"id": "new1", "loc": "msg:010:03", "memoryId": "mem1"}}}
-			if done {
-				old["abstract"] = "SUPERSEDED (2026-01-01) by msg:010:03 (W2 v2); do not apply. Historical: Old."
-				old["tags"] = []string{"spec", "superseded"}
-			}
-			raw, err := json.Marshal(envelope)
-			if err != nil {
-				panic(err)
-			}
-			m["GetNode"] = string(raw)
-			return m
-		}
-		cases = append(cases, resumed)
-	}
 	return cases
 }
 
@@ -126,7 +97,7 @@ func runDry1938(t *testing.T, c dryCase1938, mocks map[string]string, asJSON boo
 
 func noWrites1938(t *testing.T, calls []string) {
 	t.Helper()
-	allowed := map[string]bool{"ResolveUrn": true, "GetNode": true, "GetSpecSupersedeTarget": true, "GetNodeRaw": true, "GetSpecNodeRaw": true, "FindNodes": true, "NodeBatch": true, "SpecCorpusState": true, "GetMemory": true, "Memories": true, "AuthContext": true, "EffectiveAccess": true, "DryRunMemoryIdentity": true}
+	allowed := map[string]bool{"ResolveUrn": true, "GetNode": true, "GetSpecNodeForEdit": true, "GetNodeRaw": true, "GetSpecNodeRaw": true, "FindNodes": true, "NodeBatch": true, "SpecCorpusState": true, "GetMemory": true, "Memories": true, "AuthContext": true, "EffectiveAccess": true, "DryRunMemoryIdentity": true}
 	for _, op := range calls {
 		if !allowed[op] {
 			t.Errorf("dry run sent unexpected operation %s", op)
@@ -266,7 +237,7 @@ func TestDryRun1938UnreadableSuccessorBeforeAccess(t *testing.T) {
 		}
 	}
 	m := accessMocks(c.mocks(), false)
-	m["GetSpecSupersedeTarget"] = `{"data":{"node":null}}`
+	m["ResolveUrn:2"] = `{"data":{"resolveUrn":null}}`
 	out, vars, _, err := runDry1938(t, c, m, false)
 	if exitCodeFor(err) != exitcode.NotFound || out != "" {
 		t.Fatalf("successor: %v %q", err, out)
@@ -294,7 +265,11 @@ func TestDryRun1938RealPathsLeaveAccessToTheWrite(t *testing.T) {
 			if c.name == "supersede" {
 				c.args = append(c.args, "--yes")
 			}
-			_, vars, calls, _ := runDry1938(t, c, accessMocks(c.mocks(), false), false)
+			m := accessMocks(c.mocks(), false)
+			if c.name == "supersede" {
+				m["RetireSpec"] = retiredAnswer(json.RawMessage(`{"input":{"ref":"sp1","successorRef":"new1"}}`))
+			}
+			_, vars, calls, _ := runDry1938(t, c, m, false)
 			for _, op := range []string{"AuthContext", "EffectiveAccess"} {
 				if _, ok := vars[op]; ok {
 					t.Errorf("real path consulted %s", op)
