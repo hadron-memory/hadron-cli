@@ -26,23 +26,33 @@ login: any other caller gets null or an empty page, with no error. An empty
 result is therefore not proof that you have no grants. --app cannot switch the
 bound App.`
 
+// cli#3248: allows is the server's liveness verdict (grantLiveSql), which has no
+// issuer term; some actions judge the issuer again at each use (cor:acl:140:04).
+const grantAllowsHelp = `allows is the server's yes or no on the grant's own record: yes only while it is
+signed, not revoked, its holder has not gone, its App is not deleted, it has
+started, it has not expired or been used up and it is inside its action's limits.
+So state and allows can disagree: an ACTIVE grant shows allows no before its
+start, or once its App is deleted. allows does not judge the issuer: for
+secret.reveal, secret.use and boot-prompt grants the issuer's authority is judged
+again at each use, so an ACTIVE grant with allows yes can still be refused.`
+
 const workerGrantFieldsHelp = `Each grant has fifteen fields: id, action, values (the action's parameters, a
 JSON object), holderKind and holderId (who holds it), startsAt and expiresAt
 (the window it allows in), maxUses and useCount, reason, createdAt, activatedAt
-(empty until a person signs it), revokedAt, allows and state. allows is yes only
-while the grant can be used right now: signed, not revoked, inside its window
-and not used up. A pending (unsigned) grant allows nothing. state is the
-server's own word, printed as sent (PENDING, ACTIVE, SPENT, EXPIRED, REVOKED,
-WITHDRAWN or HOLDER_GONE), never worked out here; it can disagree with allows (a
-grant whose issuer can no longer issue stops allowing without changing state),
-and both are shown as returned. A dash means the value is unset. --json keeps the
-server values and nulls. list, get and request need a server released on or
-after 2026-11-17 (the state field; every other field request selects shipped by
-2026-11-10, and list and get select only some of those); an older server refuses
-the read. list and get only read; to ask for a grant see
-'hadron team grant request'. Organization action grants are a different thing:
-see 'hadron grant' ('hadron grant list'); 'hadron auth grants' reads the grants
-held by you personally across Apps.`
+(empty until a person signs it), revokedAt, allows and state. A pending
+(unsigned) grant allows nothing. state is the server's own word, printed as sent
+(PENDING, ACTIVE, SPENT, EXPIRED, REVOKED, WITHDRAWN or HOLDER_GONE), never
+worked out here. state and allows are both shown as returned. A dash means the
+value is unset. --json keeps the server values and nulls.
+
+` + grantAllowsHelp + `
+
+list, get and request need a server released on or after 2026-11-17 (the state
+field; every other field request selects shipped by 2026-11-10, and list and get
+select only some of those); an older server refuses the read. list and get only
+read; to ask for a grant see 'hadron team grant request'. Organization action
+grants are a different thing: see 'hadron grant' ('hadron grant list'); 'hadron
+auth grants' reads the grants held by you personally across Apps.`
 
 var workerGrantNames = []string{"id", "action", "values", "holderKind", "holderId", "startsAt", "expiresAt", "maxUses", "useCount", "reason", "createdAt", "activatedAt", "revokedAt", "allows", "state"}
 
@@ -67,16 +77,17 @@ withholds. Three groups of commands live here:
 To get a worker grant, in order: (1) 'hadron team grant actions' finds the
 action and its PARAMETERS; (2) 'hadron team grant request --action <name>
 --values <json> --reason <text>' creates a pending grant, which allows nothing;
-(3) 'hadron team grant request-signature <grant-id>' prints a ceremony URL: give
-it to a person, who signs on that page (nothing here signs); (4) 'hadron team
-grant signing-request get <request-id>' shows whether it was signed, and
-'hadron team grant get <grant-id>' shows the grant, where allows says whether it
-can be used now. To have several pending grants signed at once, step (3) is
-'hadron team grant request-selection-signature <grant-id>...'. 'list' and 'get'
-read the worker's own grants, so they need a worker session that a person is
-driving (a worktree bound with 'hadron team session start'). Organization action
-grants are managed with 'hadron grant' ('hadron grant list'), not here; 'hadron
-auth grants' reads the grants you hold personally across Apps.`}
+(3) 'hadron team grant request-signature <grant-id>' prints a ceremony URL:
+give it to a person, who signs on that page (nothing here signs); (4) 'hadron
+team grant signing-request get <request-id>' shows whether it was signed, and
+'hadron team grant get <grant-id>' shows the grant, where allows is the
+server's verdict on its record (a check of the issuer at use can still refuse).
+To have several pending grants signed at once, step (3) is 'hadron team grant
+request-selection-signature <grant-id>...'. 'list' and 'get' read the worker's
+own grants, so they need a worker session that a person is driving (a worktree
+bound with 'hadron team session start'). Organization action grants are managed
+with 'hadron grant' ('hadron grant list'), not here; 'hadron auth grants' reads
+the grants you hold personally across Apps.`}
 	var limit, offset int
 	list := &cobra.Command{Use: "list", Aliases: []string{"ls"}, Short: "Read one page of worker grants", Long: "List this worker's own grants: what it holds, and its requests still waiting\nto be signed.\n\n" + workerGrantAccess + `
 
