@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -24,5 +25,39 @@ func TestResumeRequestNamesTheExpectedWorkerAsARef(t *testing.T) {
 	}
 	if _, sent := input["expectedWorkerId"]; sent {
 		t.Error("expectedWorkerId was removed from the input and must not be sent")
+	}
+}
+
+// The input was renamed; the refusal's extension was not (hadron-server#5314
+// keeps `expectedWorkerId`). With the name withheld, the refusal names the
+// worker from that extension, an id the binding does not hold.
+func TestResumeMismatchStillDecodesTheExpectedWorkerIDExtension(t *testing.T) {
+	_, err := runMismatch(t, `"picked":false,"expectedWorkerId":"wkr-from-extension","expectedWorkerName":null,"foundWorkerId":"wkr9","foundWorkerName":"Greer","foundSource":"CLAIM"`, false)
+	if err == nil || !strings.Contains(err.Error(), "worker wkr-from-extension,") {
+		t.Errorf("the refusal must name the extension's worker id: %v", err)
+	}
+}
+
+// The help and the agent contract name the input by its new name. The one
+// remaining mention of the old spelling is the refusal's extension keys.
+func TestResumeTextNamesTheExpectedWorkerRefInput(t *testing.T) {
+	for _, args := range [][]string{{"agentic-usage"}, {"team", "session", "start", "--help"}} {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetOut(out)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("%v: %v", args, err)
+		}
+		text := out.String()
+		if args[0] == "agentic-usage" && !strings.Contains(text, "`expectedWorkerRef`") {
+			t.Error("agentic-usage must name the expectedWorkerRef input")
+		}
+		if args[0] != "agentic-usage" && !strings.Contains(text, "0.48.0") {
+			t.Error("the help must state the server floor")
+		}
+		if rest := strings.ReplaceAll(text, "`expectedWorkerId/Name`", ""); strings.Contains(rest, "expectedWorkerId") {
+			t.Errorf("%v still names the old input field", args)
+		}
 	}
 }
