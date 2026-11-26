@@ -1177,7 +1177,8 @@ URN) are optional; they are the place for a written account of the work.
 Refusals: a PENDING task exits 5 ("start it first"): run ` + "`task start`" + `,
 then finish. A review-seat task with no verdict recorded exits 5
 (SEAT_VERDICT_REQUIRED): record it with ` + "`team pr verdict`" + ` while the task is
-started, then finish. Someone else's task exits 8; an ended task exits 5. Open child
+started, then finish (a seat never bound, a superseded one, and outcome failed or
+cancelled are exempt). Someone else's task exits 8; an ended task exits 5. Open child
 tasks do not stop it: the server adds the warning task.finish.open-children
 and the children stay open. If the task was created with --close-session,
 finishing asks the assignee to end its worker session (see ` + "`task create --help`" + `);

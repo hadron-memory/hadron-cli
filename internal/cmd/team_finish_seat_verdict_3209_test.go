@@ -15,7 +15,7 @@ func TestTeamTaskFinishHelpNamesSeatVerdictRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 	help := strings.Join(strings.Fields(out.String()), " ")
-	for _, w := range []string{"SEAT_VERDICT_REQUIRED", "team pr verdict", "exits 5"} {
+	for _, w := range []string{"exits 5 (SEAT_VERDICT_REQUIRED)", "team pr verdict", "superseded"} {
 		if !strings.Contains(help, w) {
 			t.Errorf("finish help should say %q:\n%s", w, out.String())
 		}
