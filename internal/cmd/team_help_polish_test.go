@@ -166,9 +166,11 @@ var onOrAfterWords = regexp.MustCompile(`on(\s+)or(\s+)after`)
 // whitespace, so neither would see a re-wrap that splits "on or after". Read the
 // raw help: no line break may fall inside the phrase, on either page (cli#3170).
 func TestFloorOnOrAfterIsNotSplitAcrossLines(t *testing.T) {
-	// cli#3216 item 6: also the task pages that carry the phrase (taskclone.go, taskread.go).
+	// cli#3216 item 6: also the task pages that carry the phrase (taskclone.go, taskread.go);
+	// cli#3254: `team task update`, and the three `team grant` pages that carry the grant
+	// floor (the group page itself no longer does).
 	for _, page := range [][]string{{"team", "events"}, {"team", "register"}, {"team", "task", "clone"}, {"team", "task", "get"}, {"team", "task", "list"},
-		{"team", "task"}, {"team", "task", "create"}, {"team", "task", "finish"}, {"team", "task", "link-defect"}} {
+		{"team", "task"}, {"team", "task", "create"}, {"team", "task", "finish"}, {"team", "task", "link-defect"}, {"team", "task", "update"}, {"team", "grant", "list"}, {"team", "grant", "get"}, {"team", "grant", "request"}} {
 		raw := cmdHelpOut(t, page...)
 		// Presence uses the same whitespace-tolerant pattern as the split check, so a re-wrapped phrase
 		// is reported as split, not as missing.

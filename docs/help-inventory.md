@@ -647,7 +647,7 @@ section between the markers.
 | `team task set-priority` |  |  | y | #1054 | 251518f2aaf9 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task start` |  |  | y | #1054 | fbda4606d956 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task tree` |  |  | y | #1054 | 6d391c672ff7 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
-| `team task update` |  |  | y | #1054 | d68506a49933 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
+| `team task update` |  |  | y | #1054 | 9a3e6de26111 |  | unread |  |
 | `team ticker` |  |  | n | #1054 | 94b5026458fd | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | 3ad5d4dba4d7 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
