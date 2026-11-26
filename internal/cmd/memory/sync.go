@@ -73,7 +73,7 @@ request is not retried, so use memory get to check the recorded state before
 pulling again. --json:
 {memory,operation:"pull",clean,syncStatus,syncError,lastSyncedAt,
 syncReportStatus,syncReport}. Sync error text is masked for URL credentials and
-well-known token formats (ghp_, github_pat_, glpat-); a token of another shape
+well-known token formats (gh[pousr]_, github_pat_, glpat-); a token of another shape
 is not recognised.`,
 		Example: "  hadron memory sync pull acme.com:kb --yes\n  hadron memory sync pull hrn:mem:acme.com:kb --yes --json",
 		Args:    cobra.ExactArgs(1),
@@ -585,7 +585,7 @@ the branch are not reported, so check the repository for what landed. One
 request is sent and it is never retried. Exit 7 means the push may have
 happened: check the repository before pushing again. A "no" or empty answer
 exits 7 too and never prints "pushed". Server error text is masked for URL
-credentials and well-known token formats (ghp_, github_pat_, glpat-); a token
+credentials and well-known token formats (gh[pousr]_, github_pat_, glpat-); a token
 of another shape is not recognised. Success prints "pushed memory <ref>". --json:
 {memory,operation:"push",pushed:true}.`,
 		Example: "  hadron memory sync push acme.com:kb --yes\n  hadron memory sync push hrn:mem:acme.com:kb --yes --json",
