@@ -7312,6 +7312,11 @@ see a served identity does not grant access to the compiled content.
 in the same finish call. This opt-in path and `team task findings` require a
 provider containing server#3248/#2662. Omitting the flag preserves the old finish
 operation, receipt and warning behavior; it does not send a findings field.
+
+`team task finish` on a review-seat task that has no verdict recorded is refused
+SEAT_VERDICT_REQUIRED, exit 5 (the task's state, like TASK_ENDED; cli#3209): run
+`team pr verdict <seat-task> ...` while the task is STARTED, then finish. Nothing
+is written by the refused call.
 A supplied `[]` is an explicit empty list. No extra confirmation is introduced.
 
 The file is one UTF-8 JSON array, at most 4 MiB; `-` reads piped stdin once and
