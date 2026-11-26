@@ -103,7 +103,7 @@ func TestBillingSpendTimeWithUTCOffsetIsSentAsGiven3207(t *testing.T) {
 func TestBillingGrantExpiresAtWithUTCOffsetIsSentAsGiven3207(t *testing.T) {
 	// The fixture entry carries a different instant from the input, so a CLI
 	// that printed its own input instead of the entry would fail.
-	_, captured, err := runBilling(t, map[string]string{"GrantCredits": grantResponse},
+	out, captured, err := runBilling(t, map[string]string{"GrantCredits": grantResponse},
 		"billing", "grant", "acme", "--amount", "5", "--source-type", "t", "--source-id", "i",
 		"--expires-at", "2027-03-01T01:00:00+01:00", "--yes", "--json")
 	if err != nil {
@@ -111,6 +111,15 @@ func TestBillingGrantExpiresAtWithUTCOffsetIsSentAsGiven3207(t *testing.T) {
 	}
 	if got := billingInputOf(t, captured, "GrantCredits")["expiresAt"]; got != "2027-03-01T01:00:00+01:00" {
 		t.Errorf("expiresAt is sent as given: %v", got)
+	}
+	var entry struct {
+		ExpiresAt string `json:"expiresAt"`
+	}
+	if jerr := json.Unmarshal([]byte(out), &entry); jerr != nil {
+		t.Fatalf("--json: %v\n%s", jerr, out)
+	}
+	if entry.ExpiresAt != "2027-01-01T00:00:00.000Z" {
+		t.Errorf("the printed entry is the server's, not the input: %q", entry.ExpiresAt)
 	}
 }
 
@@ -125,18 +134,18 @@ func TestBillingGrantConflictJSONNamesTheServerCode3207(t *testing.T) {
 		t.Errorf("want exit %d, got %d", exitcode.Conflict, got)
 	}
 	renderError(f, err)
+	// The --json failure envelope is {"error":{"code","message","serverCode"}} on stdout.
 	var env struct {
 		Error struct {
+			Code       int    `json:"code"`
 			ServerCode string `json:"serverCode"`
 		} `json:"error"`
-		ServerCode string `json:"serverCode"`
 	}
-	raw := stdout.String() + errOut.String()
-	if jerr := json.Unmarshal([]byte(raw), &env); jerr != nil {
-		t.Fatalf("the failure envelope is JSON: %v\n%s", jerr, raw)
+	if jerr := json.Unmarshal([]byte(stdout.String()), &env); jerr != nil {
+		t.Fatalf("the failure envelope is JSON on stdout: %v\nstdout=%s stderr=%s", jerr, stdout.String(), errOut.String())
 	}
-	if env.ServerCode != "IDEMPOTENCY_CONFLICT" && env.Error.ServerCode != "IDEMPOTENCY_CONFLICT" {
-		t.Errorf("the failure envelope must carry serverCode: %s", raw)
+	if env.Error.ServerCode != "IDEMPOTENCY_CONFLICT" || env.Error.Code != exitcode.Conflict {
+		t.Errorf("error.serverCode and error.code: %+v", env.Error)
 	}
 }
 

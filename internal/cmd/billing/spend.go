@@ -146,7 +146,7 @@ with --json.`,
 			dto := spendDTO{From: s.From, To: s.To, GroupBy: groupBy, Truncated: s.Truncated, TotalGroups: s.TotalGroups, Rows: []spendRowDTO{}}
 			for _, r := range s.Rows {
 				if r == nil {
-					return exitcode.Newf(exitcode.Error, "the server returned a null spend row, which the schema forbids; nothing was printed")
+					return exitcode.Newf(exitcode.Error, "the server returned a null spend row, which the schema forbids; no result is shown")
 				}
 				dto.Rows = append(dto.Rows, spendRowDTO{
 					Key: r.Key, Events: r.Events, TokensIn: r.TokensIn, TokensOut: r.TokensOut,

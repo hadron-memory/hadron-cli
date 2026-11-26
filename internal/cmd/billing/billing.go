@@ -342,7 +342,7 @@ grants which have already expired.`,
 			}
 			for _, e := range resp.CreditBalance.Expiring {
 				if e == nil {
-					return exitcode.Newf(exitcode.Error, "the server returned a null expiring part, which the schema forbids; nothing was printed")
+					return exitcode.Newf(exitcode.Error, "the server returned a null expiring part, which the schema forbids; no result is shown")
 				}
 				dto.Expiring = append(dto.Expiring, expiringDTO{AmountMicroCents: e.AmountMicroCents, ExpiresAt: e.ExpiresAt})
 			}
