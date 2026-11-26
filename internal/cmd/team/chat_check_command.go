@@ -29,7 +29,13 @@ func checkFailure(err error) error {
 		{"SEQ_BEYOND_WATERMARK", "sample is beyond the channel watermark; run check again"},
 	} {
 		if api.HasErrorCode(err, v.code) {
-			return exitcode.Newf(exitcode.FromError(api.MapError(err)), "%s: %s", v.code, v.text)
+			build := func(text string) error {
+				return exitcode.Newf(exitcode.FromError(api.MapError(err)), "%s: %s", v.code, text)
+			}
+			if v.code != "SESSION_NOT_LIVE" {
+				return build(v.text)
+			}
+			return api.AnnotateSessionNotLive(v.text, build, err)
 		}
 	}
 	code := exitcode.FromError(api.MapError(err))
