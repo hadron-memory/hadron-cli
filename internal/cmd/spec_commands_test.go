@@ -2383,15 +2383,11 @@ func TestSpecSupersedeTitleCollidesWithSpecialLabel(t *testing.T) {
 		var body struct {
 			OperationName string `json:"operationName"`
 			Variables     struct {
-				Name   string `json:"name"`
-				Offset *int   `json:"offset"`
+				Offset *int `json:"offset"`
 			} `json:"variables"`
 		}
 		raw, _ := io.ReadAll(r.Body)
 		_ = json.Unmarshal(raw, &body)
-		if body.OperationName == "NeverSent" {
-			createdEdgeLabels = append(createdEdgeLabels, body.Variables.Name)
-		}
 		if body.OperationName == "CreateSpecNode" {
 			var req struct {
 				Variables json.RawMessage `json:"variables"`
