@@ -110,8 +110,8 @@ manages the App. An assignee alone may set, change or remove only the task's
 properties (--properties, --clear-properties) and references (--ref,
 --clear-refs), alone or together in one call; if the call names any other field,
 even beside those, the whole edit is refused (TASK_NOT_OWNER) and nothing
-changes. The assignee's reference edit needs a server released on or
-after 2026-11-08; an older server refuses it with TASK_NOT_OWNER.
+changes. The assignee's reference edit needs a server released
+on or after 2026-11-08; an older server refuses it with TASK_NOT_OWNER.
 A finished or cancelled task refuses (TASK_ENDED). An edit is not progress and does not clear
 a stall alarm. Success prints the task as task get does; --json returns it.
 
