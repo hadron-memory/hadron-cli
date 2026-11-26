@@ -40796,6 +40796,236 @@ func (v *CreateAgentScheduleResponse) GetCreateAgentSchedule() *CreateAgentSched
 	return v.CreateAgentSchedule
 }
 
+// CreateAgentSlugCreateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type CreateAgentSlugCreateAgent struct {
+	AgentFields `json:"-"`
+}
+
+// GetId returns CreateAgentSlugCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CreateAgentSlugCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CreateAgentSlugCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CreateAgentSlugCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetDescription() *string { return v.AgentFields.Description }
+
+// GetType returns CreateAgentSlugCreateAgent.Type, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CreateAgentSlugCreateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetVisibility() AgentVisibility { return v.AgentFields.Visibility }
+
+// GetOrganizationId returns CreateAgentSlugCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetOrganizationId() *string { return v.AgentFields.OrganizationId }
+
+// GetSurfaces returns CreateAgentSlugCreateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetSurfaces() []string { return v.AgentFields.Surfaces }
+
+// GetSystemMemoryId returns CreateAgentSlugCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetSystemMemoryId() *string { return v.AgentFields.SystemMemoryId }
+
+// GetTasksIndexRef returns CreateAgentSlugCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetTasksIndexRef() *string { return v.AgentFields.TasksIndexRef }
+
+// GetProcessesIndexRef returns CreateAgentSlugCreateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns CreateAgentSlugCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetExtendsAgentId() *string { return v.AgentFields.ExtendsAgentId }
+
+// GetBootPromptRef returns CreateAgentSlugCreateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetBootPromptRef() *string { return v.AgentFields.BootPromptRef }
+
+// GetBootPromptTargetDeleted returns CreateAgentSlugCreateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns CreateAgentSlugCreateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetAiProvider() *string { return v.AgentFields.AiProvider }
+
+// GetAiModel returns CreateAgentSlugCreateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CreateAgentSlugCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetHasAiApiKey() bool { return v.AgentFields.HasAiApiKey }
+
+// GetPersonaRole returns CreateAgentSlugCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetPersonaRole() *string { return v.AgentFields.PersonaRole }
+
+// GetUsesTasks returns CreateAgentSlugCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetResetContextAfterTask returns CreateAgentSlugCreateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns CreateAgentSlugCreateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CreateAgentSlugCreateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns CreateAgentSlugCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns CreateAgentSlugCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugCreateAgent) GetCreatedAt() string { return v.AgentFields.CreatedAt }
+
+func (v *CreateAgentSlugCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentSlugCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentSlugCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentSlugCreateAgent struct {
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentSlugCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentSlugCreateAgent) __premarshalJSON() (*__premarshalCreateAgentSlugCreateAgent, error) {
+	var retval __premarshalCreateAgentSlugCreateAgent
+
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateAgentSlugResponse is returned by CreateAgentSlug on success.
+type CreateAgentSlugResponse struct {
+	// Create an agent. Provide orgRef to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgRef to create a USER-OWNED agent owned by the caller — its
+	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+	// (org XOR user).
+	//
+	// personaRole is the persona dressing (hrn:node:hadronmemory.com:specs:cor:agt:020:01), the reusable role.
+	// A new Agent has no boot prompt: write its boot:source, compile it and
+	// approve the compiled revision (hrn:node:hadronmemory.com:specs:cor:agt:040:10,
+	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
+	// Worker, cast with castWorker; names never live on agents.
+	//
+	// orgRef accepts the org's ID or URN; an empty orgRef is BAD_USER_INPUT. An empty
+	// systemMemoryRef means none (a system memory is provisioned).
+	CreateAgent *CreateAgentSlugCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreateAgentSlugResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreateAgentSlugResponse) GetCreateAgent() *CreateAgentSlugCreateAgent { return v.CreateAgent }
+
 // createAgentTask input. A ROOT task names appRef; any App participant may
 // create one (hrn:node:hadronmemory.com:specs:cor:agt:050:06). A CHILD task names parentTaskRef; only the
 // parent's assignee may create one, and it owns it (hrn:node:hadronmemory.com:specs:cor:agt:050:07).
@@ -41502,6 +41732,283 @@ func (v *CreateAgentWithContextCapResponse) GetCreateAgent() *CreateAgentWithCon
 	return v.CreateAgent
 }
 
+// CreateAgentWithContextCapSlugCreateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type CreateAgentWithContextCapSlugCreateAgent struct {
+	AgentFields `json:"-"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+	// #4225 (S4b of #4229; hrn:node:hadronmemory.com:specs:cor:agt:050:27 part 12, Proposed; G4): the context size, in tokens,
+	// above which a worker of this LONG_LIVED Agent whose host reports it idle at an empty prompt is reset (one
+	// worker.reset-context, at most one an hour per worker). Null (the default) is no cap. A busy worker is never reset
+	// for it, and a SHORT_LIVED Agent's workers ignore it. Set by whoever manages the Agent.
+	ContextCap *int `json:"contextCap"`
+}
+
+// GetLifecycle returns CreateAgentWithContextCapSlugCreateAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetContextCap returns CreateAgentWithContextCapSlugCreateAgent.ContextCap, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetContextCap() *int { return v.ContextCap }
+
+// GetId returns CreateAgentWithContextCapSlugCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CreateAgentWithContextCapSlugCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CreateAgentWithContextCapSlugCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CreateAgentWithContextCapSlugCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns CreateAgentWithContextCapSlugCreateAgent.Type, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CreateAgentWithContextCapSlugCreateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns CreateAgentWithContextCapSlugCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns CreateAgentWithContextCapSlugCreateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns CreateAgentWithContextCapSlugCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns CreateAgentWithContextCapSlugCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns CreateAgentWithContextCapSlugCreateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns CreateAgentWithContextCapSlugCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns CreateAgentWithContextCapSlugCreateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns CreateAgentWithContextCapSlugCreateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns CreateAgentWithContextCapSlugCreateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns CreateAgentWithContextCapSlugCreateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CreateAgentWithContextCapSlugCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns CreateAgentWithContextCapSlugCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns CreateAgentWithContextCapSlugCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetUsesTasks() bool {
+	return v.AgentFields.UsesTasks
+}
+
+// GetResetContextAfterTask returns CreateAgentWithContextCapSlugCreateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns CreateAgentWithContextCapSlugCreateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CreateAgentWithContextCapSlugCreateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns CreateAgentWithContextCapSlugCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns CreateAgentWithContextCapSlugCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugCreateAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *CreateAgentWithContextCapSlugCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentWithContextCapSlugCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentWithContextCapSlugCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentWithContextCapSlugCreateAgent struct {
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+
+	ContextCap *int `json:"contextCap"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentWithContextCapSlugCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentWithContextCapSlugCreateAgent) __premarshalJSON() (*__premarshalCreateAgentWithContextCapSlugCreateAgent, error) {
+	var retval __premarshalCreateAgentWithContextCapSlugCreateAgent
+
+	retval.Lifecycle = v.Lifecycle
+	retval.ContextCap = v.ContextCap
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateAgentWithContextCapSlugResponse is returned by CreateAgentWithContextCapSlug on success.
+type CreateAgentWithContextCapSlugResponse struct {
+	// Create an agent. Provide orgRef to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgRef to create a USER-OWNED agent owned by the caller — its
+	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+	// (org XOR user).
+	//
+	// personaRole is the persona dressing (hrn:node:hadronmemory.com:specs:cor:agt:020:01), the reusable role.
+	// A new Agent has no boot prompt: write its boot:source, compile it and
+	// approve the compiled revision (hrn:node:hadronmemory.com:specs:cor:agt:040:10,
+	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
+	// Worker, cast with castWorker; names never live on agents.
+	//
+	// orgRef accepts the org's ID or URN; an empty orgRef is BAD_USER_INPUT. An empty
+	// systemMemoryRef means none (a system memory is provisioned).
+	CreateAgent *CreateAgentWithContextCapSlugCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreateAgentWithContextCapSlugResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithContextCapSlugResponse) GetCreateAgent() *CreateAgentWithContextCapSlugCreateAgent {
+	return v.CreateAgent
+}
+
 // CreateAgentWithLifecycleCreateAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
@@ -41757,6 +42264,270 @@ type CreateAgentWithLifecycleResponse struct {
 
 // GetCreateAgent returns CreateAgentWithLifecycleResponse.CreateAgent, and is useful for accessing the field via an interface.
 func (v *CreateAgentWithLifecycleResponse) GetCreateAgent() *CreateAgentWithLifecycleCreateAgent {
+	return v.CreateAgent
+}
+
+// CreateAgentWithLifecycleSlugCreateAgent includes the requested fields of the GraphQL type Agent.
+// The GraphQL type's documentation follows.
+//
+// The reusable definition a Builder creates and the marketplace can list.
+// Agents are installed into runtime Apps through the AppAgent N:M join: an App
+// may install many Agents, and an Agent may be installed in many Apps. The App,
+// not the Agent, is the org- or user-owned caller identity and deployment.
+type CreateAgentWithLifecycleSlugCreateAgent struct {
+	AgentFields `json:"-"`
+	// #4224 (S3 of #4229): how long this Agent's workers run. LONG_LIVED (default): a worker's process should always run. SHORT_LIVED: only while the worker is the assignee of a pending or started task, one waiting on its child tasks included. Read by hostDesiredState at each call; changing it moves no session or process by itself. #4223 (hrn:node:hadronmemory.com:specs:cor:agt:050:10, Proposed there): for a SHORT_LIVED Agent's worker a task's closeSessionWhenDone is not read; the worker is asked to end its session when the last pending or started task assigned to it finishes or is cancelled, never while another is open, and no context reset is requested (resetContextAfterTask is not read). A worker marked leave-alone keeps the ordinary rule. Set by whoever manages the Agent, like usesTasks.
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+}
+
+// GetLifecycle returns CreateAgentWithLifecycleSlugCreateAgent.Lifecycle, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetLifecycle() AgentLifecycle { return v.Lifecycle }
+
+// GetId returns CreateAgentWithLifecycleSlugCreateAgent.Id, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetId() string { return v.AgentFields.Id }
+
+// GetUrn returns CreateAgentWithLifecycleSlugCreateAgent.Urn, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetUrn() string { return v.AgentFields.Urn }
+
+// GetName returns CreateAgentWithLifecycleSlugCreateAgent.Name, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetName() string { return v.AgentFields.Name }
+
+// GetDescription returns CreateAgentWithLifecycleSlugCreateAgent.Description, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetDescription() *string {
+	return v.AgentFields.Description
+}
+
+// GetType returns CreateAgentWithLifecycleSlugCreateAgent.Type, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetType() AgentType { return v.AgentFields.Type }
+
+// GetVisibility returns CreateAgentWithLifecycleSlugCreateAgent.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetVisibility() AgentVisibility {
+	return v.AgentFields.Visibility
+}
+
+// GetOrganizationId returns CreateAgentWithLifecycleSlugCreateAgent.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetOrganizationId() *string {
+	return v.AgentFields.OrganizationId
+}
+
+// GetSurfaces returns CreateAgentWithLifecycleSlugCreateAgent.Surfaces, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetSurfaces() []string {
+	return v.AgentFields.Surfaces
+}
+
+// GetSystemMemoryId returns CreateAgentWithLifecycleSlugCreateAgent.SystemMemoryId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetSystemMemoryId() *string {
+	return v.AgentFields.SystemMemoryId
+}
+
+// GetTasksIndexRef returns CreateAgentWithLifecycleSlugCreateAgent.TasksIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetTasksIndexRef() *string {
+	return v.AgentFields.TasksIndexRef
+}
+
+// GetProcessesIndexRef returns CreateAgentWithLifecycleSlugCreateAgent.ProcessesIndexRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetProcessesIndexRef() *string {
+	return v.AgentFields.ProcessesIndexRef
+}
+
+// GetExtendsAgentId returns CreateAgentWithLifecycleSlugCreateAgent.ExtendsAgentId, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetExtendsAgentId() *string {
+	return v.AgentFields.ExtendsAgentId
+}
+
+// GetBootPromptRef returns CreateAgentWithLifecycleSlugCreateAgent.BootPromptRef, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetBootPromptRef() *string {
+	return v.AgentFields.BootPromptRef
+}
+
+// GetBootPromptTargetDeleted returns CreateAgentWithLifecycleSlugCreateAgent.BootPromptTargetDeleted, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetBootPromptTargetDeleted() *bool {
+	return v.AgentFields.BootPromptTargetDeleted
+}
+
+// GetAiProvider returns CreateAgentWithLifecycleSlugCreateAgent.AiProvider, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetAiProvider() *string {
+	return v.AgentFields.AiProvider
+}
+
+// GetAiModel returns CreateAgentWithLifecycleSlugCreateAgent.AiModel, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetAiModel() *string { return v.AgentFields.AiModel }
+
+// GetHasAiApiKey returns CreateAgentWithLifecycleSlugCreateAgent.HasAiApiKey, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetHasAiApiKey() bool {
+	return v.AgentFields.HasAiApiKey
+}
+
+// GetPersonaRole returns CreateAgentWithLifecycleSlugCreateAgent.PersonaRole, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetPersonaRole() *string {
+	return v.AgentFields.PersonaRole
+}
+
+// GetUsesTasks returns CreateAgentWithLifecycleSlugCreateAgent.UsesTasks, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetUsesTasks() bool { return v.AgentFields.UsesTasks }
+
+// GetResetContextAfterTask returns CreateAgentWithLifecycleSlugCreateAgent.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetResetContextAfterTask() bool {
+	return v.AgentFields.ResetContextAfterTask
+}
+
+// GetListedOnMarketplace returns CreateAgentWithLifecycleSlugCreateAgent.ListedOnMarketplace, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetListedOnMarketplace() bool {
+	return v.AgentFields.ListedOnMarketplace
+}
+
+// GetRegisterDefaults returns CreateAgentWithLifecycleSlugCreateAgent.RegisterDefaults, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetRegisterDefaults() *AgentFieldsRegisterDefaults {
+	return v.AgentFields.RegisterDefaults
+}
+
+// GetInstallationPolicy returns CreateAgentWithLifecycleSlugCreateAgent.InstallationPolicy, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetInstallationPolicy() *AgentFieldsInstallationPolicy {
+	return v.AgentFields.InstallationPolicy
+}
+
+// GetCreatedAt returns CreateAgentWithLifecycleSlugCreateAgent.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugCreateAgent) GetCreatedAt() string {
+	return v.AgentFields.CreatedAt
+}
+
+func (v *CreateAgentWithLifecycleSlugCreateAgent) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*CreateAgentWithLifecycleSlugCreateAgent
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.CreateAgentWithLifecycleSlugCreateAgent = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalCreateAgentWithLifecycleSlugCreateAgent struct {
+	Lifecycle AgentLifecycle `json:"lifecycle"`
+
+	Id string `json:"id"`
+
+	Urn string `json:"urn"`
+
+	Name string `json:"name"`
+
+	Description *string `json:"description"`
+
+	Type AgentType `json:"type"`
+
+	Visibility AgentVisibility `json:"visibility"`
+
+	OrganizationId *string `json:"organizationId"`
+
+	Surfaces []string `json:"surfaces"`
+
+	SystemMemoryId *string `json:"systemMemoryId"`
+
+	TasksIndexRef *string `json:"tasksIndexRef"`
+
+	ProcessesIndexRef *string `json:"processesIndexRef"`
+
+	ExtendsAgentId *string `json:"extendsAgentId"`
+
+	BootPromptRef *string `json:"bootPromptRef"`
+
+	BootPromptTargetDeleted *bool `json:"bootPromptTargetDeleted"`
+
+	AiProvider *string `json:"aiProvider"`
+
+	AiModel *string `json:"aiModel"`
+
+	HasAiApiKey bool `json:"hasAiApiKey"`
+
+	PersonaRole *string `json:"personaRole"`
+
+	UsesTasks bool `json:"usesTasks"`
+
+	ResetContextAfterTask bool `json:"resetContextAfterTask"`
+
+	ListedOnMarketplace bool `json:"listedOnMarketplace"`
+
+	RegisterDefaults *AgentFieldsRegisterDefaults `json:"registerDefaults"`
+
+	InstallationPolicy *AgentFieldsInstallationPolicy `json:"installationPolicy"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *CreateAgentWithLifecycleSlugCreateAgent) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *CreateAgentWithLifecycleSlugCreateAgent) __premarshalJSON() (*__premarshalCreateAgentWithLifecycleSlugCreateAgent, error) {
+	var retval __premarshalCreateAgentWithLifecycleSlugCreateAgent
+
+	retval.Lifecycle = v.Lifecycle
+	retval.Id = v.AgentFields.Id
+	retval.Urn = v.AgentFields.Urn
+	retval.Name = v.AgentFields.Name
+	retval.Description = v.AgentFields.Description
+	retval.Type = v.AgentFields.Type
+	retval.Visibility = v.AgentFields.Visibility
+	retval.OrganizationId = v.AgentFields.OrganizationId
+	retval.Surfaces = v.AgentFields.Surfaces
+	retval.SystemMemoryId = v.AgentFields.SystemMemoryId
+	retval.TasksIndexRef = v.AgentFields.TasksIndexRef
+	retval.ProcessesIndexRef = v.AgentFields.ProcessesIndexRef
+	retval.ExtendsAgentId = v.AgentFields.ExtendsAgentId
+	retval.BootPromptRef = v.AgentFields.BootPromptRef
+	retval.BootPromptTargetDeleted = v.AgentFields.BootPromptTargetDeleted
+	retval.AiProvider = v.AgentFields.AiProvider
+	retval.AiModel = v.AgentFields.AiModel
+	retval.HasAiApiKey = v.AgentFields.HasAiApiKey
+	retval.PersonaRole = v.AgentFields.PersonaRole
+	retval.UsesTasks = v.AgentFields.UsesTasks
+	retval.ResetContextAfterTask = v.AgentFields.ResetContextAfterTask
+	retval.ListedOnMarketplace = v.AgentFields.ListedOnMarketplace
+	retval.RegisterDefaults = v.AgentFields.RegisterDefaults
+	retval.InstallationPolicy = v.AgentFields.InstallationPolicy
+	retval.CreatedAt = v.AgentFields.CreatedAt
+	return &retval, nil
+}
+
+// CreateAgentWithLifecycleSlugResponse is returned by CreateAgentWithLifecycleSlug on success.
+type CreateAgentWithLifecycleSlugResponse struct {
+	// Create an agent. Provide orgRef to create an ORG-owned agent (requires org
+	// ADMIN); OMIT orgRef to create a USER-OWNED agent owned by the caller — its
+	// URN is rooted on the caller's bare handle (hrn:agent:<handle>:<slug>, grammar
+	// v2 — no @ sigil) and its system memory is user-owned too. Exactly one owner
+	// (org XOR user).
+	//
+	// personaRole is the persona dressing (hrn:node:hadronmemory.com:specs:cor:agt:020:01), the reusable role.
+	// A new Agent has no boot prompt: write its boot:source, compile it and
+	// approve the compiled revision (hrn:node:hadronmemory.com:specs:cor:agt:040:10,
+	// hrn:node:hadronmemory.com:specs:cor:agt:040:12). The NAMED identity is a
+	// Worker, cast with castWorker; names never live on agents.
+	//
+	// orgRef accepts the org's ID or URN; an empty orgRef is BAD_USER_INPUT. An empty
+	// systemMemoryRef means none (a system memory is provisioned).
+	CreateAgent *CreateAgentWithLifecycleSlugCreateAgent `json:"createAgent"`
+}
+
+// GetCreateAgent returns CreateAgentWithLifecycleSlugResponse.CreateAgent, and is useful for accessing the field via an interface.
+func (v *CreateAgentWithLifecycleSlugResponse) GetCreateAgent() *CreateAgentWithLifecycleSlugCreateAgent {
 	return v.CreateAgent
 }
 
@@ -44426,6 +45197,98 @@ func (v *CreateMemoryDraftResponse) GetCreateMemory() *CreateMemoryDraftCreateMe
 	return v.CreateMemory
 }
 
+// CreateMemoryDraftWithSlugCreateMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type CreateMemoryDraftWithSlugCreateMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateMemoryDraftWithSlugCreateMemory.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetId() string { return v.Id }
+
+// GetUrn returns CreateMemoryDraftWithSlugCreateMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CreateMemoryDraftWithSlugCreateMemory.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CreateMemoryDraftWithSlugCreateMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetShortDescription() *string {
+	return v.ShortDescription
+}
+
+// GetClass returns CreateMemoryDraftWithSlugCreateMemory.Class, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CreateMemoryDraftWithSlugCreateMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetVisibility() *MemoryVisibility {
+	return v.Visibility
+}
+
+// GetOrganizationId returns CreateMemoryDraftWithSlugCreateMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns CreateMemoryDraftWithSlugCreateMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CreateMemoryDraftWithSlugCreateMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns CreateMemoryDraftWithSlugCreateMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateMemoryDraftWithSlugResponse is returned by CreateMemoryDraftWithSlug on success.
+type CreateMemoryDraftWithSlugResponse struct {
+	// Create a free-standing memory. orgRef accepts an organization's ID or URN.
+	// With orgRef, the default is knowledge-class with ORGANIZATION visibility;
+	// knowledge/group creation requires the org's memory.create grant. Omitting
+	// orgRef (or passing null) creates a user-owned memory in the authenticated
+	// caller's namespace and requires an explicit personal/private memoryClass.
+	// The default knowledge class is refused without orgRef. Pass
+	// memoryClass: group + visibility: GROUP for a group-class memory
+	// (023-app-shape US4; the caller is auto-added as the first owner),
+	// or memoryClass: personal | private for an owner-only memory the
+	// caller owns (free-standing, no app/agent). An org-anchored personal/private
+	// memory requires actual membership of that org container; the org-less
+	// owner-only path requires no org membership. system- and app-class
+	// memories are NOT created here — they auto-provision via
+	// Agent.systemMemoryId / the App install path.
+	CreateMemory *CreateMemoryDraftWithSlugCreateMemory `json:"createMemory"`
+}
+
+// GetCreateMemory returns CreateMemoryDraftWithSlugResponse.CreateMemory, and is useful for accessing the field via an interface.
+func (v *CreateMemoryDraftWithSlugResponse) GetCreateMemory() *CreateMemoryDraftWithSlugCreateMemory {
+	return v.CreateMemory
+}
+
 // CreateMemoryInAppCreateMemoryInAppMemory includes the requested fields of the GraphQL type Memory.
 // The GraphQL type's documentation follows.
 //
@@ -44762,6 +45625,94 @@ type CreateMemorySubscriptionResponse struct {
 // GetCreateMemorySubscription returns CreateMemorySubscriptionResponse.CreateMemorySubscription, and is useful for accessing the field via an interface.
 func (v *CreateMemorySubscriptionResponse) GetCreateMemorySubscription() *CreateMemorySubscriptionCreateMemorySubscription {
 	return v.CreateMemorySubscription
+}
+
+// CreateMemoryWithSlugCreateMemory includes the requested fields of the GraphQL type Memory.
+// The GraphQL type's documentation follows.
+//
+// A Hadron memory (git repo + branch settings).
+type CreateMemoryWithSlugCreateMemory struct {
+	Id string `json:"id"`
+	// The memory's URN, grammar v2 (cor:urn:010:01): hrn:mem:<root>:<slug...>,
+	// emitted by safeCanonicalUrn/emitEntityUrnV2 from the stored urn — so a v1
+	// double-colon chain, a legacy single-colon row and an already-v2 row all read
+	// back identically here. <slug...> is one atom for a migrated memory but still
+	// several for a compound pre-Stage-3 per-user one (<root>:<agent>:app-user:<id>).
+	//
+	// The STORED column is the bare form (<root>:<slug>, no scheme prefix — the
+	// chk_memory_urn_not_prefixed guardrail rejects writing a rendered one); this
+	// field is the rendered view of it. When emission throws, the stored value is
+	// served raw and logged, so a bare, unprefixed value is a possible read.
+	Urn              string  `json:"urn"`
+	Name             string  `json:"name"`
+	ShortDescription *string `json:"shortDescription"`
+	// Which memory typology this row belongs to. See MemoryClass for the
+	// members — deliberately not restated here, because the count is what
+	// went stale: this said "four-way" from 005-agent-subscription until
+	// #1232, long after `group` (023) and `private` made it six.
+	Class MemoryClass `json:"class"`
+	// 035-visibility-enum-cleanup: nullable — set only for knowledge/group.
+	Visibility     *MemoryVisibility `json:"visibility"`
+	OrganizationId *string           `json:"organizationId"`
+	IsEncrypted    bool              `json:"isEncrypted"`
+	// #621 — cap on how many NodeRevision rows are kept per node in this memory.
+	// On each new revision the oldest overflow is pruned. Default 10; minimum 1.
+	MaxRevCount int    `json:"maxRevCount"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+// GetId returns CreateMemoryWithSlugCreateMemory.Id, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetId() string { return v.Id }
+
+// GetUrn returns CreateMemoryWithSlugCreateMemory.Urn, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetUrn() string { return v.Urn }
+
+// GetName returns CreateMemoryWithSlugCreateMemory.Name, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetName() string { return v.Name }
+
+// GetShortDescription returns CreateMemoryWithSlugCreateMemory.ShortDescription, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetShortDescription() *string { return v.ShortDescription }
+
+// GetClass returns CreateMemoryWithSlugCreateMemory.Class, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetClass() MemoryClass { return v.Class }
+
+// GetVisibility returns CreateMemoryWithSlugCreateMemory.Visibility, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetOrganizationId returns CreateMemoryWithSlugCreateMemory.OrganizationId, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetIsEncrypted returns CreateMemoryWithSlugCreateMemory.IsEncrypted, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetIsEncrypted() bool { return v.IsEncrypted }
+
+// GetMaxRevCount returns CreateMemoryWithSlugCreateMemory.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetMaxRevCount() int { return v.MaxRevCount }
+
+// GetUpdatedAt returns CreateMemoryWithSlugCreateMemory.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugCreateMemory) GetUpdatedAt() string { return v.UpdatedAt }
+
+// CreateMemoryWithSlugResponse is returned by CreateMemoryWithSlug on success.
+type CreateMemoryWithSlugResponse struct {
+	// Create a free-standing memory. orgRef accepts an organization's ID or URN.
+	// With orgRef, the default is knowledge-class with ORGANIZATION visibility;
+	// knowledge/group creation requires the org's memory.create grant. Omitting
+	// orgRef (or passing null) creates a user-owned memory in the authenticated
+	// caller's namespace and requires an explicit personal/private memoryClass.
+	// The default knowledge class is refused without orgRef. Pass
+	// memoryClass: group + visibility: GROUP for a group-class memory
+	// (023-app-shape US4; the caller is auto-added as the first owner),
+	// or memoryClass: personal | private for an owner-only memory the
+	// caller owns (free-standing, no app/agent). An org-anchored personal/private
+	// memory requires actual membership of that org container; the org-less
+	// owner-only path requires no org membership. system- and app-class
+	// memories are NOT created here — they auto-provision via
+	// Agent.systemMemoryId / the App install path.
+	CreateMemory *CreateMemoryWithSlugCreateMemory `json:"createMemory"`
+}
+
+// GetCreateMemory returns CreateMemoryWithSlugResponse.CreateMemory, and is useful for accessing the field via an interface.
+func (v *CreateMemoryWithSlugResponse) GetCreateMemory() *CreateMemoryWithSlugCreateMemory {
+	return v.CreateMemory
 }
 
 // CreateNodeCreateNode includes the requested fields of the GraphQL type Node.
@@ -138394,6 +139345,58 @@ type __CreateAgentScheduleInput struct {
 // GetInput returns __CreateAgentScheduleInput.Input, and is useful for accessing the field via an interface.
 func (v *__CreateAgentScheduleInput) GetInput() *CreateAgentScheduleInput { return v.Input }
 
+// __CreateAgentSlugInput is used internally by genqlient
+type __CreateAgentSlugInput struct {
+	Name                  string           `json:"name"`
+	Slug                  string           `json:"slug"`
+	OrgRef                *string          `json:"orgRef,omitempty"`
+	Description           *string          `json:"description,omitempty"`
+	AgentType             *AgentType       `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility `json:"visibility,omitempty"`
+	SystemMemoryRef       *string          `json:"systemMemoryRef,omitempty"`
+	Surfaces              []string         `json:"surfaces,omitempty"`
+	PersonaRole           *string          `json:"personaRole,omitempty"`
+	MemberRoles           []string         `json:"memberRoles,omitempty"`
+	UsesTasks             *bool            `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
+}
+
+// GetName returns __CreateAgentSlugInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetName() string { return v.Name }
+
+// GetSlug returns __CreateAgentSlugInput.Slug, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetSlug() string { return v.Slug }
+
+// GetOrgRef returns __CreateAgentSlugInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetDescription returns __CreateAgentSlugInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __CreateAgentSlugInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __CreateAgentSlugInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryRef returns __CreateAgentSlugInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
+
+// GetSurfaces returns __CreateAgentSlugInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetPersonaRole returns __CreateAgentSlugInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetMemberRoles returns __CreateAgentSlugInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetUsesTasks returns __CreateAgentSlugInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __CreateAgentSlugInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__CreateAgentSlugInput) GetResetContextAfterTask() *bool { return v.ResetContextAfterTask }
+
 // __CreateAgentTickerTemplateInput is used internally by genqlient
 type __CreateAgentTickerTemplateInput struct {
 	AgentRef string                    `json:"agentRef"`
@@ -138474,6 +139477,70 @@ func (v *__CreateAgentWithContextCapInput) GetContextCap() *gqltypes.ContextCapI
 	return v.ContextCap
 }
 
+// __CreateAgentWithContextCapSlugInput is used internally by genqlient
+type __CreateAgentWithContextCapSlugInput struct {
+	Name                  string                    `json:"name"`
+	Slug                  string                    `json:"slug"`
+	Lifecycle             *AgentLifecycle           `json:"lifecycle,omitempty"`
+	OrgRef                *string                   `json:"orgRef,omitempty"`
+	Description           *string                   `json:"description,omitempty"`
+	AgentType             *AgentType                `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility          `json:"visibility,omitempty"`
+	SystemMemoryRef       *string                   `json:"systemMemoryRef,omitempty"`
+	Surfaces              []string                  `json:"surfaces,omitempty"`
+	PersonaRole           *string                   `json:"personaRole,omitempty"`
+	MemberRoles           []string                  `json:"memberRoles,omitempty"`
+	UsesTasks             *bool                     `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool                     `json:"resetContextAfterTask,omitempty"`
+	ContextCap            *gqltypes.ContextCapInput `json:"contextCap,omitempty"`
+}
+
+// GetName returns __CreateAgentWithContextCapSlugInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetName() string { return v.Name }
+
+// GetSlug returns __CreateAgentWithContextCapSlugInput.Slug, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetSlug() string { return v.Slug }
+
+// GetLifecycle returns __CreateAgentWithContextCapSlugInput.Lifecycle, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
+
+// GetOrgRef returns __CreateAgentWithContextCapSlugInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetDescription returns __CreateAgentWithContextCapSlugInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __CreateAgentWithContextCapSlugInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __CreateAgentWithContextCapSlugInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryRef returns __CreateAgentWithContextCapSlugInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
+
+// GetSurfaces returns __CreateAgentWithContextCapSlugInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetPersonaRole returns __CreateAgentWithContextCapSlugInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetMemberRoles returns __CreateAgentWithContextCapSlugInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetUsesTasks returns __CreateAgentWithContextCapSlugInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __CreateAgentWithContextCapSlugInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetResetContextAfterTask() *bool {
+	return v.ResetContextAfterTask
+}
+
+// GetContextCap returns __CreateAgentWithContextCapSlugInput.ContextCap, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithContextCapSlugInput) GetContextCap() *gqltypes.ContextCapInput {
+	return v.ContextCap
+}
+
 // __CreateAgentWithLifecycleInput is used internally by genqlient
 type __CreateAgentWithLifecycleInput struct {
 	Name                  string           `json:"name"`
@@ -138525,6 +139592,64 @@ func (v *__CreateAgentWithLifecycleInput) GetUsesTasks() *bool { return v.UsesTa
 
 // GetResetContextAfterTask returns __CreateAgentWithLifecycleInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
 func (v *__CreateAgentWithLifecycleInput) GetResetContextAfterTask() *bool {
+	return v.ResetContextAfterTask
+}
+
+// __CreateAgentWithLifecycleSlugInput is used internally by genqlient
+type __CreateAgentWithLifecycleSlugInput struct {
+	Name                  string           `json:"name"`
+	Slug                  string           `json:"slug"`
+	Lifecycle             *AgentLifecycle  `json:"lifecycle,omitempty"`
+	OrgRef                *string          `json:"orgRef,omitempty"`
+	Description           *string          `json:"description,omitempty"`
+	AgentType             *AgentType       `json:"agentType,omitempty"`
+	Visibility            *AgentVisibility `json:"visibility,omitempty"`
+	SystemMemoryRef       *string          `json:"systemMemoryRef,omitempty"`
+	Surfaces              []string         `json:"surfaces,omitempty"`
+	PersonaRole           *string          `json:"personaRole,omitempty"`
+	MemberRoles           []string         `json:"memberRoles,omitempty"`
+	UsesTasks             *bool            `json:"usesTasks,omitempty"`
+	ResetContextAfterTask *bool            `json:"resetContextAfterTask,omitempty"`
+}
+
+// GetName returns __CreateAgentWithLifecycleSlugInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetName() string { return v.Name }
+
+// GetSlug returns __CreateAgentWithLifecycleSlugInput.Slug, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetSlug() string { return v.Slug }
+
+// GetLifecycle returns __CreateAgentWithLifecycleSlugInput.Lifecycle, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetLifecycle() *AgentLifecycle { return v.Lifecycle }
+
+// GetOrgRef returns __CreateAgentWithLifecycleSlugInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetDescription returns __CreateAgentWithLifecycleSlugInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetDescription() *string { return v.Description }
+
+// GetAgentType returns __CreateAgentWithLifecycleSlugInput.AgentType, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetAgentType() *AgentType { return v.AgentType }
+
+// GetVisibility returns __CreateAgentWithLifecycleSlugInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetVisibility() *AgentVisibility { return v.Visibility }
+
+// GetSystemMemoryRef returns __CreateAgentWithLifecycleSlugInput.SystemMemoryRef, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetSystemMemoryRef() *string { return v.SystemMemoryRef }
+
+// GetSurfaces returns __CreateAgentWithLifecycleSlugInput.Surfaces, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetSurfaces() []string { return v.Surfaces }
+
+// GetPersonaRole returns __CreateAgentWithLifecycleSlugInput.PersonaRole, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetPersonaRole() *string { return v.PersonaRole }
+
+// GetMemberRoles returns __CreateAgentWithLifecycleSlugInput.MemberRoles, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetMemberRoles() []string { return v.MemberRoles }
+
+// GetUsesTasks returns __CreateAgentWithLifecycleSlugInput.UsesTasks, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetUsesTasks() *bool { return v.UsesTasks }
+
+// GetResetContextAfterTask returns __CreateAgentWithLifecycleSlugInput.ResetContextAfterTask, and is useful for accessing the field via an interface.
+func (v *__CreateAgentWithLifecycleSlugInput) GetResetContextAfterTask() *bool {
 	return v.ResetContextAfterTask
 }
 
@@ -139176,6 +140301,100 @@ func (v *__CreateMemoryDraftInput) GetReadBranch() *string { return v.ReadBranch
 // GetWriteBranch returns __CreateMemoryDraftInput.WriteBranch, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryDraftInput) GetWriteBranch() *string { return v.WriteBranch }
 
+// __CreateMemoryDraftWithSlugInput is used internally by genqlient
+type __CreateMemoryDraftWithSlugInput struct {
+	OrgRef             *string           `json:"orgRef,omitempty"`
+	Name               string            `json:"name"`
+	Slug               string            `json:"slug"`
+	MemoryClass        *MemoryClass      `json:"memoryClass,omitempty"`
+	ShortDescription   *string           `json:"shortDescription,omitempty"`
+	Description        *string           `json:"description,omitempty"`
+	Tags               *[]string         `json:"tags,omitempty"`
+	Visibility         *MemoryVisibility `json:"visibility,omitempty"`
+	MaxRevCount        *int              `json:"maxRevCount,omitempty"`
+	Category0          *string           `json:"category0,omitempty"`
+	Category1          *string           `json:"category1,omitempty"`
+	Category2          *string           `json:"category2,omitempty"`
+	Data               *json.RawMessage  `json:"data,omitempty"`
+	EmbeddingSource    *EmbeddingSource  `json:"embeddingSource,omitempty"`
+	VectorIndexEnabled *bool             `json:"vectorIndexEnabled,omitempty"`
+	License            *string           `json:"license,omitempty"`
+	IconUrl            *string           `json:"iconUrl,omitempty"`
+	HeroUrl            *string           `json:"heroUrl,omitempty"`
+	HomeUrl            *string           `json:"homeUrl,omitempty"`
+	Source             *string           `json:"source,omitempty"`
+	ReadBranch         *string           `json:"readBranch,omitempty"`
+	WriteBranch        *string           `json:"writeBranch,omitempty"`
+}
+
+// GetOrgRef returns __CreateMemoryDraftWithSlugInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetName returns __CreateMemoryDraftWithSlugInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetName() string { return v.Name }
+
+// GetSlug returns __CreateMemoryDraftWithSlugInput.Slug, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetSlug() string { return v.Slug }
+
+// GetMemoryClass returns __CreateMemoryDraftWithSlugInput.MemoryClass, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetMemoryClass() *MemoryClass { return v.MemoryClass }
+
+// GetShortDescription returns __CreateMemoryDraftWithSlugInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __CreateMemoryDraftWithSlugInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __CreateMemoryDraftWithSlugInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetTags() *[]string { return v.Tags }
+
+// GetVisibility returns __CreateMemoryDraftWithSlugInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetMaxRevCount returns __CreateMemoryDraftWithSlugInput.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetMaxRevCount() *int { return v.MaxRevCount }
+
+// GetCategory0 returns __CreateMemoryDraftWithSlugInput.Category0, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetCategory0() *string { return v.Category0 }
+
+// GetCategory1 returns __CreateMemoryDraftWithSlugInput.Category1, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetCategory1() *string { return v.Category1 }
+
+// GetCategory2 returns __CreateMemoryDraftWithSlugInput.Category2, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetCategory2() *string { return v.Category2 }
+
+// GetData returns __CreateMemoryDraftWithSlugInput.Data, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetData() *json.RawMessage { return v.Data }
+
+// GetEmbeddingSource returns __CreateMemoryDraftWithSlugInput.EmbeddingSource, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetEmbeddingSource() *EmbeddingSource {
+	return v.EmbeddingSource
+}
+
+// GetVectorIndexEnabled returns __CreateMemoryDraftWithSlugInput.VectorIndexEnabled, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetVectorIndexEnabled() *bool { return v.VectorIndexEnabled }
+
+// GetLicense returns __CreateMemoryDraftWithSlugInput.License, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetLicense() *string { return v.License }
+
+// GetIconUrl returns __CreateMemoryDraftWithSlugInput.IconUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetIconUrl() *string { return v.IconUrl }
+
+// GetHeroUrl returns __CreateMemoryDraftWithSlugInput.HeroUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetHeroUrl() *string { return v.HeroUrl }
+
+// GetHomeUrl returns __CreateMemoryDraftWithSlugInput.HomeUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetHomeUrl() *string { return v.HomeUrl }
+
+// GetSource returns __CreateMemoryDraftWithSlugInput.Source, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetSource() *string { return v.Source }
+
+// GetReadBranch returns __CreateMemoryDraftWithSlugInput.ReadBranch, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetReadBranch() *string { return v.ReadBranch }
+
+// GetWriteBranch returns __CreateMemoryDraftWithSlugInput.WriteBranch, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryDraftWithSlugInput) GetWriteBranch() *string { return v.WriteBranch }
+
 // __CreateMemoryInAppInput is used internally by genqlient
 type __CreateMemoryInAppInput struct {
 	AppRef             string           `json:"appRef"`
@@ -139343,6 +140562,98 @@ func (v *__CreateMemorySubscriptionInput) GetOrgRef() string { return v.OrgRef }
 
 // GetRole returns __CreateMemorySubscriptionInput.Role, and is useful for accessing the field via an interface.
 func (v *__CreateMemorySubscriptionInput) GetRole() Role { return v.Role }
+
+// __CreateMemoryWithSlugInput is used internally by genqlient
+type __CreateMemoryWithSlugInput struct {
+	OrgRef             *string           `json:"orgRef,omitempty"`
+	Name               string            `json:"name"`
+	Slug               string            `json:"slug"`
+	MemoryClass        *MemoryClass      `json:"memoryClass,omitempty"`
+	ShortDescription   *string           `json:"shortDescription,omitempty"`
+	Description        *string           `json:"description,omitempty"`
+	Tags               *[]string         `json:"tags,omitempty"`
+	Visibility         *MemoryVisibility `json:"visibility,omitempty"`
+	MaxRevCount        *int              `json:"maxRevCount,omitempty"`
+	Category0          *string           `json:"category0,omitempty"`
+	Category1          *string           `json:"category1,omitempty"`
+	Category2          *string           `json:"category2,omitempty"`
+	Data               *json.RawMessage  `json:"data,omitempty"`
+	EmbeddingSource    *EmbeddingSource  `json:"embeddingSource,omitempty"`
+	VectorIndexEnabled *bool             `json:"vectorIndexEnabled,omitempty"`
+	License            *string           `json:"license,omitempty"`
+	IconUrl            *string           `json:"iconUrl,omitempty"`
+	HeroUrl            *string           `json:"heroUrl,omitempty"`
+	HomeUrl            *string           `json:"homeUrl,omitempty"`
+	Source             *string           `json:"source,omitempty"`
+	ReadBranch         *string           `json:"readBranch,omitempty"`
+	WriteBranch        *string           `json:"writeBranch,omitempty"`
+}
+
+// GetOrgRef returns __CreateMemoryWithSlugInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetName returns __CreateMemoryWithSlugInput.Name, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetName() string { return v.Name }
+
+// GetSlug returns __CreateMemoryWithSlugInput.Slug, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetSlug() string { return v.Slug }
+
+// GetMemoryClass returns __CreateMemoryWithSlugInput.MemoryClass, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetMemoryClass() *MemoryClass { return v.MemoryClass }
+
+// GetShortDescription returns __CreateMemoryWithSlugInput.ShortDescription, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetShortDescription() *string { return v.ShortDescription }
+
+// GetDescription returns __CreateMemoryWithSlugInput.Description, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetDescription() *string { return v.Description }
+
+// GetTags returns __CreateMemoryWithSlugInput.Tags, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetTags() *[]string { return v.Tags }
+
+// GetVisibility returns __CreateMemoryWithSlugInput.Visibility, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetVisibility() *MemoryVisibility { return v.Visibility }
+
+// GetMaxRevCount returns __CreateMemoryWithSlugInput.MaxRevCount, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetMaxRevCount() *int { return v.MaxRevCount }
+
+// GetCategory0 returns __CreateMemoryWithSlugInput.Category0, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetCategory0() *string { return v.Category0 }
+
+// GetCategory1 returns __CreateMemoryWithSlugInput.Category1, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetCategory1() *string { return v.Category1 }
+
+// GetCategory2 returns __CreateMemoryWithSlugInput.Category2, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetCategory2() *string { return v.Category2 }
+
+// GetData returns __CreateMemoryWithSlugInput.Data, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetData() *json.RawMessage { return v.Data }
+
+// GetEmbeddingSource returns __CreateMemoryWithSlugInput.EmbeddingSource, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetEmbeddingSource() *EmbeddingSource { return v.EmbeddingSource }
+
+// GetVectorIndexEnabled returns __CreateMemoryWithSlugInput.VectorIndexEnabled, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetVectorIndexEnabled() *bool { return v.VectorIndexEnabled }
+
+// GetLicense returns __CreateMemoryWithSlugInput.License, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetLicense() *string { return v.License }
+
+// GetIconUrl returns __CreateMemoryWithSlugInput.IconUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetIconUrl() *string { return v.IconUrl }
+
+// GetHeroUrl returns __CreateMemoryWithSlugInput.HeroUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetHeroUrl() *string { return v.HeroUrl }
+
+// GetHomeUrl returns __CreateMemoryWithSlugInput.HomeUrl, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetHomeUrl() *string { return v.HomeUrl }
+
+// GetSource returns __CreateMemoryWithSlugInput.Source, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetSource() *string { return v.Source }
+
+// GetReadBranch returns __CreateMemoryWithSlugInput.ReadBranch, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetReadBranch() *string { return v.ReadBranch }
+
+// GetWriteBranch returns __CreateMemoryWithSlugInput.WriteBranch, and is useful for accessing the field via an interface.
+func (v *__CreateMemoryWithSlugInput) GetWriteBranch() *string { return v.WriteBranch }
 
 // __CreateNodeInput is used internally by genqlient
 type __CreateNodeInput struct {
@@ -163963,6 +165274,92 @@ func CreateAgentSchedule(
 	return data_, err_
 }
 
+// The mutation executed by CreateAgentSlug.
+const CreateAgentSlug_Operation = `
+mutation CreateAgentSlug ($name: String!, $slug: String!, $orgRef: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, slug: $slug, orgRef: $orgRef, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+		... AgentFields
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func CreateAgentSlug(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	slug string,
+	orgRef *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryRef *string,
+	surfaces []string,
+	personaRole *string,
+	memberRoles []string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+) (data_ *CreateAgentSlugResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentSlug",
+		Query:  CreateAgentSlug_Operation,
+		Variables: &__CreateAgentSlugInput{
+			Name:                  name,
+			Slug:                  slug,
+			OrgRef:                orgRef,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryRef:       systemMemoryRef,
+			Surfaces:              surfaces,
+			PersonaRole:           personaRole,
+			MemberRoles:           memberRoles,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+		},
+	}
+
+	data_ = &CreateAgentSlugResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateAgentTickerTemplate.
 const CreateAgentTickerTemplate_Operation = `
 mutation CreateAgentTickerTemplate ($agentRef: String!, $input: AgentTickerTemplateInput!) {
@@ -164166,6 +165563,98 @@ func CreateAgentWithContextCap(
 	return data_, err_
 }
 
+// The mutation executed by CreateAgentWithContextCapSlug.
+const CreateAgentWithContextCapSlug_Operation = `
+mutation CreateAgentWithContextCapSlug ($name: String!, $slug: String!, $lifecycle: AgentLifecycle, $orgRef: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean, $contextCap: Int) {
+	createAgent(contextCap: $contextCap, name: $name, slug: $slug, lifecycle: $lifecycle, orgRef: $orgRef, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+		... AgentFields
+		lifecycle
+		contextCap
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func CreateAgentWithContextCapSlug(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	slug string,
+	lifecycle *AgentLifecycle,
+	orgRef *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryRef *string,
+	surfaces []string,
+	personaRole *string,
+	memberRoles []string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+	contextCap *gqltypes.ContextCapInput,
+) (data_ *CreateAgentWithContextCapSlugResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentWithContextCapSlug",
+		Query:  CreateAgentWithContextCapSlug_Operation,
+		Variables: &__CreateAgentWithContextCapSlugInput{
+			Name:                  name,
+			Slug:                  slug,
+			Lifecycle:             lifecycle,
+			OrgRef:                orgRef,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryRef:       systemMemoryRef,
+			Surfaces:              surfaces,
+			PersonaRole:           personaRole,
+			MemberRoles:           memberRoles,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+			ContextCap:            contextCap,
+		},
+	}
+
+	data_ = &CreateAgentWithContextCapSlugResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateAgentWithLifecycle.
 const CreateAgentWithLifecycle_Operation = `
 mutation CreateAgentWithLifecycle ($name: String!, $lifecycle: AgentLifecycle, $orgRef: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
@@ -164242,6 +165731,95 @@ func CreateAgentWithLifecycle(
 	}
 
 	data_ = &CreateAgentWithLifecycleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateAgentWithLifecycleSlug.
+const CreateAgentWithLifecycleSlug_Operation = `
+mutation CreateAgentWithLifecycleSlug ($name: String!, $slug: String!, $lifecycle: AgentLifecycle, $orgRef: ID, $description: String, $agentType: AgentType, $visibility: AgentVisibility, $systemMemoryRef: ID, $surfaces: [String!], $personaRole: String, $memberRoles: [String!], $usesTasks: Boolean, $resetContextAfterTask: Boolean) {
+	createAgent(name: $name, slug: $slug, lifecycle: $lifecycle, orgRef: $orgRef, description: $description, type: $agentType, visibility: $visibility, systemMemoryRef: $systemMemoryRef, surfaces: $surfaces, personaRole: $personaRole, memberRoles: $memberRoles, usesTasks: $usesTasks, resetContextAfterTask: $resetContextAfterTask) {
+		... AgentFields
+		lifecycle
+	}
+}
+fragment AgentFields on Agent {
+	id
+	urn
+	name
+	description
+	type
+	visibility
+	organizationId
+	surfaces
+	systemMemoryId
+	tasksIndexRef
+	processesIndexRef
+	extendsAgentId
+	bootPromptRef
+	bootPromptTargetDeleted
+	aiProvider
+	aiModel
+	hasAiApiKey
+	personaRole
+	usesTasks
+	resetContextAfterTask
+	listedOnMarketplace
+	registerDefaults {
+		mentionOnly
+	}
+	installationPolicy {
+		memberRoles
+	}
+	createdAt
+}
+`
+
+func CreateAgentWithLifecycleSlug(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	name string,
+	slug string,
+	lifecycle *AgentLifecycle,
+	orgRef *string,
+	description *string,
+	agentType *AgentType,
+	visibility *AgentVisibility,
+	systemMemoryRef *string,
+	surfaces []string,
+	personaRole *string,
+	memberRoles []string,
+	usesTasks *bool,
+	resetContextAfterTask *bool,
+) (data_ *CreateAgentWithLifecycleSlugResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateAgentWithLifecycleSlug",
+		Query:  CreateAgentWithLifecycleSlug_Operation,
+		Variables: &__CreateAgentWithLifecycleSlugInput{
+			Name:                  name,
+			Slug:                  slug,
+			Lifecycle:             lifecycle,
+			OrgRef:                orgRef,
+			Description:           description,
+			AgentType:             agentType,
+			Visibility:            visibility,
+			SystemMemoryRef:       systemMemoryRef,
+			Surfaces:              surfaces,
+			PersonaRole:           personaRole,
+			MemberRoles:           memberRoles,
+			UsesTasks:             usesTasks,
+			ResetContextAfterTask: resetContextAfterTask,
+		},
+	}
+
+	data_ = &CreateAgentWithLifecycleSlugResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -165560,6 +167138,91 @@ func CreateMemoryDraft(
 	return data_, err_
 }
 
+// The mutation executed by CreateMemoryDraftWithSlug.
+const CreateMemoryDraftWithSlug_Operation = `
+mutation CreateMemoryDraftWithSlug ($orgRef: ID, $name: String!, $slug: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $category0: String, $category1: String, $category2: String, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String) {
+	createMemory(orgRef: $orgRef, name: $name, slug: $slug, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, category0: $category0, category1: $category1, category2: $category2, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch, draftCorpus: true) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+func CreateMemoryDraftWithSlug(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef *string,
+	name string,
+	slug string,
+	memoryClass *MemoryClass,
+	shortDescription *string,
+	description *string,
+	tags *[]string,
+	visibility *MemoryVisibility,
+	maxRevCount *int,
+	category0 *string,
+	category1 *string,
+	category2 *string,
+	data *json.RawMessage,
+	embeddingSource *EmbeddingSource,
+	vectorIndexEnabled *bool,
+	license *string,
+	iconUrl *string,
+	heroUrl *string,
+	homeUrl *string,
+	source *string,
+	readBranch *string,
+	writeBranch *string,
+) (data_ *CreateMemoryDraftWithSlugResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemoryDraftWithSlug",
+		Query:  CreateMemoryDraftWithSlug_Operation,
+		Variables: &__CreateMemoryDraftWithSlugInput{
+			OrgRef:             orgRef,
+			Name:               name,
+			Slug:               slug,
+			MemoryClass:        memoryClass,
+			ShortDescription:   shortDescription,
+			Description:        description,
+			Tags:               tags,
+			Visibility:         visibility,
+			MaxRevCount:        maxRevCount,
+			Category0:          category0,
+			Category1:          category1,
+			Category2:          category2,
+			Data:               data,
+			EmbeddingSource:    embeddingSource,
+			VectorIndexEnabled: vectorIndexEnabled,
+			License:            license,
+			IconUrl:            iconUrl,
+			HeroUrl:            heroUrl,
+			HomeUrl:            homeUrl,
+			Source:             source,
+			ReadBranch:         readBranch,
+			WriteBranch:        writeBranch,
+		},
+	}
+
+	data_ = &CreateMemoryDraftWithSlugResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CreateMemoryInApp.
 const CreateMemoryInApp_Operation = `
 mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String!, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean) {
@@ -165714,6 +167377,96 @@ func CreateMemorySubscription(
 	}
 
 	data_ = &CreateMemorySubscriptionResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by CreateMemoryWithSlug.
+const CreateMemoryWithSlug_Operation = `
+mutation CreateMemoryWithSlug ($orgRef: ID, $name: String!, $slug: String!, $memoryClass: MemoryClass, $shortDescription: String, $description: String, $tags: [String!], $visibility: MemoryVisibility, $maxRevCount: Int, $category0: String, $category1: String, $category2: String, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean, $license: String, $iconUrl: String, $heroUrl: String, $homeUrl: String, $source: String, $readBranch: String, $writeBranch: String) {
+	createMemory(orgRef: $orgRef, name: $name, slug: $slug, memoryClass: $memoryClass, shortDescription: $shortDescription, description: $description, tags: $tags, visibility: $visibility, maxRevCount: $maxRevCount, category0: $category0, category1: $category1, category2: $category2, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled, license: $license, iconUrl: $iconUrl, heroUrl: $heroUrl, homeUrl: $homeUrl, source: $source, readBranch: $readBranch, writeBranch: $writeBranch) {
+		id
+		urn
+		name
+		shortDescription
+		class
+		visibility
+		organizationId
+		isEncrypted
+		maxRevCount
+		updatedAt
+	}
+}
+`
+
+// cli#3223: the --slug variants. The slug travels in the create call itself
+// (server#5203 S1), so no follow-up rename can fail after a suffixed create. They
+// are separate documents because GraphQL validates the whole document before
+// execution: a create WITHOUT --slug must keep validating against a server that
+// lacks the argument, so the ordinary and draft documents above stay slug-free.
+func CreateMemoryWithSlug(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef *string,
+	name string,
+	slug string,
+	memoryClass *MemoryClass,
+	shortDescription *string,
+	description *string,
+	tags *[]string,
+	visibility *MemoryVisibility,
+	maxRevCount *int,
+	category0 *string,
+	category1 *string,
+	category2 *string,
+	data *json.RawMessage,
+	embeddingSource *EmbeddingSource,
+	vectorIndexEnabled *bool,
+	license *string,
+	iconUrl *string,
+	heroUrl *string,
+	homeUrl *string,
+	source *string,
+	readBranch *string,
+	writeBranch *string,
+) (data_ *CreateMemoryWithSlugResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "CreateMemoryWithSlug",
+		Query:  CreateMemoryWithSlug_Operation,
+		Variables: &__CreateMemoryWithSlugInput{
+			OrgRef:             orgRef,
+			Name:               name,
+			Slug:               slug,
+			MemoryClass:        memoryClass,
+			ShortDescription:   shortDescription,
+			Description:        description,
+			Tags:               tags,
+			Visibility:         visibility,
+			MaxRevCount:        maxRevCount,
+			Category0:          category0,
+			Category1:          category1,
+			Category2:          category2,
+			Data:               data,
+			EmbeddingSource:    embeddingSource,
+			VectorIndexEnabled: vectorIndexEnabled,
+			License:            license,
+			IconUrl:            iconUrl,
+			HeroUrl:            heroUrl,
+			HomeUrl:            homeUrl,
+			Source:             source,
+			ReadBranch:         readBranch,
+			WriteBranch:        writeBranch,
+		},
+	}
+
+	data_ = &CreateMemoryWithSlugResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

@@ -593,7 +593,7 @@ func registerRetiredPersonaPromptFlags(cmd *cobra.Command) {
 
 func newCmdCreate(f *cmdutil.Factory) *cobra.Command {
 	var org, name, description, typ, vis, systemMemory string
-	var personaRole, installInto, lifecycle string
+	var personaRole, installInto, lifecycle, slug string
 	var surfaces, memberRoles []string
 	var ownerMe, createUsesTasks, createReset bool
 	var createContextCap int
@@ -631,6 +631,13 @@ app agent list" instead of retrying blind into a duplicate. Installing needs
 CONTRIBUTOR or higher on the App's owning organization (or ownership of a
 user-owned App), which is stricter than creating the Agent, so it can refuse
 after the create succeeded.
+
+--slug chooses the Agent's URN slug (bare, e.g. support-bot) instead of deriving
+it from --name, and is sent with the create: a taken or reserved slug is refused
+and nothing is created. Without it, once the server iterates derived slugs, a
+name already in use creates the Agent under a suffixed slug instead of being
+refused as AGENT_URN_TAKEN, so read the URN the output shows. --slug needs a
+server from 2026-11-26 or later; a create without it still works on an older one.
 
 Settings, all optional (left out, the server's default stands):
   --description, --persona-role  free text, and the role the Agent presents as.
@@ -724,6 +731,13 @@ upgrade that server first, including self-hosted or staging ones.`,
 			if err != nil {
 				return err
 			}
+			// cli#3223: pure, so a bad slug is a usage error even offline. Gated on
+			// Changed so an explicit --slug "" is refused, not read as "no slug".
+			if cmd.Flags().Changed("slug") {
+				if err := cmdutil.ValidateURNSlug("--slug", slug); err != nil {
+					return err
+				}
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
@@ -738,7 +752,30 @@ upgrade that server first, including self-hosted or staging ones.`,
 			var createdFields *gen.AgentFields
 			var lifecycleValue *string
 			var capValue json.RawMessage
-			if capArg != nil {
+			// cli#3223: a --slug rides in the create call (hadron-server#5203 S1),
+			// in its own document variant so a create without --slug keeps
+			// validating on a server that lacks the argument. Without it a
+			// duplicate name creates under a suffixed slug on a server with S3,
+			// where it used to be refused as AGENT_URN_TAKEN.
+			withSlug := slug != ""
+			switch {
+			case capArg != nil && withSlug:
+				resp, err := gen.CreateAgentWithContextCapSlug(cmd.Context(), client, name, slug, lifecycleArg, optStr(org),
+					optStr(description), at, av, optStr(systemMemory), surfaces,
+					optStr(personaRole), rolesArg, usesTasksArg, resetArg, capArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				createdFields = &resp.CreateAgent.AgentFields
+				if lifecycleArg != nil {
+					value := string(resp.CreateAgent.Lifecycle)
+					lifecycleValue = &value
+				}
+				capValue = contextCapRaw(resp.CreateAgent.ContextCap)
+			case capArg != nil:
 				// The cap rides in its own document (#2162): the legacy ones stay
 				// valid on a server older than hadron-server#4258.
 				resp, err := gen.CreateAgentWithContextCap(cmd.Context(), client, name, lifecycleArg, optStr(org),
@@ -756,7 +793,18 @@ upgrade that server first, including self-hosted or staging ones.`,
 					lifecycleValue = &value
 				}
 				capValue = contextCapRaw(resp.CreateAgent.ContextCap)
-			} else if lifecycleArg == nil {
+			case lifecycleArg == nil && withSlug:
+				resp, err := gen.CreateAgentSlug(cmd.Context(), client, name, slug, optStr(org),
+					optStr(description), at, av, optStr(systemMemory), surfaces,
+					optStr(personaRole), rolesArg, usesTasksArg, resetArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				createdFields = &resp.CreateAgent.AgentFields
+			case lifecycleArg == nil:
 				resp, err := gen.CreateAgent(cmd.Context(), client, name, optStr(org),
 					optStr(description), at, av, optStr(systemMemory), surfaces,
 					optStr(personaRole), rolesArg, usesTasksArg, resetArg)
@@ -767,7 +815,20 @@ upgrade that server first, including self-hosted or staging ones.`,
 					return exitcode.Newf(exitcode.Error, "server returned no agent")
 				}
 				createdFields = &resp.CreateAgent.AgentFields
-			} else {
+			case withSlug:
+				resp, err := gen.CreateAgentWithLifecycleSlug(cmd.Context(), client, name, slug, lifecycleArg, optStr(org),
+					optStr(description), at, av, optStr(systemMemory), surfaces,
+					optStr(personaRole), rolesArg, usesTasksArg, resetArg)
+				if err != nil {
+					return api.MapError(err)
+				}
+				if resp.CreateAgent == nil {
+					return exitcode.Newf(exitcode.Error, "server returned no agent")
+				}
+				createdFields = &resp.CreateAgent.AgentFields
+				value := string(resp.CreateAgent.Lifecycle)
+				lifecycleValue = &value
+			default:
 				resp, err := gen.CreateAgentWithLifecycle(cmd.Context(), client, name, lifecycleArg, optStr(org),
 					optStr(description), at, av, optStr(systemMemory), surfaces,
 					optStr(personaRole), rolesArg, usesTasksArg, resetArg)
@@ -781,6 +842,7 @@ upgrade that server first, including self-hosted or staging ones.`,
 				value := string(resp.CreateAgent.Lifecycle)
 				lifecycleValue = &value
 			}
+
 			created := agentCreateDTO{agentDTO: agentDTOFromFields(*createdFields)}
 			created.Lifecycle = lifecycleValue
 			created.ContextCap = capValue
@@ -819,6 +881,7 @@ upgrade that server first, including self-hosted or staging ones.`,
 	cmd.Flags().StringSliceVar(&memberRoles, "member-roles", nil, "roles the agent offers an App's members, comma-separated (default owner,member; the server validates them)")
 	cmd.Flags().StringVar(&installInto, "install-into", "", "App (ID or URN) to install the new agent into, so it is castable in one run")
 	cmd.Flags().StringVar(&lifecycle, "lifecycle", "", "worker process lifecycle: LONG_LIVED or SHORT_LIVED (omitted: LONG_LIVED; needs a newer server)")
+	cmd.Flags().StringVar(&slug, "slug", "", "the Agent's URN slug (bare, e.g. support-bot), chosen instead of derived from --name; a taken or reserved slug is refused (needs a server from 2026-11-26 or later)")
 	cmd.Flags().BoolVar(&createUsesTasks, "uses-tasks", false, "Whether workers from this Agent use assigned tasks (server default true when left out; =false is sent as false)")
 	cmd.Flags().IntVar(&createContextCap, "context-cap", 0, contextCapFlagUsage)
 	cmd.Flags().BoolVar(&createReset, "reset-context-after-task", false, "Record that this Agent's workers should get a fresh context after each task (server default false when left out). Recorded only: it takes effect where the workers' host supports it")

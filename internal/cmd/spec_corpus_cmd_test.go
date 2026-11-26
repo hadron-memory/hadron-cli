@@ -591,8 +591,9 @@ func TestMemorySetDraftCorpus(t *testing.T) {
 	}
 }
 
-// The follow-up update does not select corpusState, so it must not erase the
-// state that the draft-only read-back already established.
+// The follow-up update (the schema; the slug rides in the create, cli#3223) does
+// not select corpusState, so it must not erase the state that the draft-only
+// read-back already established.
 func TestMemorySetDraftCorpusKeepsStateAfterPostCreateUpdate(t *testing.T) {
 	created := `{"data":{"createMemory":{"id":"m9","urn":"acme.com:product-specs","name":"Product specs",` +
 		`"shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",` +
@@ -600,7 +601,7 @@ func TestMemorySetDraftCorpusKeepsStateAfterPostCreateUpdate(t *testing.T) {
 	updated := strings.Replace(created, `"createMemory"`, `"updateMemory"`, 1)
 	updated = strings.Replace(updated, "acme.com:product-specs", "acme.com:specs", 1)
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateMemoryDraft": created,
+		"CreateMemoryDraftWithSlug": created,
 		"SpecCorpusState": `{"data":{"memory":{"id":"m9","urn":"acme.com:product-specs",` +
 			`"corpusState":"DRAFT","corpusMintedAt":null}}}`,
 		"UpdateMemory": updated,
@@ -613,7 +614,7 @@ func TestMemorySetDraftCorpusKeepsStateAfterPostCreateUpdate(t *testing.T) {
 		t.Fatalf("create draft with post-create update: %v", err)
 	}
 	if _, called := captured["UpdateMemory"]; !called {
-		t.Fatal("the slug/schema update must run")
+		t.Fatal("the schema update must run")
 	}
 	if !strings.Contains(out.String(), `"corpusState": "DRAFT"`) || !strings.Contains(out.String(), `"urn": "acme.com:specs"`) {
 		t.Errorf("the final JSON must retain the read-back state and updated URN: %s", out.String())

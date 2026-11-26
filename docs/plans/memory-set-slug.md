@@ -1,5 +1,14 @@
 # Implementation Plan: `hadron memory set --slug` — settable URN slug
 
+> **Superseded for create (cli#3223).** hadron-server#5203 S1 added a `slug`
+> argument to `createMemory` and `createAgent`, so `memory set --slug` on create
+> now sends it in the one call and the follow-up rename and its partial-write
+> path below are gone; `agent create --slug` does the same. The slug rides in
+> its own document variant (`CreateMemoryWithSlug`, `CreateMemoryDraftWithSlug`,
+> `CreateAgent*Slug`) so a create without `--slug` still validates on a server
+> older than S1. Update (`--slug` renames via `updateMemory(urn:)`) is unchanged.
+> The sections below describe the design as first built.
+
 > **Status: implemented and verified**; this reflects the design as built. GH
 > issue [#108](https://github.com/hadron-memory/hadron-cli/issues/108) part 1.
 

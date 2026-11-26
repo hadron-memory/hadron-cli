@@ -2028,11 +2028,11 @@ func TestMemorySetOwnerMeSlugRefusedBeforeCreate(t *testing.T) {
 	}
 }
 
-// cli#1240 acceptance b/c: the neighbours are unchanged.
+// cli#1240 acceptance b/c: the neighbours are unchanged. cli#3223: --org with a
+// --slug sends the slug in the create call; no rename follows.
 func TestMemorySetSlugStillWorksOutsideOwnerMe(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateMemory": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
-		"UpdateMemory": `{"data":{"updateMemory":` + ownerMemoryJSON + `}}`,
+		"CreateMemoryWithSlug": `{"data":{"createMemory":` + ownerMemoryJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
@@ -2040,8 +2040,8 @@ func TestMemorySetSlugStillWorksOutsideOwnerMe(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, ok := captured["UpdateMemory"]; !ok {
-		t.Fatal("--org with a differing --slug must still rename via UpdateMemory")
+	if _, ok := captured["UpdateMemory"]; ok {
+		t.Fatal("--org with --slug must not rename afterwards (cli#3223)")
 	}
 }
 
@@ -2239,16 +2239,15 @@ func TestMemorySetUpdateSlug(t *testing.T) {
 	}
 }
 
-// --slug on create: createMemory derives the slug from --name, so the CLI
-// follows up with a rename to the requested slug and echoes the renamed URN
-// (#108 — name and slug differing, expressible in one command).
+// --slug on create (cli#3223): the slug is sent as createMemory(slug:) in the one
+// call, the server answers with the memory under that slug, and no updateMemory
+// follows. The request without --slug keeps the slug-free document.
 func TestMemorySetCreateWithSlug(t *testing.T) {
-	renamed := `{"id":"m1","urn":"acme.com::hadrontool-pdf","name":"Hadron PDF Tool","shortDescription":null,
+	created := `{"id":"m1","urn":"acme.com::hadrontool-pdf","name":"Hadron PDF Tool","shortDescription":null,
 		"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",
 		"isEncrypted":false,"updatedAt":"2026-06-11T00:00:00Z"}`
 	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateMemory": `{"data":{"createMemory":` + memoryJSON + `}}`,
-		"UpdateMemory": `{"data":{"updateMemory":` + renamed + `}}`,
+		"CreateMemoryWithSlug": `{"data":{"createMemory":` + created + `}}`,
 	})
 	f, out := testFactory(t)
 	root := NewRootCmd(f)
@@ -2256,32 +2255,56 @@ func TestMemorySetCreateWithSlug(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	var uvars map[string]any
-	_ = json.Unmarshal(captured["UpdateMemory"], &uvars)
-	if uvars["ref"] != "m1" || uvars["urn"] != "hadrontool-pdf" {
-		t.Errorf("create --slug should rename via updateMemory urn, got %v", uvars)
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateMemoryWithSlug"], &vars)
+	if vars["slug"] != "hadrontool-pdf" || vars["name"] != "Hadron PDF Tool" {
+		t.Errorf("the slug must ride in the create call, got %v", vars)
+	}
+	if _, called := captured["UpdateMemory"]; called {
+		t.Errorf("no follow-up rename may be sent")
 	}
 	if s := out.String(); !strings.Contains(s, "acme.com::hadrontool-pdf") {
-		t.Errorf("output should show the renamed URN, got:\n%s", s)
+		t.Errorf("output should show the URN, got:\n%s", s)
 	}
 }
 
-// When --slug already matches the name-derived slug, no rename call is made —
-// create stays a single round-trip.
-func TestMemorySetCreateSlugMatchesSkipsRename(t *testing.T) {
+// Without --slug the request is the slug-free document, so it still validates
+// on a server that lacks the argument.
+func TestMemorySetCreateWithoutSlugKeepsOldDocument(t *testing.T) {
 	gql, captured := captureGraphQL(t, map[string]string{
 		"CreateMemory": `{"data":{"createMemory":` + memoryJSON + `}}`,
 	})
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	// memoryJSON's slug is already "kb"; an unregistered UpdateMemory call would
-	// error, so a wrongly-fired rename fails the test.
-	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--slug", "kb", "--server", gql.URL})
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if _, called := captured["UpdateMemory"]; called {
-		t.Errorf("no rename should fire when --slug matches the derived slug")
+	if _, ok := captured["CreateMemory"]; !ok {
+		t.Fatal("the ordinary CreateMemory document must be used")
+	}
+	var vars map[string]any
+	_ = json.Unmarshal(captured["CreateMemory"], &vars)
+	if _, has := vars["slug"]; has {
+		t.Errorf("no slug variable may be sent without --slug: %v", vars)
+	}
+}
+
+// A taken or reserved slug is the server's refusal: shown, exit non-zero, and
+// nothing else is sent (no create under another slug, no rename).
+func TestMemorySetCreateSlugRefusedWritesNothing(t *testing.T) {
+	gql, captured := captureGraphQL(t, map[string]string{
+		"CreateMemoryWithSlug": `{"errors":[{"message":"slug taken","extensions":{"code":"MEMORY_URN_TAKEN"}}]}`,
+	})
+	f, _ := testFactory(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--slug", "kb", "--server", gql.URL})
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "slug taken") {
+		t.Fatalf("the server's refusal must be shown, got %v", err)
+	}
+	if len(captured) != 1 {
+		t.Errorf("only the one create call may be sent, got %v", keysOf1137(captured))
 	}
 }
 
