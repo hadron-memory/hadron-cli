@@ -2643,15 +2643,18 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   key material, only a preview. `ai-config create|update|rm` manage the
   underlying provider configs: `create` needs an owner (exactly one of
   `--app`/`--agent`/`--org`, ID or URN) plus `--name`/`--provider`/`--model`;
-  the API key is a secret read via `--api-key -` (stdin) and never echoed back.
+  the API key is a secret read via `--api-key -` (piped or redirected stdin,
+  e.g. `--api-key - < key.txt`) and never echoed back.
   App, Agent, and Organization configs require a stored key on current servers.
   `--file <path>` (or `--file -` for stdin) reads the whole config — key
   included — from a JSON object (keys mirror the flags: app/agent/org, name,
   provider, model, endpoint, apiStyle, apiKey, params, enabled), keeping the secret out of argv;
   an explicit flag overrides the matching file field. `--file -` is for a PIPE
-  and is refused (exit 2) from an interactive terminal (#648); `--api-key -` is
-  a secret, not a document, so that document refusal does not apply to it, and it
-  still reads from a terminal, where a paste echoes (cli#3214).
+  and is refused (exit 2) from an interactive terminal (#648). `--api-key -` on
+  `create` and `update` is refused (exit 2) from an interactive terminal too,
+  because a pasted key would echo to the screen: nothing is read and nothing is
+  sent (cli#3214, the #2654 secret rule). Pipe the key, redirect a key file to
+  stdin, or (create) put it in the `--file` config.
   `update <id>` changes only the fields you pass — `--api-key ""` clears the
   key, omitting it keeps it; `--param k=v` (repeatable) replaces the params
   object. `--endpoint <url>` stores a provider base URL; on update,

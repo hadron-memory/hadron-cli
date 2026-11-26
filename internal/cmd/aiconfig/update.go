@@ -26,7 +26,9 @@ func newCmdUpdate(f *cmdutil.Factory) *cobra.Command {
 		Short: "Update an AI service config",
 		Long: `Update an AI service config by id. Only the fields you pass change.
 
---api-key sets a new key ("-" reads stdin); omit it to keep the current key.
+--api-key sets a new key; omit it to keep the current key. "-" reads it from
+piped or redirected stdin (--api-key - < key.txt) and is refused from an
+interactive terminal, where a pasted key would echo to the screen.
 --api-key "" clears the stored key, but the server holds the result to the same
 rule as 'create' (App, Agent and Organization configs need a stored key), so
 clearing the key of one of those is refused; to stop using a config without
@@ -51,6 +53,10 @@ Find ids with 'hadron ai-config list --json', or list by --owner-type/--owner-id
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			changed := cmd.Flags().Changed
+			if err := refuseAPIKeyStdinOnTerminal(f.IOStreams, apiKey,
+				"redirect a key file to it (--api-key - < key.txt)"); err != nil {
+				return err
+			}
 			if changed("api-style") && changed("clear-api-style") {
 				return exitcode.Newf(exitcode.Usage, "--api-style and --clear-api-style are mutually exclusive")
 			}
@@ -156,7 +162,7 @@ Find ids with 'hadron ai-config list --json', or list by --owner-type/--owner-id
 	cmd.Flags().StringVar(&name, "name", "", "new config name")
 	cmd.Flags().StringVar(&provider, "provider", "", "new provider id")
 	cmd.Flags().StringVar(&model, "model", "", "new model identifier")
-	cmd.Flags().StringVar(&apiKey, "api-key", "", `new API key ("-" reads stdin; "" clears)`)
+	cmd.Flags().StringVar(&apiKey, "api-key", "", `new API key ("-" reads piped or redirected stdin, refused on a terminal; "" clears)`)
 	cmd.Flags().StringVar(&endpoint, "endpoint", "", `provider base URL ("" clears to the server default)`)
 	cmd.Flags().StringVar(&apiStyle, "api-style", "", "OpenAI-compatible wire protocol: CHAT_COMPLETIONS or RESPONSES; omit to preserve")
 	cmd.Flags().BoolVar(&clearAPIStyle, "clear-api-style", false, "clear the stored API style to the provider default (sends null)")

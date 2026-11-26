@@ -347,14 +347,14 @@ section between the markers.
 | `agent ticker-templates update` |  |  | y | #1053 | c124c9d95fc2 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `agent update` |  |  | y | #1053 | 987dc8bacdd8 |  | unread |  |
 | `ai-config` | ai-configs |  | n | #1053 | 0d69e6b99b86 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
-| `ai-config create` |  |  | y | #1053 | 476f02d84285 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
+| `ai-config create` |  |  | y | #1053 | 881191f46fbb |  | unread |  |
 | `ai-config endpoints` |  |  | n | #1053 | 8f473cb3e117 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `ai-config get` |  |  | y | #1053 | 69353cebd2cd | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `ai-config list` | ls |  | y | #1053 | 541ce1f03ce9 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
 | `ai-config rm` | delete |  | y | #1053 | c35b831c3c4b | Gil | pass | [re-read at 3d4ad5ca](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6999075337) |
 | `ai-config test` |  |  | y | #1053 | 03191cc909d8 | Gil | pass | [re-read at bd3dc82c](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6999444936) |
 | `ai-config tool-choice` |  |  | y | #1053 | 05c4b8878f32 | Gil | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6996165263) |
-| `ai-config update` |  |  | y | #1053 | ca3e48f7f90f | Gil | pass | [re-read at 3d4ad5ca](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6999075337) |
+| `ai-config update` |  |  | y | #1053 | d0cd218ec801 |  | unread |  |
 | `app` | apps |  | n | #1053 | 6f59fa15416f | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app action` |  |  | n | #1053 | 17ad7a4db49e | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
 | `app action record` |  |  | y | #1053 | 5c625b46077c | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
