@@ -36,7 +36,8 @@ func TestFlagRefusalsInTeamNeverShowTheTypedValue3189(t *testing.T) {
 		{"host import host", cat([]string{"team", "host", "import", "--from", "h.yaml", "--host", "bad " + p}, app), "host id", exitcode.Usage},
 		{"task hand-back code", cat([]string{"team", "task", "hand-back", "AT1.2", "--code", p}, app), "--code is required and must be one of", exitcode.Usage},
 		{"task list offset", cat([]string{"team", "task", "list", "--offset", "-73519"}, app), "--offset takes a non-negative", exitcode.Usage},
-		{"task list limit", cat([]string{"team", "events", "--limit", "987654"}, app), "--limit takes 1 to", exitcode.Usage},
+		{"events limit", cat([]string{"team", "events", "--limit", "987654"}, app), "--limit takes 1 to", exitcode.Usage},
+		{"task list limit", cat([]string{"team", "task", "list", "--limit", "987654"}, app), "--limit takes 1 to", exitcode.Usage},
 		{"wakes first", cat([]string{"team", "wakes", "due", "--first", "-73519"}, app), "--first must be at least 1", exitcode.Usage},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -83,21 +84,21 @@ func TestNotFoundRefusalsInTeamNeverShowTheRef3189(t *testing.T) {
 // the value.
 func TestBatchRunSettingsRefusalsNeverShowTheValue3189(t *testing.T) {
 	p := pastedUpper3029()
-	for name, item := range map[string]string{
-		"family": `{"task":{"title":"x","runSettings":{"family":"` + p + ` y"}}}`,
-		"model":  `{"task":{"title":"x","runSettings":{"model":"` + p + ` y"}}}`,
-		"tier":   `{"task":{"title":"x","runSettings":{"tier":"` + p + `"}}}`,
-		"effort": `{"task":{"title":"x","runSettings":{"effort":"` + p + `"}}}`,
+	for _, tc := range []struct{ name, item, frag string }{
+		{"family", `{"task":{"title":"x","runSettings":{"family":"` + p + ` y"}}}`, "runSettings.family must be one word with no whitespace (the value given is not shown)"},
+		{"model", `{"task":{"title":"x","runSettings":{"model":"` + p + ` y"}}}`, "runSettings.model must be one word with no whitespace (the value given is not shown)"},
+		{"tier", `{"task":{"title":"x","runSettings":{"tier":"` + p + `"}}}`, "runSettings.tier must be high, mid or low"},
+		{"effort", `{"task":{"title":"x","runSettings":{"effort":"` + p + `"}}}`, "runSettings.effort must be one of LOW, MEDIUM, HIGH, XHIGH, MAX or UNSET"},
 	} {
-		t.Run(name, func(t *testing.T) {
+		t.Run(tc.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "batch.json")
-			if err := os.WriteFile(path, []byte("["+item+"]"), 0o600); err != nil {
+			// The bad item is the second of two, so the index in the refusal is a real pin.
+			if err := os.WriteFile(path, []byte(`[{"task":{"title":"ok"}},`+tc.item+"]"), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			seen, code := renderedNoEcho3029(t, nil, "team", "task", "create", "--batch-file", path, "--app", "hrn:app:acme.com:ops")
-			if code != exitcode.Usage || !strings.Contains(seen, name) {
-				t.Errorf("exit %d, want a Usage refusal naming %s: %s", code, name, seen)
-
+			if code != exitcode.Usage || !strings.Contains(seen, "task 2 of 2 "+tc.frag) {
+				t.Errorf("exit %d, want a Usage refusal saying %q: %s", code, "task 2 of 2 "+tc.frag, seen)
 			}
 			if strings.Contains(seen, p) || strings.Contains(strings.ToLower(seen), strings.ToLower(p[:8])) {
 				t.Errorf("shows the value: %s", seen)
