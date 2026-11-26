@@ -730,7 +730,7 @@ query VerifyMemoryNodes($memoryRef: String!) {
   }
 }
 
-# cli#60 slice A v2: pull. Push is the separate PushMemoryToGit below (cli#2513).
+# cli#60 slice A v2: pull. Push is the separate PushMemoryToGit (cli#2513).
 mutation SyncMemory($ref: ID!) {
   syncMemory(ref: $ref) {
     syncStatus
