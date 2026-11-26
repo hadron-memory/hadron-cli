@@ -152,12 +152,18 @@ func reportRetireFailure(cmd *cobra.Command, client graphql.Client, in *gen.Reti
 			wrote = "this retirement request wrote nothing. "
 		}
 		return retireReport{retireOutcomeRefused, cur, wrap(exitcode.Conflict,
-			wrote+conflictReading(state, in, created != "")+". "+cur.Statement)}
+			wrote+conflictReading(state, in, created != "")+". "+upperFirst(cur.Statement))}
 	case retireUnsupported:
 		return retireReport{retireOutcomeRefused, nil, wrap(exitcode.Usage,
 			"this server does not support retireSpec (hadron-server#3429), so a spec cannot be retired on it; there is no fallback to separate writes, and no spec was retired by this request")}
 	case retireTooLong:
 		x := api.ErrorExtensions(f.err, "NodeAbstractTooLongError")
+		// A server that omits length or max would print <nil>: say it is too long and
+		// invent no number (cli#3266).
+		if x["length"] == nil || x["max"] == nil {
+			return retireReport{retireOutcomeRefused, nil, wrap(exitcode.Usage,
+				"the server refused the retirement abstract it composed as too long; pass a shorter --summary or --reason")}
+		}
 		return retireReport{retireOutcomeRefused, nil, wrap(exitcode.Usage, fmt.Sprintf(
 			"the server refused the retirement abstract it composed: %v characters, and the cap is %v; pass a shorter --summary or --reason", x["length"], x["max"]))}
 	case retireRefused:
@@ -250,7 +256,7 @@ func conflictReading(state *gen.GetSpecRetireStateResponse, in *gen.RetireSpecIn
 	}
 	s := &state.Spec.SpecRetireState
 	if hasTag(s.Tags, supersededTag) {
-		return "refused: the spec is currently already retired (nothing written)"
+		return "refused: the spec is already retired (nothing written)"
 	}
 	targets, hidden := successorLinks(s)
 	switch {
@@ -371,4 +377,14 @@ func registerCheck(cmd *cobra.Command, client graphql.Client, memURN string, w i
 	return func() {
 		fmt.Fprintf(w, "note: could not check whether this corpus has a register (%s); if it does, update it. The supersede itself succeeded.\n", output.SafeCell(err.Error()))
 	}
+}
+
+// upperFirst starts a sentence with a capital: the state statement is stored
+// lowercase for the --json field and joins the message as its second sentence.
+func upperFirst(s string) string {
+	if s == "" {
+		return s
+	}
+	r := []rune(s)
+	return strings.ToUpper(string(r[0])) + string(r[1:])
 }
