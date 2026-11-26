@@ -345,12 +345,3 @@ func productGeneralLocs(locs []string) []string {
 	sort.Strings(out)
 	return out
 }
-
-// kindOfWord maps the --json retirement word back to a rescind kind, so the
-// human register label reads the same state the DTO carries.
-func kindOfWord(w string) string {
-	if w == retirementWithdrawn || w == retirementRescinded {
-		return w
-	}
-	return ""
-}

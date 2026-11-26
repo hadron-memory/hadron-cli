@@ -694,16 +694,16 @@ are refused until the server supports their mint scan.`,
 			// goes to stderr, where the prompt is — and only when a prompt
 			// follows (--yes asks nothing).
 			// The report is the dry run's, but this call is a real one: it must
-			// not tell the caller to "run without --dry-run" (cli#1906).
-			shown := report
-			shown.DryRun = false
+			// not tell the caller to "run without --dry-run" (cli#1906), so the
+			// hint is switched off by the explicit argument, not by editing a
+			// copy of the report (cli#3220).
 			switch {
 			case !f.JSON:
-				if err := renderMint(f.IOStreams.Out, shown); err != nil {
+				if err := renderMint(f.IOStreams.Out, report, false); err != nil {
 					return err
 				}
 			case !yes:
-				if err := renderMint(f.IOStreams.ErrOut, shown); err != nil {
+				if err := renderMint(f.IOStreams.ErrOut, report, false); err != nil {
 					return err
 				}
 			}
@@ -737,11 +737,13 @@ are refused until the server supports their mint scan.`,
 
 func writeMint(f *cmdutil.Factory, d mintDTO) error {
 	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		return renderMint(w, d)
+		return renderMint(w, d, d.DryRun)
 	})
 }
 
-func renderMint(w io.Writer, d mintDTO) error {
+// renderMint prints the mint report. dryRunHint says whether a mintable report ends
+// with "run without --dry-run to mint": true only when the report IS a dry run.
+func renderMint(w io.Writer, d mintDTO, dryRunHint bool) error {
 	fmt.Fprintf(w, "Mint report — %s\n", d.Memory)
 	if d.MintLocs != nil {
 		fmt.Fprintf(w, "  eligible nodes: %d", len(*d.MintLocs))
@@ -798,7 +800,7 @@ func renderMint(w io.Writer, d mintDTO) error {
 		}
 	case d.Blocked:
 		fmt.Fprintf(w, "✗ not mintable: %d blocker(s) remain\n", len(d.Blockers))
-	case d.DryRun:
+	case dryRunHint:
 		fmt.Fprintln(w, "✓ mintable — run without --dry-run to mint")
 	}
 	return nil

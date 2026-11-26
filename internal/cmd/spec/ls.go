@@ -35,8 +35,10 @@ after merging both spec markers.
 
 A retired spec is marked after its name: "(replaced by <loc>)" when a readable
 successor is recorded, "(withdrawn)" or "(rescinded)" when the spec's own
-abstract says so, and the neutral "(retired)" when neither can be read. JSON
-adds retirement (replaced, withdrawn, rescinded or retired; null when live).
+abstract says so, and the neutral "(retired)" when neither can be read. A
+readable successor wins: a spec with both a successor and a rescind prefix reads
+"(replaced by <loc>)". JSON adds retirement (replaced, withdrawn, rescinded or
+retired; null when live).
 The APPROVAL column is the approval state of the current text and is not the
 marker: SUPERSEDED there means the text changed since the last approval, even
 on a rescinded spec.

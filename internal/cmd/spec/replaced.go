@@ -34,15 +34,35 @@ const (
 	retirementRescinded = "rescinded"
 )
 
+// rescindKinds is the ONE list of how a spec can say it was retired: the kind
+// each --json `retirement` word carries and the abstract prefix `spec rescind`
+// writes for it. rescindKind (abstract to kind) and kindOfWord (word to kind)
+// both read it, so a new kind cannot be added to one and dropped from the
+// other (cli#3220).
+var rescindKinds = []struct{ kind, prefixWord string }{
+	{retirementWithdrawn, withdrawnWord},
+	{retirementRescinded, rescindedWord},
+}
+
 // rescindKind reads the rescind prefix (`spec rescind` writes "WITHDRAWN (<date>);"
 // or "RESCINDED (<date>);") off an abstract.
 func rescindKind(abstract string) string {
 	a := strings.TrimSpace(abstract)
-	switch {
-	case strings.HasPrefix(a, withdrawnWord+" ("):
-		return retirementWithdrawn
-	case strings.HasPrefix(a, rescindedWord+" ("):
-		return retirementRescinded
+	for _, k := range rescindKinds {
+		if strings.HasPrefix(a, k.prefixWord+" (") {
+			return k.kind
+		}
+	}
+	return ""
+}
+
+// kindOfWord maps the --json retirement word back to a rescind kind, so the
+// human register label reads the same state the DTO carries.
+func kindOfWord(w string) string {
+	for _, k := range rescindKinds {
+		if w == k.kind {
+			return k.kind
+		}
 	}
 	return ""
 }
@@ -50,9 +70,13 @@ func rescindKind(abstract string) string {
 // word is the one-word state for the additive --json `retirement` key: a
 // readable successor is "replaced", the spec's own rescind prefix is
 // "withdrawn" or "rescinded", and where neither settles it the neutral
-// "retired" says no more than is known.
+// "retired" says no more than is known. A spec that was not replaced has no
+// retirement word at all: "" (cli#3220; the callers only ask for a retired one).
+// A readable successor wins over a rescind prefix.
 func (r replacement) word() string {
 	switch {
+	case !r.Replaced:
+		return ""
 	case r.By != nil:
 		return "replaced"
 	case r.Kind != "":

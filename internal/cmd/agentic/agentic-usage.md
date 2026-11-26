@@ -2341,7 +2341,8 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   reads `(replaced by <loc>)` when a readable `superseded-by` edge names one
   successor, `(withdrawn)` or `(rescinded)` when its own abstract carries the
   `spec rescind` prefix (WITHDRAWN/RESCINDED), and the neutral `(retired)` when
-  neither settles it (a missing, unreadable, other-memory or ambiguous edge is
+  neither settles it (a readable successor edge wins over a rescind prefix: a
+  spec with both reads `(replaced by <loc>)`; a missing, unreadable, other-memory or ambiguous edge is
   not proof of a rescind; an identity is never guessed; cli#1906), in `spec
   list` and in the `rules:` line of `spec register`. `--json` adds
   `replaced`/`replacedBy` and `retirement` (replaced|withdrawn|rescinded|retired,
