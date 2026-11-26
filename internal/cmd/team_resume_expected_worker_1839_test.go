@@ -58,8 +58,8 @@ func TestResumeSendsTheWorktreesWorkerAndRefusesAMismatch(t *testing.T) {
 			if code := exitCodeFor(err); code != exitcode.Conflict {
 				t.Fatalf("exit = %d, want the Conflict RESUME_REFUSED maps to; err: %v", code, err)
 			}
-			if got := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerId"]; got != "wkr1" {
-				t.Errorf("expectedWorkerId = %v, want the binding's wkr1", got)
+			if got := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerRef"]; got != "wkr1" {
+				t.Errorf("expectedWorkerRef = %v, want the binding's wkr1", got)
 			}
 			for _, w := range tc.want {
 				if !strings.Contains(err.Error(), w) {
@@ -123,8 +123,8 @@ func TestResumeSameWorkerAndNoBinding(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
-		if got := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerId"]; got != "wkr1" {
-			t.Errorf("expectedWorkerId = %v", got)
+		if got := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerRef"]; got != "wkr1" {
+			t.Errorf("expectedWorkerRef = %v", got)
 		}
 	})
 	t.Run("no binding sends nothing", func(t *testing.T) {
@@ -137,7 +137,7 @@ func TestResumeSameWorkerAndNoBinding(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
-		if _, sent := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerId"]; sent {
+		if _, sent := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerRef"]; sent {
 			t.Error("no binding file: no expected worker may be sent")
 		}
 	})
@@ -304,18 +304,18 @@ func TestResumeBlankBindingWorkerSendsNothing(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if _, sent := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerId"]; sent {
+	if _, sent := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerRef"]; sent {
 		t.Error("a blank worker id must not be sent (the server refuses a blank as BAD_USER_INPUT)")
 	}
 }
 
-// Delta (BLIND P2-1/P2-2 on 79e0cf58). A server without #3822 rejects the
-// unknown input field: the refusal says so and names the way forward, instead
+// Delta (BLIND P2-1/P2-2 on 79e0cf58). A server older than 0.48.0
+// (hadron-server#5163, cli#3272) rejects the unknown input field: the refusal says so and names the way forward, instead
 // of the generic schema-skew line, and never retries without the guard.
 func TestResumeServerWithoutExpectedWorkerRefusesActionably(t *testing.T) {
 	for _, tc := range []struct{ name, errs string }{
-		{"validation code", `{"errors":[{"message":"Variable \"$input\" got invalid value; Field \"expectedWorkerId\" is not defined by type \"ResumeSessionInput\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`},
-		{"bad user input", `{"errors":[{"message":"Field \"expectedWorkerId\" is not defined by type \"ResumeSessionInput\".","extensions":{"code":"BAD_USER_INPUT"}}]}`},
+		{"validation code", `{"errors":[{"message":"Variable \"$input\" got invalid value; Field \"expectedWorkerRef\" is not defined by type \"ResumeSessionInput\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`},
+		{"bad user input", `{"errors":[{"message":"Field \"expectedWorkerRef\" is not defined by type \"ResumeSessionInput\".","extensions":{"code":"BAD_USER_INPUT"}}]}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			dir := teamGitDir(t)
@@ -331,7 +331,7 @@ func TestResumeServerWithoutExpectedWorkerRefusesActionably(t *testing.T) {
 			if err == nil {
 				t.Fatal("want a refusal")
 			}
-			for _, w := range []string{"hadron-server#3822", "--as", "No claim"} {
+			for _, w := range []string{"expectedWorkerRef", "0.48.0", "--as", "No claim"} {
 				if !strings.Contains(err.Error(), w) {
 					t.Errorf("must say %q: %v", w, err)
 				}
@@ -339,7 +339,7 @@ func TestResumeServerWithoutExpectedWorkerRefusesActionably(t *testing.T) {
 			if strings.Contains(err.Error(), "out of sync") {
 				t.Errorf("the generic skew line must not stand in for the specific one: %v", err)
 			}
-			if n := strings.Count(string(captured["ResumeTeamSession"]), "expectedWorkerId"); n == 0 {
+			if n := strings.Count(string(captured["ResumeTeamSession"]), "expectedWorkerRef"); n == 0 {
 				t.Error("the field was sent")
 			}
 			if data, _ := os.ReadFile(path); string(data) != bindingFixture {
