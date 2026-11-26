@@ -34,11 +34,11 @@ allows in), maxUses and useCount, reason, createdAt, activatedAt (empty until a
 person signs it), revokedAt, revokedByUserId (who revoked or withdrew it),
 holderDepartedAt (when its holder went), allows and state. state is the server's
 own word, printed as sent: PENDING, ACTIVE, SPENT, EXPIRED, REVOKED, WITHDRAWN
-or HOLDER_GONE. It is never worked out here from the timestamps. allows says
-whether the grant can be used right now, and it does not always agree with
-state: a grant whose issuer can no longer issue stops allowing without changing
-state, so an ACTIVE row can show allows: false. Both are shown as returned. A
-dash means the value is unset. --json keeps the server values and nulls.`
+or HOLDER_GONE. It is never worked out here from the timestamps. state and allows
+are both shown as returned. A dash means the value is unset. --json keeps the
+server values and nulls.
+
+` + grantAllowsHelp
 
 const managerGrantAccessHelp = `Every call here is made as you, the signed-in person, never through a worker
 session. The server decides who may do what and this command asks it without a
