@@ -189612,7 +189612,7 @@ mutation SyncMemory ($ref: ID!) {
 }
 `
 
-// cli#60 slice A v2: pull. Push is the separate PushMemoryToGit below (cli#2513).
+// cli#60 slice A v2: pull. Push is the separate PushMemoryToGit (cli#2513).
 func SyncMemory(
 	ctx_ context.Context,
 	client_ graphql.Client,
