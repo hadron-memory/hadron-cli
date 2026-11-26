@@ -19,9 +19,12 @@ const (
 	// Unavailable (#394) is the one failure the server never refused: the
 	// request did not reach it, or its answer did not reach us — a gateway
 	// 5xx, a reset connection, a timeout. Separated from Error because it is
-	// the only class that is safe to retry blind, AND the only one after
-	// which a mutation's outcome is genuinely unknown. A script branching on
-	// 1 vs 7 is branching on "the server refused this" vs "ask again".
+	// the only class that is safe to retry blind, and the class that says a
+	// mutation's outcome is unknown because no answer came. It is not the only
+	// code after which a mutation may have happened: an internal server fault
+	// exits 1 and may have changed state too (memory sync push, cli#3240). A
+	// script branching on 1 vs 7 is branching on "the server refused this" vs
+	// "ask again".
 	Unavailable = 7
 	// Forbidden (#619) is AUTHENTICATED BUT NOT PERMITTED — the server knows
 	// who you are and will not let you do this.

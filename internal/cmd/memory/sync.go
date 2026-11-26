@@ -584,7 +584,10 @@ The server answers only yes or no: the count of nodes pushed, the commit and
 the branch are not reported, so check the repository for what landed. One
 request is sent and it is never retried. Exit 7 means the push may have
 happened: check the repository before pushing again. A "no" or empty answer
-exits 7 too and never prints "pushed". Server error text is masked for URL
+exits 7 too and never prints "pushed". Exit 7 is not the only code after which
+the push may have happened: an INTERNAL_SERVER_ERROR, or a server error with no
+code, exits 1 (the server answered, so it is not "unavailable"), and the push
+may also have happened then. Check the repository before pushing again. Server error text is masked for URL
 credentials and well-known token formats (gh[pousr]_, github_pat_, glpat-); a token
 of another shape is not recognised. Success prints "pushed memory <ref>". --json:
 {memory,operation:"push",pushed:true}.`,
