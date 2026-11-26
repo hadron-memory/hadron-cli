@@ -1461,6 +1461,12 @@ func codeForExtension(code string) int {
 	// #1669: invalid App action code/current slug is caller-correctable input.
 	case code == "APP_ACTION_CODE_INVALID":
 		return exitcode.Usage
+	// A filter or sort naming a field a strict collection does not declare
+	// (hadron-server#5196, cor:api:170:03, cli#3200): the path can only be a
+	// mistake in the caller's input. A literal row, since no suffix rule
+	// matches. The server's message passes through; the CLI checks no schema.
+	case code == "FIELD_NOT_DECLARED":
+		return exitcode.Usage
 	// Bulk template target cap is caller-correctable input, never truncation (#1701).
 	case code == "BULK_TARGETS_TOO_MANY" || code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
 		code == "AiConfigValidationError" || code == "UnknownAiProviderError" ||
