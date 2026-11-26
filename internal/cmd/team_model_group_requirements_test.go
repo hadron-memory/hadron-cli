@@ -410,8 +410,7 @@ func TestTaskRecordFloorIsOneDateOnOrAfter(t *testing.T) {
 		}
 		for _, sentence := range strings.Split(flat, ". ") {
 			// A sentence names the shared read by the phrase "task-record" OR
-			// "every task command" (cli#3109 review: create's floor sentence
-			// uses the latter and was unguarded by the literal alone).
+			// "every task command": create's floor sentence uses the latter.
 			if !strings.Contains(sentence, "task-record") && !strings.Contains(sentence, "every task command") {
 				continue
 			}

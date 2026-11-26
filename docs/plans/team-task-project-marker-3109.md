@@ -27,8 +27,11 @@ keeps the source's — unlike `--project`, whose `=false` is refused client-side
 `taskDTO.IsProject bool` rides every task `--json` (additive key, always
 present; `Boolean!` is never null). `task get` prints a `project marker: yes`
 line only when marked, distinct from the parent/"project: none" line that names
-where the task sits. `task list` adds a conditional PROJECT column (`yes`/`—`)
-when any row on the page is marked — the same any-row pattern as MIN TIER, headed IS PROJECT (cli#3109 review: the bare noun read as "belongs to a project" beside a HANDLE like AT3.405; the cell answers whether the task IS one itself)
+where the task sits. `task list` adds a conditional IS PROJECT column (`yes`/`—`)
+when any row on the page is marked — the same any-row pattern as MIN TIER. The
+column is headed IS PROJECT, never the bare PROJECT: beside a HANDLE like
+AT3.405 the noun reads as "belongs to a project", while the cell answers
+whether the task IS one itself
 (`mine` shares that renderer; `list --team` keeps its own ops table, no MIN TIER
 or FINISH BY there either, so it deliberately shows no marker column — `--json`
 carries `isProject` either way). The
@@ -87,7 +90,7 @@ Snapshot `schema/SOURCE` `server_sha=251162799bee245250bab14bac44f4e43b553e12`
 on cli main already carried `isProject` (confirmed at issue amendment; no
 refresh, no sibling-server read). Live check through the real binary:
 `team task list --json` returns `isProject: false` on every row of the dev App
-and the PROJECT column correctly stays absent when no row is marked. No
+and the IS PROJECT column correctly stays absent when no row is marked. No
 `isProject: true` row exists on that App yet (every root is an AT0 child, and
 the marker is two days old server-side), so the marked-rendering path is pinned
 by unit tests and delegated to the light QA seat through the real binary.

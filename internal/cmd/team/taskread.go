@@ -106,10 +106,11 @@ func newCmdTeamTaskGet(f *cmdutil.Factory) *cobra.Command {
 		Use:   "get <taskId>",
 		Short: "Show one task",
 		Long: `Show one task: its status, owner, assignee, priority, blocked state, the
-project marker, the close-session choice, its result once finished, the first 20 dependencies
-in each direction (total/hasMore included; ` + "`task dependencies`" + ` pages the
-rest) and its clone links. Check it before a lifecycle command to see what the
-task allows (the table in ` + "`team task --help`" + `).
+project marker, the close-session choice, its result once finished, the
+first 20 dependencies in each direction (total/hasMore included;
+` + "`task dependencies`" + ` pages the rest) and its clone links. Check it before a
+lifecycle command to see what the task allows (the table in
+` + "`team task --help`" + `).
 
 Clone links (` + "`task clone`" + `): "cloned from" names the task this
 one was made from, or "replaces" when that source is FINISHED or CANCELLED; it
@@ -949,9 +950,9 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		}
 		headers := handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")
 		if withProject {
-			// cli#3109 review (P3): IS PROJECT, not PROJECT — the plain noun
-			// reads as "belongs to a project" beside a HANDLE like AT3.405;
-			// the cell answers whether the task IS one itself.
+			// IS PROJECT, not the bare PROJECT: beside a HANDLE like AT3.405
+			// the noun reads as "belongs to a project"; the cell answers
+			// whether the task IS one itself.
 			headers = append(headers, "IS PROJECT")
 		}
 		if withMinTier {

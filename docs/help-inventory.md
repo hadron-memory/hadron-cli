@@ -633,7 +633,7 @@ section between the markers.
 | `team task finding-dispositions` |  |  | y | #1054 | 30d1e3cd8a22 | Jill | pass | [Jill 24/24 pass summary, evaluator task AT0.10234 (#1054 comment)](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7113509589) |
 | `team task findings` |  |  | y | #1054 | 269d908ce5b9 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7007106334) |
 | `team task finish` |  |  | y | #1054 | 726bb733b4c0 |  | unread |  |
-| `team task get` |  |  | y | #1054 | d54e60acd607 |  | unread |  |
+| `team task get` |  |  | y | #1054 | 9bd27bbb5c43 |  | unread |  |
 | `team task hand-back` |  |  | y | #1054 | 24b187bfb974 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task link-defect` |  |  | y | #1054 | 677861264c97 | Jill | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7112564967) |
 | `team task list` | ls |  | y | #1054 | 1a4940cc4be6 |  | unread |  |

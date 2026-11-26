@@ -228,42 +228,58 @@ func TestTaskListShowsProjectMarker3109(t *testing.T) {
 		r["AgentTaskList"] = taskPage2734(body, 2, false)
 		return r
 	}
-	// rowCell pins the IS PROJECT cell, not a whole-line substring: the two
-	// fixture rows differ only in id and marker, so normalizing the id and
-	// trimming the final cell must leave identical prefixes (same column
-	// layout); the marker column is last (the fixture carries no min tier,
-	// model groups, finish-by or match failure).
-	rowCell := func(out, id string) (prefix, cell string, ok bool) {
-		for _, line := range strings.Split(out, "\n") {
-			if !strings.Contains(line, id) || strings.Contains(line, "TITLE") {
-				continue
-			}
-			trimmed := strings.TrimRight(line, " ")
-			if strings.HasSuffix(trimmed, "yes") {
-				return strings.TrimSuffix(trimmed, "yes"), "yes", true
-			}
-			if strings.HasSuffix(trimmed, "—") {
-				return strings.TrimSuffix(trimmed, "—"), "—", true
-			}
-		}
-		return "", "", false
+	// tableCellSplit is the column boundary of NewTable's output: tabwriter
+	// pads every column but the last with at least two spaces (padding 2),
+	// and no fixture cell carries a double space — the title has single
+	// spaces only.
+	var tableCellSplit = regexp.MustCompile(` {2,}`)
+	// The table is read by column, never by whole-line substrings. A row is
+	// located by an exact match on its first cell, the ID column, so an id
+	// that is a substring of another row's id or of a title cannot match;
+	// and the header must END with IS PROJECT, which pins the marker as the
+	// final column before any cell is read — a column appended later fails
+	// that pin loudly instead of misreading whatever became the last cell.
+	// (The header OFFSET of IS PROJECT is not a usable slice bound:
+	// tabwriter pads a column to its widest cell, so a data cell wider than
+	// its header — TITLE's, here — shifts later columns past the header's
+	// own offsets.)
+	rowCells := func(line string) []string {
+		return tableCellSplit.Split(strings.TrimRight(line, " "), -1)
 	}
 	assertMarkerTable := func(t *testing.T, out string) {
 		t.Helper()
-		if !strings.Contains(out, "IS PROJECT") {
-			t.Fatalf("text must add the IS PROJECT column: %s", out)
+		lines := strings.Split(out, "\n")
+		header := ""
+		for _, line := range lines {
+			if strings.Contains(line, "TITLE") {
+				header = strings.TrimRight(line, " ")
+			}
 		}
-		markedPrefix, markedCell, okM := rowCell(out, "task9")
-		plainPrefix, plainCell, okP := rowCell(out, "task2")
-		if !okM || !okP {
-			t.Fatalf("both rows must render: %s", out)
+		if !strings.HasSuffix(header, "IS PROJECT") {
+			t.Fatalf("IS PROJECT must be the table's last column, header %q: %s", header, out)
 		}
-		if markedCell != "yes" || plainCell != "—" {
-			t.Fatalf("marked row must say yes, unmarked must say —: %s", out)
+		row := func(id string) []string {
+			for _, line := range lines {
+				if cells := rowCells(line); len(cells) > 1 && cells[0] == id {
+					return cells
+				}
+			}
+			t.Fatalf("no row whose ID cell is %s: %s", id, out)
+			return nil
 		}
-		norm := func(s string) string { return strings.ReplaceAll(s, "task9", "taskX") }
-		if norm(markedPrefix) != strings.ReplaceAll(plainPrefix, "task2", "taskX") {
-			t.Fatalf("rows must share their column layout up to the marker cell:\n%s\n%s", markedPrefix, plainPrefix)
+		marked, plain := row("task9"), row("task2")
+		if marked[len(marked)-1] != "yes" || plain[len(plain)-1] != "—" {
+			t.Fatalf("the marked row's last cell must be yes, the unmarked's —:\n%s\n%s", strings.Join(marked, "|"), strings.Join(plain, "|"))
+		}
+		// Whatever the ids' lengths, the rows must be identical except the id
+		// and marker cells: marking a task moves no other column.
+		if len(marked) != len(plain) {
+			t.Fatalf("rows must share their column count, %d vs %d: %s", len(marked), len(plain), out)
+		}
+		for i := 1; i < len(marked)-1; i++ {
+			if marked[i] != plain[i] {
+				t.Fatalf("rows must differ only in the id and marker cells, column %d is %q vs %q:\n%s\n%s", i, marked[i], plain[i], strings.Join(marked, "|"), strings.Join(plain, "|"))
+			}
 		}
 	}
 	t.Run("a marked row adds the IS PROJECT column", func(t *testing.T) {
