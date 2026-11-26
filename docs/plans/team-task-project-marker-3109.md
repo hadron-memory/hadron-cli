@@ -28,7 +28,7 @@ keeps the source's — unlike `--project`, whose `=false` is refused client-side
 present; `Boolean!` is never null). `task get` prints a `project marker: yes`
 line only when marked, distinct from the parent/"project: none" line that names
 where the task sits. `task list` adds a conditional PROJECT column (`yes`/`—`)
-when any row on the page is marked — the same any-row pattern as MIN TIER
+when any row on the page is marked — the same any-row pattern as MIN TIER, headed IS PROJECT (cli#3109 review: the bare noun read as "belongs to a project" beside a HANDLE like AT3.405; the cell answers whether the task IS one itself)
 (`mine` shares that renderer; `list --team` keeps its own ops table, no MIN TIER
 or FINISH BY there either, so it deliberately shows no marker column — `--json`
 carries `isProject` either way). The

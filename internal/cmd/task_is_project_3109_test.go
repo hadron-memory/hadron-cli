@@ -182,7 +182,7 @@ func TestTaskGetShowsProjectMarker3109(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out, "project marker: yes") {
+		if !strings.Contains(strings.Join(strings.Fields(out), " "), "project marker: yes") {
 			t.Fatalf("text must show the marker: %s", out)
 		}
 		var dto map[string]any
@@ -204,7 +204,7 @@ func TestTaskGetShowsProjectMarker3109(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(out, "project marker") {
+		if strings.Contains(strings.Join(strings.Fields(out), " "), "project marker") {
 			t.Fatalf("an unmarked task must not show a marker line: %s", out)
 		}
 		var dto map[string]any
@@ -228,27 +228,51 @@ func TestTaskListShowsProjectMarker3109(t *testing.T) {
 		r["AgentTaskList"] = taskPage2734(body, 2, false)
 		return r
 	}
-	t.Run("a marked row adds the PROJECT column", func(t *testing.T) {
+	// rowCell pins the IS PROJECT cell, not a whole-line substring: the two
+	// fixture rows differ only in id and marker, so normalizing the id and
+	// trimming the final cell must leave identical prefixes (same column
+	// layout); the marker column is last (the fixture carries no min tier,
+	// model groups, finish-by or match failure).
+	rowCell := func(out, id string) (prefix, cell string, ok bool) {
+		for _, line := range strings.Split(out, "\n") {
+			if !strings.Contains(line, id) || strings.Contains(line, "TITLE") {
+				continue
+			}
+			trimmed := strings.TrimRight(line, " ")
+			if strings.HasSuffix(trimmed, "yes") {
+				return strings.TrimSuffix(trimmed, "yes"), "yes", true
+			}
+			if strings.HasSuffix(trimmed, "—") {
+				return strings.TrimSuffix(trimmed, "—"), "—", true
+			}
+		}
+		return "", "", false
+	}
+	assertMarkerTable := func(t *testing.T, out string) {
+		t.Helper()
+		if !strings.Contains(out, "IS PROJECT") {
+			t.Fatalf("text must add the IS PROJECT column: %s", out)
+		}
+		markedPrefix, markedCell, okM := rowCell(out, "task9")
+		plainPrefix, plainCell, okP := rowCell(out, "task2")
+		if !okM || !okP {
+			t.Fatalf("both rows must render: %s", out)
+		}
+		if markedCell != "yes" || plainCell != "—" {
+			t.Fatalf("marked row must say yes, unmarked must say —: %s", out)
+		}
+		norm := func(s string) string { return strings.ReplaceAll(s, "task9", "taskX") }
+		if norm(markedPrefix) != strings.ReplaceAll(plainPrefix, "task2", "taskX") {
+			t.Fatalf("rows must share their column layout up to the marker cell:\n%s\n%s", markedPrefix, plainPrefix)
+		}
+	}
+	t.Run("a marked row adds the IS PROJECT column", func(t *testing.T) {
 		r := rows(marked + "," + taskWithID2734("task2"))
 		_, out, err := runTeamTask(t, r, "team", "task", "list")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out, "PROJECT") {
-			t.Fatalf("text must add the PROJECT column: %s", out)
-		}
-		var markedLine, plainLine bool
-		for _, line := range strings.Split(out, "\n") {
-			if strings.Contains(line, "task9") {
-				markedLine = strings.Contains(line, "yes")
-			}
-			if strings.Contains(line, "task2") {
-				plainLine = !strings.Contains(line, "yes")
-			}
-		}
-		if !markedLine || !plainLine {
-			t.Fatalf("marked row must show yes, unmarked must not: %s", out)
-		}
+		assertMarkerTable(t, out)
 		var page struct {
 			Tasks []map[string]any `json:"tasks"`
 		}
@@ -263,14 +287,35 @@ func TestTaskListShowsProjectMarker3109(t *testing.T) {
 			t.Fatalf("isProject must ride every task: %s", outJSON)
 		}
 	})
+	t.Run("mine shares the renderer and the column", func(t *testing.T) {
+		_, out, err := runTeamTask(t, rows(marked+","+taskWithID2734("task2")), "team", "task", "mine")
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertMarkerTable(t, out)
+	})
+	t.Run("list --team keeps its own table, no marker column", func(t *testing.T) {
+		r := rows(marked + "," + taskWithID2734("task2"))
+		r["TeamReportingLines"] = r["TeamRoster"]
+		_, out, err := runTeamTask(t, r, "team", "task", "list", "--team=worker:wkr1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(out, "task9") {
+			t.Fatalf("the team table must render the row: %s", out)
+		}
+		if strings.Contains(out, "IS PROJECT") {
+			t.Fatalf("the --team ops table deliberately shows no marker column: %s", out)
+		}
+	})
 	t.Run("no marked row, no column", func(t *testing.T) {
 		r := taskResponses()
 		_, out, err := runTeamTask(t, r, "team", "task", "list")
 		if err != nil {
 			t.Fatal(err)
 		}
-		if strings.Contains(out, "PROJECT") {
-			t.Fatalf("an unmarked page must not add the PROJECT column: %s", out)
+		if strings.Contains(out, "IS PROJECT") {
+			t.Fatalf("an unmarked page must not add the IS PROJECT column: %s", out)
 		}
 	})
 }

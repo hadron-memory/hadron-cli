@@ -13,7 +13,7 @@ clone does"). The server gained an explicit project marker (`AgentTask.isProject
 | `task create …` (flag omitted) | the key is omitted entirely (never sent as null); the server creates the task unmarked |
 | `task clone <task> --is-project[=false]` | overrides the copied marker outright: true marks the clone, false unmarks it; omitted keeps the source's marker |
 | `task create --batch-file` | an item's `"isProject"` passes through unchanged (items decode into the generated `CreateAgentTaskInput`); `--is-project` stays refused beside `--batch-file` |
-| `task get` / `task list` | text shows the marker — `get` prints a `project marker: yes` line (only when marked; distinct from the "project:" line that names where the task sits), `list` and `mine` add a PROJECT column (yes/—) when any row on the page is marked (`list --team` keeps its own ops table, no marker column); `--json` carries `isProject` on every task, all task commands |
+| `task get` / `task list` | text shows the marker — `get` prints a `project marker: yes` line (only when marked; distinct from the "project:" line that names where the task sits), `list` and `mine` add an IS PROJECT column (yes/—) when any row on the page is marked (`list --team` keeps its own ops table, no marker column); `--json` carries `isProject` on every task, all task commands |
 
 `project: true` with `isProject: false` is refused by the server
 (`BAD_USER_INPUT`, exit 2, nothing created); the CLI passes it through

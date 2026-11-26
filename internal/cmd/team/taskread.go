@@ -949,7 +949,10 @@ func listTasks(ctx context.Context, f *cmdutil.Factory, scope appScope, q taskLi
 		}
 		headers := handleHeaders(withHandle, "ID", "STATUS", "PRIORITY", "BLOCKED", "BLOCKED BY", "BLOCKS", "TITLE", "OWNER", "ASSIGNEE")
 		if withProject {
-			headers = append(headers, "PROJECT")
+			// cli#3109 review (P3): IS PROJECT, not PROJECT — the plain noun
+			// reads as "belongs to a project" beside a HANDLE like AT3.405;
+			// the cell answers whether the task IS one itself.
+			headers = append(headers, "IS PROJECT")
 		}
 		if withMinTier {
 			headers = append(headers, "MIN TIER")
