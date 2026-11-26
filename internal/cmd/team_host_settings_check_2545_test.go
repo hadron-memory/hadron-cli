@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 
@@ -356,8 +357,16 @@ func TestTeamHostSettingsCheckMissingGitdir3201(t *testing.T) {
 			if !tc.mkGitdir && (w.Effective != nil || w.Source != nil) {
 				t.Fatalf("a missing gitdir must have no effective value and no source: %s", raw)
 			}
-			if tc.mkGitdir && (w.Effective == nil || *w.Effective || w.Source == nil) {
+			// cli#3225: DRIFT alone would be satisfied by any unrelated reason.
+			if !tc.mkGitdir && !slices.Contains(w.Reasons, "UNREADABLE") {
+				t.Fatalf("a missing gitdir must say UNREADABLE among its reasons: %v\n%s", w.Reasons, raw)
+			}
+			if tc.mkGitdir && (w.Effective == nil || *w.Effective) {
 				t.Fatalf("a submodule must read the account file off: %s", raw)
+			}
+			// cli#3225: the source is the account settings.json the fixture wrote.
+			if tc.mkGitdir && (w.Source == nil || *w.Source != filepath.Join(x.home, ".claude", "settings.json")) {
+				t.Fatalf("a submodule's source must be the account settings.json %s: %v", filepath.Join(x.home, ".claude", "settings.json"), w.Source)
 			}
 		})
 	}
