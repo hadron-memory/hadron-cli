@@ -477,6 +477,14 @@ func renderError(f *cmdutil.Factory, err error) int {
 				break
 			}
 		}
+		// cli#3111: the fixed reason of a SESSION_NOT_LIVE refusal, additive beside
+		// serverCode; absent when the server sent none or one outside the fixed set.
+		// Another writer of "reason" follows (the batch distinct-assignees match,
+		// cli#1567) and wins; the two are different commands' refusals and can
+		// never be one error.
+		if reason := api.SessionNotLiveReason(err); reason != "" {
+			failure["reason"] = reason
+		}
 		var coded interface{ ServerCode() string }
 		if errors.As(err, &coded) {
 			failure["serverCode"] = coded.ServerCode()
