@@ -286,8 +286,8 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 					return err
 				}
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Adjust the credit of %s by %s micro-cents (source %s / %s)?",
-				promptValue(args[0]), promptValue(amount), promptValue(sourceType), promptValue(sourceID))); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Adjust the credit of %s by %s micro-cents (source %s / %s, note %s; the note is kept for good)?",
+				promptValue(args[0]), promptValue(amount), promptValue(sourceType), promptValue(sourceID), promptValue(note))); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()

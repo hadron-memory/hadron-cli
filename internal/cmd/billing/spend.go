@@ -99,6 +99,9 @@ micro-cents = 1 USD). Cost is what the use cost; charged is what was debited
 from the credit. Use on the organization's own key has a cost and no charge.
 Cost covers only units that have a price: UNPRICED counts the rest, and a row
 with no priced unit shows "unpriced" instead of a number. Never read it as 0.
+With --json the row carries the server's figures as they are: when unpricedEvents
+equals events the row is unpriced and costMicroCents is "0", which is no cost; a
+row that is only partly unpriced has a cost for its priced units only.
 
 When the server has more groups than it returns, a line on stderr says so.
 A row with no value for the grouping has the key "(none)", an empty string
@@ -142,7 +145,7 @@ with --json.`,
 			dto := spendDTO{From: s.From, To: s.To, GroupBy: groupBy, Truncated: s.Truncated, TotalGroups: s.TotalGroups, Rows: []spendRowDTO{}}
 			for _, r := range s.Rows {
 				if r == nil {
-					continue
+					return exitcode.Newf(exitcode.Error, "the server returned a null spend row (the schema forbids one); nothing is shown (the org given is not shown)")
 				}
 				dto.Rows = append(dto.Rows, spendRowDTO{
 					Key: r.Key, Events: r.Events, TokensIn: r.TokensIn, TokensOut: r.TokensOut,

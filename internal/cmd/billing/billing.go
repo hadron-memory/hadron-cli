@@ -341,9 +341,10 @@ grants which have already expired.`,
 				Expiring:          []expiringDTO{},
 			}
 			for _, e := range resp.CreditBalance.Expiring {
-				if e != nil {
-					dto.Expiring = append(dto.Expiring, expiringDTO{AmountMicroCents: e.AmountMicroCents, ExpiresAt: e.ExpiresAt})
+				if e == nil {
+					return exitcode.Newf(exitcode.Error, "the server returned a null expiring part (the schema forbids one); nothing is shown (the org given is not shown)")
 				}
+				dto.Expiring = append(dto.Expiring, expiringDTO{AmountMicroCents: e.AmountMicroCents, ExpiresAt: e.ExpiresAt})
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "%s micro-cents (organization %s)\n", output.SafeCell(dto.BalanceMicroCents), output.SafeCell(dto.OrganizationID)); err != nil {
@@ -368,8 +369,8 @@ func newCmdLedger(f *cmdutil.Factory) *cobra.Command {
 		Long: `List every credit grant, charge and adjustment for an organization, newest
 first, so you can see what produced the balance. Grants are positive, charges
 negative and adjustments either, in micro-cents (1 USD = 100,000,000
-micro-cents; a charge of -1500000 is 1.5 cents). Requires org ADMIN. Without --limit the whole ledger is listed; --limit
-and --offset ask for one page.
+micro-cents; a charge of -1500000 is 1.5 cents). Requires org ADMIN. Without
+--limit the whole ledger is listed; --limit and --offset ask for one page.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example
 hrn:org:acme.com).`,
