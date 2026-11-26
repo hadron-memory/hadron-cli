@@ -343,6 +343,9 @@ func TestSpec1736ConflictCauses(t *testing.T) {
 		"unreadable edge": {state: spec1736("sp1", door1736Old, "mem1", 7, `["spec"]`, "null", unreadableEdge1736),
 			verbs: []string{"rescind", "by", "create"},
 			want:  []string{"refused, nothing written; the cause isn't visible to this read"}},
+		// A hidden link wins over a moved revision: the generic message, no inference.
+		"unreadable edge and moved revision": {state: spec1736("sp1", door1736Old, "mem1", 9, `["spec"]`, "null", unreadableEdge1736),
+			verbs: []string{"rescind"}, want: []string{"refused, nothing written; the cause isn't visible to this read"}},
 		"nothing visible": {verbs: []string{"rescind"},
 			want: []string{"refused, nothing written; the cause isn't visible to this read", "currently not retired"}},
 		"unreadable spec": {state: "null", verbs: []string{"rescind", "by"},
@@ -707,5 +710,44 @@ func TestSpec1736Help(t *testing.T) {
 				t.Errorf("%s help missing %q", verb, want)
 			}
 		}
+	}
+}
+
+// A success is rendered only from an answer that shows the retirement asked for:
+// the retired tag, and for a supersede the edge to the successor named.
+func TestSpec1736ShortAnswerIsNotASuccess(t *testing.T) {
+	node := `{"id":"sp1","loc":"msg:010:02","revision":8,"tags":%s,"abstract":null}`
+	retired, untagged := strings.Replace(node, "%s", `["spec","superseded"]`, 1), strings.Replace(node, "%s", `["spec"]`, 1)
+	other := `{"id":"e1","name":"superseded-by","target":{"id":"zz","loc":"a:b","name":"n","tags":[]}}`
+	for name, c := range map[string]struct {
+		args       []string
+		node, edge string
+	}{
+		"rescind without the tag":     {verbRescind1736, untagged, "null"},
+		"supersede without an edge":   {verbBy1736, retired, "null"},
+		"supersede without a target":  {verbBy1736, retired, `{"id":"e1","name":"superseded-by","target":null}`},
+		"supersede to another target": {verbBy1736, retired, other},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := &door1736{reply: `{"data":{"retireSpec":{"node":` + c.node + `,"successorEdge":` + c.edge + `}}}`}
+			out, err := run1736(t, s, c.args, "--json")
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Fatalf("exit = %d (%v)\n%s", got, err, out)
+			}
+			if m := json1736(t, out); m["outcome"] != "unknown" {
+				t.Errorf("outcome = %v", m["outcome"])
+			}
+		})
+	}
+}
+
+// Only the door's own absence is "unsupported": another validation failure is
+// reported as the schema skew it is.
+func TestSpec1736OtherSchemaSkewIsNotAnUnsupportedDoor(t *testing.T) {
+	s := &door1736{reply: `{"errors":[{"message":"Cannot query field \"abstract\" on type \"Node\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`}
+	out, err := run1736(t, s, verbRescind1736)
+	all := text1736(out, err)
+	if err == nil || strings.Contains(all, "does not support retireSpec") || !strings.Contains(all, "abstract") {
+		t.Fatalf("message:\n%s", all)
 	}
 }
