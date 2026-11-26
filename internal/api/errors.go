@@ -1299,6 +1299,13 @@ func codeForExtension(code string) int {
 	case code == "GITHUB_NOT_INSTALLED" || code == "GITHUB_TOKEN_SCOPE_MISMATCH" ||
 		code == "TASK_INTEGRATION_ORG_REQUIRED" || code == "APP_PROPERTIES_CONFLICT":
 		return exitcode.Conflict
+	// cli#3209: finishAgentTask refuses a review-seat task that has no verdict
+	// recorded (hadron-server seatVerdictGate, before any write). It is the
+	// task's state, fixed by recording the verdict and finishing again, like
+	// TASK_ENDED: 5. A literal row, ahead of the _REQUIRED suffix rule's usage
+	// exit below.
+	case code == "SEAT_VERDICT_REQUIRED":
+		return exitcode.Conflict
 	case code == "GITHUB_UNAVAILABLE":
 		return exitcode.Unavailable
 	// S12b defect links (hadron-cli#2189, hadron-server#4280): a caller who may

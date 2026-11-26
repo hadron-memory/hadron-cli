@@ -7337,6 +7337,13 @@ JSON is `{taskId,findings}`; findings is null before a result exists, distinct
 from an empty finished page. Human ids/severity use safe cells and text uses a
 2000-code-point safe block; JSON retains the complete original valid text.
 
+`team task finish` on a review-seat task (bound with `pr seat`) that has no
+verdict recorded at its assigned head is refused SEAT_VERDICT_REQUIRED, exit 5
+(the task's state, like TASK_ENDED; cli#3209): run `team pr verdict <seat-task>
+...` while the task is STARTED, then finish. Exempt: a seat never bound, a
+superseded seat, and outcome failed or cancelled. Nothing is written by the
+refused call.
+
 Missing/unreadable tasks exit 4; assignee/permission refusals 8, ended/transition
 refusals 5, authentication 3, bad input/schema mismatch 2, transport/gateway
 unavailability 7, other internal/invalid-answer errors 1. Server codes remain in
