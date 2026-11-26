@@ -111,8 +111,13 @@ type taskDTO struct {
 	AssignedBy        *taskPartyDTO          `json:"assignedBy"`
 	CreatedBy         *taskPartyDTO          `json:"createdBy"`
 	ParentTaskID      *string                `json:"parentTaskId"`
-	Tags              []string               `json:"tags"`
-	Source            *string                `json:"source"`
+	// IsProject is the explicit project marker (cli#3109, hadron-server#4997,
+	// cor:agt:150): true when the task is itself a project, whatever its
+	// parent — a nested task can carry it too. Set at creation only, and the
+	// server always returns it, so the key rides every task --json.
+	IsProject bool     `json:"isProject"`
+	Tags      []string `json:"tags"`
+	Source    *string  `json:"source"`
 	// ExternalID is the outside item the task claims (cli#1524, cor:agt:120:02):
 	// set once at create, never edited; null when the task claims none.
 	ExternalID *string `json:"externalId"`
@@ -329,6 +334,7 @@ func taskDTOFrom(fields gen.AgentTaskFields) (taskDTO, error) {
 		AssignedBy:           partyDTO(fields.AssignedBy),
 		CreatedBy:            partyDTO(fields.CreatedBy),
 		ParentTaskID:         fields.ParentTaskId,
+		IsProject:            fields.IsProject,
 		Tags:                 []string{},
 		Source:               fields.Source,
 		ExternalID:           fields.ExternalId,

@@ -656,10 +656,7 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 17: 4 gap, 13 excluded
-Mutation.cloneAgentTask(input.isProject)  gap #3109
-Mutation.createAgentTask(input.isProject)  gap #3109
-Mutation.createAgentTasks(tasks.task.isProject)  gap #3109
+[Arguments] 14: 1 gap, 13 excluded
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)

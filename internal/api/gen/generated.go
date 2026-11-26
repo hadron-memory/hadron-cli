@@ -3229,6 +3229,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCreatedBy() *AgentT
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -3389,6 +3394,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -3458,6 +3465,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -3575,6 +3583,11 @@ func (v *AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask) GetAssignedB
 // GetCreatedBy returns AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -3737,6 +3750,8 @@ type __premarshalAgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask struc
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -3806,6 +3821,7 @@ func (v *AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask) __premarshal
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -3928,6 +3944,9 @@ func (v *AgentTaskAssignAssignAgentTask) GetAssignedBy() *AgentTaskFieldsAssigne
 func (v *AgentTaskAssignAssignAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskAssignAssignAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskAssignAssignAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetParentTaskId() *string {
@@ -4071,6 +4090,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -4140,6 +4161,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -4249,6 +4271,11 @@ func (v *AgentTaskAssignInstructedAssignAgentTask) GetAssignedBy() *AgentTaskFie
 // GetCreatedBy returns AgentTaskAssignInstructedAssignAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignInstructedAssignAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskAssignInstructedAssignAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignInstructedAssignAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskAssignInstructedAssignAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -4409,6 +4436,8 @@ type __premarshalAgentTaskAssignInstructedAssignAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -4478,6 +4507,7 @@ func (v *AgentTaskAssignInstructedAssignAgentTask) __premarshalJSON() (*__premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -4614,6 +4644,9 @@ func (v *AgentTaskCancelCancelAgentTask) GetAssignedBy() *AgentTaskFieldsAssigne
 func (v *AgentTaskCancelCancelAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskCancelCancelAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskCancelCancelAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetParentTaskId() *string {
@@ -4757,6 +4790,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -4826,6 +4861,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -4935,6 +4971,11 @@ func (v *AgentTaskCancelInstructedCancelAgentTask) GetAssignedBy() *AgentTaskFie
 // GetCreatedBy returns AgentTaskCancelInstructedCancelAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelInstructedCancelAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskCancelInstructedCancelAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelInstructedCancelAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskCancelInstructedCancelAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -5095,6 +5136,8 @@ type __premarshalAgentTaskCancelInstructedCancelAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -5164,6 +5207,7 @@ func (v *AgentTaskCancelInstructedCancelAgentTask) __premarshalJSON() (*__premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -5298,6 +5342,9 @@ func (v *AgentTaskCloneCloneAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedB
 func (v *AgentTaskCloneCloneAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskCloneCloneAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskCloneCloneAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskCloneCloneAgentTask) GetParentTaskId() *string {
@@ -5439,6 +5486,8 @@ type __premarshalAgentTaskCloneCloneAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -5508,6 +5557,7 @@ func (v *AgentTaskCloneCloneAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -5644,6 +5694,11 @@ func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetAssignedBy() *AgentTa
 // GetCreatedBy returns AgentTaskCreateBatchCreateAgentTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskCreateBatchCreateAgentTasksAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskCreateBatchCreateAgentTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -5806,6 +5861,8 @@ type __premarshalAgentTaskCreateBatchCreateAgentTasksAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -5875,6 +5932,7 @@ func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) __premarshalJSON() (*__p
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -6021,6 +6079,9 @@ func (v *AgentTaskCreateCreateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedB
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskCreateCreateAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskCreateCreateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -6165,6 +6226,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -6235,6 +6298,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -6378,6 +6442,11 @@ func (v *AgentTaskCreateInstructedCreateAgentTask) GetAssignedBy() *AgentTaskFie
 // GetCreatedBy returns AgentTaskCreateInstructedCreateAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateInstructedCreateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskCreateInstructedCreateAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateInstructedCreateAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskCreateInstructedCreateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -6540,6 +6609,8 @@ type __premarshalAgentTaskCreateInstructedCreateAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -6610,6 +6681,7 @@ func (v *AgentTaskCreateInstructedCreateAgentTask) __premarshalJSON() (*__premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -7321,6 +7393,9 @@ type AgentTaskFields struct {
 	Assignee   *AgentTaskFieldsAssigneeAgentTaskParty   `json:"assignee"`
 	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
 	CreatedBy  *AgentTaskFieldsCreatedByAgentTaskParty  `json:"createdBy"`
+	// #4997 (hrn:node:hadronmemory.com:specs:cor:agt:050:01 Project marker): whether this task is a project for the team metrics
+	// (hrn:node:hadronmemory.com:specs:cor:agt:150). Set only when the task is created and never changed; AT0 is never one.
+	IsProject bool `json:"isProject"`
 	// Null for a root task.
 	ParentTaskId *string  `json:"parentTaskId"`
 	Tags         []string `json:"tags"`
@@ -7419,6 +7494,9 @@ func (v *AgentTaskFields) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskPar
 
 // GetCreatedBy returns AgentTaskFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty { return v.CreatedBy }
+
+// GetIsProject returns AgentTaskFields.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetIsProject() bool { return v.IsProject }
 
 // GetParentTaskId returns AgentTaskFields.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetParentTaskId() *string { return v.ParentTaskId }
@@ -8479,6 +8557,9 @@ func (v *AgentTaskFinishFinishAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedB
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskFinishFinishAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskFinishFinishAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -8621,6 +8702,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -8690,6 +8773,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -8838,6 +8922,11 @@ func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetAssignedBy() *AgentTaskF
 // GetCreatedBy returns AgentTaskFinishWithFindingsFinishAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskFinishWithFindingsFinishAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskFinishWithFindingsFinishAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -9002,6 +9091,8 @@ type __premarshalAgentTaskFinishWithFindingsFinishAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -9072,6 +9163,7 @@ func (v *AgentTaskFinishWithFindingsFinishAgentTask) __premarshalJSON() (*__prem
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -9300,6 +9392,9 @@ func (v *AgentTaskGetAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTas
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskGetAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskGetAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetParentTaskId() *string { return v.AgentTaskFields.ParentTaskId }
 
@@ -9440,6 +9535,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -9511,6 +9608,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -9835,6 +9933,9 @@ func (v *AgentTaskHandBackHandBackAgentTask) GetCreatedBy() *AgentTaskFieldsCrea
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskHandBackHandBackAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskHandBackHandBackAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -9987,6 +10088,8 @@ type __premarshalAgentTaskHandBackHandBackAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -10056,6 +10159,7 @@ func (v *AgentTaskHandBackHandBackAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -10320,6 +10424,11 @@ func (v *AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedBy() 
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -10480,6 +10589,8 @@ type __premarshalAgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -10549,6 +10660,7 @@ func (v *AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) __premarshalJSO
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -10687,6 +10799,11 @@ func (v *AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) GetAssig
 // GetCreatedBy returns AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -10849,6 +10966,8 @@ type __premarshalAgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask s
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -10918,6 +11037,7 @@ func (v *AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) __premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -11074,6 +11194,11 @@ func (v *AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) GetAssi
 // GetCreatedBy returns AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -11236,6 +11361,8 @@ type __premarshalAgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask 
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -11305,6 +11432,7 @@ func (v *AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) __prema
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -11481,6 +11609,11 @@ func (v *AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedB
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -11641,6 +11774,8 @@ type __premarshalAgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask stru
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -11710,6 +11845,7 @@ func (v *AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) __premarsha
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -11866,6 +12002,11 @@ func (v *AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) GetAs
 // GetCreatedBy returns AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -12028,6 +12169,8 @@ type __premarshalAgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTas
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -12097,6 +12240,7 @@ func (v *AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) __pre
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -12281,6 +12425,11 @@ func (v *AgentTaskParkInstructedParkAgentTask) GetCreatedBy() *AgentTaskFieldsCr
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskParkInstructedParkAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkInstructedParkAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskParkInstructedParkAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkInstructedParkAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -12435,6 +12584,8 @@ type __premarshalAgentTaskParkInstructedParkAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -12504,6 +12655,7 @@ func (v *AgentTaskParkInstructedParkAgentTask) __premarshalJSON() (*__premarshal
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -12620,6 +12772,9 @@ func (v *AgentTaskParkParkAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByA
 func (v *AgentTaskParkParkAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskParkParkAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskParkParkAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetParentTaskId() *string { return v.AgentTaskFields.ParentTaskId }
@@ -12759,6 +12914,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -12828,6 +12985,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -13014,6 +13172,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetCreatedBy() *Agen
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskProgressRecordAgentTaskProgressAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskProgressRecordAgentTaskProgressAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -13174,6 +13337,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -13243,6 +13408,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -13373,6 +13539,11 @@ func (v *AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask) GetAssignedBy() *A
 // GetCreatedBy returns AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -13535,6 +13706,8 @@ type __premarshalAgentTaskReadyInstructedMakeAgentTaskReadyAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -13604,6 +13777,7 @@ func (v *AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask) __premarshalJSON()
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -13730,6 +13904,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetAssignedBy() *AgentTaskFi
 // GetCreatedBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskReadyMakeAgentTaskReadyAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -13890,6 +14069,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -13959,6 +14140,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -14091,6 +14273,11 @@ func (v *AgentTaskReassignInstructedReassignAgentTask) GetAssignedBy() *AgentTas
 // GetCreatedBy returns AgentTaskReassignInstructedReassignAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignInstructedReassignAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskReassignInstructedReassignAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignInstructedReassignAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskReassignInstructedReassignAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -14253,6 +14440,8 @@ type __premarshalAgentTaskReassignInstructedReassignAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -14322,6 +14511,7 @@ func (v *AgentTaskReassignInstructedReassignAgentTask) __premarshalJSON() (*__pr
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -14442,6 +14632,9 @@ func (v *AgentTaskReassignReassignAgentTask) GetAssignedBy() *AgentTaskFieldsAss
 func (v *AgentTaskReassignReassignAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskReassignReassignAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskReassignReassignAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetParentTaskId() *string {
@@ -14595,6 +14788,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -14664,6 +14859,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -14854,6 +15050,11 @@ func (v *AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask) GetCreat
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -15014,6 +15215,8 @@ type __premarshalAgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask s
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -15083,6 +15286,7 @@ func (v *AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask) __premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -15217,6 +15421,11 @@ func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetAssignedBy() *A
 // GetCreatedBy returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -15379,6 +15588,8 @@ type __premarshalAgentTaskReleaseReleaseAgentTaskExternalIdAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -15448,6 +15659,7 @@ func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) __premarshalJSON()
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -15582,6 +15794,11 @@ func (v *AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask) GetAss
 // GetCreatedBy returns AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -15744,6 +15961,8 @@ type __premarshalAgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -15813,6 +16032,7 @@ func (v *AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask) __prem
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -15941,6 +16161,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAssignedBy() 
 // GetCreatedBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -16103,6 +16328,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -16172,6 +16399,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -16541,6 +16769,11 @@ func (v *AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask) GetCreated
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -16701,6 +16934,8 @@ type __premarshalAgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask str
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -16770,6 +17005,7 @@ func (v *AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask) __premarsh
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -16898,6 +17134,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAssignedBy() *Age
 // GetCreatedBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -17060,6 +17301,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -17129,6 +17372,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -17298,6 +17542,9 @@ func (v *AgentTaskStartStartAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByA
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskStartStartAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskStartStartAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -17438,6 +17685,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -17507,6 +17756,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -17731,6 +17981,9 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetCreatedBy() *AgentTaskFieldsCre
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskTreeAgentTaskTreeAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskTreeAgentTaskTreeAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -17885,6 +18138,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -17954,6 +18209,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -18092,6 +18348,11 @@ func (v *AgentTaskUpdateInstructedUpdateAgentTask) GetAssignedBy() *AgentTaskFie
 // GetCreatedBy returns AgentTaskUpdateInstructedUpdateAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateInstructedUpdateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskUpdateInstructedUpdateAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateInstructedUpdateAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskUpdateInstructedUpdateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -18252,6 +18513,8 @@ type __premarshalAgentTaskUpdateInstructedUpdateAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -18321,6 +18584,7 @@ func (v *AgentTaskUpdateInstructedUpdateAgentTask) __premarshalJSON() (*__premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -18438,6 +18702,9 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetAssignedBy() *AgentTaskFieldsAssigne
 func (v *AgentTaskUpdateUpdateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskUpdateUpdateAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskUpdateUpdateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetParentTaskId() *string {
@@ -18581,6 +18848,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -18650,6 +18919,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -152103,6 +152373,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152251,6 +152522,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152399,6 +152671,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152549,6 +152822,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152699,6 +152973,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152843,6 +153118,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152989,6 +153265,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153149,6 +153426,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153323,6 +153601,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153480,6 +153759,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153849,6 +154129,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154002,6 +154283,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154177,6 +154459,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154329,6 +154612,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154522,6 +154806,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154691,6 +154976,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154890,6 +155176,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155088,6 +155375,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155257,6 +155545,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155450,6 +155739,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155598,6 +155888,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155744,6 +156035,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155888,6 +156180,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156035,6 +156328,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156181,6 +156475,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156329,6 +156624,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156479,6 +156775,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156627,6 +156924,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156773,6 +157071,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156921,6 +157220,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157121,6 +157421,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157269,6 +157570,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157417,6 +157719,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157615,6 +157918,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157759,6 +158063,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157919,6 +158224,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
