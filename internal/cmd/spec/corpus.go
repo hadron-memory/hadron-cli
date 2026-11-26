@@ -741,9 +741,11 @@ func writeMint(f *cmdutil.Factory, d mintDTO) error {
 	})
 }
 
-// renderMint prints the mint report. dryRunHint says whether a mintable report ends
-// with "run without --dry-run to mint": true only when the report IS a dry run.
-func renderMint(w io.Writer, d mintDTO, dryRunHint bool) error {
+// renderMint prints the mint report. showDryRunHint says whether a mintable report ends
+// with "run without --dry-run to mint": true only when the reader should go run the real
+// mint. The real-mint call sites pass false for the dry run's report, whose own DryRun is
+// true, so the report's flag is not what decides it.
+func renderMint(w io.Writer, d mintDTO, showDryRunHint bool) error {
 	fmt.Fprintf(w, "Mint report — %s\n", d.Memory)
 	if d.MintLocs != nil {
 		fmt.Fprintf(w, "  eligible nodes: %d", len(*d.MintLocs))
@@ -800,7 +802,7 @@ func renderMint(w io.Writer, d mintDTO, dryRunHint bool) error {
 		}
 	case d.Blocked:
 		fmt.Fprintf(w, "✗ not mintable: %d blocker(s) remain\n", len(d.Blockers))
-	case dryRunHint:
+	case showDryRunHint:
 		fmt.Fprintln(w, "✓ mintable — run without --dry-run to mint")
 	}
 	return nil
