@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"net/http"
 	"testing"
 
@@ -38,14 +39,14 @@ func TestIsRefusedBeforeCommit3266(t *testing.T) {
 		"mixed: one refusal and one uncoded":        {gqlerror.List{retireErr("x", field, "NODE_WRITE_CONFLICT"), retireErr("y", field, "")}, false},
 		"mixed: one refusal and one internal fault": {gqlerror.List{retireErr("x", field, "FORBIDDEN"), retireErr("y", field, "INTERNAL_SERVER_ERROR")}, false},
 		"mixed: one refusal and one deeper error":   {gqlerror.List{retireErr("x", field, "FORBIDDEN"), retireErr("y", deeper, "FORBIDDEN")}, false},
+		"an empty GraphQL list is unknown":          {gqlerror.List{}, false},
 		"a nil entry is unknown":                    {gqlerror.List{nil}, false},
 		"an empty list with HTTP 401 is a refusal":  {httpStatus(401), true},
 		"an empty list with HTTP 403 is a refusal":  {httpStatus(403), true},
 		"an empty list with HTTP 500 is unknown":    {httpStatus(500), false},
 		"an empty list with HTTP 502 is unknown":    {httpStatus(http.StatusBadGateway), false},
-		"a non-GraphQL error is unknown":            {http.ErrHandlerTimeout, false},
+		"a non-GraphQL error is unknown":            {errors.New("not a GraphQL error"), false},
 		"HTTP 403 carrying an uncoded error":        {httpStatus(403, retireErr("x", field, "")), false},
-		"HTTP 500 carrying a coded error at field":  {httpStatus(500, retireErr("x", field, "FORBIDDEN")), true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := IsRefusedBeforeCommit(c.err); got != c.want {
@@ -55,6 +56,12 @@ func TestIsRefusedBeforeCommit3266(t *testing.T) {
 	}
 }
 
+// Deliberately NOT pinned: a coded error that arrives under an HTTP 5xx. The
+// verdict today follows the code alone, and whether a gateway or timeout code
+// there is a refusal is not this issue's to settle (blind review, cli#3266).
+
+// IsRetireSpecUnsupported matches the framework's validation wording, which a
+// gqlparser upgrade can change; these cases are the canary for that.
 func TestIsRetireSpecUnsupported3266(t *testing.T) {
 	const code = "GRAPHQL_VALIDATION_FAILED"
 	field := `Cannot query field "retireSpec" on type "Mutation".`
@@ -76,7 +83,7 @@ func TestIsRetireSpecUnsupported3266(t *testing.T) {
 		"one unsupported and one other error":        {gqlerror.List{retireErr(field, nil, code), retireErr("x", nil, "FORBIDDEN")}, false},
 		"a nil entry":                                {gqlerror.List{nil}, false},
 		"an empty list":                              {gqlerror.List{}, false},
-		"a non-GraphQL error":                        {http.ErrHandlerTimeout, false},
+		"a non-GraphQL error":                        {errors.New("not a GraphQL error"), false},
 		"HTTP 400 carrying the missing field":        {httpStatus(400, retireErr(field, nil, code)), true},
 	} {
 		t.Run(name, func(t *testing.T) {
