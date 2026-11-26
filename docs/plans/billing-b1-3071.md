@@ -32,4 +32,5 @@ the `prices set` wording "effective now" changes when hadron-server#5021 lands.
 Follow-up (cli#3207): a null element in `spend` rows or `balance` expiring parts
 fails the command with exit 1 and prints nothing (the schema types them
 non-null; skipping one would show a short list as the whole one). `ledger` and
-`prices` still skip a null item. The `adjust` prompt shows the note.
+`prices` still skip a null item: the issue scoped the change to `spend` and `balance`,
+and a ledger or prices list gets its own issue if it should fail too. The `adjust` prompt shows the note.

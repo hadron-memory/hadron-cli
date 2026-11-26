@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -81,6 +82,10 @@ func compactJSON3071(t *testing.T, s string) string {
 	}
 	return b.String()
 }
+
+// A cost is never described as owed or due: whole words only, so a key such as
+// "residue" does not trip the check.
+var owedOrDue3207 = regexp.MustCompile(`(?i)\b(?:owed|due)\b`)
 
 func TestBillingSpendEmptyRowsIsAnEmptyArray(t *testing.T) {
 	out, _, err := runBilling(t, spendResponse("", "false", "0"), spendArgs("--json")...)

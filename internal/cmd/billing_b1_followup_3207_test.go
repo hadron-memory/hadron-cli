@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"regexp"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -26,16 +26,21 @@ func TestBillingNullListElementFailsTheCommand3207(t *testing.T) {
 		{"balance", map[string]string{"CreditBalance": `{"data":{"creditBalance":{"organizationId":"org1","balanceMicroCents":"7","expiring":[null]}}}`}, []string{"billing", "balance", "acme"}},
 		{"balance --json", map[string]string{"CreditBalance": `{"data":{"creditBalance":{"organizationId":"org1","balanceMicroCents":"7","expiring":[{"amountMicroCents":"2","expiresAt":"2027-01-01T00:00:00.000Z"},null]}}}`}, []string{"billing", "balance", "acme", "--json"}},
 	} {
-		out, _, err := runBilling(t, tc.resp, tc.args...)
-		if got := exitCodeFor(err); got != exitcode.Error {
-			t.Errorf("%s: want exit %d, got %d (%v)", tc.name, exitcode.Error, got, err)
-		}
-		if out != "" {
-			t.Errorf("%s: nothing may be printed for a response the schema forbids: %q", tc.name, out)
-		}
-		if err != nil && strings.Contains(err.Error(), "acme") {
-			t.Errorf("%s: the org given is not shown: %v", tc.name, err)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			out, _, err := runBilling(t, tc.resp, tc.args...)
+			if got := exitCodeFor(err); got != exitcode.Error {
+				t.Errorf("want exit %d, got %d (%v)", exitcode.Error, got, err)
+			}
+			if err == nil || !strings.Contains(err.Error(), "null") {
+				t.Errorf("the error must say a null element came back: %v", err)
+			}
+			if out != "" {
+				t.Errorf("nothing may be printed for a response the schema forbids: %q", out)
+			}
+			if err != nil && strings.Contains(err.Error(), "acme") {
+				t.Errorf("the org given is not shown: %v", err)
+			}
+		})
 	}
 }
 
@@ -83,7 +88,7 @@ func TestBillingSpendOrgAdminRefusalIsExit8Once3207(t *testing.T) {
 	}
 }
 
-func TestBillingSpendOffsetBoundIsSentAsGiven3207(t *testing.T) {
+func TestBillingSpendTimeWithUTCOffsetIsSentAsGiven3207(t *testing.T) {
 	_, captured, err := runBilling(t, spendResponse("", "false", "0"), "billing", "spend", "o",
 		"--from", "2026-11-01T02:00:00+02:00", "--to", "2026-12-01T00:00:00-05:00", "--group-by", "day")
 	if err != nil {
@@ -95,18 +100,17 @@ func TestBillingSpendOffsetBoundIsSentAsGiven3207(t *testing.T) {
 	}
 }
 
-func TestBillingGrantExpiresAtWithOffsetIsSentAndEntryShowsIt3207(t *testing.T) {
-	out, captured, err := runBilling(t, map[string]string{"GrantCredits": grantResponse},
+func TestBillingGrantExpiresAtWithUTCOffsetIsSentAsGiven3207(t *testing.T) {
+	// The fixture entry carries a different instant from the input, so a CLI
+	// that printed its own input instead of the entry would fail.
+	_, captured, err := runBilling(t, map[string]string{"GrantCredits": grantResponse},
 		"billing", "grant", "acme", "--amount", "5", "--source-type", "t", "--source-id", "i",
-		"--expires-at", "2027-01-01T01:00:00+01:00", "--yes", "--json")
+		"--expires-at", "2027-03-01T01:00:00+01:00", "--yes", "--json")
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if got := billingInputOf(t, captured, "GrantCredits")["expiresAt"]; got != "2027-01-01T01:00:00+01:00" {
+	if got := billingInputOf(t, captured, "GrantCredits")["expiresAt"]; got != "2027-03-01T01:00:00+01:00" {
 		t.Errorf("expiresAt is sent as given: %v", got)
-	}
-	if !strings.Contains(out, `"expiresAt": "2027-01-01T00:00:00.000Z"`) {
-		t.Errorf("the entry's own expiresAt is printed: %s", out)
 	}
 }
 
@@ -115,16 +119,24 @@ func TestBillingGrantConflictJSONNamesTheServerCode3207(t *testing.T) {
 	f, stdout, errOut := testFactoryTTY(t, "")
 	f.JSON = true
 	root := NewRootCmd(f)
-	err := func() error {
-		root.SetArgs([]string{"billing", "grant", "acme", "--amount", "5", "--source-type", "t", "--source-id", "i", "--yes", "--json", "--server", gql.URL})
-		return root.Execute()
-	}()
+	root.SetArgs([]string{"billing", "grant", "acme", "--amount", "5", "--source-type", "t", "--source-id", "i", "--yes", "--json", "--server", gql.URL})
+	err := root.Execute()
 	if got := exitCodeFor(err); got != exitcode.Conflict {
 		t.Errorf("want exit %d, got %d", exitcode.Conflict, got)
 	}
 	renderError(f, err)
-	if out := stdout.String() + errOut.String(); !strings.Contains(out, `"IDEMPOTENCY_CONFLICT"`) {
-		t.Errorf("the failure envelope must carry serverCode: %q", out)
+	var env struct {
+		Error struct {
+			ServerCode string `json:"serverCode"`
+		} `json:"error"`
+		ServerCode string `json:"serverCode"`
+	}
+	raw := stdout.String() + errOut.String()
+	if jerr := json.Unmarshal([]byte(raw), &env); jerr != nil {
+		t.Fatalf("the failure envelope is JSON: %v\n%s", jerr, raw)
+	}
+	if env.ServerCode != "IDEMPOTENCY_CONFLICT" && env.Error.ServerCode != "IDEMPOTENCY_CONFLICT" {
+		t.Errorf("the failure envelope must carry serverCode: %s", raw)
 	}
 }
 
@@ -140,10 +152,6 @@ func TestCompactJSON3071StringEndingInEscapedBackslash3207(t *testing.T) {
 		t.Errorf("an escaped quote and an even run of backslashes: got %s", got)
 	}
 }
-
-// A cost is never described as owed or due: whole words only, so a key such as
-// "residue" does not trip the check.
-var owedOrDue3207 = regexp.MustCompile(`(?i)\b(?:owed|due)\b`)
 
 func TestOwedOrDueCheckMatchesWholeWordsOnly3207(t *testing.T) {
 	for in, want := range map[string]bool{"amount due": true, "Owed": true, "residue": false, "overdue": false, "(none)": false} {

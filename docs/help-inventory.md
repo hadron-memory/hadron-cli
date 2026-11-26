@@ -794,7 +794,7 @@ section between the markers.
 | `billing prices` |  |  | y | #1184 | fb30acdcaf4f |  | unread |  |
 | `billing prices get` |  |  | y | #1184 | 52487a9bf12e |  | unread |  |
 | `billing prices set` |  |  | y | #1184 | 08dca1e37d12 |  | unread |  |
-| `billing spend` |  |  | y | #1184 | 7d581d68a4b7 |  | unread |  |
+| `billing spend` |  |  | y | #1184 | 4f1684612687 |  | unread |  |
 | `calendar` |  |  | y | #1184 | c2849191f7cd | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1201](https://github.com/hadron-memory/hadron-cli/issues/1201) [#2782](https://github.com/hadron-memory/hadron-server/issues/2782) |
 | `calendar event` |  |  | n | #1184 | eda97ca71e1c | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `calendar event create` |  |  | y | #1184 | e91f48331fa3 | Gemma | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6999201725) |
