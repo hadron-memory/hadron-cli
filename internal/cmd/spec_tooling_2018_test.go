@@ -39,7 +39,7 @@ func TestSpecRescindAuthoredClaim2018(t *testing.T) {
 			}
 		}
 	}
-	if err := json.Unmarshal(s.vars["UpdateSpecNode"][0], &v); err != nil {
+	if err := json.Unmarshal(s.vars["RetireSpec"][0], &v); err != nil {
 		t.Fatal(err)
 	}
 	if v.Input.AuthoredWith.Task != "hrn:node:acme.com:tasks:author" || v.Input.AuthoredWith.Revision != 4 {

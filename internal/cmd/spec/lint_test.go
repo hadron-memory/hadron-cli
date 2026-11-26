@@ -774,16 +774,15 @@ func TestTheCapBoundaryIsItsOwnStateNotLumpedWithOverCap(t *testing.T) {
 
 	// PAST the cap the claim is about abstract REPLACEMENTS, not updates — and
 	// my own assertion here encoded the broader version until @codex pointed at
-	// the schema: UpdateNodeInput preserves omitted fields, and `spec supersede`
-	// retires a node by sending only tags and content. So "any update that does
-	// not shorten it" said the very remedy the message recommends would itself
-	// be rejected.
+	// the schema: UpdateNodeInput preserves omitted fields, so a body-only edit
+	// goes through. cli#1736: a retirement composes a new abstract on the server,
+	// from the stored one unless --summary is given, so the message says to give it.
 	over := msgAt(abstractHardMax + 48)
 	if !strings.Contains(over, "REPLACES the abstract is rejected") {
 		t.Errorf("past the cap the claim must be scoped to abstract replacements: %q", over)
 	}
-	if !strings.Contains(over, "spec supersede") {
-		t.Errorf("the message must say the recommended remedy still works: %q", over)
+	if !strings.Contains(over, "spec supersede") || !strings.Contains(over, "--summary") {
+		t.Errorf("the message must say how the recommended remedy works: %q", over)
 	}
 	if strings.Contains(over, "any update that does not shorten") {
 		t.Errorf("the retired overclaim must not come back: %q", over)

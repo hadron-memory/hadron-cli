@@ -55,7 +55,7 @@ func supersedeStderr(t *testing.T, registerAnswer string) (stdout, stderr string
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"spec", "supersede", "msg:010:02", "-m", specMem, "--title", "W2 v2", "--yes", "--json", "--server", srv.URL})
 	if err := root.Execute(); err != nil {
-		t.Fatalf("a committed supersede must succeed: %v\n%s", err, out.String())
+		t.Fatalf("a successful supersede must exit 0: %v\n%s", err, out.String())
 	}
 	return out.String(), f.IOStreams.ErrOut.(*strings.Builder).String(), *c
 }
@@ -77,17 +77,17 @@ func TestSpecSupersedeWithRegisterNodeStillReminds(t *testing.T) {
 	}
 }
 
-// A failed optional lookup after the write is reported honestly, neither
-// failing the committed supersede nor retrying it.
+// A failed optional lookup after the retirement is reported honestly, neither
+// failing the successful supersede nor retrying it.
 func TestSpecSupersedeRegisterLookupFailureIsNotAFailedSupersede(t *testing.T) {
 	_, stderr, calls := supersedeStderr(t, `{"errors":[{"message":"lookup boom"}]}`)
-	if !strings.Contains(stderr, "could not check whether this corpus has a register") || !strings.Contains(stderr, "committed") {
+	if !strings.Contains(stderr, "could not check whether this corpus has a register") || !strings.Contains(stderr, "supersede itself succeeded") {
 		t.Fatalf("expected an honest note:\n%s", stderr)
 	}
 	if strings.Contains(stderr, "reminder: update the register") {
 		t.Fatalf("an unknown register must not claim one exists:\n%s", stderr)
 	}
-	if calls["UpdateSpecNode"] != 1 || calls["CreateSpecNode"] != 1 {
+	if calls["RetireSpec"] != 1 || calls["CreateSpecNode"] != 1 {
 		t.Fatalf("the supersede must not be retried: %v", calls)
 	}
 }

@@ -1,0 +1,56 @@
+# The retire door (cli#1736, hadron-server#3429, cor:spc:010:02): one
+# transaction that sets the tag, banner and abstract and, for SUPERSEDE, inserts
+# the superseded-by edge. The server composes the text and owns every refusal.
+# Success is rendered from this answer alone; nothing is re-read after it.
+# @genqlient(for: "RetireSpecInput.withdrawn", omitempty: true)
+# @genqlient(for: "RetireSpecInput.successorRef", omitempty: true)
+# @genqlient(for: "RetireSpecInput.reason", omitempty: true)
+# @genqlient(for: "RetireSpecInput.summary", omitempty: true)
+# @genqlient(for: "RetireSpecInput.authoredWith", omitempty: true, pointer: true)
+mutation RetireSpec(
+  $input: RetireSpecInput!
+) {
+  retireSpec(input: $input) {
+    node {
+      id
+      revision
+      tags
+      abstract
+    }
+    successorEdge {
+      target {
+        id
+        loc
+        name
+        tags
+      }
+    }
+  }
+}
+
+# The ONE current-state read after a refused or unanswered retirement. It
+# describes the spec (and a supersede's successor) as they are now; it is never
+# proof of what that request did.
+query GetSpecRetireState($ref: ID!, $successorRef: ID!, $withSuccessor: Boolean!) {
+  spec: node(ref: $ref) {
+    ...SpecRetireState
+  }
+  successor: node(ref: $successorRef) @include(if: $withSuccessor) {
+    ...SpecRetireState
+  }
+}
+
+fragment SpecRetireState on Node {
+  id
+  memoryId
+  revision
+  tags
+  outgoingEdges {
+    name
+    target {
+      id
+      loc
+      memoryId
+    }
+  }
+}
