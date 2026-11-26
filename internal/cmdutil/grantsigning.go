@@ -2,6 +2,9 @@ package cmdutil
 
 import (
 	"errors"
+	"fmt"
+	"slices"
+	"strings"
 	"unicode"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -40,6 +43,68 @@ func MapGrantSigningError(err error) error {
 	}
 	return api.MapErrorKeepingCode(err)
 }
+
+// grantSelectionFields are the schema names a selection operation can be refused
+// by when the server has no selection signing (older than hadron-server#5001,
+// or signing switched off).
+var grantSelectionFields = []string{
+	"requestGrantSelectionSignature", "withdrawGrantSigningSelection",
+	"grantSigningSelection", "GrantSigningSelection", "GrantSigningSelectionState",
+}
+
+// MapGrantSelectionError is MapGrantSigningError for the selection operations. A
+// server that lacks them may still offer one-grant signing, so it gets its own
+// sentence. A refusal keeps the server's code in the text, followed by the
+// extensions the issue names (grantRef, reason, cap, state); the same values go
+// to the --json envelope. A grantRef is shown only when it is one of supplied:
+// no refusal echoes a ref the caller did not pass.
+func MapGrantSelectionError(err error, supplied []string) error {
+	if api.IsGraphQLValidationOnlyFor(err, grantSelectionFields...) {
+		return api.WithServerCode(exitcode.Newf(exitcode.Usage, "this server does not offer signing a selection of grants"), err)
+	}
+	mapped := MapGrantSigningError(err)
+	code := api.ServerCodeOf(err)
+	// A server fault is not a refusal: its curated message stays as it is.
+	if _, fault := api.InternalFaultOf(mapped); fault || mapped == nil || code == "" {
+		return mapped
+	}
+	details := map[string]any{}
+	parts := []string{code}
+	if ref, ok := api.ExtensionString(err, "grantRef"); ok && slices.Contains(supplied, ref) {
+		details["grantRef"] = ref
+	}
+	for _, key := range []string{"reason", "state"} {
+		if v, ok := api.ExtensionString(err, key); ok {
+			details[key] = v
+		}
+	}
+	if n, ok := api.ExtensionInt(err, "cap"); ok {
+		details["cap"] = n
+	}
+	for _, key := range []string{"grantRef", "reason", "cap", "state"} {
+		if v, ok := details[key]; ok {
+			parts = append(parts, key+": "+output.SafeCell(fmt.Sprint(v)))
+		}
+	}
+	if len(details) == 0 {
+		details = nil
+	}
+	return &grantSelectionRefusal{error: mapped, suffix: " (" + strings.Join(parts, "; ") + ")", details: details}
+}
+
+// grantSelectionRefusal adds the code and extensions to a mapped refusal. Unwrap
+// keeps the exit code and the server code readable through it.
+type grantSelectionRefusal struct {
+	error
+	suffix  string
+	details map[string]any
+}
+
+func (e *grantSelectionRefusal) Error() string { return e.error.Error() + e.suffix }
+func (e *grantSelectionRefusal) Unwrap() error { return e.error }
+
+// RefusalExtensions is the --json error envelope's `extensions` (nil for none).
+func (e *grantSelectionRefusal) RefusalExtensions() map[string]any { return e.details }
 
 // GrantSigningRequestDTO is the stable --json shape of a grant signing request.
 type GrantSigningRequestDTO struct {

@@ -298,7 +298,7 @@ func newCmdTeamGrantRequestSignature(f *cmdutil.Factory) *cobra.Command {
 }
 
 func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
-	group := &cobra.Command{Use: "signing-request <command>", Short: "Read or withdraw a grant signing request", Long: "Read or withdraw a signing request this worker made.\n\n" + grantSigningRefusedHelp + "\n\n" + grantRequestHelp}
+	group := &cobra.Command{Use: "signing-request <command>", Short: "Read or withdraw a grant signing request", Long: "Read or withdraw a signing request this worker made. 'get' and 'withdraw' take\na one-grant request; 'get-selection' and 'withdraw-selection' take a selection\nmade by 'hadron team grant request-selection-signature'.\n\n" + grantSigningRefusedHelp + "\n\n" + grantRequestHelp}
 	get := signingRequestVerb(f, "get <request-id>", "Read a grant signing request",
 		"Shows whether the URL you handed over was signed. <request-id> is the id printed\nby 'hadron team grant request-signature'. state is the server's own word,\nprinted as sent:\n  OPEN       not signed yet: the person can still sign; ask them, or wait\n  COMPLETED  signed and recorded: read the grant with 'hadron team grant get\n             <grant-id>' (the id 'hadron team grant request' printed)\n  DECLINED   the signer turned it down: change the request or ask someone else\n  EXPIRED    its lifetime passed (24 hours by default): run\n             'hadron team grant request-signature <grant-id>' again\n  STALE      the grant was revoked, its holder went, or its terms changed:\n             request again\n  WITHDRAWN  the requester withdrew it: run request-signature again if still\n             wanted",
 		"  hadron team grant signing-request get <request-id> --json",
@@ -322,6 +322,6 @@ func newCmdTeamGrantSigningRequest(f *cmdutil.Factory) *cobra.Command {
 			}
 			return &resp.WithdrawGrantSigningRequest.TeamGrantSigningRequestFields, nil
 		})
-	group.AddCommand(get, withdraw)
+	group.AddCommand(get, withdraw, newCmdTeamGrantSelectionGet(f), newCmdTeamGrantSelectionWithdraw(f))
 	return group
 }
