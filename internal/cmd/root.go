@@ -535,6 +535,12 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
 		}
+		// cli#3197: a refused grant selection names the extensions the server sent
+		// that the command chose to show; absent for every other refusal.
+		var refused interface{ RefusalExtensions() map[string]any }
+		if details == nil && errors.As(err, &refused) {
+			details = refused.RefusalExtensions()
+		}
 		// A comment-add reply error names its intended thread, including when
 		// the outcome is unknown, without changing the reply's own metadata.
 		var threaded interface{ ThreadID() string }

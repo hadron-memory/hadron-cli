@@ -71,6 +71,12 @@ func TestMapError(t *testing.T) {
 		{"GRANT_NOT_MANAGER 1846", gqlErr("GRANT_NOT_MANAGER"), exitcode.Forbidden},
 		{"GRANT_NOT_REQUESTER 1846", gqlErr("GRANT_NOT_REQUESTER"), exitcode.Forbidden},
 
+		// cli#3197: a refused grant selection list is the caller's input: 2.
+		{"SELECTION_EMPTY 3197", gqlErr("SELECTION_EMPTY"), exitcode.Usage},
+		{"SELECTION_TOO_LARGE 3197", gqlErr("SELECTION_TOO_LARGE"), exitcode.Usage},
+		{"SELECTION_DUPLICATE_GRANT 3197", gqlErr("SELECTION_DUPLICATE_GRANT"), exitcode.Usage},
+		{"SELECTION_MIXED_APPS 3197", gqlErr("SELECTION_MIXED_APPS"), exitcode.Usage},
+
 		// #2308: a worker without a signed schedule.create grant.
 		{"trigger grant required 2308", gqlErr("TRIGGER_GRANT_REQUIRED"), exitcode.Forbidden},
 
@@ -419,6 +425,7 @@ func TestMapError(t *testing.T) {
 		{"task blocker cycle", gqlErr("TASK_BLOCKER_CYCLE"), exitcode.Conflict},
 		{"task invalid transition", gqlErr("TASK_INVALID_TRANSITION"), exitcode.Conflict},
 		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
+		{"seat verdict required", gqlErr("SEAT_VERDICT_REQUIRED"), exitcode.Conflict}, // cli#3209
 		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},
 		{"app uninstalled", gqlErr("APP_UNINSTALLED"), exitcode.Conflict},
 		{"app deleted", gqlErr("APP_DELETED"), exitcode.Conflict},
