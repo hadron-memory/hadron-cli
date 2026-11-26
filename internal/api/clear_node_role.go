@@ -38,13 +38,13 @@ func UpdateNodeClearingRoleByKind(ctx context.Context, client graphql.Client, in
 		var node *gen.UpdateTaskNodeClearingRoleUpdateTaskNode
 		var err error
 		if input.AuthoredWith == nil {
-			resp, e := gen.UpdateTaskNodeClearingRole(ctx, client, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Id, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryId, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
+			resp, e := gen.UpdateTaskNodeClearingRole(ctx, client, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Ref, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryRef, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
 			err = e
 			if resp != nil {
 				node = resp.UpdateTaskNode
 			}
 		} else {
-			resp, e := gen.UpdateTaskNodeClearingRoleAuthored(ctx, client, input.AuthoredWith, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Id, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryId, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
+			resp, e := gen.UpdateTaskNodeClearingRoleAuthored(ctx, client, input.AuthoredWith, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Ref, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryRef, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
 			err = e
 			if resp != nil {
 				node = resp.UpdateTaskNode
@@ -61,13 +61,13 @@ func UpdateNodeClearingRoleByKind(ctx context.Context, client graphql.Client, in
 		var node *gen.UpdateSpecNodeClearingRoleUpdateSpecNode
 		var err error
 		if input.AuthoredWith == nil {
-			resp, e := gen.UpdateSpecNodeClearingRole(ctx, client, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Id, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryId, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
+			resp, e := gen.UpdateSpecNodeClearingRole(ctx, client, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Ref, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryRef, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
 			err = e
 			if resp != nil {
 				node = resp.UpdateSpecNode
 			}
 		} else {
-			resp, e := gen.UpdateSpecNodeClearingRoleAuthored(ctx, client, input.AuthoredWith, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Id, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryId, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
+			resp, e := gen.UpdateSpecNodeClearingRoleAuthored(ctx, client, input.AuthoredWith, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Ref, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryRef, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
 			err = e
 			if resp != nil {
 				node = resp.UpdateSpecNode
@@ -84,13 +84,13 @@ func UpdateNodeClearingRoleByKind(ctx context.Context, client graphql.Client, in
 		var node *gen.UpdateReviewNodeClearingRoleUpdateReviewNode
 		var err error
 		if input.AuthoredWith == nil {
-			resp, e := gen.UpdateReviewNodeClearingRole(ctx, client, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Id, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryId, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
+			resp, e := gen.UpdateReviewNodeClearingRole(ctx, client, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Ref, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryRef, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
 			err = e
 			if resp != nil {
 				node = resp.UpdateReviewNode
 			}
 		} else {
-			resp, e := gen.UpdateReviewNodeClearingRoleAuthored(ctx, client, input.AuthoredWith, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Id, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryId, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
+			resp, e := gen.UpdateReviewNodeClearingRoleAuthored(ctx, client, input.AuthoredWith, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Ref, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryRef, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
 			err = e
 			if resp != nil {
 				node = resp.UpdateReviewNode
@@ -107,13 +107,13 @@ func UpdateNodeClearingRoleByKind(ctx context.Context, client graphql.Client, in
 		var node *gen.UpdateNodeClearingRoleUpdateNode
 		var err error
 		if input.AuthoredWith == nil {
-			resp, e := gen.UpdateNodeClearingRole(ctx, client, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Id, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryId, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
+			resp, e := gen.UpdateNodeClearingRole(ctx, client, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Ref, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryRef, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
 			err = e
 			if resp != nil {
 				node = resp.UpdateNode
 			}
 		} else {
-			resp, e := gen.UpdateNodeClearingRoleAuthored(ctx, client, input.AuthoredWith, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Id, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryId, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
+			resp, e := gen.UpdateNodeClearingRoleAuthored(ctx, client, input.AuthoredWith, input.Abstract, input.AiAgent, input.Alias, input.Content, input.ContentType, input.Data, input.Description, input.Edges, input.ExpectedRevision, input.Ref, input.IsRunnable, input.LlmModel, input.Loc, input.MemoryRef, input.Name, input.NodeType, input.ObjectType, input.OwnerRepo, input.Properties, input.Reason, input.Seq, input.Tags)
 			err = e
 			if resp != nil {
 				node = resp.UpdateNode

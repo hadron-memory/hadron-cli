@@ -97,8 +97,8 @@ func TestTaskCloneOverrideRefusedBeforeAnyCall1579(t *testing.T) {
 
 func TestTaskCloneProjectWithNoParent1579(t *testing.T) {
 	input, _ := cloneInput1565(t, "AT1.4", "--project", "--no-parent")
-	if string(input["project"]) != "true" || string(input["parentTaskId"]) != "null" {
-		t.Fatalf("project:true + parentTaskId:null expected, got %s", input)
+	if string(input["project"]) != "true" || string(input["parentTaskRef"]) != "null" {
+		t.Fatalf("project:true + parentTaskRef:null expected, got %s", input)
 	}
 }
 

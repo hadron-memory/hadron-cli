@@ -120,8 +120,8 @@ func runRescind(t *testing.T, s *rescindServer, stdin string, args ...string) (s
 
 type rescindWrite struct {
 	Input struct {
-		ID               *string  `json:"id"`
-		MemoryID         *string  `json:"memoryId"`
+		ID               *string  `json:"ref"`
+		MemoryID         *string  `json:"memoryRef"`
 		Loc              *string  `json:"loc"`
 		ExpectedRevision *int     `json:"expectedRevision"`
 		Tags             []string `json:"tags"`

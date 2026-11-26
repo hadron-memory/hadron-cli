@@ -480,7 +480,7 @@ func runImportContent(cmd *cobra.Command, f *cmdutil.Factory, o contentImportOpt
 		if memory == "" || loc == "" {
 			return exitcode.Newf(exitcode.Usage, "no target — pass --node <urn>, or both -m/--memory and --loc")
 		}
-		input.MemoryId = &memory
+		input.MemoryRef = &memory
 		input.Loc = &loc
 	}
 
@@ -687,9 +687,9 @@ func resolveProperties(properties, propertiesFile string) (*json.RawMessage, err
 // (memory, loc) and the server owns the hashes.
 func buildCreateNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string) (*gen.CreateNodeInput, error) {
 	input := &gen.CreateNodeInput{
-		MemoryId: memoryRef,
-		Loc:      targetLoc,
-		Name:     doc.Name,
+		MemoryRef: memoryRef,
+		Loc:       targetLoc,
+		Name:      doc.Name,
 	}
 	if doc.Content != "" {
 		input.Content = &doc.Content
@@ -764,7 +764,7 @@ func buildCreateNodeInput(doc *nodedoc.Document, memoryRef, targetLoc string) (*
 func updateNodeInputFrom(in *gen.CreateNodeInput) *gen.UpdateNodeInput {
 	name := in.Name
 	return &gen.UpdateNodeInput{
-		MemoryId:     &in.MemoryId,
+		MemoryRef:    &in.MemoryRef,
 		Install:      in.Install, // schema refresh: retain every shared input field
 		AuthoredWith: in.AuthoredWith,
 		Loc:          &in.Loc,
@@ -822,7 +822,7 @@ func lookupNode(cmd *cobra.Command, client graphql.Client, memoryRef, loc string
 		return resp.ResolveUrn.Id, true, nil
 	}
 	// A raw memory id: list by loc prefix and match the exact loc.
-	filter := &gen.NodeFilter{MemoryIds: []string{memoryRef}, LocPrefix: &loc}
+	filter := &gen.NodeFilter{MemoryRefs: []string{memoryRef}, LocPrefix: &loc}
 	sort := gen.NodeSortLoc
 	return findExactLoc(loc, func(limit, offset int) ([]*api.ListNode, error) {
 		page, err := api.FindNodes(cmd.Context(), client, nil, nil, filter, &sort, nil, &limit, &offset)

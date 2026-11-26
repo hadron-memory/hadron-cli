@@ -46,7 +46,7 @@ func TestChatReadAcceptsV2NodeURN(t *testing.T) {
 	}
 	var vars struct {
 		Filter struct {
-			MemoryIds []string `json:"memoryIds"`
+			MemoryIds []string `json:"memoryRefs"`
 			LocPrefix string   `json:"locPrefix"`
 		} `json:"filter"`
 	}
@@ -157,7 +157,7 @@ func TestChatReadJSON(t *testing.T) {
 	// The findNodes filter must scope to the memory and the derived prefix.
 	var vars struct {
 		Filter struct {
-			MemoryIds []string `json:"memoryIds"`
+			MemoryIds []string `json:"memoryRefs"`
 			LocPrefix string   `json:"locPrefix"`
 		} `json:"filter"`
 	}

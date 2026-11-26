@@ -46,8 +46,8 @@ func TestC7CreateSendsInstallInsteadOfMemory(t *testing.T) {
 	if err := json.Unmarshal(raw["input"], &input); err != nil {
 		t.Fatal(err)
 	}
-	if _, has := input["memoryId"]; has {
-		t.Fatalf("install must omit memoryId: %s", c.RawVars)
+	if _, has := input["memoryRef"]; has {
+		t.Fatalf("install must omit memoryRef: %s", c.RawVars)
 	}
 	if !strings.Contains(string(input["install"]), `"appRef":"hrn:app:acme.com:eng-team"`) || !strings.Contains(string(input["install"]), `"agentRef":"hrn:agent:acme.com:support-bot"`) {
 		t.Fatalf("install lost: %s", c.RawVars)
@@ -113,7 +113,7 @@ func TestC7ExistingMemoryReadAndUpdateSelectors(t *testing.T) {
 			c := c2Mutation(t, calls, tc.op)
 			if tc.name == "list" {
 				filter, ok := c.Vars["filter"].(map[string]any)
-				if !ok || !strings.Contains(stringMustJSON(t, filter["memoryIds"]), c7MemoryURN) {
+				if !ok || !strings.Contains(stringMustJSON(t, filter["memoryRefs"]), c7MemoryURN) {
 					t.Fatalf("unscoped list %s", c.RawVars)
 				}
 			} else {
@@ -124,11 +124,11 @@ func TestC7ExistingMemoryReadAndUpdateSelectors(t *testing.T) {
 			}
 			if tc.name == "update" {
 				input := c.Vars["input"].(map[string]any)
-				if _, has := input["id"]; has {
+				if _, has := input["ref"]; has {
 					t.Fatalf("install selector must not send id %s", c.RawVars)
 				}
-				if _, has := input["memoryId"]; has {
-					t.Fatalf("install selector must not send memoryId %s", c.RawVars)
+				if _, has := input["memoryRef"]; has {
+					t.Fatalf("install selector must not send memoryRef %s", c.RawVars)
 				}
 				if input["loc"] != "custom" || input["install"] == nil {
 					t.Fatalf("missing native install/loc selector %s", c.RawVars)
@@ -199,10 +199,10 @@ func TestC7EveryKindDoorPreservesInstall(t *testing.T) {
 					if input["install"] == nil || input["loc"] != "custom" {
 						t.Fatalf("lost install target: %s", c.RawVars)
 					}
-					if _, ok := input["memoryId"]; ok {
+					if _, ok := input["memoryRef"]; ok {
 						t.Fatalf("memory fallback: %s", c.RawVars)
 					}
-					if _, ok := input["id"]; ok {
+					if _, ok := input["ref"]; ok {
 						t.Fatalf("id fallback: %s", c.RawVars)
 					}
 					for _, call := range *calls {
@@ -247,7 +247,7 @@ func TestC7OrdinaryMemoryCreateStillSendsMemoryID(t *testing.T) {
 	}
 	c := c2Mutation(t, calls, "CreateNode")
 	input := c.Vars["input"].(map[string]any)
-	if input["memoryId"] != c7MemoryURN {
+	if input["memoryRef"] != c7MemoryURN {
 		t.Fatalf("legacy selector lost: %s", c.RawVars)
 	}
 	if _, ok := input["install"]; ok {

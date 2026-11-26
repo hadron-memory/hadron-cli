@@ -280,7 +280,7 @@ passphrase for this one invocation. Words inside its content are not found.`,
 				filterSet = true
 			}
 			if len(memories) > 0 {
-				filter.MemoryIds = memories
+				filter.MemoryRefs = memories
 				filterSet = true
 			}
 			if prefix != "" {

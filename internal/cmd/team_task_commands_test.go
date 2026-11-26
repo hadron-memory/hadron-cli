@@ -1389,8 +1389,8 @@ func TestTeamTaskCreateParentTakesAppFromParent(t *testing.T) {
 			if input == nil || input["appRef"] != nil {
 				t.Fatalf("appRef %v — the parent names the App", c.Vars["input"])
 			}
-			if input["parentTaskId"] != "task1" {
-				t.Fatalf("parentTaskId %v", input["parentTaskId"])
+			if input["parentTaskRef"] != "task1" {
+				t.Fatalf("parentTaskRef %v", input["parentTaskId"])
 			}
 			return
 		}

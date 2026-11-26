@@ -303,7 +303,7 @@ func TestNodeOpenComments1699CombinesAllFilters(t *testing.T) {
 	}
 	var filter map[string]json.RawMessage
 	_ = json.Unmarshal(r.Calls[0].Vars["filter"], &filter)
-	for key, want := range map[string]string{"hasOpenThreads": "true", "memoryIds": `["m1"]`, "childrenOf": `"item"`, "nodeType": `"info"`, "isRunnable": "false", "tags": `["a"]`} {
+	for key, want := range map[string]string{"hasOpenThreads": "true", "memoryRefs": `["m1"]`, "childrenOf": `"item"`, "nodeType": `"info"`, "isRunnable": "false", "tags": `["a"]`} {
 		if string(filter[key]) != want {
 			t.Errorf("%s=%s want%s", key, filter[key], want)
 		}

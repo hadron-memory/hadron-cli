@@ -148,9 +148,19 @@ func scanBatchKeys(err error) error {
 	case err == nil, errors.As(err, &syn), errors.Is(err, io.ErrUnexpectedEOF), errors.Is(err, io.EOF):
 		return nil
 	default:
+		// hadron-server#5080 renamed the parent key with no alias (cli#3124):
+		// name the new key so a stale batch file says what to change.
+		if m := renamedParentKey.FindStringSubmatch(err.Error()); m != nil {
+			n, _ := strconv.Atoi(m[1])
+			return exitcode.Newf(exitcode.Usage, "parsing --batch-file: task %d: \"parentTaskId\" was renamed to \"parentTaskRef\"; use \"parentTaskRef\" in the task object", n+1)
+		}
 		return exitcode.Newf(exitcode.Usage, "parsing --batch-file: %v", err)
 	}
 }
+
+// renamedParentKey matches CheckKeys' refusal of the retired parentTaskId key
+// inside item N's task object (0-based path).
+var renamedParentKey = regexp.MustCompile(`unknown key "parentTaskId" at /(\d+)/task/parentTaskId`)
 
 // taskBatchError carries a batch refusal's 1-based position: text adds
 // "(task n of m)", and the --json error envelope adds `position`.

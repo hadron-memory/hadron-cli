@@ -25,7 +25,7 @@ query McpServers(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  mcpServers(orgId: $orgId, limit: $limit, offset: $offset) {
+  mcpServers(orgRef: $orgId, limit: $limit, offset: $offset) {
     items {
       ...McpServerFields
     }

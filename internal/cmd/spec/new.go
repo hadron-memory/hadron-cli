@@ -434,7 +434,7 @@ is one call instead of four.`, abstractSoftMax),
 			nodeType := "info"
 			input := gen.CreateNodeInput{
 				AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-				MemoryId:     memURN,
+				MemoryRef:    memURN,
 				Loc:          target.Format(),
 				Name:         name,
 				Tags:         tagSet,
@@ -459,7 +459,7 @@ is one call instead of four.`, abstractSoftMax),
 			if coContract != nil {
 				cInput := gen.CreateNodeInput{
 					AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-					MemoryId:     memURN,
+					MemoryRef:    memURN,
 					Loc:          coContract.cit.Format(),
 					Name:         coContract.name,
 					Tags:         tagSet,
@@ -618,7 +618,7 @@ func runNewAt(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, mem
 	nodeType := "info"
 	input := gen.CreateNodeInput{
 		AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-		MemoryId:     memURN,
+		MemoryRef:    memURN,
 		Loc:          loc,
 		Name:         name,
 		Tags:         in.tags,
@@ -1118,7 +1118,7 @@ func runNewPath(cmd *cobra.Command, f *cmdutil.Factory, client graphql.Client, m
 		ab, bd := pn.abstract, pn.body
 		input := gen.CreateNodeInput{
 			AuthoredWith: cmdutil.AuthoredWith(cmd.Context()),
-			MemoryId:     memURN, Loc: pn.cit.Format(), Name: pn.name,
+			MemoryRef:    memURN, Loc: pn.cit.Format(), Name: pn.name,
 			Tags: tagSet, NodeType: &nodeType,
 			Abstract: &ab, Content: &bd, Data: specDataRaw(),
 			Seq: specSeq(pn.cit), Role: specRole(),

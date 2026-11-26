@@ -23,7 +23,7 @@ type searchVars struct {
 	Mode   *string `json:"mode"`
 	Limit  *int    `json:"limit"`
 	Filter struct {
-		MemoryIds  []string       `json:"memoryIds"`
+		MemoryIds  []string       `json:"memoryRefs"`
 		LocPrefix  string         `json:"locPrefix"`
 		ObjectType *string        `json:"objectType"`
 		Where      map[string]any `json:"where"`

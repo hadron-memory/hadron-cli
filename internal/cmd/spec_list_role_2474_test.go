@@ -66,7 +66,7 @@ func TestSpecListRoleWithoutScopeSendsTheRoleAlone2474(t *testing.T) {
 		if f["role"] != "spec.rule" {
 			t.Fatalf("role lost: %v", f)
 		}
-		for _, key := range []string{"memoryIds", "locPrefix", "tags", "approvalState", "minted"} {
+		for _, key := range []string{"memoryRefs", "locPrefix", "tags", "approvalState", "minted"} {
 			if _, has := f[key]; has {
 				t.Fatalf("an unscoped --role list sent %q: %v", key, f)
 			}

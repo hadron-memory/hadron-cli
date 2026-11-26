@@ -604,7 +604,7 @@ input AgentFilter {
   agents: organizationId IS NULL AND ownerUserId = the caller. For ALL
   callers INCLUDING platform ADMIN/OWNER (owner scope is never an
   admin-bypass surface), mirroring the owner-only personal/private memories
-  slice. Org-less by definition, so orgId is not consulted. App-key callers
+  slice. Org-less by definition, so orgRef is not consulted. App-key callers
   (no user context) get an empty page. Powers the portal's "My agents".
   """
   ownedByMe: Boolean
@@ -2158,7 +2158,7 @@ owning org, mirroring the management-surface gate).
 """
 input AiServiceConfigFilter {
   """The owning entity — accepts ID or URN (HADRON_SERVER: ID only)."""
-  ownerId: ID!
+  ownerRef: ID!
   ownerType: AiConfigOwnerType!
 }
 
@@ -2736,16 +2736,16 @@ input AppFilter {
   join; an App has no separate primary-agent column to match). Accepts an ID
   or a fully-qualified URN. The Agent must be one the caller can read: an
   unreadable, deleted, unresolvable or nonexistent Agent yields an empty page,
-  never a not-found or forbidden error. Combines with ownedByMe and orgId.
+  never a not-found or forbidden error. Combines with ownedByMe and orgRef.
   """
-  agentId: ID
+  agentRef: ID
 
   """
   #782 — true restricts the list to the caller's OWN user-owned (org-less)
   apps: organizationId IS NULL AND ownerUserId = the caller. For ALL callers
   INCLUDING platform ADMIN/OWNER (owner scope is never an admin-bypass
   surface), mirroring the owner-only personal/private memories slice.
-  Org-less by definition, so orgId is not consulted. App-key callers (no
+  Org-less by definition, so orgRef is not consulted. App-key callers (no
   user context) get an empty page. Powers the portal's "My apps".
   """
   ownedByMe: Boolean
@@ -3938,7 +3938,7 @@ enum AvailabilityState {
 }
 
 input BatchThrough {
-  channelId: ID!
+  channelRef: ID!
 
   """A seq this batch rendered in that channel."""
   seq: Int!
@@ -3967,8 +3967,8 @@ type BeginAssetUploadResult {
 
 """
 v2 (spec 006-asset-upload-redesign): memory-addressed input.
-memoryId is required for the attached upload path. The staging
-path (memoryId omitted) is added in US4.
+memoryRef is required for the attached upload path. The staging
+path (memoryRef omitted) is added in US4.
 """
 input BeginAssetUploadV2Input {
   description: String
@@ -3980,7 +3980,7 @@ input BeginAssetUploadV2Input {
   qualified (org:memory) per spec 022 — relative-form URNs are
   rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
   """
-  memoryId: ID!
+  memoryRef: ID!
   mimeType: String!
   sizeBytes: Int!
   uploadIntent: UploadIntent!
@@ -4611,7 +4611,7 @@ input CloneAgentTaskInput {
   """
   Another parent in the same App, or null for none (a root under AT0, or a project with project: true).
   """
-  parentTaskId: ID
+  parentTaskRef: ID
 
   """
   A priority you name and may not set is refused, as on a create; a copied one you may not set is left out.
@@ -5164,7 +5164,7 @@ input CreateAgentScheduleInput {
 
 """
 createAgentTask input. A ROOT task names appRef; any App participant may
-create one (hrn:node:hadronmemory.com:specs:cor:agt:050:06). A CHILD task names parentTaskId; only the
+create one (hrn:node:hadronmemory.com:specs:cor:agt:050:06). A CHILD task names parentTaskRef; only the
 parent's assignee may create one, and it owns it (hrn:node:hadronmemory.com:specs:cor:agt:050:07).
 """
 input CreateAgentTaskInput {
@@ -5221,7 +5221,7 @@ input CreateAgentTaskInput {
   child task, whose owner is its parent's assignee (TASK_CHILD_OWNER_MISMATCH).
   """
   owner: AgentTaskPartyInput
-  parentTaskId: ID
+  parentTaskRef: ID
 
   """
   #2644 — naming priority or blockers requires the task assigner authority; otherwise creation refuses atomically.
@@ -5229,7 +5229,7 @@ input CreateAgentTaskInput {
   priority: Int
 
   """
-  Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0, carrying the project marker (#4997). Not with parentTaskId.
+  Make a top-level PROJECT (AT1, AT2, ...) instead of a task under the reserved project AT0, carrying the project marker (#4997). Not with parentTaskRef.
   """
   project: Boolean
 
@@ -5445,9 +5445,9 @@ type CreateMemorySharePayload {
 }
 
 """
-Input for createNode. 'loc' and 'name' are required, plus EITHER 'memoryId'
+Input for createNode. 'loc' and 'name' are required, plus EITHER 'memoryRef'
 or 'install' (an App's install memory, #2044) — both or neither is an
-error (BAD_USER_INPUT). Creating is create-only — a live node at (memoryId,
+error (BAD_USER_INPUT). Creating is create-only — a live node at (memoryRef,
 loc) rejects with NodeLocConflictError (spec 039 Phase 0 D1/D4).
 """
 input CreateNodeInput {
@@ -5481,7 +5481,7 @@ input CreateNodeInput {
   id: String
 
   """
-  #2044 — an App's install memory as the target, instead of 'memoryId'. See InstallTargetInput.
+  #2044 — an App's install memory as the target, instead of 'memoryRef'. See InstallTargetInput.
   """
   install: InstallTargetInput
 
@@ -5498,7 +5498,7 @@ input CreateNodeInput {
   qualified (hrn:mem:<root>:<memory>) per spec 022 — relative-form URNs are
   rejected as GraphQL errors with extensions.code "URN_NOT_QUALIFIED".
   """
-  memoryId: String
+  memoryRef: String
   name: String!
   nodeType: String
 
@@ -6186,8 +6186,8 @@ type Edge {
 
 """
 Filter for the uniform edges() list (#473). Clauses AND-combine and are
-intersected with the caller's readable memories. memoryId / sourceNodeId /
-targetNodeId each accept an ID or a fully-qualified URN; an unresolvable
+intersected with the caller's readable memories. memoryRef / sourceRef /
+targetRef each accept an ID or a fully-qualified URN; an unresolvable
 ref yields an empty page (consistent with the no-disclosure posture).
 """
 input EdgeFilter {
@@ -6200,13 +6200,13 @@ input EdgeFilter {
   isRunnable: Boolean
 
   """Confine to edges whose (denormalized, source-side) memory is this one."""
-  memoryId: ID
+  memoryRef: ID
 
   """Edges leaving this node."""
-  sourceNodeId: ID
+  sourceRef: ID
 
   """Edges arriving at this node."""
-  targetNodeId: ID
+  targetRef: ID
 }
 
 """
@@ -7483,7 +7483,7 @@ type ImpersonationSessionList {
 }
 
 """
-Input for importNode (#457). Target: 'nodeUrn' XOR ('memoryId' + 'loc') —
+Input for importNode (#457). Target: 'nodeUrn' XOR ('memoryRef' + 'loc') —
 the URN may name a not-yet-existing node (import creates it). Source:
 exactly one of 'url' | 'content'.
 """
@@ -7514,13 +7514,13 @@ input ImportNodeInput {
   """
   contentType: String
 
-  """Target loc within 'memoryId'. XOR with 'nodeUrn'."""
+  """Target loc within 'memoryRef'. XOR with 'nodeUrn'."""
   loc: String
 
   """
   Target memory (ID or fully-qualified URN), with 'loc'. XOR with 'nodeUrn'.
   """
-  memoryId: String
+  memoryRef: String
 
   """
   Display name. Default: the extracted page/article/document title; on a re-import of an existing node the current name is preserved; a fresh create without either falls back to the loc leaf.
@@ -7531,7 +7531,7 @@ input ImportNodeInput {
   nodeType: String
 
   """
-  Fully-qualified node URN naming the target (existing or new). XOR with memoryId+loc.
+  Fully-qualified node URN naming the target (existing or new). XOR with memoryRef+loc.
   """
   nodeUrn: String
 
@@ -7720,6 +7720,28 @@ if the user later re-joins the same App.
 type LeaveAppPayload {
   appId: ID!
   userId: ID!
+}
+
+"""
+The legacy shape of NodeInput.edges (the retired replaceSubtree, which refuses without writing). A frozen copy of NodeEdgeInput from before #5080 renamed its targetId to targetRef, so legacy callers still validate and reach REPLACE_SUBTREE_RETIRED.
+"""
+input LegacyNodeEdgeInput {
+  description: String
+  isRunnable: Boolean
+
+  """Explicit edge loc. Omit to derive <sourceLoc>:<name>:<targetLoc>."""
+  loc: String
+
+  """Relationship name (was 'label'). Optional — loc is the identity."""
+  name: String
+
+  """
+  Reference to the target node. Accepts a node ID, a full URN
+  (hrn:node:<memory-urn>:<loc>), a memory-prefixed loc
+  (<memory-urn>:<loc>), or a short loc resolved within the source
+  node's memory.
+  """
+  targetId: String!
 }
 
 type LiftStopSignalResult {
@@ -8466,7 +8488,7 @@ input MemoryFilter {
   organizationId IS NULL AND the caller owns it. For ALL callers INCLUDING
   platform ADMIN/OWNER (owner scope is never an admin-bypass surface), the
   same intent as AgentFilter.ownedByMe and AppFilter.ownedByMe. Org-less by
-  definition, so orgId is not consulted. App-key callers (no user context)
+  definition, so orgRef is not consulted. App-key callers (no user context)
   and impersonated sessions get an empty page. Powers the portal's
   "My memories".
   
@@ -9467,7 +9489,7 @@ type Mutation {
   description, source, tags, requirements, references, closeSessionWhenDone, priority, properties and the parent. Not
   copied: assignee, status, result, handle, blockers, startBy, finishBy, externalId. The clone is PENDING (or BACKLOG, as
   input.status asks). The parent is kept only for someone who may create a child of it (else TASK_NOT_ASSIGNEE, nothing
-  created, unless input.parentTaskId names another parent or null for none); a root is cloned as a root of the same
+  created, unless input.parentTaskRef names another parent or null for none); a root is cloned as a root of the same
   kind, through the root create gate; under an ended parent it goes under the project AT0. The properties and priority
   are copied only for a caller who may set them and are otherwise left out, with no refusal. Refusals: TASK_NOT_FOUND
   (an unknown, unreadable or cross-App source or parent), BAD_USER_INPUT (AT0 cannot be cloned), TASK_NOT_ASSIGNEE,
@@ -9593,6 +9615,11 @@ type Mutation {
     orgRef: ID
     personaRole: String
     resetContextAfterTask: Boolean
+
+    """
+    #5203: the slug to store, when the caller chose one. It is validated, not derived: a reserved word or a malformed slug is BAD_USER_INPUT and a taken one is refused as before. Omitted or null: the slug is derived from name.
+    """
+    slug: String
     surfaces: [String!]
     systemMemoryRef: ID
     type: AgentType
@@ -9710,7 +9737,7 @@ type Mutation {
   Auth: platform ADMIN/OWNER for HADRON_SERVER; org ADMIN for ORGANIZATION;
   the App/Agent's strict owner or owning-org ADMIN for APP/AGENT. A platform
   role does not bypass a user-owned App/Agent's credential gate.
-  ownerId accepts ID or URN (HADRON_SERVER: ID only).
+  ownerRef accepts ID or URN (HADRON_SERVER: ID only).
   """
   createAiServiceConfig(
     apiKey: String
@@ -9727,7 +9754,7 @@ type Mutation {
     endpoint: String
     model: String!
     name: String!
-    ownerId: ID!
+    ownerRef: ID!
     ownerType: AiConfigOwnerType!
     params: JSON
     provider: String!
@@ -9967,7 +9994,7 @@ type Mutation {
 
     """
     'knowledge' (default), 'group', or the owner-only 'personal' /
-    'private'. Without orgId, only personal/private are accepted; the
+    'private'. Without orgRef, only personal/private are accepted; the
     knowledge default is refused. 'system' and 'app' are rejected here and
     auto-provision via different code paths.
     """
@@ -9985,6 +10012,11 @@ type Mutation {
     orgRef: ID
     readBranch: String
     shortDescription: String
+
+    """
+    #5203: the slug to store, when the caller chose one. It is validated, not derived: a reserved word or a malformed slug is BAD_USER_INPUT and a taken one is refused as before. Omitted or null: the slug is derived from name.
+    """
+    slug: String
     source: String
     tags: [String!]
 
@@ -12443,7 +12475,7 @@ type Mutation {
   since changed. That refusal comes only after the audience check. On when already on, with a valid token, succeeds and
   changes nothing. Turning the switch on does not turn on the deployment's signing: read enforced.
   """
-  setOrgBootPromptSigning(org: ID!, previewToken: String, required: Boolean!): OrgBootPromptSigning!
+  setOrgBootPromptSigning(orgRef: ID!, previewToken: String, required: Boolean!): OrgBootPromptSigning!
 
   """
   Set an owner's limits (hadron-server issue 5009). PLATFORM ADMIN ONLY. Returns the owner's limits after the change.
@@ -13877,7 +13909,7 @@ type NodeAuthoringCheck {
 }
 
 """
-A proposed write to check. Name the node by ref (PK or URN of an existing node), or by memoryId and
+A proposed write to check. Name the node by ref (PK or URN of an existing node), or by memoryRef and
 loc together (an existing node at that loc is judged as itself; otherwise a new node).
 """
 input NodeAuthoringCheckInput {
@@ -13896,10 +13928,10 @@ input NodeAuthoringCheckInput {
   loc: String
 
   """With loc: the memory (ID or fully-qualified URN). XOR with ref."""
-  memoryId: String
+  memoryRef: String
 
   """
-  An existing node: PK or fully-qualified node URN. XOR with memoryId+loc.
+  An existing node: PK or fully-qualified node URN. XOR with memoryRef+loc.
   """
   ref: String
 
@@ -14047,7 +14079,7 @@ input NodeEdgeInput {
   (<memory-urn>:<loc>), or a short loc resolved within the source
   node's memory.
   """
-  targetId: String!
+  targetRef: String!
 }
 
 """
@@ -14197,14 +14229,14 @@ input NodeFilter {
   locPrefix: String
 
   """
-  Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryIds) overrides that.
+  Restrict by memory class. SYSTEM is excluded by default; passing this (or naming a system memory in memoryRefs) overrides that.
   """
   memoryClasses: [MemoryClass!]
 
   """
   Memory scope — a mix of memory IDs and fully-qualified URNs; intersected with the caller's access.
   """
-  memoryIds: [ID!]
+  memoryRefs: [ID!]
 
   """#1591 — only minted (true) or unminted (false) nodes."""
   minted: Boolean
@@ -14274,7 +14306,7 @@ input NodeInput {
   """
   Replace all outgoing edges when provided (omit to leave edges unchanged)
   """
-  edges: [NodeEdgeInput!]
+  edges: [LegacyNodeEdgeInput!]
 
   """
   Forced PK (importer-supplied UUIDv7 from node.yaml, stable across moves). Omit to mint.
@@ -15515,7 +15547,7 @@ type Query {
   nothing; a retired worker is no party to name, so it matches nothing). creator is
   the task's creator as createdBy projects it: a worker, or a person for a task they created
   themselves (not one their worker created, #2370). queued selects pending tasks with no assignee; rootsOnly selects roots. These
-  take precedence over status and parentTaskId respectively. limit defaults to 20 (cap 200).
+  take precedence over status and parentTaskRef respectively. limit defaults to 20 (cap 200).
   Readers: the App's participants (hrn:node:hadronmemory.com:specs:cor:agt:050:21), or the App's own live key
   without a session binding (#1755).
   An App you do not participate in answers APP_NOT_FOUND, exactly like an
@@ -15791,14 +15823,14 @@ type Query {
 
   """
   Uniform paginated agent list (#473). Scope: Agents owned by the caller's
-  member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgId
+  member orgs; platform ADMIN/OWNER unscoped get every live Agent. orgRef
   follows cor:api:100:01 (member -> scope, non-member -> empty page, no
   disclosure, no admin bypass). filter narrows by type / visibility.
   filter.ownedByMe (#782) narrows to the caller's own user-owned (org-less)
   agents for every caller including platform admins. Name-ascending order
   (id tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
   """
-  agents(filter: AgentFilter, limit: Int, offset: Int, orgId: ID): AgentsPage!
+  agents(filter: AgentFilter, limit: Int, offset: Int, orgRef: ID): AgentsPage!
 
   """
   One provider rate row by id (spec 046). Authenticated read - rates are not a secret.
@@ -15941,7 +15973,7 @@ type Query {
   result; this is not every memory linked to any installed Agent.
   
   Accepts the App's ID or fully qualified URN. NodeFilter narrows node fields,
-  including objectType, approvalState and minted. Nonempty memoryIds or
+  including objectType, approvalState and minted. Nonempty memoryRefs or
   memoryClasses are rejected with BAD_USER_INPUT: the App scope is authoritative.
   where and childrenOf are rejected with BAD_USER_INPUT too (#3427, #2832); use findNodes.
   Unlike findNodes, system-node types are not excluded by default. Deleted
@@ -15959,7 +15991,7 @@ type Query {
   but total counts every node appNodes would return for the filter and hasMore says whether rows
   remain past this page. Ordered by loc, then id, so the order is stable across the App's memories.
   Default page 20, limit: 0 is count-only, a negative limit is 0, a limit over 200 is served as 200,
-  a negative offset is 0. The filter's memoryIds, memoryClasses, where and childrenOf are refused, as on appNodes.
+  a negative offset is 0. The filter's memoryRefs, memoryClasses, where and childrenOf are refused, as on appNodes.
   
   Accepts the App's ID or URN.
   """
@@ -16015,16 +16047,16 @@ type Query {
   appTickerSettings(appRef: String!): AppTickerSettings!
 
   """
-  Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgId!)
+  Uniform paginated app list (#473) — replaces the org-ADMIN apps(orgRef!)
   and the member myApps. Scope: Apps in the caller's member orgs (App
   doesn't carry a userId, so org membership is the routing); platform
-  ADMIN/OWNER unscoped get every live App. orgId follows cor:api:100:01
+  ADMIN/OWNER unscoped get every live App. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01
   (member -> scope, non-member -> empty page, no disclosure, no admin
   bypass). Name-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only. filter.ownedByMe (#782) narrows to the caller's own
   user-owned (org-less) Apps for every caller including platform admins.
   """
-  apps(filter: AppFilter, limit: Int, offset: Int, orgId: ID): AppsPage!
+  apps(filter: AppFilter, limit: Int, offset: Int, orgRef: ID): AppsPage!
 
   """
   Mint a short-TTL presigned GET URL for an asset. Default TTL
@@ -16040,9 +16072,9 @@ type Query {
   as the per-memory one.
   
   The three tabs of a top-level Assets section are filters over this,
-  not separate queries: mine: true, no filter, and orgId respectively.
+  not separate queries: mine: true, no filter, and orgRef respectively.
   """
-  assets(filter: AssetFilter, limit: Int = 20, offset: Int = 0, orgId: ID): AssetsPage!
+  assets(filter: AssetFilter, limit: Int = 20, offset: Int = 0, orgRef: ID): AssetsPage!
 
   """
   Spec 049 Phase 6 — an attendee's RESOLVED register: the rows that apply to
@@ -16245,9 +16277,9 @@ type Query {
   """
   Spec 049 Phase 4 — Channels whose host memory you may read, narrowed by an
   App (its host memories' Channels) or by one memory, and by the cor:api:100:01
-  orgId. Loc-ascending (id tiebreak); limit default 20 / cap 200.
+  orgRef. Loc-ascending (id tiebreak); limit default 20 / cap 200.
   """
-  channels(filter: ChannelFilter, limit: Int, offset: Int, orgId: ID): ChannelsPage!
+  channels(filter: ChannelFilter, limit: Int, offset: Int, orgRef: ID): ChannelsPage!
 
   """
   #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): what a chat of this App may choose from — the App's OWN enabled AI configs plus one
@@ -16491,19 +16523,21 @@ type Query {
   The uniform single-edge read (#473) — edges are first-class, loc-addressed
   peers of nodes (spec 037). 'ref' accepts a primary key or a
   fully-qualified edge URN (`hrn:edge:<root>:<memory>:<loc>`; the edge's
-  memory is its SOURCE node's memory). Access: the edge's memory must be in
-  the caller's readable set; denied and missing are both null.
+  memory is its SOURCE node's memory). Access: the edge's memory and the memory
+  of each of its nodes must be in the caller's readable set; denied and missing
+  are both null.
   """
   edge(ref: ID!): Edge
 
   """
   Uniform paginated edge list (#473). Scope: edges whose (denormalized,
-  source-side) memory the caller can read, AND-narrowed by the filter.
-  orgId follows cor:api:100:01 (member -> scope, non-member -> empty page,
+  source-side) memory, and the memory of each of whose nodes, the caller can
+  read, AND-narrowed by the filter.
+  orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> scope, non-member -> empty page,
   no disclosure, no admin bypass). Deterministic loc-ascending order
   (id tiebreak); limit default 20 / cap 200; limit: 0 -> count only.
   """
-  edges(filter: EdgeFilter, limit: Int, offset: Int, orgId: ID): EdgesPage!
+  edges(filter: EdgeFilter, limit: Int, offset: Int, orgRef: ID): EdgesPage!
 
   """
   issue #323: resolve the effective access a single user has to a single
@@ -16549,14 +16583,14 @@ type Query {
   
   Accepts the entity's ID or URN.
   """
-  exchangeConnections(orgId: ID!): [ExchangeConnection!]!
+  exchangeConnections(orgRef: ID!): [ExchangeConnection!]!
 
   """
   #2213 — `exchangeConnections` as a page: the same admission (org ADMIN/OWNER,
   platform admin) and FORBIDDEN refusal, the same rows and order, with the real
   total. Sizes as `tickersPage`.
   """
-  exchangeConnectionsPage(limit: Int, offset: Int, orgId: ID!): ExchangeConnectionPage!
+  exchangeConnectionsPage(limit: Int, offset: Int, orgRef: ID!): ExchangeConnectionPage!
   exchangeFolders(connectionId: ID!): [ExchangeFolder!]!
   exchangeMessages(
     connectionId: ID!
@@ -16590,8 +16624,8 @@ type Query {
   (SYSTEM memory class excluded by default; explicit wins). Returns a
   scored-hit envelope. Access-scoped identically to the per-kind node queries.
   
-  orgId (optional) narrows the accessible scope to a single organization the
-  caller is a member of; a non-member orgId returns an empty envelope
+  orgRef (optional) narrows the accessible scope to a single organization the
+  caller is a member of; a non-member orgRef returns an empty envelope
   (total 0, no existence disclosure). Combined with filter.isRunnable: true
   this is the canonical "the caller's runnable task nodes in one org" query
   (there is no separate myTasks surface — a task is simply an isRunnable node).
@@ -16621,11 +16655,11 @@ type Query {
     #437 — page offset, default 0 (also null); negative values become 0. No offset ceiling. #2991: in vector and hybrid modes, offset pages are not snapshot-stable while the memory's vector index is filling (an embedding landing between reads can repeat one hit and skip another); callers who need complete, duplicate-free paging use mode: keyword on one memory, ordered score DESC then loc (unique within a memory; across memories, hits with equal score and loc have no defined order). hrn:node:hadronmemory.com:specs:cor:api:090
     """
     offset: Int
-    orgId: ID
+    orgRef: ID
     query: String
 
     """
-    Spec 049 (D-2026-09-13-002): search under a named scope — a scope id, a bare scope name (needs appRef), 'app' (the App's attached memories; needs appRef), or 'global' (the active organization's view — orgId, or your single membership). The scope's memories are intersected with your access (a lens never grants; the rest is disclosed as scope.droppedCount) and filter.memoryIds narrows WITHIN it. Omitted: the pre-049 behaviour — your accessible set, optionally narrowed by orgId.
+    Spec 049 (D-2026-09-13-002): search under a named scope — a scope id, a bare scope name (needs appRef), 'app' (the App's attached memories; needs appRef), or 'global' (the active organization's view — orgRef, or your single membership). The scope's memories are intersected with your access (a lens never grants; the rest is disclosed as scope.droppedCount) and filter.memoryRefs narrows WITHIN it. Omitted: the pre-049 behaviour — your accessible set, optionally narrowed by orgRef.
     """
     scope: String
     sort: NodeSort
@@ -16690,12 +16724,12 @@ type Query {
   the caller exactly as the per-kind queries are. Distinct from `findNodes`,
   which is the node-only, vector-aware retrieval surface.
   
-  orgId (optional) narrows the org-anchored slices to a single organization:
+  orgRef (optional) narrows the org-anchored slices to a single organization:
   node/memory hits are confined to that org's memories and organization /
   agent / app / aiServiceConfig hits to that org. (The user slice is NOT
   org-scoped — users aren't org-owned; they stay gated by the caller's
   user-visibility as usual.) Omit for the cross-org union (default). A caller
-  who is not a member of orgId gets an empty page (total: 0) — no
+  who is not a member of orgRef gets an empty page (total: 0) — no
   org-existence disclosure; membership-gated for everyone, no admin bypass.
   
   Paged in the repo standard idiom: limit (default 20, capped 200) + offset
@@ -16713,11 +16747,11 @@ type Query {
     fields: [SearchField!]
     limit: Int
     offset: Int
-    orgId: ID
+    orgRef: ID
     query: String!
 
     """
-    Spec 049 (D-2026-09-13-002): run the memory + node slices under a named scope — a scope id, a bare name (needs appRef), 'app' (needs appRef), or 'global' (orgId, or your single membership). See findNodes.scope; the result's scope field discloses what applied.
+    Spec 049 (D-2026-09-13-002): run the memory + node slices under a named scope — a scope id, a bare name (needs appRef), 'app' (needs appRef), or 'global' (orgRef, or your single membership). See findNodes.scope; the result's scope field discloses what applied.
     """
     scope: String
   ): GlobalSearchResult!
@@ -16779,12 +16813,12 @@ type Query {
 
   """
   Uniform paginated Home Assistant instance list (cor:api:120). Default
-  scope: the caller's member orgs. orgId follows cor:api:100:01 (member
+  scope: the caller's member orgs. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member
   -> that org, non-member -> empty page, no disclosure, no admin
   bypass). Slug-ascending order (id tiebreak); limit default 20 / cap
   200; limit: 0 -> count only.
   """
-  homeAssistantInstances(limit: Int, offset: Int, orgId: ID): HomeAssistantInstancesPage!
+  homeAssistantInstances(limit: Int, offset: Int, orgRef: ID): HomeAssistantInstancesPage!
 
   """
   #4224 (S3 of #4229) — for each worker one host runs: whether its agent process should be running, and why. A
@@ -16861,11 +16895,11 @@ type Query {
 
   """
   Uniform paginated admin-impersonation audit list (createdAt-desc).
-  Platform admins may omit orgId (unscoped); everyone else must name an
+  Platform admins may omit orgRef (unscoped); everyone else must name an
   org they are a live ADMIN/OWNER of. filter.activeOnly keeps only
   currently-live sessions. limit default 20 / cap 200.
   """
-  impersonationSessions(filter: ImpersonationSessionFilter, limit: Int, offset: Int, orgId: String): ImpersonationSessionList!
+  impersonationSessions(filter: ImpersonationSessionFilter, limit: Int, offset: Int, orgRef: String): ImpersonationSessionList!
 
   """
   #2044 (hrn:node:hadronmemory.com:specs:cor:agt:040:06) — the App's install memory for an Agent: where the App
@@ -16921,12 +16955,12 @@ type Query {
 
   """
   Uniform paginated MCP-server list (cor:api:120). Default scope: the
-  caller's member orgs. orgId follows cor:api:100:01 (member -> that
+  caller's member orgs. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
   org, non-member -> empty page, no disclosure, no admin bypass).
   Slug-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only.
   """
-  mcpServers(limit: Int, offset: Int, orgId: ID): McpServersPage!
+  mcpServers(limit: Int, offset: Int, orgRef: ID): McpServersPage!
 
   """Current authenticated user"""
   me: User
@@ -16945,17 +16979,17 @@ type Query {
   (every PUBLIC memory — the old publicMemories). filter.memoryClasses
   restricts to exactly the listed classes; omitted, the noisy agent system
   class is hidden by default (pass it explicitly to surface system
-  memories, e.g. the old orgSystemMemories = orgId + memoryClasses:
+  memories, e.g. the old orgSystemMemories = orgRef + memoryClasses:
   [system]).
   
-  orgId follows cor:api:100:01: member -> the "active organization" view
+  orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01: member -> the "active organization" view
   (own personal/private + that org's owned + subscribed memories);
   non-member -> empty page, no existence disclosure, no admin bypass.
   
   Name-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only.
   """
-  memories(filter: MemoryFilter, limit: Int, offset: Int, orgId: ID): MemoriesPage!
+  memories(filter: MemoryFilter, limit: Int, offset: Int, orgRef: ID): MemoriesPage!
 
   """
   Fetch a single Memory (org member, shared-read gate, or platform ADMIN).
@@ -17338,14 +17372,14 @@ type Query {
   included), an App key, an App run, impersonation, a non-member (a platform admin included), a revoked member, a member
   below ADMIN, and an organisation that does not exist are all refused with the same FORBIDDEN.
   """
-  orgBootPromptSigning(org: ID!): OrgBootPromptSigning!
+  orgBootPromptSigning(orgRef: ID!): OrgBootPromptSigning!
 
   """
   #2973 PR2 / hrn:node:hadronmemory.com:specs:cor:agt:040:09: what switching the organisation's boot-prompt signing on
   would change, paged (first at least 1, default 20, served at 200 when more is asked, hrn:node:hadronmemory.com:specs:cor:api:120:04; after is the previous page's endCursor). The audience and refusals are
   orgBootPromptSigning's.
   """
-  orgBootPromptSigningPreview(after: String, first: Int, org: ID!): BootPromptSigningPreview!
+  orgBootPromptSigningPreview(after: String, first: Int, orgRef: ID!): BootPromptSigningPreview!
 
   """
   Fetch an Organization (org member or platform ADMIN).
@@ -17515,10 +17549,10 @@ type Query {
   """
   Spec 049 Phase 5 — register entries you may read (§8.6), narrowed by owner
   (an App or an organization), Channel, or attendee (a Worker or an Agent),
-  and by the cor:api:100:01 orgId. A filter naming something foreign returns
+  and by the hrn:node:hadronmemory.com:specs:cor:api:100:01 orgRef. A filter naming something foreign returns
   the same empty page as one naming nothing. Oldest first; limit default 20 / cap 200.
   """
-  registerEntries(filter: RegisterEntryFilter, limit: Int, offset: Int, orgId: ID): RegisterEntriesPage!
+  registerEntries(filter: RegisterEntryFilter, limit: Int, offset: Int, orgRef: ID): RegisterEntriesPage!
 
   """
   Spec 049 Phase 5 — one register entry. Null when missing OR when you may
@@ -17576,7 +17610,7 @@ type Query {
   """
   Uniform paginated BYO Resend sender list scoped to the caller's member orgs.
   """
-  resendSenders(limit: Int, offset: Int, orgId: ID): ResendSendersPage!
+  resendSenders(limit: Int, offset: Int, orgRef: ID): ResendSendersPage!
 
   """
   036-ai-service-config: resolve a config name for an execution context
@@ -17714,11 +17748,11 @@ type Query {
   """
   Spec 049 Phase 2 — paginated list of the scopes you may read, optionally
   narrowed by owner, by an App's resolution context, by name, and by the
-  cor:api:100:01 orgId (member-gated, no admin bypass; non-member ⇒ empty
+  hrn:node:hadronmemory.com:specs:cor:api:100:01 orgRef (member-gated, no admin bypass; non-member ⇒ empty
   page). Name-ascending (id tiebreak); limit default 20 / cap 200; limit: 0
   ⇒ count only.
   """
-  scopes(filter: ScopeFilter, limit: Int, offset: Int, orgId: ID): ScopesPage!
+  scopes(filter: ScopeFilter, limit: Int, offset: Int, orgRef: ID): ScopesPage!
 
   """
   Fetch one secret's inspectable half (never the value). Null when the
@@ -17833,12 +17867,12 @@ type Query {
 
   """
   Uniform paginated Slack-connection list (cor:api:120). Default scope:
-  the caller's member orgs. orgId follows cor:api:100:01 (member -> that
+  the caller's member orgs. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
   org, non-member -> empty page, no disclosure, no admin bypass).
   Team-name-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only.
   """
-  slackConnections(limit: Int, offset: Int, orgId: ID): SlackConnectionsPage!
+  slackConnections(limit: Int, offset: Int, orgRef: ID): SlackConnectionsPage!
 
   """
   #1449 — what refers to the spec at loc in a spec corpus (any memory since
@@ -18106,12 +18140,12 @@ type Query {
 
   """
   Uniform paginated Telegram-connection list (hrn:node:hadronmemory.com:specs:cor:api:120). Default scope:
-  the caller's member orgs. orgId follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
+  the caller's member orgs. orgRef follows hrn:node:hadronmemory.com:specs:cor:api:100:01 (member -> that
   org, non-member -> empty page, no disclosure, no admin bypass).
   Bot-username-ascending order (id tiebreak); limit default 20 / cap 200;
   limit: 0 -> count only.
   """
-  telegramConnections(limit: Int, offset: Int, orgId: ID): TelegramConnectionsPage!
+  telegramConnections(limit: Int, offset: Int, orgRef: ID): TelegramConnectionsPage!
 
   """
   #1747 — one ticker by id or hrn:ticker: URN; null when it does not exist or the caller may not reach it. #2931: a host key reaches only its host's tickers (hrn:node:hadronmemory.com:specs:cor:agt:070:04).
@@ -19446,7 +19480,7 @@ input ResumeSessionInput {
   expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
   foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
   session is started, ended or touched. With nothing of the caller's waiting the answer stays
-  NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read.
+  NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read. That id-only refusal is built behaviour (#3822), not a rule of hrn:node:hadronmemory.com:specs:cor:agt:020:03, which says only that the caller may name the worker it expects and that a blank one is refused; the field is a known gap against hrn:node:hadronmemory.com:specs:cor:api:140:01, deferred to hadron-server#5163.
   """
   expectedWorkerId: ID
 
@@ -19870,13 +19904,13 @@ type SearchReplaceFieldResult {
 """
 Bulk literal/regex search-and-replace across selected nodes.
 
-Selection is a union — at least one of 'nodeIds' or 'memoryIds' is required:
-  - nodeIds:   explicit nodes (IDs or fully-qualified URNs).
-  - memoryIds: every live node in those memories (IDs or URNs).
-  - prefix:    further restrict the memoryIds set to the node at 'prefix'
+Selection is a union — at least one of 'nodeRefs' or 'memoryRefs' is required:
+  - nodeRefs:  explicit nodes (IDs or fully-qualified URNs).
+  - memoryRefs: every live node in those memories (IDs or URNs).
+  - prefix:    further restrict the memoryRefs set to the node at 'prefix'
                plus its descendants, matched on colon loc-path boundaries
                (so 'auth' matches 'auth' and 'auth:tokens' but not
-               'authoring'). Requires 'memoryIds' — loc is only unique
+               'authoring'). Requires 'memoryRefs' — loc is only unique
                within a memory.
 
 Matching is literal substring by default; set 'regex: true' to treat
@@ -19901,7 +19935,7 @@ input SearchReplaceInNodesInput {
   fields: [NodeTextField!]!
 
   """Memory IDs or URNs — selects every live node in each."""
-  memoryIds: [ID!]
+  memoryRefs: [ID!]
 
   """
   Replacement. May be empty (deletes the matched text). Regex mode honors dollar-sign backrefs.
@@ -19909,7 +19943,7 @@ input SearchReplaceInNodesInput {
   newText: String!
 
   """Explicit node IDs or fully-qualified URNs."""
-  nodeIds: [ID!]
+  nodeRefs: [ID!]
 
   """
   Text (literal) or RegExp source (regex mode) to find. Must be non-empty.
@@ -19917,7 +19951,7 @@ input SearchReplaceInNodesInput {
   oldText: String!
 
   """
-  Loc-prefix filter applied within 'memoryIds' (parent loc + descendants).
+  Loc-prefix filter applied within 'memoryRefs' (parent loc + descendants).
   """
   prefix: String
 
@@ -21659,7 +21693,7 @@ input SpecSearchReplaceInput {
   maxNodesChanged: Int
   memoryRef: ID!
   newText: String!
-  nodeIds: [ID!]!
+  nodeRefs: [ID!]!
   oldText: String!
   reason: String
   regex: Boolean = false
@@ -22765,7 +22799,7 @@ input TickerInput {
   """Tick counting starts here. Defaults to now."""
   anchorAt: DateTime
   cadenceSeconds: Int!
-  channelIds: [ID!]
+  channelRefs: [ID!]
   enabled: Boolean
   name: String!
   quietHours: JSON
@@ -22790,7 +22824,7 @@ Absent fields are unchanged. Use clearQuietHours / clearChannels to remove those
 input TickerPatch {
   anchorAt: DateTime
   cadenceSeconds: Int
-  channelIds: [ID!]
+  channelRefs: [ID!]
   clearChannels: Boolean
   clearQuietHours: Boolean
   enabled: Boolean
@@ -23021,8 +23055,8 @@ type UpdateMemoryShareRolePayload {
 }
 
 """
-Input for updateNode. Identify the target by 'id' (PK or fully-qualified
-node URN) XOR ('memoryId' + 'loc') — both selectors, or neither, is an
+Input for updateNode. Identify the target by 'ref' (PK or fully-qualified
+node URN) XOR ('memoryRef' + 'loc') — both selectors, or neither, is an
 error (spec 039 Phase 0 D2). updateNode never creates and never moves (D3).
 Every content field is optional: omitted = preserved (D4).
 """
@@ -23066,12 +23100,7 @@ input UpdateNodeInput {
   expectedRevision: Int
 
   """
-  The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryId+loc.
-  """
-  id: String
-
-  """
-  #2044 — selector, with 'loc', in place of 'memoryId': the App's install memory. Creates nothing (the first createNode does). XOR with 'id'.
+  #2044 — selector, with 'loc', in place of 'memoryRef': the App's install memory. Creates nothing (the first createNode does). XOR with 'ref'.
   """
   install: InstallTargetInput
 
@@ -23082,14 +23111,14 @@ input UpdateNodeInput {
   llmModel: String
 
   """
-  Selector, with 'memoryId': the target's current loc. Not writable here — moveNode relocates.
+  Selector, with 'memoryRef': the target's current loc. Not writable here — moveNode relocates.
   """
   loc: String
 
   """
-  Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'id'.
+  Selector, with 'loc': the target's memory (ID or fully-qualified URN). XOR with 'ref'.
   """
-  memoryId: String
+  memoryRef: String
 
   """Omit to preserve (D4)."""
   name: String
@@ -23110,6 +23139,11 @@ input UpdateNodeInput {
   reason.
   """
   reason: String
+
+  """
+  The node to change: PK (CUID / 32-char hex) or fully-qualified node URN (hrn:node:<root>:<memory>:<loc>). XOR with memoryRef+loc.
+  """
+  ref: String
 
   """
   #1201 — what this node is FOR (open string). NOT 'nodeType' and NOT
@@ -23921,9 +23955,10 @@ type Worker {
   terminal: WorkerTerminal
 
   """
-  #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus-class),
-  mid (sonnet-class), low (haiku-class); null when the model is unmapped (no guessed equivalence for another
-  family). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
+  #2252 (R189) — the coarse tier of model from the platform's one model-to-tier mapping: high (opus- or
+  fable-class), mid (sonnet-class), low (haiku-class), with the glm, gpt and deepseek lines placed by their vendor's
+  positioning; null when the model is unmapped (no guessed tier for a model nobody has
+  placed). Advisory: a coordinator's reading aid, never an authorization or routing input in this slice.
   """
   tier: String
 

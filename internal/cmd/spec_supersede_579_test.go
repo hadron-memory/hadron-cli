@@ -124,7 +124,7 @@ func server579(t *testing.T) (*httptest.Server, *corpus579) {
 			c.lastUpdate = in
 			var n map[string]any
 			for _, v := range c.nodes {
-				if (in["id"] != nil && v["id"] == in["id"]) || (in["loc"] != nil && v["loc"] == in["loc"]) {
+				if (in["ref"] != nil && v["id"] == in["ref"]) || (in["loc"] != nil && v["loc"] == in["loc"]) {
 					n = v
 					break
 				}
@@ -223,7 +223,7 @@ func TestSpec579ExistingSuccessorAndAbstract(t *testing.T) {
 				if _, present := c.lastUpdate["content"]; present {
 					t.Fatal("--by rewrote content", c.lastUpdate)
 				}
-				if c.lastUpdate["id"] != "old" || c.lastUpdate["expectedRevision"] != float64(1) {
+				if c.lastUpdate["ref"] != "old" || c.lastUpdate["expectedRevision"] != float64(1) {
 					t.Fatalf("unguarded update %+v", c.lastUpdate)
 				}
 				if c.creates != 0 || len(c.nodes) != 2 || c.writes != 2 {

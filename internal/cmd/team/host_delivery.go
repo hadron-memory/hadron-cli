@@ -180,7 +180,7 @@ func rangeFrom(r *genBatchRange) delivery.Range {
 func (s *hostServer) Ack(ctx context.Context, batchID string, through []delivery.Through) (delivery.AckResult, error) {
 	var th []*gen.BatchThrough
 	for _, t := range through {
-		th = append(th, &gen.BatchThrough{ChannelId: t.ChannelID, Seq: t.Seq})
+		th = append(th, &gen.BatchThrough{ChannelRef: t.ChannelID, Seq: t.Seq})
 	}
 	resp, err := gen.AcknowledgeDeliveryBatches(ctx, s.client, []string{batchID}, th)
 	if err != nil {

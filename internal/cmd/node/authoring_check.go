@@ -126,7 +126,7 @@ func authoringCheckInput(cmd *cobra.Command, nodeRef, memory, role, task string,
 		in.Ref = &nodeRef
 	case strings.TrimSpace(memory) != "":
 		mem := cmdutil.CanonicalMemoryRef(memory)
-		in.MemoryID, in.Loc = &mem, &nodeRef
+		in.MemoryRef, in.Loc = &mem, &nodeRef
 	default:
 		return nil, exitcode.Newf(exitcode.Usage, "a bare loc needs -m/--memory <memory>; otherwise pass a node id or node URN")
 	}

@@ -22,7 +22,7 @@ query ListResendSenders(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  resendSenders(orgId: $orgId, limit: $limit, offset: $offset) { items { ...ResendSenderFields } total }
+  resendSenders(orgRef: $orgId, limit: $limit, offset: $offset) { items { ...ResendSenderFields } total }
 }
 mutation CreateResendSender($orgRef: ID!, $from: String!, $apiKey: String!,
   # @genqlient(omitempty: true)

@@ -22,7 +22,7 @@ func importNodeResp(loc, name, nodeType string) string {
 // ingestVars is the decoded request-variable shape of an ImportNode call.
 type ingestVars struct {
 	Input struct {
-		MemoryId    *string          `json:"memoryId"`
+		MemoryRef   *string          `json:"memoryRef"`
 		Loc         *string          `json:"loc"`
 		NodeUrn     *string          `json:"nodeUrn"`
 		Url         *string          `json:"url"`
@@ -73,8 +73,8 @@ func TestNodeImportPDFBase64EncodesAndSetsContentType(t *testing.T) {
 	if vars.Input.Content == nil || *vars.Input.Content != want {
 		t.Errorf("content must be base64 of the PDF bytes:\n got: %v\nwant: %s", vars.Input.Content, want)
 	}
-	if vars.Input.MemoryId == nil || *vars.Input.MemoryId != "acme.com:kb" || vars.Input.Loc == nil || *vars.Input.Loc != "papers:attention" {
-		t.Errorf("target = memory %v loc %v", vars.Input.MemoryId, vars.Input.Loc)
+	if vars.Input.MemoryRef == nil || *vars.Input.MemoryRef != "acme.com:kb" || vars.Input.Loc == nil || *vars.Input.Loc != "papers:attention" {
+		t.Errorf("target = memory %v loc %v", vars.Input.MemoryRef, vars.Input.Loc)
 	}
 	if vars.Input.Url != nil {
 		t.Errorf("url must be omitted on the inline path, got %v", *vars.Input.Url)
@@ -242,8 +242,8 @@ func TestNodeImportContentNodeURNTarget(t *testing.T) {
 	if vars.Input.NodeUrn == nil || *vars.Input.NodeUrn != nodeURN {
 		t.Errorf("nodeUrn = %v", vars.Input.NodeUrn)
 	}
-	if vars.Input.MemoryId != nil || vars.Input.Loc != nil {
-		t.Errorf("--node must not send memoryId/loc: %v %v", vars.Input.MemoryId, vars.Input.Loc)
+	if vars.Input.MemoryRef != nil || vars.Input.Loc != nil {
+		t.Errorf("--node must not send memoryId/loc: %v %v", vars.Input.MemoryRef, vars.Input.Loc)
 	}
 	if vars.Input.ContentType == nil || *vars.Input.ContentType != "text/html" {
 		t.Errorf("contentType = %v, want text/html", vars.Input.ContentType)

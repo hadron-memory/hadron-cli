@@ -183,7 +183,7 @@ func (p editProposal) input() gen.UpdateNodeInput {
 	// refuses with NODE_WRITE_CONFLICT otherwise. There is no unguarded path.
 	rev := p.baseRevision
 	id := p.baseNodeID
-	in := gen.UpdateNodeInput{Id: &id, ExpectedRevision: &rev}
+	in := gen.UpdateNodeInput{Ref: &id, ExpectedRevision: &rev}
 	if p.bodyChanged() {
 		body := p.newBody
 		in.Content = &body

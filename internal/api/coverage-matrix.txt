@@ -656,8 +656,9 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 17: 4 gap, 13 excluded
+[Arguments] 19: 6 gap, 13 excluded
 Mutation.cloneAgentTask(input.isProject)  gap #3109
+Mutation.createAgent(slug)  gap #3223
 Mutation.createAgentTask(input.isProject)  gap #3109
 Mutation.createAgentTasks(tasks.task.isProject)  gap #3109
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -665,6 +666,7 @@ Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
+Mutation.createMemory(slug)  gap #3223
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -681,7 +683,7 @@ Query.agentTasksPage(reference.target)  flag team task list --ref
 Query.agents(filter.ownedByMe)  flag agent list --owned-by-me
 Query.agents(filter.type)  flag agent list --type
 Query.agents(filter.visibility)  flag agent list --visibility
-Query.aiServiceConfigs(filter.ownerId)  flag ai-config list --owner-id
+Query.aiServiceConfigs(filter.ownerRef)  flag ai-config list --owner-id
 Query.aiServiceConfigs(filter.ownerType)  flag ai-config list --owner-type
 Query.appNodesPage(filter.approvalState)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.childrenOf)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
@@ -692,7 +694,7 @@ Query.appNodesPage(filter.includeDeleted)  flag app nodes --include-deleted
 Query.appNodesPage(filter.isRunnable)  flag app nodes --runnable
 Query.appNodesPage(filter.locPrefix)  flag app nodes --prefix
 Query.appNodesPage(filter.memoryClasses)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
-Query.appNodesPage(filter.memoryIds)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
+Query.appNodesPage(filter.memoryRefs)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source); use node list; Proposed class unruled under #1334 (33-row review)
 Query.appNodesPage(filter.minted)  gap #1697: remaining App node filter surface
 Query.appNodesPage(filter.nodeType)  flag app nodes --type
 Query.appNodesPage(filter.nodeTypes)  flag app nodes --types
@@ -702,7 +704,7 @@ Query.appNodesPage(filter.tags)  flag app nodes --tag
 Query.appNodesPage(filter.updatedAfter)  flag app nodes --updated-after
 Query.appNodesPage(filter.updatedBefore)  flag app nodes --updated-before
 Query.appNodesPage(filter.where)  excluded not-a-capability: appNodesPage refuses this selector (SDL/source; server#3427 closed by #3430); use node list; Proposed class unruled under #1334 (33-row review)
-Query.apps(filter.agentId)  flag app list --agent
+Query.apps(filter.agentRef)  flag app list --agent
 Query.apps(filter.ownedByMe)  flag app list --owned-by-me
 Query.assets(filter.includeDeleted)  flag asset list --include-deleted
 Query.assets(filter.memoryRefs)  flag asset list --memory
@@ -713,9 +715,9 @@ Query.channels(filter.appRef)  flag channel list --owner-app
 Query.channels(filter.memoryRef)  flag channel list --memory
 Query.edges(filter.includeDeleted)  flag edge list --include-deleted
 Query.edges(filter.isRunnable)  flag edge list --runnable
-Query.edges(filter.memoryId)  flag edge list --memory
-Query.edges(filter.sourceNodeId)  flag edge list --source
-Query.edges(filter.targetNodeId)  flag edge list --target
+Query.edges(filter.memoryRef)  flag edge list --memory
+Query.edges(filter.sourceRef)  flag edge list --source
+Query.edges(filter.targetRef)  flag edge list --target
 Query.findNodes(filter.approvalState)  flag spec list --approved --unapproved
 Query.findNodes(filter.childrenOf)  flag node list --children-of
 Query.findNodes(filter.contentScope)  flag search --comments-only
@@ -725,7 +727,7 @@ Query.findNodes(filter.includeDeleted)  flag node list --include-deleted
 Query.findNodes(filter.isRunnable)  flag node list --runnable
 Query.findNodes(filter.locPrefix)  flag node list --prefix
 Query.findNodes(filter.memoryClasses)  flag node list --memory-class
-Query.findNodes(filter.memoryIds)  flag node list --memory
+Query.findNodes(filter.memoryRefs)  flag node list --memory
 Query.findNodes(filter.minted)  flag spec list --minted --unminted
 Query.findNodes(filter.nodeType)  flag node list --type
 Query.findNodes(filter.nodeTypes)  flag node list --types

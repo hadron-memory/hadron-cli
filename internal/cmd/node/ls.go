@@ -241,7 +241,7 @@ Details:
 				filterSet = true
 			}
 			if memory != "" {
-				filter.MemoryIds = []string{memory}
+				filter.MemoryRefs = []string{memory}
 				filterSet = true
 			}
 			if prefix != "" {

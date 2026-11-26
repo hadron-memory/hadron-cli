@@ -4,7 +4,7 @@
 # operation would break unrelated commands against it.
 
 query OrgBootPromptSigning($org: ID!) {
-  orgBootPromptSigning(org: $org) {
+  orgBootPromptSigning(orgRef: $org) {
     required
     enforced
     deploymentSigns
@@ -22,7 +22,7 @@ query OrgBootPromptSigningPreview(
   # @genqlient(omitempty: true)
   $after: String
 ) {
-  orgBootPromptSigningPreview(org: $org, first: $first, after: $after) {
+  orgBootPromptSigningPreview(orgRef: $org, first: $first, after: $after) {
     enforced
     deploymentSigns
     total
@@ -56,7 +56,7 @@ mutation SetOrgBootPromptSigning(
   $previewToken: String
 ) {
   setOrgBootPromptSigning(
-    org: $org
+    orgRef: $org
     required: $required
     previewToken: $previewToken
   ) {

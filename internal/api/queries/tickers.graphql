@@ -32,7 +32,7 @@ query TickerSubscribers($ref: String!, $first: Int!,
 }
 # @genqlient(for: "TickerInput.anchorAt", omitempty: true)
 # @genqlient(for: "TickerInput.quietHours", omitempty: true)
-# @genqlient(for: "TickerInput.channelIds", omitempty: true)
+# @genqlient(for: "TickerInput.channelRefs", omitempty: true)
 # @genqlient(for: "TickerInput.relevance", omitempty: true)
 # @genqlient(for: "TickerInput.reasons", omitempty: true)
 # @genqlient(for: "TickerInput.enabled", omitempty: true)
@@ -47,7 +47,7 @@ mutation CreateTicker(
 # @genqlient(for: "TickerPatch.anchorAt", omitempty: true)
 # @genqlient(for: "TickerPatch.quietHours", omitempty: true)
 # @genqlient(for: "TickerPatch.clearQuietHours", omitempty: true)
-# @genqlient(for: "TickerPatch.channelIds", omitempty: true)
+# @genqlient(for: "TickerPatch.channelRefs", omitempty: true)
 # @genqlient(for: "TickerPatch.clearChannels", omitempty: true)
 # @genqlient(for: "TickerPatch.relevance", omitempty: true)
 # @genqlient(for: "TickerPatch.reasons", omitempty: true)

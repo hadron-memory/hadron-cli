@@ -42,8 +42,8 @@ func TestUpdateNodeInputFromMapsAllFields(t *testing.T) {
 	}
 
 	// The selector-collision guard: Id must stay unset on the update input.
-	if out.Id != nil {
-		t.Errorf("updateNodeInputFrom must not map Id (selector XOR violation), got %q", *out.Id)
+	if out.Ref != nil {
+		t.Errorf("updateNodeInputFrom must not map Id (selector XOR violation), got %q", *out.Ref)
 	}
 }
 

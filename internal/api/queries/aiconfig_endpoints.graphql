@@ -63,7 +63,7 @@ mutation CreateAiServiceConfigWithEndpoint(
     name: $name
     provider: $provider
     model: $model
-    ownerId: $ownerId
+    ownerRef: $ownerId
     ownerType: $ownerType
     apiKey: $apiKey
     enabled: $enabled

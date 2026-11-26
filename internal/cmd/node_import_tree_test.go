@@ -20,8 +20,8 @@ type createNodeInput struct {
 	Name    string  `json:"name"`
 	Content *string `json:"content"`
 	Edges   []struct {
-		Name     *string `json:"name"`
-		TargetId string  `json:"targetId"`
+		Name      *string `json:"name"`
+		TargetRef string  `json:"targetRef"`
 	} `json:"edges"`
 }
 
@@ -118,7 +118,7 @@ func TestNodeImportTree(t *testing.T) {
 	}
 	// docs → how-to contains edge, targeting how-to's returned id.
 	docs := byLoc["docs"]
-	if len(docs.Edges) != 1 || docs.Edges[0].TargetId != "nid:docs:how-to" || *docs.Edges[0].Name != "contains" {
+	if len(docs.Edges) != 1 || docs.Edges[0].TargetRef != "nid:docs:how-to" || *docs.Edges[0].Name != "contains" {
 		t.Errorf("docs should have one contains edge to how-to's id, got %+v", docs.Edges)
 	}
 	// how-to → both leaves.
@@ -126,7 +126,7 @@ func TestNodeImportTree(t *testing.T) {
 	if len(howto.Edges) != 2 {
 		t.Fatalf("how-to should wire 2 contains edges, got %+v", howto.Edges)
 	}
-	targets := map[string]bool{howto.Edges[0].TargetId: true, howto.Edges[1].TargetId: true}
+	targets := map[string]bool{howto.Edges[0].TargetRef: true, howto.Edges[1].TargetRef: true}
 	if !targets["nid:docs:how-to:setup"] || !targets["nid:docs:how-to:setup-2"] {
 		t.Errorf("how-to edges should target the two leaf ids, got %+v", howto.Edges)
 	}

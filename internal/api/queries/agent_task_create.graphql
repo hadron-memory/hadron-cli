@@ -15,7 +15,7 @@
 # @genqlient(for: "CreateNodeInput.edges", omitempty: true)
 # @genqlient(for: "CreateNodeInput.id", omitempty: true)
 # @genqlient(for: "CreateNodeInput.isRunnable", omitempty: true)
-# @genqlient(for: "CreateNodeInput.memoryId", pointer: false, omitempty: true)
+# @genqlient(for: "CreateNodeInput.memoryRef", pointer: false, omitempty: true)
 # @genqlient(for: "CreateNodeInput.llmModel", omitempty: true)
 # @genqlient(for: "CreateNodeInput.nodeType", omitempty: true)
 # @genqlient(for: "CreateNodeInput.objectType", omitempty: true)

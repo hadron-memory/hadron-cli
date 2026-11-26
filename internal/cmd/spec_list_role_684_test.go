@@ -124,7 +124,7 @@ func TestSpecListRolePassThrough684(t *testing.T) {
 				if f["role"] != tc.role || f["locPrefix"] != "msg:010" {
 					t.Fatalf("lost selectors: %v", f)
 				}
-				if ids, ok := f["memoryIds"].([]any); !ok || len(ids) != 1 || ids[0] != specMem {
+				if ids, ok := f["memoryRefs"].([]any); !ok || len(ids) != 1 || ids[0] != specMem {
 					t.Fatalf("lost memory scope: %v", f)
 				}
 				if _, ok := f["tags"]; ok {

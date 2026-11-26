@@ -40,7 +40,7 @@ func TestAppListAgentWhitespace1642(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing filter object: %#v", (*calls)[0].Vars)
 		}
-		if filter["agentId"] != agent {
+		if filter["agentRef"] != agent {
 			t.Fatalf("nonblank ref altered: %v", filter)
 		}
 	}

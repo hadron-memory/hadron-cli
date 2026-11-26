@@ -85,7 +85,7 @@ func TestNodeAddIDAndEdges1341(t *testing.T) {
 	if in["id"] != "01a1b2c3d4e5f60718293a4b5c6d7e8f" {
 		t.Errorf("input.id = %v", in["id"])
 	}
-	want := `[{"name":"routes-to","targetId":"start-here"},{"description":"why","isRunnable":true,"loc":"findings:new:cites:other","name":"cites","targetId":"hrn:node:acme.com:kb:other"}]`
+	want := `[{"name":"routes-to","targetRef":"start-here"},{"description":"why","isRunnable":true,"loc":"findings:new:cites:other","name":"cites","targetRef":"hrn:node:acme.com:kb:other"}]`
 	if got := asJSON(setOnly(in["edges"])); got != want {
 		t.Errorf("input.edges =\n %s\nwant\n %s", got, want)
 	}
@@ -114,7 +114,7 @@ func TestNodeUpdateEdgesNeedReplace1341(t *testing.T) {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
 	in, _ := vars1341(t, captured, "UpdateNode")["input"].(map[string]any)
-	if got := asJSON(setOnly(in["edges"])); got != `[{"description":"d","isRunnable":false,"loc":"l1","targetId":"start-here"}]` {
+	if got := asJSON(setOnly(in["edges"])); got != `[{"description":"d","isRunnable":false,"loc":"l1","targetRef":"start-here"}]` {
 		t.Errorf("input.edges = %s", got)
 	}
 	for _, bad := range [][]string{{"--edge", "x=y"}, {"--replace-edges"}} {
@@ -208,7 +208,7 @@ func TestEdgeListUniform1341(t *testing.T) {
 		t.Fatalf("execute: %v\n%s", err, out)
 	}
 	v := vars1341(t, captured, "ListEdges")
-	if asJSON(v["filter"]) != `{"includeDeleted":true,"isRunnable":false,"memoryId":"hrn:mem:acme.com:kb","sourceNodeId":"01a193c927a37e02b84d8c84eb2ecdfe","targetNodeId":"hrn:node:acme.com:kb:start-here"}` ||
+	if asJSON(v["filter"]) != `{"includeDeleted":true,"isRunnable":false,"memoryRef":"hrn:mem:acme.com:kb","sourceRef":"01a193c927a37e02b84d8c84eb2ecdfe","targetRef":"hrn:node:acme.com:kb:start-here"}` ||
 		v["orgId"] != "acme.com" || v["limit"] != float64(5) || v["offset"] != float64(10) {
 		t.Errorf("vars = %v", v)
 	}

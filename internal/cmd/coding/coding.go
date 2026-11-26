@@ -351,7 +351,7 @@ func scanPrefix(ctx context.Context, client graphql.Client, mem codingMemory, lo
 	pfx := locPrefix
 	err := api.PageNodes(pageSize, func(limit, offset int) ([]*api.ListNode, error) {
 		page, err := api.FindNodes(ctx, client, nil, nil,
-			&gen.NodeFilter{MemoryIds: []string{mem.Ref}, LocPrefix: &pfx}, nil, nil, &limit, &offset)
+			&gen.NodeFilter{MemoryRefs: []string{mem.Ref}, LocPrefix: &pfx}, nil, nil, &limit, &offset)
 		if err != nil {
 			return nil, api.MapError(err)
 		}

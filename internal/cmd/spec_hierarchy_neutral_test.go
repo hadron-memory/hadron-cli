@@ -397,7 +397,7 @@ func TestSpecNewAtExplicitInherit(t *testing.T) {
 		t.Fatalf("execute: %v", err)
 	}
 	edges := sentSpecEdges(t, captured["CreateSpecNode"])
-	if len(edges) != 1 || edges[0]["targetId"] != "t1" || edges[0]["name"] != "inherits the shared contract (general provisions)" {
+	if len(edges) != 1 || edges[0]["targetRef"] != "t1" || edges[0]["name"] != "inherits the shared contract (general provisions)" {
 		t.Errorf("edges = %v, want exactly the named inheritance edge, by resolved id", edges)
 	}
 }
@@ -938,7 +938,7 @@ func TestSpecPrefixMatchesWholeSegments(t *testing.T) {
 		_ = root.Execute()
 		var vars struct {
 			Input struct {
-				NodeIds []string `json:"nodeIds"`
+				NodeIds []string `json:"nodeRefs"`
 			} `json:"input"`
 		}
 		_ = json.Unmarshal(captured["SearchReplaceInNodes"], &vars)

@@ -213,9 +213,9 @@ func TestTaskAppQualify1831EverySite(t *testing.T) {
 		{"set-priority", []string{"set-priority", "AT0.5", "2"}, "AgentTaskSetPriority", map[string]string{"taskRef": at5}},
 		{"add-blocker", []string{"add-blocker", "AT0.5", "AT0.6"}, "AgentTaskAddBlocker", map[string]string{"taskRef": at5, "blockerTaskRef": at6}},
 		{"remove-blocker", []string{"remove-blocker", "AT0.5", "AT0.6"}, "AgentTaskRemoveBlocker", map[string]string{"taskRef": at5, "blockerTaskRef": at6}},
-		{"create --parent", []string{"create", "child", "--parent", "AT0.5"}, "AgentTaskCreate", map[string]string{"input.parentTaskId": at5}},
+		{"create --parent", []string{"create", "child", "--parent", "AT0.5"}, "AgentTaskCreate", map[string]string{"input.parentTaskRef": at5}},
 		{"create --blocked-by", []string{"create", "blocked", "--blocked-by", "AT0.5", "--blocked-by", "AT0.6"}, "AgentTaskCreate", map[string]string{"input.blockedBy.0": at5, "input.blockedBy.1": at6}},
-		{"clone --parent", []string{"clone", "AT0.9", "--parent", "AT0.5"}, "AgentTaskClone", map[string]string{"taskId": at9, "input.parentTaskId": at5}},
+		{"clone --parent", []string{"clone", "AT0.9", "--parent", "AT0.5"}, "AgentTaskClone", map[string]string{"taskId": at9, "input.parentTaskRef": at5}},
 		{"list --parent", []string{"list", "--parent", "AT0.5"}, "AgentTaskList", map[string]string{"parentTaskId": at5}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

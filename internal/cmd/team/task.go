@@ -545,15 +545,15 @@ warnings list.` + "\n\n" + taskInstructionHelpShort(taskInstructionFloor),
 				return err
 			}
 			input := gen.CreateAgentTaskInput{Priority: priorityArg, BlockedBy: blockedBy,
-				Title:        title,
-				Description:  optStr(description),
-				ParentTaskId: optStr(parent),
-				Source:       optStr(source),
-				ExternalId:   optStr(externalID),
-				StartBy:      optStr(startBy),
-				FinishBy:     optStr(finishBy),
-				Status:       createStatus,
-				Tags:         tags,
+				Title:         title,
+				Description:   optStr(description),
+				ParentTaskRef: optStr(parent),
+				Source:        optStr(source),
+				ExternalId:    optStr(externalID),
+				StartBy:       optStr(startBy),
+				FinishBy:      optStr(finishBy),
+				Status:        createStatus,
+				Tags:          tags,
 			}
 			// cli#2206: the run settings, create-only; nil without a flag.
 			if input.RunSettings, err = runFlags.build(cmd); err != nil {

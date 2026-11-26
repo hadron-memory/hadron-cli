@@ -10,7 +10,7 @@
 # The server treats an omitted NodeFilter field as "no constraint"; nil
 # pointers must therefore be omitted, not sent as null — hence the per-field
 # omitempty annotations mirroring nodes.graphql's NodeInput contract.
-# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryRefs", omitempty: true)
 # @genqlient(for: "NodeFilter.approvalState", omitempty: true)
 # @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)
@@ -455,7 +455,7 @@ query GetNodeRaw($ref: ID!) {
 # #994 schema refresh picks up the provider's optional install target (#2044).
 # C7 install writes omit memoryId and supply install; retain the string binding
 # so ordinary memory-target callers keep their nonempty selector unchanged.
-# @genqlient(for: "CreateNodeInput.memoryId", pointer: false, omitempty: true)
+# @genqlient(for: "CreateNodeInput.memoryRef", pointer: false, omitempty: true)
 # @genqlient(for: "CreateNodeInput.install", omitempty: true)
 # @genqlient(for: "CreateNodeInput.edges", omitempty: true)
 # @genqlient(for: "CreateNodeInput.id", omitempty: true)
@@ -612,9 +612,9 @@ mutation CreateTaskNode(
   }
 }
 
-# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ref", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.expectedRevision", omitempty: true)
-# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryRef", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.name", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
@@ -652,9 +652,9 @@ mutation UpdateReviewNode(
   }
 }
 
-# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ref", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.expectedRevision", omitempty: true)
-# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryRef", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.name", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
@@ -746,9 +746,9 @@ mutation CreateReviewNode(
 # field as "preserve" (name and tags included) and an explicit null as
 # "clear" — nil pointers must therefore be omitted from the wire, not
 # serialized as null.
-# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ref", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.expectedRevision", omitempty: true)
-# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryRef", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.name", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
@@ -797,9 +797,9 @@ mutation UpdateNode(
 # `loc`), and it never creates and never moves. So omit-to-preserve holds here
 # exactly as it does there, which is what `spec edit` depends on and what
 # routing an edit through a CREATE door could never have given it (#1192).
-# @genqlient(for: "UpdateNodeInput.id", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.ref", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.expectedRevision", omitempty: true)
-# @genqlient(for: "UpdateNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "UpdateNodeInput.memoryRef", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.loc", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.name", omitempty: true)
 # @genqlient(for: "UpdateNodeInput.abstract", omitempty: true)
@@ -871,7 +871,7 @@ mutation DeleteNode(
 # the server reads an *omitted* field differently from an explicit null — nil
 # pointers must be omitted from the wire, hence the per-field omitempty
 # annotations. Backs `hadron node import`'s content mode.
-# @genqlient(for: "ImportNodeInput.memoryId", omitempty: true)
+# @genqlient(for: "ImportNodeInput.memoryRef", omitempty: true)
 # @genqlient(for: "ImportNodeInput.loc", omitempty: true)
 # @genqlient(for: "ImportNodeInput.nodeUrn", omitempty: true)
 # @genqlient(for: "ImportNodeInput.url", omitempty: true)

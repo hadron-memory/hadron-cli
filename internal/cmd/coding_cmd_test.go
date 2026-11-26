@@ -525,7 +525,7 @@ func TestCodingReviewCreateWiresParentEdge(t *testing.T) {
 			Content     string   `json:"content"`
 			Tags        []string `json:"tags"`
 			Edges       []struct {
-				TargetID string `json:"targetId"`
+				TargetID string `json:"targetRef"`
 				Name     string `json:"name"`
 			} `json:"edges"`
 		} `json:"input"`
@@ -604,7 +604,7 @@ func TestCodingReviewCreateCrossMemoryLink(t *testing.T) {
 	var got struct {
 		Input struct {
 			Edges []struct {
-				TargetID string `json:"targetId"`
+				TargetID string `json:"targetRef"`
 			} `json:"edges"`
 		} `json:"input"`
 	}
@@ -751,7 +751,7 @@ func TestCodingPreflightCreateWiresRouteAndBody(t *testing.T) {
 			Content  string   `json:"content"`
 			Tags     []string `json:"tags"`
 			Edges    []struct {
-				TargetID string `json:"targetId"`
+				TargetID string `json:"targetRef"`
 				Name     string `json:"name"`
 			} `json:"edges"`
 		} `json:"input"`

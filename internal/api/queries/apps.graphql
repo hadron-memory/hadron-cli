@@ -5,7 +5,7 @@
 # requires --org, --owned-by-me or --agent, but that is the command's rule, not
 # the operation's.
 # @genqlient(for: "AppFilter.ownedByMe", omitempty: true)
-# @genqlient(for: "AppFilter.agentId", omitempty: true)
+# @genqlient(for: "AppFilter.agentRef", omitempty: true)
 query Apps(
   # @genqlient(omitempty: true)
   $orgId: ID
@@ -16,7 +16,7 @@ query Apps(
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  apps(orgId: $orgId, filter: $filter, limit: $limit, offset: $offset) {
+  apps(orgRef: $orgId, filter: $filter, limit: $limit, offset: $offset) {
     total
     items {
       id
@@ -496,7 +496,7 @@ mutation RevokeAppKeyInstructed($id: ID!, $instruction: ActInstructionInput!) {
 # cli#1626: one deliberate page over the App's authoritative node scope.
 # Repeat FindNodes' per-field omission directives on every shared-input operation;
 # otherwise code generation can serialize unset selectors as null.
-# @genqlient(for: "NodeFilter.memoryIds", omitempty: true)
+# @genqlient(for: "NodeFilter.memoryRefs", omitempty: true)
 # @genqlient(for: "NodeFilter.approvalState", omitempty: true)
 # @genqlient(for: "NodeFilter.minted", omitempty: true)
 # @genqlient(for: "NodeFilter.memoryClasses", omitempty: true)

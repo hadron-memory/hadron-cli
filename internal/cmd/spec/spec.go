@@ -985,7 +985,7 @@ func resolveSpecEdges(cmd *cobra.Command, client graphql.Client, memoryURN strin
 
 // inlineSpecEdge is one inline outgoing edge to the node with id targetID.
 func inlineSpecEdge(targetID, label string) *gen.NodeEdgeInput {
-	return &gen.NodeEdgeInput{TargetId: targetID, Name: &label}
+	return &gen.NodeEdgeInput{TargetRef: targetID, Name: &label}
 }
 
 // fetchSpecNode resolves a citation/loc and reads the full node.
@@ -1324,7 +1324,7 @@ func newNodeFilter(memory, prefix *string, tags []string) *gen.NodeFilter {
 	var f gen.NodeFilter
 	set := false
 	if memory != nil && *memory != "" {
-		f.MemoryIds = []string{*memory}
+		f.MemoryRefs = []string{*memory}
 		set = true
 	}
 	if prefix != nil && *prefix != "" {

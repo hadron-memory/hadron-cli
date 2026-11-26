@@ -206,7 +206,7 @@ func TestAppLs1626AgentComposesAndDoesNotResolveTheAgent(t *testing.T) {
 			if vars["limit"] != float64(20) {
 				t.Fatalf("agent listing must not ask for more than default20: %v", vars)
 			}
-			if filter["agentId"] != "hrn:agent:acme.com:iris" {
+			if filter["agentRef"] != "hrn:agent:acme.com:iris" {
 				t.Fatalf("agent selector lost: %v", filter)
 			}
 			if len(extra) > 0 && extra[0] == "--owned-by-me" && filter["ownedByMe"] != true {
@@ -263,7 +263,7 @@ func TestAppLs1626StubFiltersInstalledAgentAndKeepsArray(t *testing.T) {
 					Query         string
 					Variables     struct {
 						Filter struct {
-							AgentID string `json:"agentId"`
+							AgentID string `json:"agentRef"`
 						} `json:"filter"`
 					}
 				}
@@ -343,7 +343,7 @@ func TestAppLs1626UnsetAgentDoesNotReachTheWire(t *testing.T) {
 			}
 			vars, _ := varsOf(t, captured, "Apps")
 			if filter, ok := vars["filter"].(map[string]any); ok {
-				if _, present := filter["agentId"]; present {
+				if _, present := filter["agentRef"]; present {
 					t.Fatalf("unset agent must be omitted, not null: %v", filter)
 				}
 			}

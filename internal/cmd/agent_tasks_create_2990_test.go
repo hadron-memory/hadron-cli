@@ -98,7 +98,7 @@ func TestAgentTasksCreateIsOneWriteCall2990(t *testing.T) {
 	}
 	v := decodeVars2990(t, run.vars["CreateRoleTask"])
 	in, _ := v["input"].(map[string]any)
-	want := map[string]any{"memoryId": roleTaskMemory2990, "loc": roleTaskLoc2990, "name": "Restart the poller",
+	want := map[string]any{"memoryRef": roleTaskMemory2990, "loc": roleTaskLoc2990, "name": "Restart the poller",
 		"abstract": "Bring the poller back when it stalls.", "nodeType": "task", "isRunnable": true}
 	for k, w := range want {
 		if in[k] != w {
@@ -317,8 +317,8 @@ func TestAgentTasksCreateMakesNoPreCheckOfItsOwn2990(t *testing.T) {
 		t.Fatalf("the write is sent and the server decides: %v", run.ops)
 	}
 	in, _ := decodeVars2990(t, run.vars["CreateRoleTask"])["input"].(map[string]any)
-	if _, has := in["memoryId"]; has {
-		t.Errorf("an Agent with no system memory sends no memory id: %v", in["memoryId"])
+	if _, has := in["memoryRef"]; has {
+		t.Errorf("an Agent with no system memory sends no memory id: %v", in["memoryRef"])
 	}
 	if exitCodeFor(run.err) != exitcode.Usage || !strings.Contains(run.err.Error(), "The Agent has no tasks index.") {
 		t.Errorf("the server's refusal maps through MapError: exit %d %v", exitCodeFor(run.err), run.err)
