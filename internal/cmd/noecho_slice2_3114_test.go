@@ -150,20 +150,26 @@ func TestSlice2MissingBodyLineRemedyWorks3114(t *testing.T) {
 			t.Fatalf("%s: want the partial-write refusal", name)
 		}
 		msg := tc.err.Error()
-		if !strings.Contains(msg, "hadron coding preflight route <loc>") {
-			t.Errorf("%s: names the remedy command: %v", name, tc.err)
+		// cli#3216 item 3: the whole remedy form, not just its command name.
+		if !strings.Contains(msg, "`hadron coding preflight route <loc> -m <memory> --route <label>`") {
+			t.Errorf("%s: names the whole remedy form: %v", name, tc.err)
 		}
 		named := map[string]bool{}
-		for _, fl := range regexp.MustCompile(`--[a-z-]+`).FindAllString(msg, -1) {
+		for _, fl := range regexp.MustCompile(`--[a-z0-9-]+`).FindAllString(msg, -1) {
 			named[strings.TrimPrefix(fl, "--")] = true
 		}
+		// A floor, so the completeness loop below cannot pass because the list went empty: --route from
+		// the remedy form plus at least four settings of the failed command.
+		if len(named) < 5 {
+			t.Errorf("%s names only %d flags (%v); the refusal lists the settings to repeat", name, len(named), named)
+		}
 		for fl := range named {
-			if routeCmd.Flags().Lookup(fl) == nil {
+			if routeCmd.LocalFlags().Lookup(fl) == nil {
 				t.Errorf("%s names --%s, which preflight route does not take", name, fl)
 			}
 		}
 		routeCmd.LocalFlags().VisitAll(func(fl *pflag.Flag) {
-			if notNamed[fl.Name] || fl.Name == tc.alsoNotNamed || tc.original.Flags().Lookup(fl.Name) == nil {
+			if notNamed[fl.Name] || fl.Name == tc.alsoNotNamed || tc.original.LocalFlags().Lookup(fl.Name) == nil {
 				return
 			}
 			if !named[fl.Name] {
