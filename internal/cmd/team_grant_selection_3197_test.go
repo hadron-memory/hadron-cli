@@ -152,6 +152,16 @@ func TestGrantSelection3197EmptyItemsRenderAsArray(t *testing.T) {
 	if err != nil || !strings.Contains(out, `"items": []`) {
 		t.Fatalf("err %v out %s", err, out)
 	}
+	// cli#3234: the schema says requestedBy is never null; if one arrives the
+	// emitted key is still the object, each of its four fields null.
+	var d map[string]any
+	if err := json.Unmarshal([]byte(out), &d); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{"userId": nil, "appId": nil, "workerId": nil, "sessionId": nil}
+	if got, ok := d["requestedBy"].(map[string]any); !ok || !reflect.DeepEqual(got, want) {
+		t.Fatalf("requestedBy %#v", d["requestedBy"])
+	}
 }
 
 func refusal3197(code, message string, extensions map[string]any) string {
@@ -174,21 +184,20 @@ func TestGrantSelection3197Refusals(t *testing.T) {
 		text       []string
 		extensions map[string]any
 	}{
-		{0, "SELECTION_EMPTY", nil, exitcode.Usage, nil, nil},
-		{0, "SELECTION_TOO_LARGE", map[string]any{"cap": 25}, exitcode.Usage, []string{"cap: 25"}, map[string]any{"cap": 25.0}},
-		{0, "SELECTION_DUPLICATE_GRANT", map[string]any{"grantRef": "g1"}, exitcode.Usage, []string{"grantRef: g1"}, map[string]any{"grantRef": "g1"}},
-		{0, "SELECTION_MIXED_APPS", nil, exitcode.Usage, nil, nil},
-		{0, "GRANT_NOT_FOUND", map[string]any{"grantRef": "g2"}, exitcode.NotFound, []string{"grantRef: g2"}, map[string]any{"grantRef": "g2"}},
-		{0, "GRANT_NOT_PENDING", map[string]any{"grantRef": "g2"}, exitcode.Conflict, []string{"grantRef: g2"}, map[string]any{"grantRef": "g2"}},
-		{0, "GRANT_EXPIRED", map[string]any{"grantRef": "g3"}, exitcode.Conflict, []string{"grantRef: g3"}, map[string]any{"grantRef": "g3"}},
-		{0, "GRANT_TERMS_UNREPRESENTABLE", map[string]any{"grantRef": "g3", "reason": "BAD_VALUE"}, exitcode.Conflict,
+		{0, "SELECTION_EMPTY", nil, 2, nil, nil},
+		{0, "SELECTION_TOO_LARGE", map[string]any{"cap": 25}, 2, []string{"cap: 25"}, map[string]any{"cap": 25.0}},
+		{0, "SELECTION_DUPLICATE_GRANT", map[string]any{"grantRef": "g1"}, 2, []string{"grantRef: g1"}, map[string]any{"grantRef": "g1"}},
+		{0, "SELECTION_MIXED_APPS", nil, 2, nil, nil},
+		{0, "GRANT_NOT_FOUND", map[string]any{"grantRef": "g2"}, 4, []string{"grantRef: g2"}, map[string]any{"grantRef": "g2"}},
+		{0, "GRANT_NOT_PENDING", map[string]any{"grantRef": "g2"}, 5, []string{"grantRef: g2"}, map[string]any{"grantRef": "g2"}},
+		{0, "GRANT_EXPIRED", map[string]any{"grantRef": "g3"}, 5, []string{"grantRef: g3"}, map[string]any{"grantRef": "g3"}},
+		{0, "GRANT_TERMS_UNREPRESENTABLE", map[string]any{"grantRef": "g3", "reason": "BAD_VALUE"}, 5,
 			[]string{"grantRef: g3", "reason: BAD_VALUE"}, map[string]any{"grantRef": "g3", "reason": "BAD_VALUE"}},
-		{0, "FORBIDDEN", nil, exitcode.Forbidden, nil, nil},
-		{1, "FORBIDDEN", nil, exitcode.Forbidden, nil, nil},
-		{2, "FORBIDDEN", nil, exitcode.Forbidden, nil, nil},
-		{2, "SIGNING_REQUEST_NOT_FOUND", map[string]any{"id": "sel1"}, exitcode.NotFound, nil, nil},
-		{2, "SIGNING_REQUEST_NOT_REQUESTER", map[string]any{"id": "sel1"}, exitcode.Forbidden, nil, nil},
-		{2, "SIGNING_REQUEST_ENDED", map[string]any{"id": "sel1", "state": "COMPLETED"}, exitcode.Conflict, []string{"state: COMPLETED"}, map[string]any{"state": "COMPLETED"}},
+		{0, "FORBIDDEN", nil, 8, nil, nil},
+		{2, "FORBIDDEN", nil, 8, nil, nil},
+		{2, "SIGNING_REQUEST_NOT_FOUND", map[string]any{"id": "sel1"}, 4, nil, nil},
+		{2, "SIGNING_REQUEST_NOT_REQUESTER", map[string]any{"id": "sel1"}, 8, nil, nil},
+		{2, "SIGNING_REQUEST_ENDED", map[string]any{"id": "sel1", "state": "COMPLETED"}, 5, []string{"state: COMPLETED"}, map[string]any{"state": "COMPLETED"}},
 	}
 	for _, tc := range cases {
 		v := verbs3197()[tc.verb]
@@ -331,6 +340,14 @@ func TestGrantSelection3197UnboundAndBindingGuards(t *testing.T) {
 			root.SetArgs(append([]string{"--server", srv.URL}, v.args...))
 			if code := exitCodeFor(root.Execute()); code != exitcode.Usage || len(*other) != 0 {
 				t.Fatalf("exit %d calls %v", code, *other)
+			}
+			// cli#3234: --app naming another App is refused too; only the App
+			// identity read goes out, never the selection operation.
+			resp := map[string]string{v.op: v.ok(ceremonySel3197), "TeamAppIdentity": `{"data":{"app":{"id":"capp999999999999999999999","urn":"hrn:app:acme.com:other","name":"Other"}}}`}
+			calls, _, err = runTeamTask(t, resp, append([]string{"--app", "some-other-app"}, v.args...)...)
+			if exitCodeFor(err) != exitcode.Usage || err == nil || !strings.Contains(err.Error(), "another App") ||
+				findCall1868(calls, v.op) != nil || findCall1868(calls, "TeamAppIdentity") == nil {
+				t.Fatalf("--app: exit %d err %v calls %+v", exitCodeFor(err), err, *calls)
 			}
 		})
 	}
