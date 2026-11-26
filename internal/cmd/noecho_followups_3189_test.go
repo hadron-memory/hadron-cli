@@ -36,7 +36,8 @@ func TestFlagRefusalsInTeamNeverShowTheTypedValue3189(t *testing.T) {
 		{"host import host", cat([]string{"team", "host", "import", "--from", "h.yaml", "--host", "bad " + p}, app), "host id", exitcode.Usage},
 		{"task hand-back code", cat([]string{"team", "task", "hand-back", "AT1.2", "--code", p}, app), "--code is required and must be one of", exitcode.Usage},
 		{"task list offset", cat([]string{"team", "task", "list", "--offset", "-73519"}, app), "--offset takes a non-negative", exitcode.Usage},
-		{"task list limit", cat([]string{"team", "events", "--limit", "987654"}, app), "--limit takes 1 to", exitcode.Usage},
+		{"events limit", cat([]string{"team", "events", "--limit", "987654"}, app), "--limit takes 1 to", exitcode.Usage},
+		{"task list limit", cat([]string{"team", "task", "list", "--limit", "987654"}, app), "--limit takes 1 to", exitcode.Usage},
 		{"wakes first", cat([]string{"team", "wakes", "due", "--first", "-73519"}, app), "--first must be at least 1", exitcode.Usage},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
