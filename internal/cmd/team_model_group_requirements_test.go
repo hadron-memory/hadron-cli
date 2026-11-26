@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -326,7 +327,7 @@ func TestTaskModelGroupCompatibilityHelp1485(t *testing.T) {
 				t.Fatalf("help err=%v calls=%v", err, *calls)
 			}
 			flat := strings.Join(strings.Fields(out), " ") // the help wraps lines: compare on one line
-			for _, want := range []string{"task-record", "released on or after 2026-11-17", tc.want} {
+			for _, want := range []string{"task-record", "released on or after 2026-11-24", tc.want} {
 				if !strings.Contains(flat, want) && !strings.Contains(out, want) {
 					t.Fatalf("help missing %q: %s", want, out)
 				}
@@ -373,24 +374,49 @@ func TestTaskModelGroupNullRequirements1485(t *testing.T) {
 }
 
 // cli#2811 review: the task-record floor is ONE date across the group page, create and update
-// (the projection every task command reads includes the run settings, the newest field, 2026-11-17), stated as
+// (the projection every task command reads includes the run settings and the newest field —
+// cli#3109's project marker, 2026-11-24), stated as
 // "on or after" so the first release that carries it is not excluded, and no page keeps an older
-// or "after"-only floor for the same statement.
+// or "after"-only floor for the same statement. The one-date rule is enforced per sentence —
+// every date in a sentence naming the task-record read must be the current floor — because
+// banning two hardcoded old dates is exactly how a bumped floor missed a sibling paragraph
+// and stayed green (cli#3109 review: create's model-group bullet kept 2026-11-17 while the
+// group page, update and clone all said 2026-11-24).
 func TestTaskRecordFloorIsOneDateOnOrAfter(t *testing.T) {
-	for _, args := range [][]string{{"team", "task", "--help"}, {"team", "task", "create", "--help"}, {"team", "task", "update", "--help"}} {
+	const floor = "2026-11-24"
+	dateRe := regexp.MustCompile(`20\d\d-\d\d-\d\d`)
+	for _, args := range [][]string{
+		{"team", "task", "--help"},
+		{"team", "task", "create", "--help"},
+		{"team", "task", "update", "--help"},
+		{"team", "task", "clone", "--help"},
+		{"team", "task", "get", "--help"},
+		{"team", "task", "list", "--help"},
+		// finish joined the guard with cli#3109's review: its page carries both
+		// a task-record sentence and the findings read's own older floor, so a
+		// semicolon joining them in one sentence hid the violation.
+		{"team", "task", "finish", "--help"},
+	} {
 		_, out, err := runTeamTask(t, taskResponses(), args...)
 		if err != nil {
 			t.Fatal(err)
 		}
 		flat := strings.Join(strings.Fields(out), " ")
-		if !strings.Contains(flat, "released on or after 2026-11-17") {
-			t.Errorf("%v: the task-record floor is 2026-11-03 on or after:\n%s", args, flat)
+		if !strings.Contains(flat, "released on or after "+floor) {
+			t.Errorf("%v: the task-record floor is %s on or after:\n%s", args, floor, flat)
 		}
 		if strings.Contains(flat, "released after 20") {
 			t.Errorf("%v: floors are stated \"on or after\", never \"after\"", args)
 		}
-		if strings.Contains(flat, "on or after 2026-11-03)") || strings.Contains(flat, "released on or after 2026-11-01") {
-			t.Errorf("%v: the task-record floor is the newest field's date, 2026-11-17, on every page", args)
+		for _, sentence := range strings.Split(flat, ". ") {
+			if !strings.Contains(sentence, "task-record") {
+				continue
+			}
+			for _, date := range dateRe.FindAllString(sentence, -1) {
+				if date != floor {
+					t.Errorf("%v: a task-record sentence carries %s, not the floor %s:\n%s", args, date, floor, sentence)
+				}
+			}
 		}
 	}
 }
