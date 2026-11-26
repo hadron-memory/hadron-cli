@@ -31,7 +31,7 @@ func TestSlice3AlternateSafeTables(t *testing.T) {
 			{"references", refs, func(w io.Writer) error { return renderReferences(w, refs, false) }},
 			{"references problem", refs, func(w io.Writer) error { return renderReferences(w, refs, true) }},
 			{"renumber nested", rn, func(w io.Writer) error { return renderRenumber(w, rn) }},
-			{"mint blockers", mint, func(w io.Writer) error { return renderMint(w, mint) }},
+			{"mint blockers", mint, func(w io.Writer) error { return renderMint(w, mint, mint.DryRun) }},
 			{"replace relint", replace, func(w io.Writer) error { return renderSpecReplaceReport(w, replace) }},
 		}
 		for _, tc := range cases {
