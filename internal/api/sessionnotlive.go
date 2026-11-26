@@ -61,3 +61,13 @@ func WithSessionNotLiveReason(mapped, raw error) error {
 	}
 	return mapped
 }
+
+// AnnotateSessionNotLive adds the reason's fixed next step to a SESSION_NOT_LIVE
+// refusal's text and keeps the reason on the returned error for --json. With no
+// reason, or one outside the fixed set, it returns text and mapped unchanged.
+func AnnotateSessionNotLive(text string, build func(text string) error, raw error) error {
+	if r := SessionNotLiveReason(raw); r != "" {
+		text += " (" + r + ": " + SessionNotLiveNextStep(r) + ")"
+	}
+	return WithSessionNotLiveReason(build(text), raw)
+}

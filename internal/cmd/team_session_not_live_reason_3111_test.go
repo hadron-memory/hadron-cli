@@ -7,13 +7,14 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/vektah/gqlparser/v2/gqlerror"
 )
 
 // hadron-cli#3111: the server's SESSION_NOT_LIVE carries a fixed
 // extensions.reason; the CLI shows its next step and adds `reason` to --json.
 const sessionNotLiveServerText = "The session is not live."
 
-var allReasons = []string{"DORMANT", "ENDED", "OTHER_SESSION_LIVE", "LIVENESS_UNKNOWN", "NOT_OWNER"}
+var allSessionNotLiveReasons3111 = []string{"DORMANT", "ENDED", "OTHER_SESSION_LIVE", "LIVENESS_UNKNOWN", "NOT_OWNER"}
 
 func sessionNotLiveRaw(ext map[string]any) string {
 	e := map[string]any{"code": "SESSION_NOT_LIVE"}
@@ -66,7 +67,14 @@ func TestSessionNotLiveReasonPostAndMarkRead3111(t *testing.T) {
 		{"post", "CreateTeamChatMessage", []string{"team", "chat", "post", "message"}},
 		{"mark-read", "MarkOwnTeamChatRead", []string{"team", "chat", "mark-read", "--through", "2"}},
 	} {
-		for _, tc := range notLiveCases(allReasons) {
+		wantExit := -1 // the exit of the no-reason case, the same surface's today's class
+		cases := notLiveCases(allSessionNotLiveReasons3111)
+		for i, c := range cases {
+			if c.name == "none" {
+				cases[0], cases[i] = cases[i], cases[0]
+			}
+		}
+		for _, tc := range cases {
 			t.Run(surface.name+"/"+tc.name, func(t *testing.T) {
 				writeTeamBinding(t)
 				r := chatReadResponses()
@@ -80,9 +88,14 @@ func TestSessionNotLiveReasonPostAndMarkRead3111(t *testing.T) {
 				if err == nil {
 					t.Fatal("refusal succeeded")
 				}
-				// The exit class is today's and untouched by #3111.
-				if code := renderError(f, err); code == exitcode.OK {
-					t.Errorf("exit %d", code)
+				// The exit class is today's and untouched by #3111: every case on
+				// a surface exits as its no-reason case does, and never 0.
+				code := renderError(f, err)
+				if tc.name == "none" {
+					wantExit = code
+				}
+				if code == exitcode.OK || (wantExit >= 0 && code != wantExit) {
+					t.Errorf("exit %d, no-reason exit %d", code, wantExit)
 				}
 				msg, reason, has := envelopeOf(t, out.String())
 				if !strings.Contains(msg, sessionNotLiveServerText) {
@@ -117,5 +130,34 @@ func TestSessionNotLiveNextStepsFixed3111(t *testing.T) {
 	}
 	if s := api.SessionNotLiveNextStep("LIVENESS_UNKNOWN"); !strings.Contains(s, "do not force") {
 		t.Errorf("must say do not force: %s", s)
+	}
+}
+
+// The inbox and check refusals are rebuilt (not the raw GraphQL chain), so the
+// --json envelope must still find the reason, the exit code and the message
+// through the wrapper, end to end through renderError (blind P2-1).
+func TestSessionNotLiveReasonWrappedErrorRenders3111(t *testing.T) {
+	raw := gqlerror.List{{Message: "x", Extensions: map[string]any{"code": "SESSION_NOT_LIVE", "reason": "LIVENESS_UNKNOWN"}}}
+	build := func(text string) error { return exitcode.Newf(exitcode.Conflict, "SESSION_NOT_LIVE: %s", text) }
+	f, out := testFactory(t)
+	err := api.AnnotateSessionNotLive("base text", build, raw)
+	f.JSON = true
+	if code := renderError(f, err); code != exitcode.Conflict {
+		t.Fatalf("exit %d", code)
+	}
+	msg, reason, has := envelopeOf(t, out.String())
+	if !has || reason != "LIVENESS_UNKNOWN" || !strings.Contains(msg, "base text (LIVENESS_UNKNOWN: ") {
+		t.Errorf("envelope %s", out.String())
+	}
+	// No reason: the key is absent and the message is today's.
+	f2, out2 := testFactory(t)
+	f2.JSON = true
+	none := api.AnnotateSessionNotLive("base text", build, gqlerror.List{{Message: "x", Extensions: map[string]any{"code": "SESSION_NOT_LIVE"}}})
+	if code := renderError(f2, none); code != exitcode.Conflict {
+		t.Fatalf("exit %d", code)
+	}
+	msg, _, has = envelopeOf(t, out2.String())
+	if has || msg != "SESSION_NOT_LIVE: base text" {
+		t.Errorf("envelope %s", out2.String())
 	}
 }

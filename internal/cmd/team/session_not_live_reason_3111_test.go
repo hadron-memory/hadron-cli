@@ -41,16 +41,17 @@ func notLiveGQL(ext map[string]any) error {
 // unchanged; never a server-supplied string, so no worker or session name.
 func TestSessionNotLiveReasonTextInboxAndCheck3111(t *testing.T) {
 	for _, surface := range []struct {
-		name    string
-		fail    func(error) error
-		reasons []string
-		base    string
+		name     string
+		fail     func(error) error
+		reasons  []string
+		base     string
+		baseFull string
 	}{
-		{"inbox", func(e error) error { return inboxFailure(e, "cannot read inbox") }, []string{"OTHER_SESSION_LIVE", "LIVENESS_UNKNOWN", "NOT_OWNER"}, "check or resume the worker session before reading again"},
-		{"check", func(e error) error { return checkFailure(e) }, allReasons3111, "check the binding before trying again"},
+		{"inbox", func(e error) error { return inboxFailure(e, "cannot read inbox") }, []string{"OTHER_SESSION_LIVE", "LIVENESS_UNKNOWN", "NOT_OWNER"}, "check or resume the worker session before reading again", "this worker session is no longer live; check or resume the worker session before reading again"},
+		{"check", func(e error) error { return checkFailure(e) }, allReasons3111, "check the binding before trying again", "worker session is no longer live; check the binding before trying again"},
 	} {
 		plain := surface.fail(notLiveGQL(nil)).Error()
-		if !strings.Contains(plain, surface.base) || strings.Contains(plain, "(") {
+		if plain != "SESSION_NOT_LIVE: "+surface.baseFull {
 			t.Fatalf("%s: today's message changed: %s", surface.name, plain)
 		}
 		for _, tc := range notLiveCases(surface.reasons) {
