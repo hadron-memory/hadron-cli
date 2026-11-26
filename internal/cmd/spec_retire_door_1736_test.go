@@ -420,7 +420,7 @@ func TestSpec1736CreateModeNoPreReadStopsAndOrphanTruth(t *testing.T) {
 	human := &door1736{reply: refusal1736("NODE_WRITE_CONFLICT")}
 	hout, herr := run1736(t, human, verbCreate1736)
 	all = text1736(hout, herr)
-	for _, want := range []string{"created successor: " + door1736New + " (id new1)", "currently not linked", "currently not retired"} {
+	for _, want := range []string{"created successor: " + door1736New + " (id new1)", "currently showing no successor link", "currently not retired"} {
 		if !strings.Contains(all, want) {
 			t.Errorf("missing %q:\n%s", want, all)
 		}
@@ -749,5 +749,69 @@ func TestSpec1736OtherSchemaSkewIsNotAnUnsupportedDoor(t *testing.T) {
 	all := text1736(out, err)
 	if err == nil || strings.Contains(all, "does not support retireSpec") || !strings.Contains(all, "abstract") {
 		t.Fatalf("message:\n%s", all)
+	}
+}
+
+// After a create, a rerun would make a second successor: every failure says so
+// and names --by, never a bare rerun.
+func TestSpec1736CreateModeNeverAdvisesABareRerun(t *testing.T) {
+	long := `{"data":null,"errors":[{"message":"x","path":["retireSpec"],"extensions":{"code":"NodeAbstractTooLongError","length":2104,"max":2000}}]}`
+	for name, s := range map[string]*door1736{
+		"revision": {reply: refusal1736("NODE_WRITE_CONFLICT"), state: spec1736("sp1", door1736Old, "mem1", 9, `["spec"]`, "null", "")},
+		"lost":     {status: http.StatusBadGateway, reply: "lost"},
+		"too long": {reply: long},
+		"refused":  {reply: refusal1736("FORBIDDEN")},
+	} {
+		out, err := run1736(t, s, verbCreate1736)
+		all := text1736(out, err)
+		if !strings.Contains(all, "Do not rerun with --title") || !strings.Contains(all, "--by") {
+			t.Errorf("%s: must steer away from a second create:\n%s", name, all)
+		}
+		for _, banned := range []string{"re-run to start", "before running it again"} {
+			if strings.Contains(all, banned) {
+				t.Errorf("%s: %q advises a bare rerun:\n%s", name, banned, all)
+			}
+		}
+	}
+}
+
+// The --json error envelope keeps the server's fault detail.
+func TestSpec1736ErrorsKeepTheServerFault(t *testing.T) {
+	reply := `{"data":null,"errors":[{"message":"boom","path":["retireSpec"],"extensions":{"code":"INTERNAL_SERVER_ERROR","requestId":"req-1736"}}]}`
+	for name, args := range allVerbs1736() {
+		_, err := run1736(t, &door1736{reply: reply}, args)
+		fault, ok := api.InternalFaultOf(err)
+		if !ok || fault.RequestID != "req-1736" {
+			t.Errorf("%s: fault = %+v %v (%v)", name, fault, ok, err)
+		}
+	}
+}
+
+// A successor never inherits the old spec's retirement tags.
+func TestSpec1736SuccessorGetsNoTombstoneTags(t *testing.T) {
+	s := &door1736{tags: []string{"spec", "superseded", "rescinded", "withdrawn", "messaging"}, reply: refusal1736("NODE_WRITE_CONFLICT")}
+	_, _ = run1736(t, s, verbCreate1736)
+	got, _ := json.Marshal(s.vars["CreateSpecNode"][0]["input"].(map[string]any)["tags"])
+	if string(got) != `["spec","messaging"]` {
+		t.Errorf("successor tags = %s", got)
+	}
+}
+
+// A result that cannot be printed never hides how the request ended.
+func TestSpec1736UnwritableFailureKeepsItsExitAndSuccessor(t *testing.T) {
+	for name, args := range allVerbs1736() {
+		s := &door1736{t: t, reply: refusal1736("NODE_WRITE_CONFLICT")}
+		srv := s.serve()
+		f, _ := testFactory(t)
+		f.IOStreams.Out = rescindFailingWriter{}
+		root := NewRootCmd(f)
+		root.SetArgs(append(append([]string{}, args...), "-m", specMem, "--yes", "--server", srv.URL))
+		err := root.Execute()
+		if exitCodeFor(err) != exitcode.Conflict || !strings.Contains(err.Error(), "could not be written") {
+			t.Errorf("%s: %d %v", name, exitCodeFor(err), err)
+		}
+		if name == "create" && !strings.Contains(err.Error(), "new1") {
+			t.Errorf("the successor is lost: %v", err)
+		}
 	}
 }

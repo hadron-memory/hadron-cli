@@ -58209,17 +58209,11 @@ func (v *GetSpecRetireStateSpecNode) GetId() string { return v.SpecRetireState.I
 // GetMemoryId returns GetSpecRetireStateSpecNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetSpecRetireStateSpecNode) GetMemoryId() string { return v.SpecRetireState.MemoryId }
 
-// GetLoc returns GetSpecRetireStateSpecNode.Loc, and is useful for accessing the field via an interface.
-func (v *GetSpecRetireStateSpecNode) GetLoc() string { return v.SpecRetireState.Loc }
-
 // GetRevision returns GetSpecRetireStateSpecNode.Revision, and is useful for accessing the field via an interface.
 func (v *GetSpecRetireStateSpecNode) GetRevision() int { return v.SpecRetireState.Revision }
 
 // GetTags returns GetSpecRetireStateSpecNode.Tags, and is useful for accessing the field via an interface.
 func (v *GetSpecRetireStateSpecNode) GetTags() []string { return v.SpecRetireState.Tags }
-
-// GetAbstract returns GetSpecRetireStateSpecNode.Abstract, and is useful for accessing the field via an interface.
-func (v *GetSpecRetireStateSpecNode) GetAbstract() *string { return v.SpecRetireState.Abstract }
 
 // GetOutgoingEdges returns GetSpecRetireStateSpecNode.OutgoingEdges, and is useful for accessing the field via an interface.
 func (v *GetSpecRetireStateSpecNode) GetOutgoingEdges() []*SpecRetireStateOutgoingEdgesEdge {
@@ -58256,13 +58250,9 @@ type __premarshalGetSpecRetireStateSpecNode struct {
 
 	MemoryId string `json:"memoryId"`
 
-	Loc string `json:"loc"`
-
 	Revision int `json:"revision"`
 
 	Tags []string `json:"tags"`
-
-	Abstract *string `json:"abstract"`
 
 	OutgoingEdges []*SpecRetireStateOutgoingEdgesEdge `json:"outgoingEdges"`
 }
@@ -58280,10 +58270,8 @@ func (v *GetSpecRetireStateSpecNode) __premarshalJSON() (*__premarshalGetSpecRet
 
 	retval.Id = v.SpecRetireState.Id
 	retval.MemoryId = v.SpecRetireState.MemoryId
-	retval.Loc = v.SpecRetireState.Loc
 	retval.Revision = v.SpecRetireState.Revision
 	retval.Tags = v.SpecRetireState.Tags
-	retval.Abstract = v.SpecRetireState.Abstract
 	retval.OutgoingEdges = v.SpecRetireState.OutgoingEdges
 	return &retval, nil
 }
@@ -58299,17 +58287,11 @@ func (v *GetSpecRetireStateSuccessorNode) GetId() string { return v.SpecRetireSt
 // GetMemoryId returns GetSpecRetireStateSuccessorNode.MemoryId, and is useful for accessing the field via an interface.
 func (v *GetSpecRetireStateSuccessorNode) GetMemoryId() string { return v.SpecRetireState.MemoryId }
 
-// GetLoc returns GetSpecRetireStateSuccessorNode.Loc, and is useful for accessing the field via an interface.
-func (v *GetSpecRetireStateSuccessorNode) GetLoc() string { return v.SpecRetireState.Loc }
-
 // GetRevision returns GetSpecRetireStateSuccessorNode.Revision, and is useful for accessing the field via an interface.
 func (v *GetSpecRetireStateSuccessorNode) GetRevision() int { return v.SpecRetireState.Revision }
 
 // GetTags returns GetSpecRetireStateSuccessorNode.Tags, and is useful for accessing the field via an interface.
 func (v *GetSpecRetireStateSuccessorNode) GetTags() []string { return v.SpecRetireState.Tags }
-
-// GetAbstract returns GetSpecRetireStateSuccessorNode.Abstract, and is useful for accessing the field via an interface.
-func (v *GetSpecRetireStateSuccessorNode) GetAbstract() *string { return v.SpecRetireState.Abstract }
 
 // GetOutgoingEdges returns GetSpecRetireStateSuccessorNode.OutgoingEdges, and is useful for accessing the field via an interface.
 func (v *GetSpecRetireStateSuccessorNode) GetOutgoingEdges() []*SpecRetireStateOutgoingEdgesEdge {
@@ -58346,13 +58328,9 @@ type __premarshalGetSpecRetireStateSuccessorNode struct {
 
 	MemoryId string `json:"memoryId"`
 
-	Loc string `json:"loc"`
-
 	Revision int `json:"revision"`
 
 	Tags []string `json:"tags"`
-
-	Abstract *string `json:"abstract"`
 
 	OutgoingEdges []*SpecRetireStateOutgoingEdgesEdge `json:"outgoingEdges"`
 }
@@ -58370,10 +58348,8 @@ func (v *GetSpecRetireStateSuccessorNode) __premarshalJSON() (*__premarshalGetSp
 
 	retval.Id = v.SpecRetireState.Id
 	retval.MemoryId = v.SpecRetireState.MemoryId
-	retval.Loc = v.SpecRetireState.Loc
 	retval.Revision = v.SpecRetireState.Revision
 	retval.Tags = v.SpecRetireState.Tags
-	retval.Abstract = v.SpecRetireState.Abstract
 	retval.OutgoingEdges = v.SpecRetireState.OutgoingEdges
 	return &retval, nil
 }
@@ -91931,8 +91907,7 @@ func (v *RetireSpecRetireSpecRetireSpecResult) GetSuccessorEdge() *RetireSpecRet
 
 // RetireSpecRetireSpecRetireSpecResultNode includes the requested fields of the GraphQL type Node.
 type RetireSpecRetireSpecRetireSpecResultNode struct {
-	Id  string `json:"id"`
-	Loc string `json:"loc"`
+	Id string `json:"id"`
 	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
 	Revision int      `json:"revision"`
 	Tags     []string `json:"tags"`
@@ -91942,9 +91917,6 @@ type RetireSpecRetireSpecRetireSpecResultNode struct {
 
 // GetId returns RetireSpecRetireSpecRetireSpecResultNode.Id, and is useful for accessing the field via an interface.
 func (v *RetireSpecRetireSpecRetireSpecResultNode) GetId() string { return v.Id }
-
-// GetLoc returns RetireSpecRetireSpecRetireSpecResultNode.Loc, and is useful for accessing the field via an interface.
-func (v *RetireSpecRetireSpecRetireSpecResultNode) GetLoc() string { return v.Loc }
 
 // GetRevision returns RetireSpecRetireSpecRetireSpecResultNode.Revision, and is useful for accessing the field via an interface.
 func (v *RetireSpecRetireSpecRetireSpecResultNode) GetRevision() int { return v.Revision }
@@ -91957,19 +91929,9 @@ func (v *RetireSpecRetireSpecRetireSpecResultNode) GetAbstract() *string { retur
 
 // RetireSpecRetireSpecRetireSpecResultSuccessorEdge includes the requested fields of the GraphQL type Edge.
 type RetireSpecRetireSpecRetireSpecResultSuccessorEdge struct {
-	Id string `json:"id"`
-	// Free-form relationship name (e.g. imports, depends_on). Optional since
-	// spec 037 — loc is the identity. (Was the required 'label'.)
-	Name *string `json:"name"`
 	// The live target node, or null when deleted or when its memory is unreadable. Deleted-node inspection uses the explicit recovery graph.
 	Target *RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode `json:"target"`
 }
-
-// GetId returns RetireSpecRetireSpecRetireSpecResultSuccessorEdge.Id, and is useful for accessing the field via an interface.
-func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdge) GetId() string { return v.Id }
-
-// GetName returns RetireSpecRetireSpecRetireSpecResultSuccessorEdge.Name, and is useful for accessing the field via an interface.
-func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdge) GetName() *string { return v.Name }
 
 // GetTarget returns RetireSpecRetireSpecRetireSpecResultSuccessorEdge.Target, and is useful for accessing the field via an interface.
 func (v *RetireSpecRetireSpecRetireSpecResultSuccessorEdge) GetTarget() *RetireSpecRetireSpecRetireSpecResultSuccessorEdgeTargetNode {
@@ -104209,12 +104171,9 @@ var AllSpecReferenceProblem = []SpecReferenceProblem{
 type SpecRetireState struct {
 	Id       string `json:"id"`
 	MemoryId string `json:"memoryId"`
-	Loc      string `json:"loc"`
 	// #1323 — current live revision. Creation is revision 1; each committed authoring change advances it. NodeRevision.revNo N is the retained snapshot of this node when revision N was current, before the edit that advanced it.
-	Revision int      `json:"revision"`
-	Tags     []string `json:"tags"`
-	// Paragraph-length summary of this node. Opt-in on hadron_get_node via the contentScope parameter. hadron_find_nodes preview surfacing ships in spec 031 US2 — not yet live. Never surfaced in hadron_list_nodes. Cap is 2000 characters; longer values are rejected with NodeAbstractTooLongError. Empty + whitespace-only values normalize to null. Spec 031.
-	Abstract      *string                             `json:"abstract"`
+	Revision      int                                 `json:"revision"`
+	Tags          []string                            `json:"tags"`
 	OutgoingEdges []*SpecRetireStateOutgoingEdgesEdge `json:"outgoingEdges"`
 }
 
@@ -104224,17 +104183,11 @@ func (v *SpecRetireState) GetId() string { return v.Id }
 // GetMemoryId returns SpecRetireState.MemoryId, and is useful for accessing the field via an interface.
 func (v *SpecRetireState) GetMemoryId() string { return v.MemoryId }
 
-// GetLoc returns SpecRetireState.Loc, and is useful for accessing the field via an interface.
-func (v *SpecRetireState) GetLoc() string { return v.Loc }
-
 // GetRevision returns SpecRetireState.Revision, and is useful for accessing the field via an interface.
 func (v *SpecRetireState) GetRevision() int { return v.Revision }
 
 // GetTags returns SpecRetireState.Tags, and is useful for accessing the field via an interface.
 func (v *SpecRetireState) GetTags() []string { return v.Tags }
-
-// GetAbstract returns SpecRetireState.Abstract, and is useful for accessing the field via an interface.
-func (v *SpecRetireState) GetAbstract() *string { return v.Abstract }
 
 // GetOutgoingEdges returns SpecRetireState.OutgoingEdges, and is useful for accessing the field via an interface.
 func (v *SpecRetireState) GetOutgoingEdges() []*SpecRetireStateOutgoingEdgesEdge {
@@ -174486,10 +174439,8 @@ query GetSpecRetireState ($ref: ID!, $successorRef: ID!, $withSuccessor: Boolean
 fragment SpecRetireState on Node {
 	id
 	memoryId
-	loc
 	revision
 	tags
-	abstract
 	outgoingEdges {
 		name
 		target {
@@ -186174,14 +186125,11 @@ mutation RetireSpec ($input: RetireSpecInput!) {
 	retireSpec(input: $input) {
 		node {
 			id
-			loc
 			revision
 			tags
 			abstract
 		}
 		successorEdge {
-			id
-			name
 			target {
 				id
 				loc

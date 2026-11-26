@@ -429,7 +429,8 @@ supersede` modes read the spec once, for its revision, then send **one**
 `retireSpec` request (hadron-server#3429, cor:spc:010:02). In one transaction the
 server tags the spec `superseded`, writes the banner and abstract and, for a
 supersede, adds the `superseded-by` edge. **The server composes that text and owns
-every refusal**: the CLI stops on nothing it read, has no successor type or
+every refusal**: the CLI does not decide from what it read whether a spec or
+successor may be retired, has no successor type or
 placeholder rule, writes no node update or edge for a retirement, and has **no
 fallback** on a server without `retireSpec` (exit 2, "does not support
 retireSpec"). `rescind` requires `--reason` and `--summary`; `supersede` sends
@@ -2185,8 +2186,7 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   both preview and save reject an over-limit proposal. `spec edit` reads the
   body **raw** (as stored, `{{…}}` placeholders intact), so the editor, the preview and the
   write never see Mustache-rendered text (cli#737). So does every other `spec`
-  command that writes back a body it read: `spec supersede` (the retirement
-  note, and `--copy-body`) and `spec extract --strip-source` (cli#742). **`--dry-run` shows the
+  command that writes back a body it read: `spec supersede --copy-body` and `spec extract --strip-source` (cli#742). **`--dry-run` shows the
   change itself and writes nothing:** the terminal prints a unified diff per
   field, and `--json` carries `changes[]`, one entry per field written, each
   `{field: content|abstract|description|name, change: replaced|cleared|reaffirmed, before, after,

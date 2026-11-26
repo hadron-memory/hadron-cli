@@ -49,6 +49,12 @@ func IsRefusedBeforeCommit(err error) bool {
 	return true
 }
 
+// WithCause presents one error and keeps another in the chain: the exit code and
+// message are presentation's, and cause's server detail stays readable.
+func WithCause(presentation, cause error) error {
+	return &attestationCause{presentation: presentation, cause: cause}
+}
+
 // ErrorExtensions returns the extensions of the first error carrying code, nil
 // when there is none.
 func ErrorExtensions(err error, code string) map[string]any {

@@ -84,6 +84,9 @@ successor but not retired also exits 5: it needs manual review, and the CLI make
 no automatic repair. After such a refusal, or a request that got no usable answer
 (its outcome is unknown, and it is not resent), the command reads the spec once and
 reports what it currently shows, which is not proof of what this request did.
+An unknown outcome exits 7 (no answer) or 1: check ` + "`hadron spec get`" + ` first and
+rerun only if the spec is not retired. Success prints the server's statement and
+the tags; --json adds the request's outcome and the re-read.
 
 A server without retireSpec is refused; there is no fallback to separate writes.
 --dry-run reads only and prints what would be sent: the spec, form, reason, summary
@@ -153,7 +156,7 @@ and revision.`,
 				if report.current != nil {
 					result.Retired = report.current.Retired
 					if werr := output.Write(f.IOStreams, f.JSON, result, render); werr != nil {
-						return werr
+						return unprintedFailure(report.err, werr)
 					}
 				}
 				return report.err

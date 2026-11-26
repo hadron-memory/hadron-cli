@@ -92,8 +92,8 @@ In one transaction the server tags the spec "superseded", writes its banner and
 abstract and adds the "superseded-by" edge. The server composes that text. --reason
 and --summary are sent when given; the summary defaults to the stored abstract.
 
-The server judges every retirement; the CLI refuses nothing on what it read. It
-refuses, with exit 5 and nothing written by that request, a stale revision, a spec
+The server judges every retirement; the CLI does not decide from what it read
+whether the spec or its successor may be retired. The server refuses, with exit 5 and nothing written by that request, a stale revision, a spec
 that is already retired or already has a successor, and a successor that cannot be
 used (the spec itself, another memory, retired). A spec linked to a successor but
 not retired also exits 5: it needs manual review, the CLI makes no automatic
@@ -102,10 +102,15 @@ After such a refusal, or a request that got no usable answer (its outcome is
 unknown, and it is not resent), the command reads the spec once and reports what it
 currently shows, which is not proof of what this request did.
 
+An unknown outcome exits 7 (no answer) or 1: check ` + "`hadron spec get`" + ` on the old
+spec first. If it is not retired, rerun with --by, never a second --title run.
+Success prints the retired citation, the successor and the edge; --json adds the
+request's outcome and the re-read (see ` + "`hadron agentic-usage`" + `).
+
 Create mode creates the successor first, then asks. The two are not one
 transaction: if the retirement is refused or unanswered, the new successor stays,
 the command names it, and it does not delete it, retry or create another. Retire to
-it with --by once the cause is fixed.
+it with --by after checking what the old spec shows.
 
 --by takes a citation in the same memory and cannot combine with --title, --to,
 --feature, --rule-after or --copy-body.
@@ -236,7 +241,7 @@ reminder only then; it never edits the register).`,
 					// With nothing created and nothing re-read there is only the refusal.
 					if report.current != nil || created != "" {
 						if werr := output.Write(f.IOStreams, f.JSON, result, render); werr != nil {
-							return werr
+							return unprintedFailure(report.err, werr)
 						}
 					}
 					return report.err
@@ -486,12 +491,12 @@ func boolRef(b bool) *bool { return &b }
 
 func noteRef(s string) *string { return &s }
 
-// semanticTags strips the structural tags (spec / p-level / superseded),
+// semanticTags strips the structural tags (spec / p-level / the retirement tags),
 // leaving the topical tags to carry over to the replacement.
 func semanticTags(tags []string) []string {
 	var out []string
 	for _, t := range tags {
-		if t == "spec" || t == supersededTag || rePLevel.MatchString(t) {
+		if t == "spec" || t == supersededTag || t == "rescinded" || t == "withdrawn" || rePLevel.MatchString(t) {
 			continue
 		}
 		out = append(out, t)

@@ -13,14 +13,11 @@ mutation RetireSpec(
   retireSpec(input: $input) {
     node {
       id
-      loc
       revision
       tags
       abstract
     }
     successorEdge {
-      id
-      name
       target {
         id
         loc
@@ -46,10 +43,8 @@ query GetSpecRetireState($ref: ID!, $successorRef: ID!, $withSuccessor: Boolean!
 fragment SpecRetireState on Node {
   id
   memoryId
-  loc
   revision
   tags
-  abstract
   outgoingEdges {
     name
     target {

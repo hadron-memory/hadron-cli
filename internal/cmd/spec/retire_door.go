@@ -121,8 +121,19 @@ func reportRetireFailure(cmd *cobra.Command, client graphql.Client, in *gen.Reti
 	if created != "" {
 		prefix = fmt.Sprintf("created the successor reported above (id %s), which stays; ", output.SafeCell(created))
 	}
+	// After a create, a bare rerun would make a second successor.
+	suffix := ""
+	if created != "" {
+		suffix = ". Do not rerun with --title, which would create another successor; a later retirement to this one uses --by"
+	}
+	// The mapped cause stays in the chain, so --json keeps the server's fault
+	// detail and attestation recovery under the command's own sentence.
 	wrap := func(code int, msg string) error {
-		return api.WithAuthoringAttestationCause(exitcode.Newf(code, "%s%s", prefix, msg), f.err)
+		presented := exitcode.Newf(code, "%s%s%s", prefix, msg, suffix)
+		if f.err == nil {
+			return presented
+		}
+		return api.WithCause(presented, api.MapError(f.err))
 	}
 	// A refusal the CLI adds nothing to keeps the server's own presentation.
 	mapped := func() error {
@@ -141,7 +152,7 @@ func reportRetireFailure(cmd *cobra.Command, client graphql.Client, in *gen.Reti
 			wrote = "this retirement request wrote nothing. "
 		}
 		return retireReport{retireOutcomeRefused, cur, wrap(exitcode.Conflict,
-			wrote+conflictReading(state, in)+". "+cur.Statement)}
+			wrote+conflictReading(state, in, created != "")+". "+cur.Statement)}
 	case retireUnsupported:
 		return retireReport{retireOutcomeRefused, nil, wrap(exitcode.Usage,
 			"this server does not support retireSpec (hadron-server#3429), so a spec cannot be retired on it; there is no fallback to separate writes, and no spec was retired by this request")}
@@ -164,7 +175,7 @@ func reportRetireFailure(cmd *cobra.Command, client graphql.Client, in *gen.Reti
 		}
 	}
 	return retireReport{retireOutcomeUnknown, cur, wrap(code, fmt.Sprintf(
-		"the retirement request got no usable answer (%s), so its outcome is unknown; it was not resent. %s. Check `hadron spec get <citation> -m <memory>` before running it again",
+		"the retirement request got no usable answer (%s), so its outcome is unknown; it was not resent. %s. Check `hadron spec get <citation> -m <memory>` first",
 		cause, cur.Statement))}
 }
 
@@ -225,7 +236,7 @@ func currentState(state *gen.GetSpecRetireStateResponse) *retireCurrentDTO {
 		cur.Statement += "; the successor link is currently unknown to this read"
 	default:
 		cur.LinkedTo = targets
-		cur.Statement += "; currently not linked to a successor"
+		cur.Statement += "; currently showing no successor link to this read"
 	}
 	return cur
 }
@@ -233,7 +244,7 @@ func currentState(state *gen.GetSpecRetireStateResponse) *retireCurrentDTO {
 // conflictReading words a NODE_WRITE_CONFLICT, whose one guarantee is that this
 // request wrote nothing. The rest describes the spec as it is now, in the
 // order the door judges it; it invents no edge the read cannot see.
-func conflictReading(state *gen.GetSpecRetireStateResponse, in *gen.RetireSpecInput) string {
+func conflictReading(state *gen.GetSpecRetireStateResponse, in *gen.RetireSpecInput, created bool) string {
 	if state.Spec == nil {
 		return causeNotVisible
 	}
@@ -248,7 +259,11 @@ func conflictReading(state *gen.GetSpecRetireStateResponse, in *gen.RetireSpecIn
 	case hidden:
 		return causeNotVisible
 	case s.Revision != in.ExpectedRevision:
-		return fmt.Sprintf("refused, nothing written: the spec changed since read (read at revision %d, currently revision %d); re-run to start from a fresh read", in.ExpectedRevision, s.Revision)
+		again := "re-run to start from a fresh read"
+		if created {
+			again = "re-run with --by naming the successor reported above"
+		}
+		return fmt.Sprintf("refused, nothing written: the spec changed since read (read at revision %d, currently revision %d); %s", in.ExpectedRevision, s.Revision, again)
 	}
 	if in.SuccessorRef != nil && state.Successor != nil {
 		n := &state.Successor.SpecRetireState
@@ -258,6 +273,12 @@ func conflictReading(state *gen.GetSpecRetireStateResponse, in *gen.RetireSpecIn
 		}
 	}
 	return causeNotVisible
+}
+
+// unprintedFailure keeps a failed request's exit code and sentence when its
+// result could not be written to the output either.
+func unprintedFailure(failed, werr error) error {
+	return api.WithCause(exitcode.Newf(exitcode.FromError(failed), "%v (the result could not be written to the output: %v)", failed, werr), failed)
 }
 
 // fetchForRetire is the one pre-read: the node the citation names, read raw,
