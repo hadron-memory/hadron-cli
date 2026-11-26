@@ -18,9 +18,8 @@ import (
 // server judges them, the cap included. Nothing here signs: no operation takes
 // an assertion, and the ceremony URL is printed as the server returned it.
 
-// The access and exit-code text is the selection's own: the one-grant help says
-// only a worker session is answered, and the server also answers a person for
-// grants they may read, so that sentence is not repeated here.
+// The access and exit-code text is the selection's own: its refusals, exit codes
+// and older-server answer differ from the one-grant verbs'.
 const grantSelectionHelp = `The call carries this worktree's worker session when it is bound. Unbound it is
 sent without one, with a stderr line saying so, and the server decides whether
 you may. A binding on another server, or --app naming another App, is refused
@@ -179,10 +178,10 @@ always carries it. Read it with 'hadron team grant signing-request get-selection
 }
 
 // selectionVerb builds a verb that takes one selection id and prints the selection.
-func selectionVerb(f *cmdutil.Factory, use, short, what, example string, call func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningSelectionFields, error)) *cobra.Command {
+func selectionVerb(f *cmdutil.Factory, use, short, long, example string, call func(ctx context.Context, c graphql.Client, id string) (*gen.TeamGrantSigningSelectionFields, error)) *cobra.Command {
 	return &cobra.Command{
 		Use: use, Short: short, Args: cobra.ExactArgs(1), Example: example,
-		Long: what + "\n\n" + grantSelectionHelp,
+		Long: long + "\n\n" + grantSelectionHelp,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := requiredID("the selection id", args[0])
 			if err != nil {
@@ -199,10 +198,17 @@ func newCmdTeamGrantSelectionGet(f *cmdutil.Factory) *cobra.Command {
 	return selectionVerb(f, "get-selection <selection-id>", "Read a signing selection",
 		`Shows a selection: its state, expiry, lastRefusedAt and one row per grant.
 <selection-id> is the id printed by 'hadron team grant
-request-selection-signature'. state is the server's own word, printed as sent;
-OPEN means the person can still sign on the ceremony page. A worker reads what
-became of one of its own grants with 'hadron team grant get <grant-id>'. An
-unknown id and one you may not read get the same not-found answer.
+request-selection-signature'. state is the server's own word, printed as sent:
+  OPEN       the person can still sign on the ceremony page
+  COMPLETED  one touch was verified: each grant it activated has its own record,
+             and the requests of the others ended with it
+  DECLINED   the signer turned the whole selection down
+  EXPIRED    its lifetime passed (24 hours by default)
+  WITHDRAWN  the requester withdrew it
+A selection has no STALE state: a grant that changes ends only its own item,
+whose state is in its row. A worker reads what became of one of its own grants
+with 'hadron team grant get <grant-id>'. An unknown id and one you may not read
+get the same not-found answer.
 
 lastRefusedAt is the latest signing attempt the server observed and refused as
 ineligible, a timestamp only; a dash (null in --json) means none was observed.`,
