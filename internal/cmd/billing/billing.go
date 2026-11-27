@@ -26,17 +26,21 @@ import (
 func NewCmdBilling(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "billing <command>",
-		Short: "Read AI-credit rates, balances and spend; set rates, grant and adjust credit",
-		Long: `See an organization's AI credit: what the models cost ("prices"), how much
-credit is left ("balance"), what AI use cost and was charged ("spend") and
-every grant, charge and adjustment ("ledger").
+		Short: "Read AI-credit rates, balances, spend and owner limits; set rates and limits, grant and adjust credit",
+		Long: `See an organization's or a person's AI credit: what the models cost
+("prices"), how much credit is left ("balance"), what AI use cost and was charged
+("spend") and every grant, charge and adjustment ("ledger"), and the limits on
+what an owner may hold ("limits"). Balance, spend, ledger, grant, adjust and
+limits name exactly one owner: an organization as the argument, a person with
+--user, or yourself with --owner-me.
 
 Money is shown in micro-cents, never converted to dollars: 100000000
 micro-cents = 1 USD, so 5000000 is 5 cents and 1000000 is 1 cent.
 
-prices, balance, spend and ledger are reads. "prices set", "grant" and "adjust"
-change money records and ask before they send (--yes to skip). "prices set" is
-for platform admins; "grant" and "adjust" also for the billing role.
+prices, balance, spend, ledger and limits are reads. "prices set", "grant",
+"adjust", "limits set" and "limits clear" change records and ask before they send
+(--yes to skip). "prices set" is for platform admins; the others also for the
+billing role.
 
 Details:
   Amounts are base-10 integers exactly as the server keeps them, signed on the
@@ -46,6 +50,8 @@ Details:
   hadron billing balance hrn:org:acme.com
   hadron billing spend hrn:org:acme.com --from 2026-11-01 --to 2026-12-01 --group-by day
   hadron billing ledger hrn:org:acme.com --limit 20
+  hadron billing balance --user @ann
+  hadron billing limits hrn:org:acme.com
   hadron billing prices set --provider anthropic --model claude-opus-5-5 --input 1500000000 --output 7500000000 --yes
   hadron billing grant hrn:org:acme.com --amount 500000000 --source-type trial --source-id t-1 --yes
   hadron billing adjust hrn:org:acme.com --amount -300 --source-type refund --source-id r-1 --note "refund r-1" --yes`,
@@ -56,6 +62,7 @@ Details:
 	cmd.AddCommand(newCmdSpend(f))
 	cmd.AddCommand(newCmdGrant(f))
 	cmd.AddCommand(newCmdAdjust(f))
+	cmd.AddCommand(newCmdLimits(f))
 	return cmd
 }
 
@@ -72,8 +79,11 @@ type priceDTO struct {
 	CreatedBy               *string `json:"createdBy"`
 }
 
+// balanceDTO names its owner with both keys always present: an organization's has
+// ownerUserId null, a person's has organizationId null (cli#3072).
 type balanceDTO struct {
-	OrganizationID    string        `json:"organizationId"`
+	OrganizationID    *string       `json:"organizationId"`
+	OwnerUserID       *string       `json:"ownerUserId"`
 	BalanceMicroCents string        `json:"balanceMicroCents"`
 	Expiring          []expiringDTO `json:"expiring"`
 }
@@ -86,7 +96,8 @@ type expiringDTO struct {
 
 type ledgerEntryDTO struct {
 	ID               string  `json:"id"`
-	OrganizationID   string  `json:"organizationId"`
+	OrganizationID   *string `json:"organizationId"`
+	OwnerUserID      *string `json:"ownerUserId"`
 	Kind             string  `json:"kind"`
 	AmountMicroCents string  `json:"amountMicroCents"`
 	ExpiresAt        *string `json:"expiresAt"`
@@ -304,16 +315,19 @@ one you cannot see, so the CLI cannot tell them apart. Check the id against
 }
 
 func newCmdBalance(f *cmdutil.Factory) *cobra.Command {
-	return &cobra.Command{
-		Use:   "balance <org>",
-		Short: "Show an organization's credit balance",
-		Long: `Show how much AI credit an organization has left, in micro-cents
+	var who ownerFlags
+	cmd := &cobra.Command{
+		Use:   "balance (<org> | --user <person> | --owner-me)",
+		Short: "Show an organization's or a person's credit balance",
+		Long: `Show how much AI credit an organization or a person has left, in micro-cents
 (1 USD = 100,000,000 micro-cents), and what is left of each grant that expires.
-Requires org ADMIN.
+Name exactly one owner. Reading an organization requires org ADMIN; the server
+decides who may read a person's.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example
-hrn:org:acme.com). The first line is the balance,
-for example "250000000 micro-cents (organization <id>)", which is 2.50 USD. Then
+hrn:org:acme.com). --user names a person by id, @handle, hrn:user: URN or
+email, matched exactly; --owner-me is your own. The first line is the balance,
+for example "250000000 micro-cents (organization <id>)" or "(user <id>)", which is 2.50 USD. Then
 comes one line per expiring grant with something left, soonest first. These are
 part of the balance, not added to it. Credit that has expired is never in the
 balance. To see what made up the number, run "hadron billing ledger".
@@ -321,22 +335,32 @@ balance. To see what made up the number, run "hadron billing ledger".
 Reading the balance can make the server write the ledger entries that settle
 grants which have already expired.`,
 		Example: `  hadron billing balance hrn:org:acme.com
-  hadron billing balance hrn:org:acme.com --json`,
-		Args: cobra.ExactArgs(1),
+  hadron billing balance hrn:org:acme.com --json
+  hadron billing balance --user @ann
+  hadron billing balance --owner-me`,
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := who.check(cmd, args); err != nil {
+				return err
+			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
-			resp, err := gen.CreditBalance(cmd.Context(), client, args[0])
+			o, err := who.resolve(cmd, f, args)
+			if err != nil {
+				return err
+			}
+			resp, err := gen.CreditBalance(cmd.Context(), client, o.orgRef, o.userRef)
 			if err != nil {
 				return api.MapError(err)
 			}
 			if resp.CreditBalance == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no balance for the organization (the org given is not shown)")
+				return exitcode.Newf(exitcode.Error, "the server returned no balance for the owner (the owner given is not shown)")
 			}
 			dto := balanceDTO{
-				OrganizationID:    orgIDOrEmpty(resp.CreditBalance.OrganizationId),
+				OrganizationID:    resp.CreditBalance.OrganizationId,
+				OwnerUserID:       resp.CreditBalance.OwnerUserId,
 				BalanceMicroCents: resp.CreditBalance.BalanceMicroCents,
 				Expiring:          []expiringDTO{},
 			}
@@ -347,7 +371,7 @@ grants which have already expired.`,
 				dto.Expiring = append(dto.Expiring, expiringDTO{AmountMicroCents: e.AmountMicroCents, ExpiresAt: e.ExpiresAt})
 			}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				if _, err := fmt.Fprintf(w, "%s micro-cents (organization %s)\n", output.SafeCell(dto.BalanceMicroCents), output.SafeCell(dto.OrganizationID)); err != nil {
+				if _, err := fmt.Fprintf(w, "%s micro-cents (%s)\n", output.SafeCell(dto.BalanceMicroCents), output.SafeCell(ownerText(dto.OrganizationID, dto.OwnerUserID))); err != nil {
 					return err
 				}
 				for _, e := range dto.Expiring {
@@ -359,25 +383,35 @@ grants which have already expired.`,
 			})
 		},
 	}
+	who.register(cmd)
+	return cmd
 }
 
 func newCmdLedger(f *cmdutil.Factory) *cobra.Command {
 	var page pageFlags
+	var who ownerFlags
 	cmd := &cobra.Command{
-		Use:   "ledger <org>",
-		Short: "List an organization's credit ledger",
-		Long: `List every credit grant, charge and adjustment for an organization, newest
-first, so you can see what produced the balance. Grants are positive, charges
+		Use:   "ledger (<org> | --user <person> | --owner-me)",
+		Short: "List an organization's or a person's credit ledger",
+		Long: `List every credit grant, charge and adjustment for an organization or a
+person, newest first, so you can see what produced the balance. Name exactly one
+owner (<org>, --user or --owner-me). Grants are positive, charges
 negative and adjustments either, in micro-cents (1 USD = 100,000,000
-micro-cents; a charge of -1500000 is 1.5 cents). Requires org ADMIN. Without
+micro-cents; a charge of -1500000 is 1.5 cents). Reading an organization requires
+org ADMIN; the server decides who may read a person's. Without
 --limit the whole ledger is listed; --limit and --offset ask for one page.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example
-hrn:org:acme.com).`,
+hrn:org:acme.com). --user names a person by id, @handle, hrn:user: URN or
+email, matched exactly; --owner-me is your own.`,
 		Example: `  hadron billing ledger hrn:org:acme.com --limit 20
-  hadron billing ledger hrn:org:acme.com --limit 20 --offset 20`,
-		Args: cobra.ExactArgs(1),
+  hadron billing ledger hrn:org:acme.com --limit 20 --offset 20
+  hadron billing ledger --user @ann --json`,
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := who.check(cmd, args); err != nil {
+				return err
+			}
 			lim, off, err := page.pointers(cmd)
 			if err != nil {
 				return err
@@ -386,8 +420,12 @@ hrn:org:acme.com).`,
 			if err != nil {
 				return err
 			}
+			own, err := who.resolve(cmd, f, args)
+			if err != nil {
+				return err
+			}
 			items, err := collect(lim, off, func(l, o *int) ([]*gen.CreditLedgerEntryFields, int, error) {
-				resp, err := gen.CreditLedgerEntries(cmd.Context(), client, args[0], l, o)
+				resp, err := gen.CreditLedgerEntries(cmd.Context(), client, own.orgRef, own.userRef, l, o)
 				if err != nil || resp.CreditLedgerEntries == nil {
 					return nil, 0, err
 				}
@@ -416,16 +454,6 @@ hrn:org:acme.com).`,
 		},
 	}
 	page.register(cmd)
+	who.register(cmd)
 	return cmd
-}
-
-// orgIDOrEmpty reads a ledger or balance organization id. The server made it nullable when a
-// person got a credit ledger (hadron-server#5014); every command here asks about an
-// organization, so the id is always set, and an unset one prints as "" rather than
-// being invented. The person forms are cli#3072.
-func orgIDOrEmpty(id *string) string {
-	if id == nil {
-		return ""
-	}
-	return *id
 }

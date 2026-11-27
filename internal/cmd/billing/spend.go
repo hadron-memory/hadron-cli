@@ -77,14 +77,17 @@ func spendTime(name, v string) (string, error) {
 
 func newCmdSpend(f *cmdutil.Factory) *cobra.Command {
 	var from, to, groupBy string
+	var who ownerFlags
 	cmd := &cobra.Command{
-		Use:   "spend <org> --from <time> --to <time> --group-by <day|app|model|key-owner>",
-		Short: "Show an organization's AI spend over a date range",
-		Long: `Show what an organization's AI use cost and what it was charged, grouped one
-way. Requires org ADMIN.
+		Use:   "spend (<org> | --user <person> | --owner-me) --from <time> --to <time> --group-by <day|app|model|key-owner>",
+		Short: "Show an organization's or a person's AI spend over a date range",
+		Long: `Show what an organization's or a person's AI use cost and what it was charged,
+grouped one way. Name exactly one owner. Reading an organization requires org
+ADMIN; the server decides who may read a person's.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example
-hrn:org:acme.com). --from is inclusive and --to exclusive; each is a date
+hrn:org:acme.com). --user names a person by id, @handle, hrn:user: URN or
+email, matched exactly; --owner-me is your own. --from is inclusive and --to exclusive; each is a date
 (2026-11-01, read as midnight UTC) or an ISO date-time with Z or an explicit
 offset. The server limits how long a range may be and says so if it refuses.
 
@@ -108,11 +111,12 @@ When the server has more groups than it returns, a line on stderr says so.
 A row with no value for the grouping has the key "(none)", an empty string
 with --json.`,
 		Example: `  hadron billing spend hrn:org:acme.com --from 2026-11-01 --to 2026-12-01 --group-by day
-  hadron billing spend hrn:org:acme.com --from 2026-11-01 --to 2026-12-01 --group-by key-owner --json`,
-		Args: cobra.ExactArgs(1),
+  hadron billing spend hrn:org:acme.com --from 2026-11-01 --to 2026-12-01 --group-by key-owner --json
+  hadron billing spend --user @ann --from 2026-11-01 --to 2026-12-01 --group-by model`,
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if args[0] == "" {
-				return exitcode.Newf(exitcode.Usage, "the organization is empty")
+			if err := who.check(cmd, args); err != nil {
+				return err
 			}
 			for _, r := range []struct{ name, val string }{{"from", from}, {"to", to}, {"group-by", groupBy}} {
 				if err := requireFlag(cmd, r.name, r.val); err != nil {
@@ -135,12 +139,16 @@ with --json.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.AiSpend(cmd.Context(), client, args[0], fromAt, toAt, group)
+			o, err := who.resolve(cmd, f, args)
+			if err != nil {
+				return err
+			}
+			resp, err := gen.AiSpend(cmd.Context(), client, o.orgRef, o.userRef, fromAt, toAt, group)
 			if err != nil {
 				return api.MapError(err)
 			}
 			if resp.AiSpend == nil {
-				return exitcode.Newf(exitcode.Error, "the server returned no spend for the organization (the org given is not shown)")
+				return exitcode.Newf(exitcode.Error, "the server returned no spend for the owner (the owner given is not shown)")
 			}
 			s := resp.AiSpend
 			dto := spendDTO{From: s.From, To: s.To, GroupBy: groupBy, Truncated: s.Truncated, TotalGroups: s.TotalGroups, Rows: []spendRowDTO{}}
@@ -176,5 +184,6 @@ with --json.`,
 	cmd.Flags().StringVar(&from, "from", "", "start of the range, inclusive: a date (midnight UTC) or an ISO date-time (required)")
 	cmd.Flags().StringVar(&to, "to", "", "end of the range, exclusive: a date (midnight UTC) or an ISO date-time (required)")
 	cmd.Flags().StringVar(&groupBy, "group-by", "", "day, app, model or key-owner (required)")
+	who.register(cmd)
 	return cmd
 }

@@ -854,16 +854,21 @@ func TestCoveredPrefixRecovery(t *testing.T) {
 			t.Fatalf("through %+v: ch-lane must be omitted", got)
 		}
 	})
-	t.Run("a refused through rolls back: record kept, nothing typed", func(t *testing.T) {
+	t.Run("a refused through: the batch is typed once more and full-acked (cli#3300, Holger)", func(t *testing.T) {
 		h := newHarness(t)
 		seedRecord(t, h, rng("ch-team", 1, 5, 6))
-		h.server.ackErrs = []error{errors.New("BAD_USER_INPUT")}
-		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Failed {
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
+		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Delivered || o.AckPending {
 			t.Fatalf("outcome %+v", o)
 		}
-		h.wantNoSend()
-		if len(h.records()) != 1 {
-			t.Fatal("a refused reconciliation must keep the record")
+		if len(h.orca.sends) != 1 {
+			t.Fatalf("sends %d, want exactly one retype", len(h.orca.sends))
+		}
+		if last := h.ack(-1); last.through != nil {
+			t.Fatalf("the closing ack must be a full ack, got %+v", last.through)
+		}
+		if len(h.records()) != 0 {
+			t.Fatalf("records left: %+v", h.records())
 		}
 	})
 }
@@ -1314,9 +1319,9 @@ func TestAFailedReconcileAckCarriesTheServerCodeNotItsText(t *testing.T) {
 			h := newHarness(t)
 			seed(h)
 			h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
-			o := h.deliver(h.batch(5, 6, 7))
-			if o.Kind != Failed || o.Reason != "reconcile-ack-failed" || o.Code != "BAD_USER_INPUT" {
-				t.Fatalf("outcome %+v", o)
+			h.deliver(h.batch(5, 6, 7))
+			if e := h.events[0]; e.Kind != Failed || e.Reason != "reconcile-ack-failed" || e.Code != "BAD_USER_INPUT" {
+				t.Fatalf("events %+v", h.events)
 			}
 			blob, _ := json.Marshal(h.events)
 			if strings.Contains(string(blob), "SECRET") || !strings.Contains(string(blob), "BAD_USER_INPUT") {
@@ -1328,39 +1333,251 @@ func TestAFailedReconcileAckCarriesTheServerCodeNotItsText(t *testing.T) {
 		h := newHarness(t)
 		seedRecord(t, h, rng("ch-team", 1, 5, 6))
 		h.server.ackErrs = []error{codedErr{"token=abc123"}}
-		if o := h.deliver(h.batch(5, 6, 7)); o.Code != "" {
-			t.Fatalf("outcome %+v", o)
+		h.deliver(h.batch(5, 6, 7))
+		if h.events[0].Code != "" {
+			t.Fatalf("events %+v", h.events)
 		}
 	})
 }
 
-// cli#3300 (B): while a covered-prefix ack is refused, nothing unseen is
-// acked (never a full ack of the batch), nothing is retyped, the record
-// stays, and every pass retries the same partial ack until it lands.
-func TestARefusedCoveredPrefixAckNeverAcksUnseenAndRetriesEachPass(t *testing.T) {
+// cli#3300 item 1 (Holger's ruling A): a refused covered-prefix ack is
+// reported with its code, then the whole batch is typed ONCE more and full-acked.
+func TestARefusedCoveredPrefixAckRetypesOnceThenFullAcks(t *testing.T) {
+	t.Run("retypes once, then the full ack, and the prefix's record is retired", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
+		o := h.deliver(h.batch(5, 6, 7))
+		if o.Kind != Delivered || o.AckPending || len(h.orca.sends) != 1 {
+			t.Fatalf("outcome %+v sends %d", o, len(h.orca.sends))
+		}
+		if len(h.server.acks) != 2 || len(h.ack(0).through) != 1 || h.ack(1).through != nil {
+			t.Fatalf("acks %+v: want the refused partial, then a full ack", h.server.acks)
+		}
+		if h.events[0].Reason != "reconcile-ack-failed" || h.events[0].Code != "BAD_USER_INPUT" {
+			t.Fatalf("the refusal was not reported first: %+v", h.events)
+		}
+		if len(h.records()) != 0 {
+			t.Fatalf("stale prefix record left: %+v", h.records())
+		}
+	})
+	t.Run("nothing unseen is acked before the retype is confirmed", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
+		h.orca.screens = nil // no terminal screen: the retype cannot be confirmed
+		h.deliver(h.batch(5, 6, 7))
+		for i, a := range h.server.acks {
+			if a.through == nil {
+				t.Fatalf("ack %d was a full ack without a confirmed retype", i)
+			}
+		}
+		h.d.mu.Lock()
+		marked := len(h.d.retyped)
+		h.d.mu.Unlock()
+		if marked != 0 {
+			t.Fatalf("an unconfirmed retype set %d marks: it must be retried", marked)
+		}
+	})
+	t.Run("a refused full ack too: one retype only, nothing acked, later passes ack only", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"WAKE_PROOF_STALE"}}
+		o := h.deliver(h.batch(5, 6, 7))
+		if o.Kind != Delivered || !o.AckPending || o.Code != "WAKE_PROOF_STALE" {
+			t.Fatalf("outcome %+v", o)
+		}
+		// The next pass re-hands the same batch: ack only, nothing typed.
+		again := h.batch(5, 6, 7)
+		again.ID = "proof-2"
+		if o := h.deliver(again); o.Kind != Reconciled {
+			t.Fatalf("next pass %+v", o)
+		}
+		if len(h.records()) != 0 {
+			t.Fatalf("records left: %+v", h.records())
+		}
+		if len(h.orca.sends) != 1 {
+			t.Fatalf("sends %d: the batch must be typed exactly once more, never a loop", len(h.orca.sends))
+		}
+		if last := h.ack(-1); last.through != nil {
+			t.Fatalf("later acks must be full, got %+v", last.through)
+		}
+	})
+}
+
+// cli#3300: only a server refusal of the partial ack
+// is retyped. A transport blip, an outage, an auth or stale-proof failure, or
+// no code at all is reported and retried next pass, typing nothing.
+func TestOnlyARefusedPartialAckIsRetyped(t *testing.T) {
+	for _, code := range []string{"server-refused", "transport-error", "unavailable", "unauthenticated", "forbidden", "WAKE_PROOF_STALE", "WAKE_PROOF_INVALID", "APP_NOT_FOUND"} {
+		t.Run(code, func(t *testing.T) {
+			h := newHarness(t)
+			seedRecord(t, h, rng("ch-team", 1, 5, 6))
+			h.server.ackErrs = []error{codedErr{code}}
+			if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Failed || o.Code != code {
+				t.Fatalf("outcome %+v", o)
+			}
+			h.wantNoSend()
+			if len(h.server.acks) != 1 || len(h.ack(0).through) != 1 || len(h.records()) != 1 {
+				t.Fatalf("acks %+v records %d", h.server.acks, len(h.records()))
+			}
+			// The next pass retries the same partial ack, which lands.
+			again := h.batch(5, 6, 7)
+			again.ID = "proof-2"
+			if o := h.deliver(again); o.Kind != Reconciled || o.Reason != "covered-prefix" {
+				t.Fatalf("retry %+v", o)
+			}
+			h.wantNoSend()
+		})
+	}
+	t.Run("an uncoded error", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{errors.New("connection reset")}
+		h.deliver(h.batch(5, 6, 7))
+		h.wantNoSend()
+	})
+	for _, code := range []string{"BAD_USER_INPUT"} {
+		t.Run("a refusal retypes: "+code, func(t *testing.T) {
+			h := newHarness(t)
+			seedRecord(t, h, rng("ch-team", 1, 5, 6))
+			h.server.ackErrs = []error{codedErr{code}}
+			if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Delivered || len(h.orca.sends) != 1 {
+				t.Fatalf("outcome %+v sends %d", o, len(h.orca.sends))
+			}
+		})
+	}
+}
+
+// cli#3300: the one-retype promise holds even when the record of
+// the retype cannot be written.
+func TestOneRetypeHoldsWhenTheRetypeRecordCannotBeWritten(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("a read-only directory does not stop root")
+	}
 	h := newHarness(t)
 	seedRecord(t, h, rng("ch-team", 1, 5, 6))
-	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"BAD_USER_INPUT"}}
-	for i := 0; i < 2; i++ {
-		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Failed || o.Code != "BAD_USER_INPUT" {
-			t.Fatalf("pass %d: %+v", i, o)
+	dir := filepath.Join(h.d.Records.Dir, workerID)
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	// pass 1: refusal, retype, full ack lost. pass 2, 3: refused again.
+	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}, codedErr{"BAD_USER_INPUT"}, codedErr{"BAD_USER_INPUT"}}
+	if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Delivered || o.Reason != "record-failed" || !o.AckPending {
+		t.Fatalf("pass 1 %+v", o)
+	}
+	for i := 2; i <= 3; i++ {
+		again := h.batch(5, 6, 7)
+		again.ID = fmt.Sprintf("proof-%d", i)
+		if o := h.deliver(again); o.Kind != Failed {
+			t.Fatalf("pass %d %+v", i, o)
 		}
 	}
-	h.wantNoSend()
-	for i, a := range h.server.acks {
-		if len(a.through) != 1 || a.through[0] != (Through{"ch-team", 6}) {
-			t.Fatalf("ack %d went beyond the covered prefix: %+v", i, a.through)
+	if len(h.orca.sends) != 1 {
+		t.Fatalf("sends %d: the prefix was typed again", len(h.orca.sends))
+	}
+}
+
+// The once-only marks are per (worker, prefix record, batch) and bounded by
+// the records on disk (cli#3300).
+func TestRetypeMarksAreScopedAndPruned(t *testing.T) {
+	prefix := Record{Ranges: []Range{rng("ch-team", 1, 5, 6)}}
+	t.Run("a different batch under the same prefix is its own retype", func(t *testing.T) {
+		h := newHarness(t)
+		h.d.markRetyped(h.batch(5, 6, 7), []Record{prefix})
+		if !h.d.alreadyRetyped(h.batch(5, 6, 7), []Record{prefix}) {
+			t.Fatal("the marked batch must count as retyped")
 		}
+		if h.d.alreadyRetyped(h.batch(5, 6, 8), []Record{prefix}) {
+			t.Fatal("5-8 is a different batch: a mark for 5-7 must not suppress its retype")
+		}
+	})
+	t.Run("another worker with the same ranges is not withheld", func(t *testing.T) {
+		h := newHarness(t)
+		h.d.markRetyped(h.batch(5, 6, 7), []Record{prefix})
+		other := h.batch(5, 6, 7)
+		other.WorkerID = "w-other"
+		if h.d.alreadyRetyped(other, []Record{prefix}) {
+			t.Fatal("a mark is per worker")
+		}
+	})
+	marks := func(h *harness) int {
+		h.d.mu.Lock()
+		defer h.d.mu.Unlock()
+		return len(h.d.retyped)
 	}
-	if len(h.records()) != 1 {
-		t.Fatal("the record must stay while the ack is refused")
+	t.Run("marks whose record is gone are dropped at the next reconcile", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}}
+		h.deliver(h.batch(5, 6, 7)) // retype, full ack lost: the mark is set
+		if n := marks(h); n != 1 {
+			t.Fatalf("after the retype: %d marks, want 1", n)
+		}
+		again := h.batch(5, 6, 7)
+		again.ID = "proof-2"
+		h.deliver(again) // full cover: the ack lands, every touching record retired
+		if n := marks(h); n != 1 {
+			t.Fatalf("pruning runs at the start of a reconcile, so the mark is still there: %d", n)
+		}
+		later := h.batch(9)
+		later.ID = "proof-3"
+		h.deliver(later) // this reconcile finds the record gone
+		if n := marks(h); n != 0 {
+			t.Fatalf("%d marks leaked", n)
+		}
+	})
+	t.Run("pruning keeps the marks of a record still on disk, and of another worker", func(t *testing.T) {
+		h := newHarness(t)
+		other := h.batch(5, 6, 7)
+		other.WorkerID = "w-other"
+		h.d.markRetyped(h.batch(5, 6, 7), []Record{prefix})
+		h.d.markRetyped(other, []Record{prefix})
+		// Records.List returns every confirmed record of the worker, not only
+		// those of the batch in hand: a second batch's reconcile sees both.
+		second := Record{Ranges: []Range{rng("ch-lane", 1, 40)}}
+		h.d.pruneRetyped(workerID, []Record{prefix, second})
+		if n := marks(h); n != 2 {
+			t.Fatalf("marks %d, want both kept", n)
+		}
+		h.d.pruneRetyped(workerID, nil) // worker A's record is gone
+		if n := marks(h); n != 1 {
+			t.Fatalf("marks %d: only the other worker's mark must remain", n)
+		}
+	})
+}
+
+// Records.List is the worker's whole set, so a second batch's reconcile does
+// not prune the first batch's mark (real store, two batches of one worker).
+func TestRetypeMarksSurviveAnotherBatchesReconcileOnTheRealStore(t *testing.T) {
+	h := newHarness(t)
+	seedRecord(t, h, rng("ch-team", 1, 5, 6)) // batch A's prefix
+	seedRecord(t, h, rng("ch-lane", 1, 40, 41))
+	marks := func() int {
+		h.d.mu.Lock()
+		defer h.d.mu.Unlock()
+		return len(h.d.retyped)
 	}
-	// The server recovers: the same partial ack lands, still nothing typed.
-	if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Reconciled || o.Reason != "covered-prefix" {
-		t.Fatalf("outcome %+v", o)
+	// Batch A: its partial ack is refused, it is retyped, its full ack is lost:
+	// its prefix record stays and its mark is set.
+	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}}
+	h.deliver(h.batch(5, 6, 7))
+	if n := marks(); n != 1 {
+		t.Fatalf("after batch A: %d marks, want 1", n)
 	}
-	h.wantNoSend()
-	if n := len(h.server.acks); n != 3 {
-		t.Fatalf("acks %d", n)
+	// Batch B of the same worker, on another channel: its reconcile reads the
+	// worker's whole set, so A's mark and record are both seen and kept.
+	b := h.batch(40, 41, 42)
+	b.Ranges = []Range{rng("ch-lane", 1, 40, 41, 42)}
+	b.ID, b.BatchKey = "proof-b", "key-b"
+	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}}
+	h.deliver(b)
+	if n := marks(); n != 2 {
+		t.Fatalf("after batch B: %d marks, want A's and B's", n)
+	}
+	recs, err := h.d.Records.List(workerID)
+	if err != nil || len(recs) < 3 {
+		t.Fatalf("List must return the worker's whole set (A's prefix, B's prefix, both retypes): %d, %v", len(recs), err)
 	}
 }
