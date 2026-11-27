@@ -81,7 +81,9 @@ jobs:
       - name: Test secretfile
         run: go test -v ./internal/secretfile/...
       # cli#3239 (ruling RC5): the host credential store's owner-only DACL,
-      # read back the same way, beside the package that sets it.
+      # read back the same way, beside the package that sets it. This job is
+      # windows-secretfile (runs-on: windows-latest), so the step runs
+      # internal/hostcred/dacl_windows_test.go (TestPutWritesAnOwnerOnlyDACL).
       - name: Test the host credential store
         run: go test -v ./internal/hostcred/...
       - name: Build all packages

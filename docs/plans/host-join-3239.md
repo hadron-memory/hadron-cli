@@ -32,7 +32,9 @@ built and where it differs.
 - RC5: built on every OS. On Windows `tooOpen` is false (a Go mode reflects
   only the read-only bit), a reparse point is refused before the open, and the
   DACL is pinned by `dacl_windows_test.go`, run in CI's `windows-secretfile`
-  job beside secretfile's own.
+  job (`runs-on: windows-latest`) by its "Test the host credential store" step,
+  `go test -v ./internal/hostcred/...`, beside secretfile's own. That step is
+  the ci.yml hunk of this change: the job's name sits outside the hunk.
 - `Keys(entries)` is the hook for C3 to scrub every stored key from a child
   environment. The package imports nothing of `hostpoller`.
 
