@@ -168,7 +168,8 @@ cleared (the model included). Pass every value you want kept.
 it that is refused HOST_ASSIGNMENT_EXISTS (exit 5). The worker is an id, URN
 or name within the App (--app, the App context or the worktree binding). A
 retired worker is refused WORKER_RETIRED (5), an unknown one
-WORKER_NOT_FOUND (4), a field that is not its token shape
+WORKER_NOT_FOUND (4), a host the App has not joined (` + "`team host join`" + `) or
+has removed HOST_NOT_FOUND (4), a field that is not its token shape
 BAD_HOST_ASSIGNMENT_ARGS (2), a profile value or a family with no launcher
 BAD_LAUNCHER_PROFILE (2), and a caller who does not manage the App
 HOST_ASSIGNMENT_NOT_PERMITTED (8). A refusal writes nothing. On success the

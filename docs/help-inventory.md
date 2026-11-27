@@ -384,7 +384,7 @@ section between the markers.
 | `app key rotate` |  |  | y | #1053 | 3dd0492515f9 |  | unread |  |
 | `app key scope` |  |  | n | #1053 | 1560c1960003 |  | unread |  |
 | `app key scope catalogue` |  |  | y | #1053 | 34dd986e92f3 |  | unread |  |
-| `app key scope grant` |  |  | y | #1053 | 34016274e9b8 |  | unread |  |
+| `app key scope grant` |  |  | y | #1053 | 6a1eed5b733c |  | unread |  |
 | `app key scope revoke` |  |  | y | #1053 | dd5130e280df |  | unread |  |
 | `app leave` |  |  | y | #1053 | d91df8018ec3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app list` | ls |  | y | #1053 | 3cc11a01f7b2 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
@@ -545,7 +545,7 @@ section between the markers.
 | `team health sweep` |  |  | y | #1054 | f7b10eca095b |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team host` |  |  | n | #1054 | 335c3f17adab |  | unread |  |
-| `team host assign` |  |  | y | #1054 | 4a7f3430748b |  | unread |  |
+| `team host assign` |  |  | y | #1054 | 0f2be7359e16 |  | unread |  |
 | `team host availability` |  |  | y | #1054 | 1ac6c8626087 |  | unread |  |
 | `team host doctor` |  |  | y | #1054 | 157271bdead9 |  | unread |  |
 | `team host hosts` |  |  | y | #1054 | 75e3a60a14c9 |  | unread |  |

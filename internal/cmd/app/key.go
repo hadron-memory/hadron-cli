@@ -90,11 +90,12 @@ catalogue" lists the scopes, what each permits and which need --host-id.
 Granting a scope the key already holds changes nothing.
 
 A scope that needs a host (host:operate today) is granted for ONE host, named with
---host-id: the id the host is registered under (each host's id is shown by
-"hadron team host list"). The key then registers, collects and reports as that
-host and no other. A key already operating as another host is refused
-APP_KEY_SCOPE_HOST_CONFLICT (exit 5): revoke host:operate first, or use another
-key. --host-id is refused for every other scope (exit 2). Prints which scope the
+--host-id: the id the host joined the App under ("hadron team host join";
+"hadron team host hosts" lists them). The key then registers, collects and
+reports as that host and no other. A host the App has not joined, or has
+removed, is refused HOST_NOT_FOUND (exit 4). A key already operating as another
+host is refused APP_KEY_SCOPE_HOST_CONFLICT (exit 5): revoke host:operate first,
+or use another key. --host-id is refused for every other scope (exit 2). Prints which scope the
 key now holds, then the key's scopes.`,
 		Example: `  hadron app key scope grant key_123 host:operate --host-id orca1
   hadron app key scope grant key_123 attention:deliver`,

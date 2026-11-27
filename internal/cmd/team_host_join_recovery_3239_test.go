@@ -71,3 +71,35 @@ func TestHostJoin3239UnstorableAnswerIsNotSentRoundAgain(t *testing.T) {
 	}
 	r.assertNoKey(t)
 }
+
+// SEC10 (Bianca, 4adb01e1, P3): the dead-key probe's error arm must fail
+// closed. A HostCredentialStatus that errors or answers nothing is not a
+// refusal of the key, so leave keeps the entry and exits 4.
+func TestHostLeave3239KeepsTheEntryWhenTheDeadKeyProbeFails(t *testing.T) {
+	for name, answer := range map[string]string{
+		"error":   refusal3239("INTERNAL_SERVER_ERROR"),
+		"no data": `{"data":null}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := newSrv3239(t, func(op string, _ map[string]any) string {
+				switch op {
+				case "RemoveAgentTeamHost":
+					return refusal3239("HOST_NOT_FOUND")
+				case "HostCredentialStatus":
+					return answer
+				}
+				return ""
+			})
+			r := exec3239(t, s, func(dir string) {
+				writeStore3239(t, dir, 0o600, [4]string{s.url, app3239, "box1", key3239})
+			}, "team", "host", "leave", "--app", "acme.com:eng", "--yes")
+			if got := readStore3239(t); r.code != exitcode.NotFound || len(got) != 1 {
+				t.Fatalf("a failed dead-key probe: exit %d (%v), stored %+v; want 4 and kept", r.code, r.err, got)
+			}
+			if s.count("HostCredentialStatus") != 1 {
+				t.Errorf("the dead-key probe ran %d times, want once", s.count("HostCredentialStatus"))
+			}
+			r.assertNoKey(t)
+		})
+	}
+}
