@@ -113,8 +113,10 @@ func ReadGLM(a Account) (GLMSnapshot, error) {
 		if l.NextResetTime == nil {
 			return GLMSnapshot{}, bad("glm quota file %s: a limit has no nextResetTime", path)
 		}
+		// Milliseconds: a value below 1e12 (before 2001) is a seconds value
+		// someone wrote by mistake, refused rather than read as 1970.
 		reset, ok := unixSeconds(math.Trunc(*l.NextResetTime / 1000))
-		if !ok || *l.NextResetTime != math.Trunc(*l.NextResetTime) {
+		if !ok || *l.NextResetTime != math.Trunc(*l.NextResetTime) || *l.NextResetTime < 1e12 {
 			return GLMSnapshot{}, bad("glm quota file %s: nextResetTime is not a Unix time in milliseconds", path)
 		}
 		w := &CodexWindow{UsedPct: *l.Percentage, Minutes: mins, ResetsAt: reset}

@@ -50,8 +50,9 @@ var glmStep = ` 5. glm (Z.ai): configDir is the account's config dir. Put this i
       ` + strings.ReplaceAll(strings.TrimRight(accountusage.GLMSnippet, "\n"), "\n", "\n      ") + `
     The file is {"observedAt":N,"limits":[{"type","unit","number","percentage",
     "nextResetTime"}]} (observedAt in Unix seconds, nextResetTime in ms; no token,
-    no account identifier). It is refreshed at most every 5 minutes by its
-    mtime, and a failed call leaves the previous file untouched. collect maps a
+    no account identifier). It calls only over https, at most every 5 minutes
+    (by the file's mtime and an attempt marker, failures included), and a
+    failed call leaves the previous file untouched. collect maps a
     TOKENS_LIMIT or CREDIT_LIMIT whose (unit, number) is on the confirmed list
     (3,5 = the 5-hour window, 300 minutes) to primary/secondary with its length;
     any other code is dropped, never guessed. No file: sourceState

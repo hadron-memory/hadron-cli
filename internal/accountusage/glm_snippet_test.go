@@ -91,9 +91,7 @@ func TestGLMSnippetWritesOnlyWhitelistedFields(t *testing.T) {
 	if !strings.Contains(string(in), "Authorization: SECRET-TOKEN-123") {
 		t.Errorf("token not passed on stdin: %q", in)
 	}
-	if _, err := os.Stat(filepath.Join(cfg, "hadron-usage", "glm-quota.json.tmp")); err == nil {
-		t.Error("temp file left behind")
-	}
+	noTemp(t, cfg)
 }
 
 func TestGLMSnippetThrottlesByMtime(t *testing.T) {
@@ -106,10 +104,7 @@ func TestGLMSnippetThrottlesByMtime(t *testing.T) {
 	if n := calls(bin); n != 1 {
 		t.Fatalf("second run inside 5 minutes called the endpoint (%d calls)", n)
 	}
-	old := time.Now().Add(-6 * time.Minute)
-	if err := os.Chtimes(filepath.Join(cfg, "hadron-usage", "glm-quota.json"), old, old); err != nil {
-		t.Fatal(err)
-	}
+	ageOut(t, cfg, 6*time.Minute)
 	runSnippet(t, cfg, bin, env...)
 	if n := calls(bin); n != 2 {
 		t.Fatalf("a 6-minute-old file must be refreshed (%d calls)", n)
@@ -124,12 +119,7 @@ func TestGLMSnippetFailsClosed(t *testing.T) {
 	runSnippet(t, cfg, bin, env...)
 	file := filepath.Join(cfg, "hadron-usage", "glm-quota.json")
 	before, _ := os.ReadFile(file)
-	stale := func() {
-		old := time.Now().Add(-10 * time.Minute)
-		if err := os.Chtimes(file, old, old); err != nil {
-			t.Fatal(err)
-		}
-	}
+	stale := func() { ageOut(t, cfg, 10*time.Minute) }
 	for name, reply := range map[string]string{
 		"curl failure":        "", // no reply file: curl exits 22
 		"error body":          `{"code":401,"success":false,"msg":"token expired"}`,
@@ -147,9 +137,7 @@ func TestGLMSnippetFailsClosed(t *testing.T) {
 		if err != nil || string(after) != string(before) {
 			t.Errorf("%s: the previous file must stay untouched; got %q err %v", name, after, err)
 		}
-		if _, err := os.Stat(file + ".tmp"); err == nil {
-			t.Errorf("%s: temp file left behind", name)
-		}
+		noTemp(t, cfg)
 	}
 }
 
@@ -165,4 +153,69 @@ func TestGLMSnippetNeedsKeyAndBase(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(cfg, "hadron-usage", "glm-quota.json")); err == nil {
 		t.Fatal("no file may be written without a successful call")
 	}
+}
+
+// noTemp: only the quota file and the attempt marker may remain.
+func noTemp(t *testing.T, cfg string) {
+	t.Helper()
+	ents, _ := os.ReadDir(filepath.Join(cfg, "hadron-usage"))
+	for _, e := range ents {
+		if e.Name() != "glm-quota.json" && e.Name() != "glm-quota.json.try" {
+			t.Errorf("temp file left behind: %s", e.Name())
+		}
+	}
+}
+
+func ageOut(t *testing.T, cfg string, by time.Duration) {
+	t.Helper()
+	old := time.Now().Add(-by)
+	for _, n := range []string{"glm-quota.json", "glm-quota.json.try"} {
+		if err := os.Chtimes(filepath.Join(cfg, "hadron-usage", n), old, old); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestGLMSnippetOnlyOverHTTPS(t *testing.T) {
+	cfg, bin := snippetEnv(t)
+	fakeCurl(t, bin)
+	_ = os.WriteFile(filepath.Join(bin, "reply"), []byte(quotaReply), 0o600)
+	for _, base := range []string{"http://api.z.ai/api/anthropic", "api.z.ai/api/anthropic"} {
+		runSnippet(t, cfg, bin, "ANTHROPIC_AUTH_TOKEN=t", "ANTHROPIC_BASE_URL="+base)
+	}
+	if n := calls(bin); n != 0 {
+		t.Fatalf("a non-https base must make no call (%d)", n)
+	}
+	runSnippet(t, cfg, bin, "ANTHROPIC_AUTH_TOKEN=t", "ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic")
+	argv, _ := os.ReadFile(filepath.Join(bin, "calls"))
+	if !strings.Contains(string(argv), "--proto =https") {
+		t.Errorf("curl must be pinned to https: %s", argv)
+	}
+}
+
+// A failing endpoint is not retried on every status-line refresh (cli#3323 blind P2).
+func TestGLMSnippetThrottlesFailuresToo(t *testing.T) {
+	cfg, bin := snippetEnv(t)
+	fakeCurl(t, bin) // no reply file: every call fails
+	env := []string{"ANTHROPIC_AUTH_TOKEN=t", "ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic"}
+	runSnippet(t, cfg, bin, env...)
+	runSnippet(t, cfg, bin, env...)
+	if n := calls(bin); n != 1 {
+		t.Fatalf("a failed call was retried inside 5 minutes (%d calls)", n)
+	}
+	if _, err := os.Stat(filepath.Join(cfg, "hadron-usage", "glm-quota.json")); err == nil {
+		t.Fatal("a failed call must not create the file")
+	}
+}
+
+// Concurrent runs never share a temp file (cli#3323 blind P2).
+func TestGLMSnippetUsesUniqueTempFile(t *testing.T) {
+	cfg, bin := snippetEnv(t)
+	fakeCurl(t, bin)
+	_ = os.WriteFile(filepath.Join(bin, "reply"), []byte(quotaReply), 0o600)
+	if !strings.Contains(GLMSnippet, "mktemp") || strings.Contains(GLMSnippet, `"$f.tmp"`) {
+		t.Fatal("the snippet must write through a per-run mktemp file")
+	}
+	runSnippet(t, cfg, bin, "ANTHROPIC_AUTH_TOKEN=t", "ANTHROPIC_BASE_URL=https://api.z.ai/api/anthropic")
+	noTemp(t, cfg)
 }

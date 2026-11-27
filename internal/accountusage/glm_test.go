@@ -118,6 +118,7 @@ func TestGLMRefusals(t *testing.T) {
 		"pct missing":       `{"observedAt":1795000000,"limits":[{"type":"TOKENS_LIMIT","unit":3,"number":5,"nextResetTime":1795003600000}]}`,
 		"reset missing":     `{"observedAt":1795000000,"limits":[{"type":"TOKENS_LIMIT","unit":3,"number":5,"percentage":5}]}`,
 		"reset in seconds?": `{"observedAt":1795000000,"limits":[{"type":"TOKENS_LIMIT","unit":3,"number":5,"percentage":5,"nextResetTime":-5}]}`,
+		"reset in seconds":  `{"observedAt":1795000000,"limits":[{"type":"TOKENS_LIMIT","unit":3,"number":5,"percentage":5,"nextResetTime":1795003600}]}`,
 		"no observedAt":     `{"limits":[]}`,
 		"bad observedAt":    `{"observedAt":-1,"limits":[]}`,
 		"not json":          `not json SECRET-TOKEN-123`,
