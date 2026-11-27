@@ -66,6 +66,12 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		return
 	}
 	dir := p.config().WorktreePath(token)
+	if dir == "" {
+		// A host that runs from the platform, and the token names no single Orca worktree here: nothing is
+		// inspected or removed (hadron-cli#3237).
+		p.finish(ctx, op, Failed, "", p.config().WorkdirRefusal(token))
+		return
+	}
 	st, err := p.host.Inspect(ctx, dir)
 	if err != nil {
 		p.finish(ctx, op, Failed, "", "reading the worktree: "+err.Error())
@@ -178,6 +184,11 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		return
 	}
 	token := argString(op, "worktree")
+	if why := p.config().WorkdirRefusal(token); why != "" {
+		// A host that runs from the platform: the token did not resolve to one Orca worktree (hadron-cli#3237).
+		p.finish(ctx, op, Failed, "", why)
+		return
+	}
 	if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not registered for this worker here", token))
 		return
@@ -505,7 +516,7 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 		if t, ok := p.agentWorktree(op.WorkerID); ok {
 			dir = p.config().WorktreePath(t)
 		}
-		env := agentEnv(os.Environ(), p.key, "HADRON_SESSION_ID="+session, "HADRON_WORKER_ID="+op.WorkerID)
+		env := agentEnvKeys(os.Environ(), p.scrubKeys(), "HADRON_SESSION_ID="+session, "HADRON_WORKER_ID="+op.WorkerID)
 		if err := p.host.Prompt(ctx, w.End, dir, env); err != nil {
 			note = "; the end prompt failed: " + err.Error()
 		} else {

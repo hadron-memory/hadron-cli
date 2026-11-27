@@ -50,6 +50,11 @@ type AccountProfile struct {
 	// account); empty for the Claude family, whose launcher scripts select
 	// their own CLAUDE_CONFIG_DIR.
 	CodexHome string `yaml:"codex_home"`
+	// ClaudeConfigDir is CLAUDE_CONFIG_DIR for a Claude-family account resolved from the accounts file
+	// (hadron-cli#3237: an entry's configDir). The host file cannot set it (its Claude launchers select
+	// their own); the launch exports it inside the command, after Orca's own exports, so it wins over
+	// them, and a program that sets its own value later still wins over it.
+	ClaudeConfigDir string `yaml:"-"`
 	// Families is the explicit allowlist (#2199): when present it must name
 	// EVERY family this account launches, the worker's own profile family
 	// included; a start naming a family not in it is refused. Unset, the
@@ -71,6 +76,14 @@ type ConfigProfiles struct {
 	// Get, when set, is the configuration in force now (a running poller's,
 	// after a reload); Cfg is the one it started with (cli#2623).
 	Get func() *Config
+}
+
+// AccountResolving is a ProfileSource whose account is resolved at the moment of use from the start's run
+// settings (hadron-cli#3237): the start's account name when it names one, else the worker's own, and the start's
+// family when it names one, else the worker's. ConfigProfiles does not implement it: under --config a start's
+// accountProfile is ignored (Ruling Q3 (a)) and the file path stays as it was.
+type AccountResolving interface {
+	ResolveProfile(workerRef string, rs RunSettings) (LauncherProfile, AccountProfile, error)
 }
 
 func (s ConfigProfiles) cfg() *Config {

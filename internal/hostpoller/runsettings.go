@@ -23,6 +23,9 @@ type RunSettings struct {
 	Model  string
 	Tier   string
 	Effort string
+	// Account is the account profile NAME the start names (hadron-cli#3237); only a host that runs from the
+	// platform reads it (AccountResolving), and the start's name wins over the worker's.
+	Account string
 }
 
 // RunSettingsFrom reads the run settings off a worker.start's args.
@@ -32,6 +35,8 @@ func RunSettingsFrom(op Operation) RunSettings {
 		Model:  argString(op, "model"),
 		Tier:   argString(op, "tier"),
 		Effort: argString(op, "effort"),
+
+		Account: argString(op, "accountProfile"),
 	}
 }
 
@@ -89,6 +94,9 @@ type Resolved struct {
 	Profile LauncherProfile
 	Bind    Bind
 	Note    string
+	// Account, when set, is the account resolved for THIS start (an AccountResolving source); the launch uses
+	// it rather than asking the source again, so what was checked is what launches.
+	Account *AccountProfile
 }
 
 // accountLaunches reports whether the worker's account has a launch template

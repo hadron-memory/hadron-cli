@@ -28,6 +28,10 @@ type State struct {
 	// registration — how `status` finds this host's own registration, since
 	// a label is not unique.
 	HostID string `json:"hostId"`
+	// configuredOnly is set for a host that runs from the platform (hadron-cli#3237, SetFromPlatform): a
+	// worker's trees are then only the ones this poll resolved (its Config's Worktrees), never a token
+	// recorded as created, so every reader of a worker's trees gets a tree with a path. Not persisted.
+	configuredOnly bool
 	// Agents are the agents this poller launched, by worker id: the
 	// worktree each runs in and its process id. A launched agent outlives a
 	// poller restart (it runs in its own session), so the in-memory record
@@ -99,12 +103,23 @@ func (s *State) save() error {
 
 // worktreesFor is the configured worktrees plus the ones created, unique and
 // sorted.
+// SetFromPlatform marks the state of a host that runs from the platform (see configuredOnly).
+func (s *State) SetFromPlatform() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.configuredOnly = true
+}
+
 func (s *State) worktreesFor(ref string, configured []string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	seen := map[string]bool{}
 	out := []string{}
-	for _, t := range append(append([]string{}, configured...), s.Created[ref]...) {
+	created := s.Created[ref]
+	if s.configuredOnly {
+		created = nil
+	}
+	for _, t := range append(append([]string{}, configured...), created...) {
 		if !seen[t] {
 			seen[t] = true
 			out = append(out, t)

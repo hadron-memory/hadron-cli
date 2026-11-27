@@ -576,8 +576,10 @@ func postLaunchObservation(ctx context.Context, d *RelaunchDependencies, a Agent
 }
 
 func (p *Poller) relaunchCause(raw string) string {
-	if p.key != "" {
-		raw = strings.ReplaceAll(raw, p.key, "[redacted]")
+	for _, k := range p.scrubKeys() {
+		if k != "" {
+			raw = strings.ReplaceAll(raw, k, "[redacted]")
+		}
 	}
 	raw = strings.Map(func(r rune) rune {
 		if r < ' ' || r == 127 {
