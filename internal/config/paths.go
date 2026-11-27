@@ -57,16 +57,28 @@ func AuthFile() (string, error) {
 // StateDir returns the directory for runtime state the CLI owns (locks,
 // records of what it launched), never a setting: $XDG_STATE_HOME/hadron,
 // defaulting to ~/.local/state/hadron, on every platform (hadron-cli#3239).
-// It creates nothing.
+// It creates nothing. The rule itself is StateDirFrom, which team host doctor
+// reads too (hostfacts.Facts.StateDir), so the two cannot drift.
 func StateDir() (string, error) {
-	if base := os.Getenv("XDG_STATE_HOME"); base != "" {
-		return filepath.Join(base, "hadron"), nil
+	if os.Getenv("XDG_STATE_HOME") != "" {
+		return StateDirFrom(os.Getenv, ""), nil
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(home, ".local", "state", "hadron"), nil
+	return StateDirFrom(os.Getenv, home), nil
+}
+
+// StateDirFrom is the state-directory rule with its inputs passed in:
+// getenv("XDG_STATE_HOME")/hadron when that is set, else
+// <home>/.local/state/hadron. Callers with test seams (hostfacts) use it
+// directly; everyone else calls StateDir.
+func StateDirFrom(getenv func(string) string, home string) string {
+	if base := getenv("XDG_STATE_HOME"); base != "" {
+		return filepath.Join(base, "hadron")
+	}
+	return filepath.Join(home, ".local", "state", "hadron")
 }
 
 // ErrBadHostID refuses a host id that is not one (empty, "..", a path

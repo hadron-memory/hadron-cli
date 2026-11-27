@@ -41,6 +41,13 @@ hadron` else `~/.local/state/hadron`, `hosts/<hostId>` at 0700, the id checked
 against `internal/hostid` (shared with `host_setup.go`), and a `:` refused on
 Windows. C1 creates nothing under it.
 
+The rule itself is `config.StateDirFrom(getenv, home)`, and C2's
+`hostfacts.Facts.StateDir` (#3236, merged first) calls it through its
+`Getenv`/`Home` seams, so `team host doctor` reports the directory the store
+writes to (pinned by `internal/hostfacts/statedir_shared_3239_test.go`). The
+switch runs this way round because `hostfacts` already imports `config`
+(through `orcaterm`), so `config` cannot import `hostfacts`.
+
 ## The commands: `internal/cmd/team/host_join.go`
 
 Every request is the person's, under `api.WithoutSession` (join and remove are
