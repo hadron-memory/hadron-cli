@@ -113,3 +113,6 @@ func EnsureHostStateDir(hostID string) (string, error) {
 	}
 	return dir, nil
 }
+
+// windowsUnsafeName is a stub (red; hadron-cli#3288 F8).
+func windowsUnsafeName(string) bool { return false }
