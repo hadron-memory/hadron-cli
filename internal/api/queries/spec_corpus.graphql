@@ -1,8 +1,8 @@
 # hadron-server#1447 — draft spec corpora and minting (cli#777).
 #
-# A spec corpus is created in DRAFT (createMemory draftCorpus: true) or is
-# MINTED. In a draft, citations are not yet permanent: a citation can be
-# reserved as a placeholder, a spec renumbered (its URN references rewritten),
+# A spec corpus is DRAFT while none of its nodes is minted (derived by the server
+# since hadron-server#1591, not chosen at create) or is MINTED. In a draft,
+# citations are not yet permanent: a citation can be reserved as a placeholder, a spec renumbered (its URN references rewritten),
 # and what refers to a spec read back. Minting is one step for the whole
 # corpus, one-way, and refuses while a blocker remains.
 
