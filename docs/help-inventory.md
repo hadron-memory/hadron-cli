@@ -546,7 +546,7 @@ section between the markers.
 | `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health sweep` |  |  | y | #1054 | f7b10eca095b |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team host` |  |  | n | #1054 | 335c3f17adab |  | unread |  |
+| `team host` |  |  | n | #1054 | 783d80f9fca8 |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 0f2be7359e16 |  | unread |  |
 | `team host availability` |  |  | y | #1054 | 1ac6c8626087 |  | unread |  |
 | `team host doctor` |  |  | y | #1054 | 8b9e43caacfa |  | unread |  |
@@ -557,6 +557,7 @@ section between the markers.
 | `team host leave` |  |  | y | #1054 | db0d3fc77c9e |  | unread |  |
 | `team host list` | ls |  | y | #1054 | f76136bcd459 |  | unread |  |
 | `team host ops` |  |  | y | #1054 | a435002b8aa7 |  | unread |  |
+| `team host remove` |  |  | y | #1054 | bee23e7a3296 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host run` |  |  | y | #1054 | b6e84c347235 |  | unread |  |
 | `team host set` |  |  | y | #1054 | 82ac123115a2 |  | unread |  |

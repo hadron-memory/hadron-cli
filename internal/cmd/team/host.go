@@ -402,6 +402,7 @@ with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" +
 	cmd.AddCommand(newCmdTeamHostImport(f))
 	cmd.AddCommand(newCmdTeamHostJoin(f))
 	cmd.AddCommand(newCmdTeamHostLeave(f))
+	cmd.AddCommand(newCmdTeamHostRemove(f))
 	cmd.AddCommand(newCmdTeamHostSet(f))
 	cmd.AddCommand(newCmdTeamHostHosts(f))
 	cmd.AddCommand(newCmdTeamHostShow(f))

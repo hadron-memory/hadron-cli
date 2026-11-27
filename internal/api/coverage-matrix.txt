@@ -663,7 +663,7 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 16: 2 gap, 14 excluded
+[Arguments] 15: 1 gap, 14 excluded
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -671,7 +671,6 @@ Mutation.createApp(role)  excluded deprecated: the App's own role was removed (c
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
 Mutation.createMemory(draftCorpus)  excluded deprecated: @deprecated: Accepted and ignored since #1591: a memory's draft or minted state is derived from its nodes.
 Mutation.mergeUsers(input.consentProof)  gap #1304
-Mutation.removeAgentTeamHost(input.force)  gap #3282
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)

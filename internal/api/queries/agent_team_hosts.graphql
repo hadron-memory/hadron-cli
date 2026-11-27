@@ -43,10 +43,17 @@ mutation JoinAgentTeamHost(
   }
 }
 
-# No force in C1 (ruling RC4): a host with an open session is refused
-# AGENT_TEAM_HOST_HAS_OPEN_SESSIONS and the command says so.
-mutation RemoveAgentTeamHost($appRef: String!, $hostId: String!) {
-  removeAgentTeamHost(input: { appRef: $appRef, hostId: $hostId })
+# `team host leave` never sends force (ruling RC4): a host with an open session is
+# refused AGENT_TEAM_HOST_HAS_OPEN_SESSIONS and the command says so. `team host remove
+# --force` (cli#3282, Holger's ruling) sends force: true; without the flag the variable
+# is omitted, never false, so the request is byte for byte the one leave sends.
+mutation RemoveAgentTeamHost(
+  $appRef: String!
+  $hostId: String!
+  # @genqlient(omitempty: true)
+  $force: Boolean
+) {
+  removeAgentTeamHost(input: { appRef: $appRef, hostId: $hostId, force: $force })
 }
 
 # $input is bound to gqltypes.AgentTeamHostUpdateInput (genqlient.yaml): its

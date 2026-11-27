@@ -79,7 +79,7 @@ func TestHostRemove3282ForceIsSentOnceAfterTheListing(t *testing.T) {
 		t.Errorf("force = %v, want true", got)
 	}
 	ops := orderOf3282(s)
-	if strings.Index(ops, "HostDesiredState") < 0 || strings.Index(ops, "HostDesiredState") > strings.Index(ops, "RemoveAgentTeamHost") {
+	if !strings.Contains(ops, "HostDesiredState") || strings.Index(ops, "HostDesiredState") > strings.Index(ops, "RemoveAgentTeamHost") {
 		t.Errorf("the open-session listing must come before the mutation: %s", ops)
 	}
 	dto := jsonObject3072(t, r.out)

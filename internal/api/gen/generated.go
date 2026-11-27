@@ -146777,6 +146777,7 @@ func (v *__RemoveAgentImportInput) GetImportedAgentRef() string { return v.Impor
 type __RemoveAgentTeamHostInput struct {
 	AppRef string `json:"appRef"`
 	HostId string `json:"hostId"`
+	Force  *bool  `json:"force,omitempty"`
 }
 
 // GetAppRef returns __RemoveAgentTeamHostInput.AppRef, and is useful for accessing the field via an interface.
@@ -146784,6 +146785,9 @@ func (v *__RemoveAgentTeamHostInput) GetAppRef() string { return v.AppRef }
 
 // GetHostId returns __RemoveAgentTeamHostInput.HostId, and is useful for accessing the field via an interface.
 func (v *__RemoveAgentTeamHostInput) GetHostId() string { return v.HostId }
+
+// GetForce returns __RemoveAgentTeamHostInput.Force, and is useful for accessing the field via an interface.
+func (v *__RemoveAgentTeamHostInput) GetForce() *bool { return v.Force }
 
 // __RemoveAppMemberInput is used internally by genqlient
 type __RemoveAppMemberInput struct {
@@ -186657,18 +186661,21 @@ func RemoveAgentImport(
 
 // The mutation executed by RemoveAgentTeamHost.
 const RemoveAgentTeamHost_Operation = `
-mutation RemoveAgentTeamHost ($appRef: String!, $hostId: String!) {
-	removeAgentTeamHost(input: {appRef:$appRef,hostId:$hostId})
+mutation RemoveAgentTeamHost ($appRef: String!, $hostId: String!, $force: Boolean) {
+	removeAgentTeamHost(input: {appRef:$appRef,hostId:$hostId,force:$force})
 }
 `
 
-// No force in C1 (ruling RC4): a host with an open session is refused
-// AGENT_TEAM_HOST_HAS_OPEN_SESSIONS and the command says so.
+// `team host leave` never sends force (ruling RC4): a host with an open session is
+// refused AGENT_TEAM_HOST_HAS_OPEN_SESSIONS and the command says so. `team host remove
+// --force` (cli#3282, Holger's ruling) sends force: true; without the flag the variable
+// is omitted, never false, so the request is byte for byte the one leave sends.
 func RemoveAgentTeamHost(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	appRef string,
 	hostId string,
+	force *bool,
 ) (data_ *RemoveAgentTeamHostResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "RemoveAgentTeamHost",
@@ -186676,6 +186683,7 @@ func RemoveAgentTeamHost(
 		Variables: &__RemoveAgentTeamHostInput{
 			AppRef: appRef,
 			HostId: hostId,
+			Force:  force,
 		},
 	}
 
