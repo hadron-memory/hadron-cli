@@ -101,6 +101,12 @@ var launchAllowed = map[string]bool{
 	"terminal create": true, "terminal close": true,
 }
 
+// worktreeCreateAllowed is the one `orca` call a host that runs from the platform makes for a worktree.create
+// (hadron-cli#3237, U3 of hadron-server#5210): `worktree create`. It never removes, lists, launches or types.
+var worktreeCreateAllowed = map[string]bool{
+	"worktree create": true,
+}
+
 // guardFor refuses, without running it, any call outside calls. The refusal
 // is the fail-closed shape, so every caller already handles it.
 func guardFor(calls map[string]bool, run Runner) Runner {
@@ -123,3 +129,6 @@ func SweepGuard(run Runner) Runner { return guardFor(sweepAllowed, run) }
 
 // LaunchGuard is the launcher's own two calls (#2058), closed to the rest.
 func LaunchGuard(run Runner) Runner { return guardFor(launchAllowed, run) }
+
+// WorktreeCreateGuard is the platform host's worktree.create call (hadron-cli#3237), closed to the rest.
+func WorktreeCreateGuard(run Runner) Runner { return guardFor(worktreeCreateAllowed, run) }

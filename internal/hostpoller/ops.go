@@ -21,6 +21,12 @@ func (p *Poller) worktreeCreate(ctx context.Context, op Operation) {
 	}
 	repo, base, branch, label := argString(op, "repo"), argString(op, "baseBranch"), argString(op, "branchName"), argString(op, "label")
 	c := p.config() // one snapshot for the repo and the worktree owner check
+	if c.FromPlatform() {
+		// hadron-cli#3237: the tree is made by Orca; c.Repo and WorktreePath hold only what the last poll
+		// resolved, so a new token has no path to inspect or create at.
+		p.platformWorktreeCreate(ctx, op, c, ref, repo, label, branch, base)
+		return
+	}
 	repoPath, ok := c.Repo(repo)
 	if !ok {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("repo %q is not configured on this host", repo))
@@ -54,6 +60,30 @@ func (p *Poller) worktreeCreate(ctx context.Context, op Operation) {
 		p.log("state-failed", op.ID, op.Type, "", err.Error())
 	}
 	p.finish(ctx, op, Succeeded, token, "")
+}
+
+func (p *Poller) platformWorktreeCreate(ctx context.Context, op Operation, c *Config, ref, repo, label, branch, base string) {
+	// As under --config, the token's repo part is the repo's last segment (an owner/name reads as name), and
+	// that is the Orca repository's displayName the create selects.
+	repo = path.Base(repo)
+	token := repo + "/" + label
+	if !ValidNameToken(token) {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree name %q is not a valid name token", token))
+		return
+	}
+	if owner, ok := p.state.ownerOf(token, c); ok && owner != ref {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("%s is registered for another worker here", token))
+		return
+	}
+	got, why := p.orcaWorktreeCreate(ctx, repo, label, branch, base)
+	if why != "" {
+		p.finish(ctx, op, Failed, "", why)
+		return
+	}
+	if err := p.state.addCreated(ref, got); err != nil {
+		p.log("state-failed", op.ID, op.Type, "", err.Error())
+	}
+	p.finish(ctx, op, Succeeded, got, "")
 }
 
 // worktree.remove: only a tree with nothing to lose. Uncommitted changes, a

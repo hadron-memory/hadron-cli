@@ -125,6 +125,12 @@ func withDeps3237(t *testing.T, entries []hostcred.Entry) *wired3237 {
 				return nil
 			},
 			delivery: func(*hostpoller.Poller, *hostpoller.Config, *hostServer, func(hostpoller.Event)) {},
+			worktreeRun: func(string) orcaterm.Runner {
+				return func(_ context.Context, argv []string) orcaterm.Result {
+					t.Errorf("no worktree.create was collected, yet Orca was asked %q", argv)
+					return orcaterm.Result{Code: 1}
+				}
+			},
 		}
 	}
 	t.Cleanup(func() { platformDepsFor = old })
@@ -445,5 +451,61 @@ func TestHostRunPlatformStoreRefusalIsExit3WithNoKey3237(t *testing.T) {
 	_, _, err := run3237(t, false, "--once")
 	if exitcode.FromError(err) != exitcode.AuthRequired || !strings.Contains(err.Error(), "host-credentials.json") {
 		t.Errorf("a refused store: want exit 3 naming the file, got %v", err)
+	}
+}
+
+func createOp3237(status string) string {
+	return `{"id":"o1","appId":"app-1","hostId":"host-1","type":"worktree.create",
+		"args":{"repo":"hadron-memory/hadron-cli","baseBranch":"main","branchName":"judy/new","label":"new"},
+		"workerId":"wkr-judy","worker":{"id":"wkr-judy","name":"Judy"},"status":"` + status + `","issuedBy":"USER",
+		"issuedByUserId":"u1","issuedByWorkerId":null,"issuedAt":"2026-11-27T12:00:00Z","collectedAt":"2026-11-27T12:00:01Z",
+		"finishedAt":null,"result":null,"failureReason":null,"launchGrant":null}`
+}
+
+// The command wires each platform poller's worktree.create to Orca at the binary it found: a collected create
+// reaches `orca worktree create` (here a fake that answers ok without making the tree, so the re-read finds
+// nothing and the create is reported FAILED, naming no path).
+func TestHostRunPlatformWiresWorktreeCreateToOrca3237(t *testing.T) {
+	var reported json.RawMessage
+	srv, _ := fakeServer3237(t, func(op string, vars json.RawMessage) string {
+		switch op {
+		case "HostRunPlatform":
+			return platformAnswer3237("app-1", "host-1", "SERVER")
+		case "RegisterHost", "RegisterHostWithRefused":
+			return registerAnswer3237("host-1")
+		case "CollectHostOperations":
+			return `{"data":{"collectHostOperations":[` + createOp3237("COLLECTED") + `]}}`
+		case "ReportHostOperation":
+			reported = vars
+			return `{"data":{"reportHostOperation":` + createOp3237("FAILED") + `}}`
+		}
+		return ""
+	})
+	withDeps3237(t, []hostcred.Entry{{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1}})
+	var bins []string
+	var asked [][]string
+	old := platformDepsFor
+	platformDepsFor = func() platformDeps {
+		d := old()
+		d.worktreeRun = func(bin string) orcaterm.Runner {
+			bins = append(bins, bin)
+			return func(_ context.Context, argv []string) orcaterm.Result {
+				asked = append(asked, argv)
+				return orcaterm.Result{Stdout: `{"ok":true,"result":{}}`}
+			}
+		}
+		return d
+	}
+	if out, errOut, err := run3237(t, false, "--once"); err != nil {
+		t.Fatalf("run --once: %v\n%s\n%s", err, out, errOut)
+	}
+	if len(bins) != 1 || bins[0] != "/opt/orca/bin/orca" {
+		t.Errorf("the create runner is built once, on the Orca binary found: %v", bins)
+	}
+	if len(asked) != 1 || strings.Join(asked[0][:4], " ") != "worktree create --repo name:hadron-cli" {
+		t.Errorf("Orca was asked %q", asked)
+	}
+	if !strings.Contains(string(reported), `"outcome":"FAILED"`) || !strings.Contains(string(reported), "not in its worktree list") || strings.Contains(string(reported), "/home/u") {
+		t.Errorf("report: %s", reported)
 	}
 }

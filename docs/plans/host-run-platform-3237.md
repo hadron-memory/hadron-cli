@@ -43,12 +43,23 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
    The --config golden is `TestTeamHostRunOnceUsesOnlyTheHostKey` unchanged: exactly register/collect/report, and
    its fake fails any other operation, HostRunPlatform included.
 
+5. **Stage C** (`internal/hostpoller/orcaworktree.go`, `orcaterm.WorktreeCreateGuard`): on a platform host
+   `worktreeCreate` never reaches `c.Repo` / `WorktreePath` (a new token has no path there; it would have
+   inspected and `git worktree add`ed at ""). The repo arg's last segment is the Orca repository displayName and
+   the token's repo part, as under --config. Order: Orca's repos (unknown → names `orca repo add`; a displayName
+   two repos share → refused); the token on Orca's live list (on the branch → SUCCEEDED, no create, the
+   re-delivery case; another branch or ambiguous → FAILED); else `orca worktree create --repo name:<displayName>
+   --name <label> --branch <b> [--base-branch <base>] --no-parent --setup skip --json` through the closed guard,
+   then the list is read again and the outcome judged on it, not on the create's answer: `--branch` takes a
+   numeric suffix when the name is taken, so a tree on another branch is FAILED naming both. `--no-parent`
+   because Orca otherwise parents the tree to the caller's inferred context. Failures carry names only.
+   `SetOrcaWorktrees(facts, run)` wires it (a nil half leaves it unwired: FAILED, nothing created);
+   `platformDeps.worktreeRun` builds the runner on the found Orca binary (scrubbed env, 5 min bound). In platform
+   mode the created token is recorded but a worker's trees stay its resolved assignment (`configuredOnly`).
+   Pins `orcaworktree_3237_test.go` + the command wiring pin; 18 mutants, all killed.
+
 ## Still to build
 
-- Stage C: `worktree.create` through `orca worktree create --repo name:<displayName> --name <label> --branch
-  <b> --base-branch <base> --setup skip --json` with a new closed `orcaterm.WorktreeCreateGuard`; unknown repo
-  fails naming `orca repo add`; `--config` keeps `git worktree add`. Currently ops.go worktreeCreate in platform
-  mode would call WorktreePath("") — guard it first.
 - Stage D: help text (`Use: run [--config <host.yaml>] [--once]`, Long), agentic-usage.md (team host run),
   `make help-inventory`, `make coverage-matrix-check` (agentTeamHost/hostSetup/myApp gain `host run`),
   release note `docs/release-notes/host-run-platform-3237.md` (server 0.47.0), finish this doc, review flow,

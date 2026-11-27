@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 	"sort"
 	"strconv"
 	"strings"
@@ -181,6 +182,9 @@ type Event struct {
 
 // Poller is one host's loop.
 type Poller struct {
+	// orcaFacts and orcaCreate serve a platform worktree.create (SetOrcaWorktrees, hadron-cli#3237).
+	orcaFacts     OrcaWorktreeFacts
+	orcaCreate    orcaterm.Runner
 	relaunchEpoch string
 	// outageBackoff paces S10_UNAVAILABLE retries of a pending outage report
 	// (cli#2156 F9). In memory only: a restart may retry at once.

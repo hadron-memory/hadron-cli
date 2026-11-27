@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
 	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
@@ -28,6 +29,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/hostcred"
 	"github.com/hadron-memory/hadron-cli/internal/hostfacts"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
+	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
 
 // platformDeps are the seams of the platform path; productionPlatformDeps fills them. A test swaps them for a
@@ -40,7 +42,13 @@ type platformDeps struct {
 	wire func(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, profiles hostpoller.ProfileSource) error
 	// delivery attaches chat delivery once (production: wireDelivery).
 	delivery func(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event))
+	// worktreeRun is the runner a worktree.create's `orca worktree create` goes through; the poller closes it
+	// over that one call (orcaterm.WorktreeCreateGuard).
+	worktreeRun func(orcaBin string) orcaterm.Runner
 }
+
+// worktreeCreateTimeout bounds one `orca worktree create`: a checkout of a large repository, not a terminal call.
+const worktreeCreateTimeout = 5 * time.Minute
 
 var platformDepsFor = func() platformDeps {
 	return platformDeps{
@@ -56,6 +64,9 @@ var platformDepsFor = func() platformDeps {
 		wire: wirePlatformOrca,
 		delivery: func(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, emit func(hostpoller.Event)) {
 			wireDelivery(p, cfg, srv, emit)
+		},
+		worktreeRun: func(orcaBin string) orcaterm.Runner {
+			return orcaterm.ExecEnv(orcaBin, worktreeCreateTimeout, hostfacts.ScrubbedEnv(os.Environ()))
 		},
 	}
 }
@@ -196,6 +207,7 @@ func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDep
 	if err := deps.wire(p, cfg, h.srv, profiles); err != nil {
 		return h, nil, err
 	}
+	p.SetOrcaWorktrees(facts, deps.worktreeRun(orcaBin))
 	// Wired once; each step skips it while the platform row's deliveryEnabled is false.
 	deps.delivery(p, cfg, h.srv, emit)
 	p.Fatal = func(err error) bool {
