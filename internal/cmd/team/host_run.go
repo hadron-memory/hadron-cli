@@ -279,9 +279,28 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
 	var configPath string
 	var once bool
 	cmd := &cobra.Command{
-		Use:   "run --config <host.yaml> [--once]",
+		Use:   "run [--config <host.yaml>] [--once]",
 		Short: "Run this host's poller: register, collect, carry out, report",
-		Long: `QUICKSTART — the smallest working setup is four steps:
+		Long: `WITH NO --config (hadron-server 0.47.0 or later): the host takes its workers
+from the platform. Make the machine a host once with
+` + "`hadron team host join`" + `, which stores the host's key; then
+` + "`hadron team host run`" + ` runs one poller for each host this machine
+joined (narrow with --app <App id> and --server <url>). Each poll reads the
+host's settings (label, poll interval, delivery) and the workers the App
+placed on it, using only the host's key, and finds each worker's workdir
+among Orca's worktrees (` + "`hadron team host doctor`" + ` shows what this
+machine has). An account a worker names is looked up in the accounts file
+when the worker starts. worktree.create goes through ` + "`orca worktree create`" + `.
+Nothing local is sent: no path, program or account directory.
+Refused at start: no joined host (exit 3, join first), a key that no longer
+answers for its App (exit 3, ` + "`team host join --replace`" + `), an App whose
+host setup source is HOST (exit 5, ` + "`team host setup --source SERVER`" + `),
+an older server (names 0.47.0). With several hosts, one that cannot start
+is reported and the others run.
+
+WITH --config: the host file, as below (until the file is retired).
+
+QUICKSTART — the smallest working setup is four steps:
 
 1. Mint the host's key (writes a 0600 file; that file is key_file below):
    hadron app key create <app-ref> --out /etc/hadron/host.key
@@ -319,7 +338,9 @@ operations issued to it, carries out only the closed set of five, and
 reports every outcome. One poller per host or container.
 
   worktree.create  git worktree add from a configured repo, as
-                   <repo>/<label> under worktrees_root
+                   <repo>/<label> under worktrees_root (with no --config:
+                   orca worktree create in the Orca repository of that
+                   name; a taken branch name fails)
   worker.start     launch the worker's agent through an Orca terminal in a
                    registered worktree with HADRON_LAUNCH_GRANT, then report
                    once the agent's session binds (team session start reads
@@ -643,7 +664,7 @@ per line; --json prints each as a JSON object.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&configPath, "config", "", "host configuration file (YAML)")
+	cmd.Flags().StringVar(&configPath, "config", "", "host configuration file (YAML); leave it out to run the hosts this machine joined, from the platform")
 	cmd.Flags().BoolVar(&once, "once", false, "poll once, wait for what it collected, and exit")
 	return cmd
 }

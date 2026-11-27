@@ -1,6 +1,6 @@
 # `host run` from the platform (hadron-cli#3237, C3 of hadron-server#5209) — design as built
 
-Status: IN PROGRESS on `jonas/3237-host-run-platform`. Also carries hadron-cli#3285 (accounts-file hardening,
+Status: BUILT on `jonas/3237-host-run-platform`, for review. Also carries hadron-cli#3285 (accounts-file hardening,
 the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as its first commits.
 
 ## Built so far
@@ -58,12 +58,19 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
    mode the created token is recorded but a worker's trees stay its resolved assignment (`configuredOnly`).
    Pins `orcaworktree_3237_test.go` + the command wiring pin; 18 mutants, all killed.
 
-## Still to build
+6. **Stage D:** `host run` help (`Use: run [--config <host.yaml>] [--once]`, a WITH NO --config section at the
+   top of Long, the --config flag usage, the worktree.create line), the `team host run` entry of agentic-usage
+   (worded without other commands' `--flags`: the synopsis checker attributes every `--x` on the line to its last
+   command), `make help-inventory`, release note `docs/release-notes/host-run-platform-3237.md` (server 0.47.0).
+   `coverage-matrix-check` is in sync unchanged: the matrix names one command per field and `agentTeamHost`,
+   `hostSetup` and `myApp` already have theirs.
 
-- Stage D: help text (`Use: run [--config <host.yaml>] [--once]`, Long), agentic-usage.md (team host run),
-  `make help-inventory`, `make coverage-matrix-check` (agentTeamHost/hostSetup/myApp gain `host run`),
-  release note `docs/release-notes/host-run-platform-3237.md` (server 0.47.0), finish this doc, review flow,
-  PR body "Closes #3237", "Closes #3285", "Refs #3288 (F8 only; leaves it open)".
+## Left for later (out of scope here)
+
+- The rest of #3288 (F8 only here; the task AT0.11114.1 builds the rest after this merges).
+- C4 (worker behaviour with no per-worker file setting), C5 (the other readers of the host file), C6 (the
+  service install), X2 (deleting the loader).
+- `reset_on_start` stays off until `cor:agt:070:06` is confirmed.
 
 ## Schema
 
