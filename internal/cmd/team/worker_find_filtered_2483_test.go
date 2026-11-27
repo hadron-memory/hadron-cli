@@ -16,6 +16,10 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/zalando/go-keyring"
+
+	"github.com/hadron-memory/hadron-cli/internal/auth"
+	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/filterreport"
@@ -89,6 +93,58 @@ func TestFindFilteredMalformedList2483(t *testing.T) {
 	}
 }
 
+// noCredentialFactory2564 is a real factory that can reach no credential:
+// no HADRON_TOKEN, a config/file-store dir of its own, and an empty in-memory
+// keyring in place of the OS keychain (cli#2564 item 8: clearing only the env
+// and XDG left the keychain, a source the factory reads, to leak a developer's
+// stored login into the "unauthenticated" case).
+func noCredentialFactory2564(t *testing.T) *cmdutil.Factory {
+	t.Helper()
+	t.Setenv("HADRON_TOKEN", "")
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
+	// A fresh mock REPLACES the provider, discarding any earlier plant on purpose
+	// (the pin above proves a plant is otherwise read). The provider is
+	// process-global and not restored; every test that touches it re-inits.
+	keyring.MockInit()
+	return cmdutil.NewFactory()
+}
+
+// TestNoCredentialFactoryDropsPlantedKeychainLogin2564 pins the helper with a
+// positive control. keyring.MockInit installs a fresh, empty provider, so the
+// helper's own MockInit deliberately discards anything planted before it; that
+// only proves isolation if the plant was legible to the factory in the first
+// place. Step 1 shows it was (same service/host key, the factory dials out
+// instead of reporting no credential); step 2 shows the helper drops it.
+func TestNoCredentialFactoryDropsPlantedKeychainLogin2564(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
+	server.Close() // connection refused: a found credential ends in unreachable
+	host := auth.Host(server.URL)
+	run := func(f *cmdutil.Factory) error {
+		f.ServerFlag = server.URL
+		f.HTTPClient = server.Client()
+		_, err := findFilteredTargets(context.Background(), f, "hrn:app:test.com:team", nil)
+		return err
+	}
+	// Positive control: plant, change nothing else, and the outcome changes.
+	keyring.MockInit()
+	if err := (store.Keyring{}).Set(host, "planted2564"); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("HADRON_TOKEN", "")
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
+	if err := run(cmdutil.NewFactory()); err == nil || err.Error() != "team_roster_unreachable" {
+		t.Fatalf("control: planted login not read by the factory: got %v, want team_roster_unreachable", err)
+	}
+	// Same plant, then the helper: the login is gone and nothing was sent.
+	if err := (store.Keyring{}).Set(host, "planted2564"); err != nil {
+		t.Fatal(err)
+	}
+	err := run(noCredentialFactory2564(t))
+	if err == nil || err.Error() != "team_roster_unauthenticated" || exitcode.FromError(err) != exitcode.Error {
+		t.Fatalf("got %v, want fixed team_roster_unauthenticated", err)
+	}
+}
+
 // TestFindFilteredTargetErrorCodes2483 pins F11: target-read failures carry
 // distinct fixed codes — unauthenticated, unreachable transport — instead of
 // every failure collapsing into team_roster_unreadable. No raw backend text.
@@ -98,10 +154,7 @@ func TestFindFilteredMalformedList2483(t *testing.T) {
 // team_roster_unreadable.
 func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
-		root := t.TempDir()
-		t.Setenv("HADRON_TOKEN", "")
-		t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
-		f := cmdutil.NewFactory()
+		f := noCredentialFactory2564(t)
 		f.ServerFlag = "https://test.example"
 		_, err := findFilteredTargets(context.Background(), f, "hrn:app:test.com:team", nil)
 		if err == nil || err.Error() != "team_roster_unauthenticated" || exitcode.FromError(err) != exitcode.Error {
