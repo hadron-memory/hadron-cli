@@ -468,6 +468,14 @@ func renderError(f *cmdutil.Factory, err error) int {
 				}
 			}
 		}
+		// cli#3072: the owner-limit and node-size refusals keep their server code beside the
+		// exit (5 and 2), keyed on the code since they span exits like the ones below.
+		for _, serverCode := range []string{"OWNER_LIMIT_REACHED", "NODE_CONTENT_TOO_LARGE"} {
+			if api.HasErrorCode(err, serverCode) {
+				failure["serverCode"] = serverCode
+				break
+			}
+		}
 		// #1327/#936: chat-search and team-tag refusals span exits, so they are keyed
 		// on the code itself rather than the exit; a ledger replay conflict (#3071)
 		// is told apart from other conflicts the same way.
@@ -542,6 +550,13 @@ func renderError(f *cmdutil.Factory, err error) int {
 		}
 		if cloneDetails := api.CloneAgentDetails(err); cloneDetails != nil {
 			details = cloneDetails
+		}
+		// cli#3072: the owner-limit and node-size refusals forward only the extensions
+		// those codes define. Placed after the clone reader on purpose: an `agent clone`
+		// refused at an owner's limit has the clone reader's details, which know none of
+		// these keys, and this reader replaces them (nil for any other code).
+		if limitDetails := api.OwnerLimitDetails(err); limitDetails != nil {
+			details = limitDetails
 		}
 		// cli#3197: a refused grant selection names the extensions the server sent
 		// that the command chose to show; absent for every other refusal.

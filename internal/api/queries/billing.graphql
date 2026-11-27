@@ -18,6 +18,7 @@ fragment AiModelPriceFields on AiModelPrice {
 fragment CreditLedgerEntryFields on CreditLedgerEntry {
   id
   organizationId
+  ownerUserId
   kind
   amountMicroCents
   expiresAt
@@ -59,11 +60,18 @@ query AiModelPrices(
   }
 }
 
-# One org's balance and what is left of each expiring grant, soonest first.
-# Org-ADMIN. The read may settle expired grants (hadron-server#5011).
-query CreditBalance($orgRef: String!) {
-  creditBalance(orgRef: $orgRef) {
+# One owner's balance (an organization, or a person) and what is left of each
+# expiring grant, soonest first. Exactly one of orgRef and userRef is sent, the other
+# omitted, never null (cli#3072). The read may settle expired grants (hadron-server#5011).
+query CreditBalance(
+  # @genqlient(omitempty: true)
+  $orgRef: String
+  # @genqlient(omitempty: true)
+  $userRef: ID
+) {
+  creditBalance(orgRef: $orgRef, userRef: $userRef) {
     organizationId
+    ownerUserId
     balanceMicroCents
     expiring {
       amountMicroCents
@@ -74,8 +82,16 @@ query CreditBalance($orgRef: String!) {
 
 # One org's AI spend over [from, to), one grouping (cli#3071). Org-ADMIN. Cost
 # and charged are two figures (cor:dmo:170:04).
-query AiSpend($orgRef: String!, $from: String!, $to: String!, $groupBy: AiSpendGroup!) {
-  aiSpend(orgRef: $orgRef, from: $from, to: $to, groupBy: $groupBy) {
+query AiSpend(
+  # @genqlient(omitempty: true)
+  $orgRef: String
+  # @genqlient(omitempty: true)
+  $userRef: ID
+  $from: String!
+  $to: String!
+  $groupBy: AiSpendGroup!
+) {
+  aiSpend(orgRef: $orgRef, userRef: $userRef, from: $from, to: $to, groupBy: $groupBy) {
     from
     to
     truncated
@@ -94,13 +110,16 @@ query AiSpend($orgRef: String!, $from: String!, $to: String!, $groupBy: AiSpendG
 
 # One org's ledger page, newest first. Org-ADMIN.
 query CreditLedgerEntries(
-  $orgRef: String!
+  # @genqlient(omitempty: true)
+  $orgRef: String
+  # @genqlient(omitempty: true)
+  $userRef: ID
   # @genqlient(omitempty: true)
   $limit: Int
   # @genqlient(omitempty: true)
   $offset: Int
 ) {
-  creditLedgerEntries(orgRef: $orgRef, limit: $limit, offset: $offset) {
+  creditLedgerEntries(orgRef: $orgRef, userRef: $userRef, limit: $limit, offset: $offset) {
     total
     items {
       ...CreditLedgerEntryFields
@@ -131,9 +150,9 @@ mutation SetAiModelPrice(
 # @genqlient(for: "GrantCreditsInput.note", omitempty: true)
 # @genqlient(for: "GrantCreditsInput.sourceId", omitempty: true)
 # @genqlient(for: "GrantCreditsInput.sourceType", omitempty: true)
-# cli#3184: orgRef became optional beside userRef when a person got a ledger (server#5014). These
-# commands name an organization, so userRef is never sent: omitted, not an explicit null, which
-# an older server would reject as an unknown input field. The person forms are cli#3072.
+# cli#3184, cli#3072: exactly one of orgRef and userRef names the ledger (server#5014); the
+# other is omitted, never an explicit null, which an older server rejects as an unknown field.
+# @genqlient(for: "GrantCreditsInput.orgRef", omitempty: true)
 # @genqlient(for: "GrantCreditsInput.userRef", omitempty: true)
 mutation GrantCredits(
   $input: GrantCreditsInput!
@@ -145,12 +164,60 @@ mutation GrantCredits(
 
 # Platform-ADMIN or the BILLING role. Appends a signed adjustment; idempotent on
 # (sourceType, sourceId), a mismatched replay is IDEMPOTENCY_CONFLICT.
-# cli#3184: userRef is omitted, as for GrantCredits (cli#3072 adds the person form).
+# As for GrantCredits, exactly one owner is sent and the other omitted (cli#3072).
+# @genqlient(for: "AdjustCreditsInput.orgRef", omitempty: true)
 # @genqlient(for: "AdjustCreditsInput.userRef", omitempty: true)
 mutation AdjustCredits(
   $input: AdjustCreditsInput!
 ) {
   adjustCredits(input: $input) {
     ...CreditLedgerEntryFields
+  }
+}
+
+# One owner's limits and how much of each is held now (hadron-server#5009). One
+# row per key the server returns; null limit means unlimited. The CLI keeps no key list.
+query OwnerLimits(
+  # @genqlient(omitempty: true)
+  $orgRef: String
+  # @genqlient(omitempty: true)
+  $userRef: ID
+) {
+  ownerLimits(orgRef: $orgRef, userRef: $userRef) {
+    key
+    limit
+    used
+  }
+}
+
+# Platform-ADMIN or the BILLING role. Writes owner limits. A nil limit inside an
+# OwnerLimitInput is sent as null, which means unlimited and lifts the deployment
+# default, so that field carries no omitempty; every other optional is omitted when unset.
+# @genqlient(for: "SetOwnerLimitsInput.orgRef", omitempty: true)
+# @genqlient(for: "SetOwnerLimitsInput.userRef", omitempty: true)
+# @genqlient(for: "SetOwnerLimitsInput.replace", omitempty: true)
+# @genqlient(for: "SetOwnerLimitsInput.onlySourceType", omitempty: true)
+mutation SetOwnerLimits(
+  $input: SetOwnerLimitsInput!
+) {
+  setOwnerLimits(input: $input) {
+    key
+    limit
+    used
+  }
+}
+
+# Platform-ADMIN or the BILLING role. Clears owner limits; omitted keys clear every key.
+# @genqlient(for: "ClearOwnerLimitsInput.orgRef", omitempty: true)
+# @genqlient(for: "ClearOwnerLimitsInput.userRef", omitempty: true)
+# @genqlient(for: "ClearOwnerLimitsInput.keys", omitempty: true)
+# @genqlient(for: "ClearOwnerLimitsInput.onlySourceType", omitempty: true)
+mutation ClearOwnerLimits(
+  $input: ClearOwnerLimitsInput!
+) {
+  clearOwnerLimits(input: $input) {
+    key
+    limit
+    used
   }
 }
