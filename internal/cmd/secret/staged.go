@@ -96,8 +96,9 @@ func stagedText(what, id, url string) string {
 // secret (hadron-server#3999 S4): too many are already waiting for a person.
 const codeChangeLimit = "SECRET_CHANGE_REQUEST_LIMIT"
 
-// codeAppChangeLimit is the App-wide cap on open staged changes (at most 100,
-// hadron-server#5184 family; cli#3280). Its message is withheld like the per-secret
+// codeAppChangeLimit is the App-wide cap on open staged changes (cli#3280; the
+// number is the server's and not to be assumed here; the cap shipped in
+// hadron-server#5245). Its message is withheld like the per-secret
 // limit's: a server message on a staging door can repeat a submitted value.
 const codeAppChangeLimit = "SECRET_CHANGE_APP_LIMIT"
 
@@ -114,7 +115,8 @@ func (w *withheld) Error() string { return w.msg }
 func (w *withheld) Unwrap() error { return w.err }
 
 // withholdServerText maps an error of a door that can stage a change when it is
-// NOT a clean staged refusal. For the two protected-change codes the server's
+// NOT a clean staged refusal. For the three protected-change codes (the passkey
+// refusal, the per-secret limit and the App-wide limit) the server's
 // message can repeat a value the caller submitted (LOCAL review of cli#2738), and
 // the answer may be a limit refusal, a mixed envelope, an error below the
 // mutation or an HTTP 5xx, so the message is replaced by a fixed sentence while
@@ -123,7 +125,7 @@ func withholdServerText(err error, what string) error {
 	mapped := api.MapErrorKeepingCode(err)
 	switch {
 	case api.HasErrorCode(err, codeAppChangeLimit) && !api.HasErrorCode(err, codeNeedsPasskey):
-		return &withheld{"too many change requests are already open in this App, so " + what + " was not staged; withdraw one (hadron secret change withdraw <request-id>) or wait for a person to sign or decline them", mapped}
+		return &withheld{"too many change requests are already open in this App, so " + what + " was not staged; the cap counts every requester's open requests, so wait for a person to sign or decline some, or for them to expire (hadron secret change get shows only your own, and you can withdraw one of those with hadron secret change withdraw <request-id>)", mapped}
 	case api.HasErrorCode(err, codeChangeLimit) && !api.HasErrorCode(err, codeNeedsPasskey):
 		return &withheld{"too many change requests are already open on this secret, so " + what + " was not staged; withdraw one (hadron secret change withdraw <request-id>) or wait for a person to sign or decline them", mapped}
 	case api.HasErrorCode(err, codeNeedsPasskey) || api.HasErrorCode(err, codeChangeLimit) || api.HasErrorCode(err, codeAppChangeLimit):
