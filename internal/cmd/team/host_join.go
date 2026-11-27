@@ -356,7 +356,7 @@ sessions, 7 server unreachable or answer lost, 8 not permitted.`,
 			}
 			ctx := personCtx(cmd.Context())
 			d := hostLeaveDTO{Server: server, AppID: appID, HostID: entry.HostID}
-			resp, err := gen.RemoveAgentTeamHost(ctx, client, scope.Ref, entry.HostID)
+			resp, err := gen.RemoveAgentTeamHost(ctx, client, scope.Ref, entry.HostID, nil)
 			switch {
 			case err != nil && api.HasErrorCode(err, "HOST_NOT_FOUND"):
 				if perr := probeTransport(entry.Server, server); perr != nil {
@@ -455,23 +455,34 @@ func storedKeyRevoked(ctx context.Context, f *cmdutil.Factory, e hostcred.Entry)
 	return resp.AuthenticationStatus == gen.AuthenticationStatusRefused
 }
 
-// openSessionNames names, best effort, the host's workers with an open
-// session (ruling RC4: the refusal itself carries no names).
-func openSessionNames(ctx context.Context, client graphql.Client, appRef, hostID string) string {
+// openSessionWorkers reads, with an error, the host's workers with an open session,
+// sorted, as the names to show. `team host remove --force` needs the read to have
+// succeeded; `leave` only wants a best-effort suffix (openSessionNames).
+func openSessionWorkers(ctx context.Context, client graphql.Client, appRef, hostID string) ([]string, error) {
 	resp, err := gen.HostDesiredState(ctx, client, appRef, hostID)
-	if err != nil || resp == nil || resp.HostDesiredState == nil {
-		return ""
+	if err != nil {
+		return nil, err
 	}
-	var names []string
+	names := []string{}
+	if resp == nil || resp.HostDesiredState == nil {
+		return names, nil
+	}
 	for _, w := range resp.HostDesiredState.Workers {
 		if w != nil && w.OpenSessionId != nil {
 			names = append(names, output.SafeCell(w.Name))
 		}
 	}
-	if len(names) == 0 {
+	sort.Strings(names)
+	return names, nil
+}
+
+// openSessionNames names, best effort, the host's workers with an open
+// session (ruling RC4: the refusal itself carries no names).
+func openSessionNames(ctx context.Context, client graphql.Client, appRef, hostID string) string {
+	names, err := openSessionWorkers(ctx, client, appRef, hostID)
+	if err != nil || len(names) == 0 {
 		return ""
 	}
-	sort.Strings(names)
 	return " (" + strings.Join(names, ", ") + ")"
 }
 

@@ -546,7 +546,7 @@ section between the markers.
 | `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health sweep` |  |  | y | #1054 | f7b10eca095b |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team host` |  |  | n | #1054 | f89c5a931cbc |  | unread |  |
+| `team host` |  |  | n | #1054 | d2cc8d700e40 |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 0f2be7359e16 |  | unread |  |
 | `team host availability` |  |  | y | #1054 | 1ac6c8626087 |  | unread |  |
 | `team host doctor` |  |  | y | #1054 | 8b9e43caacfa |  | unread |  |
@@ -557,6 +557,7 @@ section between the markers.
 | `team host leave` |  |  | y | #1054 | 8f496c36763a |  | unread |  |
 | `team host list` | ls |  | y | #1054 | b76b099a3746 |  | unread |  |
 | `team host ops` |  |  | y | #1054 | a435002b8aa7 |  | unread |  |
+| `team host remove` |  |  | y | #1054 | 6525d7a84314 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host run` |  |  | y | #1054 | c1cad622494f |  | unread |  |
 | `team host set` |  |  | y | #1054 | 82ac123115a2 |  | unread |  |
@@ -612,7 +613,7 @@ section between the markers.
 | `team session log` |  |  | y | #1054 | 98dcd2702482 |  | unread |  |
 | `team session outcome` |  |  | y | #1054 | 447243aadda4 |  | unread |  |
 | `team session recover` |  |  | y | #1054 | 26a71dd0e860 |  | unread |  |
-| `team session reset-context` |  |  | y | #1054 | 648babebbe50 |  | unread |  |
+| `team session reset-context` |  |  | y | #1054 | 7306bf423461 |  | unread |  |
 | `team session restart` |  |  | y | #1054 | 0498c3bc78f1 |  | unread |  |
 | `team session resume-claim` |  |  | y | #1054 | 766da90e0ff4 |  | unread |  |
 | `team session served-prompts` |  |  | y | #1054 | d668bb78f149 |  | unread |  |
