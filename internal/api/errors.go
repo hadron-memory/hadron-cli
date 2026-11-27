@@ -1306,6 +1306,12 @@ func codeForExtension(code string) int {
 	// exit below.
 	case code == "SEAT_VERDICT_REQUIRED":
 		return exitcode.Conflict
+	// cli#3184 (ruling in the gate comment): a memory create whose derived name kept colliding
+	// until the server's bounded retry ran out answers MEMORY_URN_CONFLICT with NO URN for the
+	// App personal and private classes. It is a state conflict, like the *_ALREADY_EXISTS codes:
+	// 5. The caller is never shown a URN the server did not send.
+	case code == "MEMORY_URN_CONFLICT":
+		return exitcode.Conflict
 	case code == "GITHUB_UNAVAILABLE":
 		return exitcode.Unavailable
 	// S12b defect links (hadron-cli#2189, hadron-server#4280): a caller who may

@@ -92,10 +92,19 @@ Settings:
   --tag                on a change, replaces all tags.
 
 Apps:
-  --app <app> --agent <agent> --class app|personal|private --name <name>
-  creates a memory for an Agent installed in the App. There is no --slug: the
-  server names it. To attach a personal or private memory you already have,
+  --app <app> --agent <agent> --class app --name <name>
+  creates an app memory for an Agent installed in the App. There is no --slug:
+  the server names it. To attach a personal or private memory you already have,
   use memory attach.
+
+  --app <app> --agent <agent> --class personal|private
+  creates your own personal or private memory in the App. Give no --name: the
+  server names the memory from the App and your handle (your URN and name are
+  printed), a current server ignores a --name here, and you may hold one memory
+  of each class per App. A second create for the same class is refused with
+  exit 5 (APP_USER_MEMORY_ALREADY_EXISTS) and the server's message. An older
+  server still uses --name and refuses a create without one as a version
+  mismatch (exit 2).
 
   --app <app> --class app --name <name>, without --agent, adds a new app memory
   that the App's participants read and write. The App must have an Agent
@@ -301,20 +310,26 @@ Apps:
 					if cmd.Flags().Changed("slug") {
 						return exitcode.Newf(exitcode.Usage, "--slug cannot be used with App-scoped creation; the server assigns the URN")
 					}
-					if name == "" {
-						return exitcode.Newf(exitcode.Usage, "App-scoped creation requires --name")
-					}
 					if class != "app" && class != "personal" && class != "private" {
 						return exitcode.Newf(exitcode.Usage, "App-scoped creation requires --class app, personal, or private")
+					}
+					// cli#3184 (server#5183): the server names a personal or private memory
+					// (derived slug and display name) and ignores a name there, so --name is
+					// required only for --class app. No client-side rule decides the name or the
+					// one-per-class limit: those are the server's.
+					if class == "app" && name == "" {
+						return exitcode.Newf(exitcode.Usage, "App-scoped creation with --class app requires --name")
 					}
 					appRef, err := cmdutil.CanonicalAppRef("--app", app)
 					if err != nil {
 						return err
 					}
-					resp, err := gen.CreateMemoryInApp(cmd.Context(), client, appRef, agent, gen.MemoryClass(class), name, optional(short), optional(description), tagsArg, maxRevArg,
+					resp, err := gen.CreateMemoryInApp(cmd.Context(), client, appRef, agent, gen.MemoryClass(class), optional(name), optional(short), optional(description), tagsArg, maxRevArg,
 						ca.data, ca.embeddingSource, ca.vectorIndexEnabled)
 					if err != nil {
-						return api.MapError(err)
+						// cli#3184: --json errors carry serverCode, so a caller can tell the
+						// one-per-class refusal (APP_USER_MEMORY_ALREADY_EXISTS) from the others.
+						return api.MapErrorKeepingCode(err)
 					}
 					if resp == nil || resp.CreateMemoryInApp == nil {
 						return exitcode.Newf(exitcode.Error, "server returned no memory")
@@ -486,7 +501,7 @@ Apps:
 	// help no longer offers it (cli#1051 slice 5).
 	_ = cmd.Flags().MarkHidden("draft-corpus")
 	cmd.Flags().BoolVar(&ownerMe, "owner-me", false, "create a user-owned memory in your own @handle namespace (org-less; class personal|private only; create only)")
-	cmd.Flags().StringVar(&name, "name", "", "memory name")
+	cmd.Flags().StringVar(&name, "name", "", "memory name (required for a free-standing or --class app create; ignored by a current server for an App personal or private memory, which the server names)")
 	cmd.Flags().StringVar(&class, "class", "", "memory class: knowledge|group|personal|private, or app with --app (create only; free-standing server default: knowledge)")
 	cmd.Flags().StringVar(&short, "short", "", "short description")
 	cmd.Flags().StringVar(&description, "description", "", "long description")
