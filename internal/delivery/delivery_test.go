@@ -1372,6 +1372,12 @@ func TestARefusedCoveredPrefixAckRetypesOnceThenFullAcks(t *testing.T) {
 				t.Fatalf("ack %d was a full ack without a confirmed retype", i)
 			}
 		}
+		h.d.mu.Lock()
+		marked := len(h.d.retyped)
+		h.d.mu.Unlock()
+		if marked != 0 {
+			t.Fatalf("an unconfirmed retype set %d marks: it must be retried", marked)
+		}
 	})
 	t.Run("a refused full ack too: one retype only, nothing acked, later passes ack only", func(t *testing.T) {
 		h := newHarness(t)
@@ -1399,7 +1405,7 @@ func TestARefusedCoveredPrefixAckRetypesOnceThenFullAcks(t *testing.T) {
 	})
 }
 
-// Riana's and Jorge's P2 on #3306: only a server refusal of the partial ack
+// cli#3300: only a server refusal of the partial ack
 // is retyped. A transport blip, an outage, an auth or stale-proof failure, or
 // no code at all is reported and retried next pass, typing nothing.
 func TestOnlyARefusedPartialAckIsRetyped(t *testing.T) {
@@ -1443,7 +1449,7 @@ func TestOnlyARefusedPartialAckIsRetyped(t *testing.T) {
 	}
 }
 
-// Jerry's P2-1 on #3306: the one-retype promise holds even when the record of
+// cli#3300: the one-retype promise holds even when the record of
 // the retype cannot be written.
 func TestOneRetypeHoldsWhenTheRetypeRecordCannotBeWritten(t *testing.T) {
 	if os.Geteuid() == 0 {
@@ -1474,7 +1480,7 @@ func TestOneRetypeHoldsWhenTheRetypeRecordCannotBeWritten(t *testing.T) {
 }
 
 // The once-only marks are per (worker, prefix record, batch) and bounded by
-// the records on disk (Jerry's N1 and N2, Charles's P3 on #3306).
+// the records on disk (cli#3300).
 func TestRetypeMarksAreScopedAndPruned(t *testing.T) {
 	prefix := Record{Ranges: []Range{rng("ch-team", 1, 5, 6)}}
 	t.Run("a different batch under the same prefix is its own retype", func(t *testing.T) {
@@ -1496,22 +1502,48 @@ func TestRetypeMarksAreScopedAndPruned(t *testing.T) {
 			t.Fatal("a mark is per worker")
 		}
 	})
+	marks := func(h *harness) int {
+		h.d.mu.Lock()
+		defer h.d.mu.Unlock()
+		return len(h.d.retyped)
+	}
 	t.Run("marks whose record is gone are dropped at the next reconcile", func(t *testing.T) {
 		h := newHarness(t)
 		seedRecord(t, h, rng("ch-team", 1, 5, 6))
 		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}}
-		h.deliver(h.batch(5, 6, 7)) // retype, full ack lost: record-failed or ack-pending
+		h.deliver(h.batch(5, 6, 7)) // retype, full ack lost: the mark is set
+		if n := marks(h); n != 1 {
+			t.Fatalf("after the retype: %d marks, want 1", n)
+		}
 		again := h.batch(5, 6, 7)
 		again.ID = "proof-2"
-		h.deliver(again) // full cover: ack lands, every touching record retired
+		h.deliver(again) // full cover: the ack lands, every touching record retired
+		if n := marks(h); n != 1 {
+			t.Fatalf("pruning runs at the start of a reconcile, so the mark is still there: %d", n)
+		}
 		later := h.batch(9)
 		later.ID = "proof-3"
-		h.deliver(later) // any reconcile prunes
-		h.d.mu.Lock()
-		n := len(h.d.retyped)
-		h.d.mu.Unlock()
-		if n != 0 {
+		h.deliver(later) // this reconcile finds the record gone
+		if n := marks(h); n != 0 {
 			t.Fatalf("%d marks leaked", n)
+		}
+	})
+	t.Run("pruning keeps the marks of a record still on disk, and of another worker", func(t *testing.T) {
+		h := newHarness(t)
+		other := h.batch(5, 6, 7)
+		other.WorkerID = "w-other"
+		h.d.markRetyped(h.batch(5, 6, 7), []Record{prefix})
+		h.d.markRetyped(other, []Record{prefix})
+		// Records.List returns every confirmed record of the worker, not only
+		// those of the batch in hand: a second batch's reconcile sees both.
+		second := Record{Ranges: []Range{rng("ch-lane", 1, 40)}}
+		h.d.pruneRetyped(workerID, []Record{prefix, second})
+		if n := marks(h); n != 2 {
+			t.Fatalf("marks %d, want both kept", n)
+		}
+		h.d.pruneRetyped(workerID, nil) // worker A's record is gone
+		if n := marks(h); n != 1 {
+			t.Fatalf("marks %d: only the other worker's mark must remain", n)
 		}
 	})
 }

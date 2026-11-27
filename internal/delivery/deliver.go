@@ -396,7 +396,7 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 // refusal of it (cli#3300): the only failures after which the batch is typed
 // once more. BAD_USER_INPUT is the input the server will not take. Anything
 // else is retried, never retyped: server-refused is any other GraphQL error,
-// transient server faults included , as are a transport
+// transient server faults included, as are a transport
 // class, an auth failure, a stale proof (a fresh one comes next pass) and no
 // code at all.
 var refusalCodes = map[string]bool{"BAD_USER_INPUT": true}
