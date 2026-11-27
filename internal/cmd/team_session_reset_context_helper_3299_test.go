@@ -7,8 +7,10 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/cmd/team"
@@ -202,6 +204,26 @@ func TestResetContextRefusesAnUnsafeHelperAndSaysExitNow3299(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, "directory"},
+		{"helper owned by someone else (a root-owned executable)", func(t *testing.T, r *helperRig) {
+			env, err := exec.LookPath("env")
+			if err != nil {
+				t.Skip("no env executable")
+			}
+			if fi, err := os.Stat(env); err != nil || fi.Sys().(*syscall.Stat_t).Uid == uint32(os.Geteuid()) {
+				t.Skip("env is owned by the test user")
+			}
+			r.point(t, env)
+		}, "owned"},
+		{"config file empty", func(t *testing.T, r *helperRig) {
+			if err := os.WriteFile(r.cfg, []byte("\n  \n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}, "one"},
+		{"config file holds a NUL byte", func(t *testing.T, r *helperRig) {
+			if err := os.WriteFile(r.cfg, []byte(r.script+"\x00\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}, "one"},
 		{"config file too large", func(t *testing.T, r *helperRig) {
 			if err := os.WriteFile(r.cfg, []byte(strings.Repeat("a", 5000)), 0o600); err != nil {
 				t.Fatal(err)
