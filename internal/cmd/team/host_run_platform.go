@@ -8,9 +8,12 @@ package team
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
@@ -123,7 +126,7 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 		var err error
 		if first, dup := started[e.HostID]; dup {
 			// A host's state lives under <state>/hosts/<hostId>, so two pollers of one id would share it.
-			err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as %s on %s, and a host's state on this machine is kept by its id; run them one at a time with --app <App id>", e.HostID, e.AppID, auth.Host(e.Server), first.who(), auth.Host(first.entry.Server))
+			err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as %s on %s, and this machine keeps a host's state by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, auth.Host(e.Server), first.who(), auth.Host(first.entry.Server))
 		} else {
 			h, p, err = startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, hostEmit)
 		}
@@ -214,6 +217,9 @@ func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDep
 	if err != nil {
 		return h, nil, exitcode.Newf(exitcode.Error, "%s: the host's state directory: %v", h.who(), err)
 	}
+	if err := claimHostState(dir, e); err != nil {
+		return h, nil, err
+	}
 	last := &lastFacts{}
 	build := func(r *gen.HostRunPlatformResponse) *hostpoller.Config {
 		return platformConfig(ctx, r, e, facts, orcaBin, dir, emit, last)
@@ -250,6 +256,41 @@ func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDep
 		return false
 	}
 	return h, p, nil
+}
+
+// hostIdentityFile names, inside a host's state directory, the host that owns it: a host id is unique only on
+// its server, so the directory is claimed by server and App, and another host of the same id is refused rather
+// than sharing its state, in this process or another (BLIND delta N1 on #3301).
+const hostIdentityFile = "host-identity.json"
+
+type hostIdentity struct {
+	Server string `json:"server"`
+	AppID  string `json:"appId"`
+}
+
+// claimHostState stamps an unclaimed state directory with this host and refuses one another host claimed.
+func claimHostState(dir string, e hostcred.Entry) error {
+	want := hostIdentity{Server: strings.ToLower(auth.Host(e.Server)), AppID: e.AppID}
+	path := filepath.Join(dir, hostIdentityFile)
+	raw, err := os.ReadFile(path)
+	switch {
+	case errors.Is(err, os.ErrNotExist):
+		body, _ := json.Marshal(want)
+		if err := config.WriteFileAtomic(path, append(body, '\n'), 0o600); err != nil {
+			return exitcode.Newf(exitcode.Error, "host %s (App %s): claiming the host's state directory %s: %v", e.HostID, e.AppID, dir, err)
+		}
+		return nil
+	case err != nil:
+		return exitcode.Newf(exitcode.Error, "host %s (App %s): reading %s: %v", e.HostID, e.AppID, path, err)
+	}
+	var got hostIdentity
+	if err := json.Unmarshal(raw, &got); err != nil || got.Server == "" || got.AppID == "" {
+		return exitcode.Newf(exitcode.Error, "host %s (App %s): %s does not say which host owns this state directory; remove it if no other host of this id runs here", e.HostID, e.AppID, path)
+	}
+	if got != want {
+		return exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s): this machine's state directory for host id %s belongs to the host of App %s on %s, and a host's state is kept by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, want.Server, e.HostID, got.AppID, got.Server)
+	}
+	return nil
 }
 
 // readPlatform is the one platform read, with the host key and no session. A server without V1 rejects the

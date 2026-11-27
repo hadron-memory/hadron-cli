@@ -40,10 +40,14 @@ server is refused at start with a message that names 0.47.0. The platform read i
 | The key is no longer permitted to act as this host (`host:operate` taken away) | 8 | `hadron team host join --replace` |
 | Orca is not found on this machine | 10 | install Orca, or put it on `PATH` |
 | The App's host setup source is `HOST` | 5 | `hadron team host setup --source SERVER` |
-| Two stored hosts have one host id (the second is not started) | 5 | run them one at a time with `--app <App id>` |
+| The host's state directory is claimed by another host of the same id (another App or server) | 5 | `hadron team host leave` on the other |
 | Server older than 0.47.0 | 1 | upgrade the server, or use `--config` |
 
-If one of several hosts cannot start, a `host-not-started` event reports it and the others keep running. If
+If one of several hosts cannot start, a `host-not-started` event reports it and the others keep running.
+A host's state is kept under `<state dir>/hosts/<hostId>`, claimed by its server and App on first run
+(`host-identity.json`). A host id is unique only on its server, so two stored hosts of one id (two servers)
+never both run on one machine: the second is a `host-not-started` event, and in a later process it is refused
+as above. If
 the setup source flips to `HOST` mid-run, the poller registers nothing and waits, and says so once.
 
 ## Also in this release

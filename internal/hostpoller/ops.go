@@ -650,10 +650,11 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 	// session's end (the window cannot be closed against a separate process
 	// writing the binding, only made as short as the signal itself).
 	allowed := func(t string) (bool, string) {
-		if p.config().WorktreePath(t) == "" {
+		dir := p.config().WorktreePath(t)
+		if dir == "" {
 			return false, fmt.Sprintf("worktree %s did not resolve to a directory on this host at this poll, so its processes were not touched", t)
 		}
-		b := p.bound(p.config().WorktreePath(t))
+		b := p.bound(dir)
 		switch {
 		case b.Unusable:
 			return false, fmt.Sprintf("worktree %s has a session binding that cannot be read, so its processes were not touched", t)

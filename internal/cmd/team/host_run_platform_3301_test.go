@@ -8,12 +8,16 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
+	"github.com/hadron-memory/hadron-cli/internal/config"
+	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/hostcred"
 	"github.com/hadron-memory/hadron-cli/internal/hostfacts"
 	"github.com/hadron-memory/hadron-cli/internal/hostpoller"
@@ -177,5 +181,70 @@ func TestAnOrcaSilentAtStartRegistersNoWorktree3301(t *testing.T) {
 	}
 	if len(events) != 1 || events[0].Kind != "facts-unavailable" || !strings.Contains(events[0].Detail, "register with no worktree") {
 		t.Fatalf("said once, naming the effect: %+v", events)
+	}
+}
+
+// BLIND delta N1: the state directory is claimed by server and App, so a host of the same id from another App
+// is refused in another process too, before anything is registered.
+func TestHostRunPlatformRefusesAStateDirectoryAnotherHostClaimed3301(t *testing.T) {
+	srv, calls := goodServer3237(t, "app-1", "host-1")
+	withDeps3237(t, []hostcred.Entry{{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1}})
+	if _, _, err := run3237(t, false, "--once"); err != nil {
+		t.Fatalf("the first run claims the directory: %v", err)
+	}
+	dir, err := config.HostStateDir("host-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, hostIdentityFile))
+	if err != nil || !strings.Contains(string(raw), `"appId":"app-1"`) {
+		t.Fatalf("the claim names the App: %s, %v", raw, err)
+	}
+	if _, _, err := run3237(t, false, "--once"); err != nil {
+		t.Fatalf("the same host runs again on its own claim: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), []byte(`{"server":"other.example","appId":"app-9"}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	before := len(calls())
+	_, errOut, err := run3237(t, false, "--once")
+	if exitcode.FromError(err) != exitcode.Conflict || !strings.Contains(err.Error(), "app-9") || !strings.Contains(err.Error(), "team host leave") {
+		t.Fatalf("another host's claim is refused, exit 5, naming it and the fix: %v\n%s", err, errOut)
+	}
+	for _, c := range calls()[before:] {
+		if c.op != "HostRunPlatform" {
+			t.Errorf("nothing past the platform read is sent: %s", c.op)
+		}
+	}
+}
+
+// BLIND delta P2-3, through the production wireDelivery: a row that starts with delivery off still has it wired.
+func TestHostRunPlatformRealWireDeliveryWiresWithTheRowOff3301(t *testing.T) {
+	srv, _ := fakeServer3237(t, func(op string, _ json.RawMessage) string {
+		switch op {
+		case "HostRunPlatform":
+			return strings.Replace(platformAnswer3237("app-1", "host-1", "SERVER"), `"deliveryEnabled":true`, `"deliveryEnabled":false`, 1)
+		case "RegisterHost", "RegisterHostWithRefused":
+			return registerAnswer3237("host-1")
+		case "CollectHostOperations":
+			return `{"data":{"collectHostOperations":[]}}`
+		}
+		return ""
+	})
+	w := withDeps3237(t, []hostcred.Entry{{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1}})
+	inner := platformDepsFor
+	platformDepsFor = func() platformDeps {
+		d := inner()
+		d.delivery = func(p *hostpoller.Poller, cfg *hostpoller.Config, s *hostServer, emit func(hostpoller.Event)) {
+			wireDelivery(p, cfg, s, emit)
+		}
+		return d
+	}
+	t.Cleanup(func() { platformDepsFor = inner })
+	if out, errOut, err := run3237(t, false, "--once"); err != nil {
+		t.Fatalf("run --once: %v\n%s\n%s", err, out, errOut)
+	}
+	if len(w.pollers) != 1 || !w.pollers[0].DeliveryEnabled() {
+		t.Fatal("the real wireDelivery wires delivery with the row off, so turning it on needs no restart")
 	}
 }
