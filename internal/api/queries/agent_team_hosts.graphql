@@ -7,9 +7,11 @@
 # Every operation runs as the signed-in person and is sent without the worker
 # session (api.WithoutSession): join and remove are person-only acts the server
 # refuses to a bound worker's session (cor:agt:070:07), and none of them ever
-# sends the stored host key (cor:agt:070:04). The one exception is
-# HostCredentialStatus, which is sent WITH a stored key, to ask the server
-# whether that key still authenticates.
+# sends the stored host key (cor:agt:070:04). Two exceptions: HostCredentialStatus
+# is sent WITH a stored key, to ask the server whether that key still
+# authenticates; and UpdateAgentTeamHostInstructed (`set --instruction`) carries
+# the worktree session like `assign --instruction`, which the server allows
+# for an update.
 
 fragment AgentTeamHostFields on AgentTeamHost {
   id

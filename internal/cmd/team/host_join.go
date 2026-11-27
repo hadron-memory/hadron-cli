@@ -188,9 +188,11 @@ checks are skipped). The key is never printed: not on stdout, stderr or in
 
 --host-id names the host (default: a slug of --label); --label names it for
 people (default: the host id). A machine holds one host per server and App:
-while it holds one, join exits 5 before any request. --replace re-keys the
+while it holds one, join exits 5 before the join request. --replace re-keys the
 host this machine holds: the server revokes its other keys and the new key
-replaces the stored one; to become another host, ` + "`leave`" + ` first.
+replaces the stored one; to become another host, ` + "`leave`" + ` first. With
+nothing held here, --replace re-keys the host named by --host-id or --label
+wherever its keys are, so another machine operating it loses its key.
 
 WHO: whoever manages the App, signed in as themselves (` + "`hadron auth login`" + `). The
 request never carries a worker session, so a bound worktree is fine.

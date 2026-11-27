@@ -551,7 +551,7 @@ section between the markers.
 | `team host hosts` |  |  | y | #1054 | 75e3a60a14c9 |  | unread |  |
 | `team host import` |  |  | y | #1054 | dec913560d72 |  | unread |  |
 | `team host issue` |  |  | y | #1054 | 76d1ecad5fd3 |  | unread |  |
-| `team host join` |  |  | y | #1054 | 3b08a81ac9a2 |  | unread |  |
+| `team host join` |  |  | y | #1054 | 90d46c30c71f |  | unread |  |
 | `team host leave` |  |  | y | #1054 | db0d3fc77c9e |  | unread |  |
 | `team host list` | ls |  | y | #1054 | f76136bcd459 |  | unread |  |
 | `team host ops` |  |  | y | #1054 | a435002b8aa7 |  | unread |  |

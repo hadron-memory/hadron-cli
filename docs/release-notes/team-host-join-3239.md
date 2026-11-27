@@ -7,7 +7,7 @@ and the CLI, not a person, keeps its key.
 
 | Command | Behaviour |
 |---|---|
-| `team host join [--label] [--host-id] [--replace]` | one `joinAgentTeamHost` as the signed-in person (never a worker session, never retried); stores `{server, appId, hostId, key}` in `<config dir>/host-credentials.json` (0600 in a 0700 dir; an owner-only access list on Windows); prints the host id and the next commands; **never prints the key**. A machine that already holds a host for the App exits 5 before any request; `--replace` re-keys that host |
+| `team host join [--label] [--host-id] [--replace]` | one `joinAgentTeamHost` as the signed-in person (never a worker session, never retried); stores `{server, appId, hostId, key}` in `<config dir>/host-credentials.json` (0600 in a 0700 dir; an owner-only access list on Windows); prints the host id and the next commands; **never prints the key**. A machine that already holds a host for the App exits 5 before the join request; `--replace` re-keys that host |
 | `team host leave [--yes]` | `removeAgentTeamHost` first, then deletes the stored entry; a refusal or a lost answer keeps the entry and exits with its code (open sessions: 5, naming the workers). When the server no longer has the host, the stored key is presented once: only a key the server refuses is deleted |
 | `team host set <host> …` | `updateAgentTeamHost`: label, check-in interval, wake delivery; a flag left out keeps the value, `--default-*` clears it to the default |
 | `team host hosts` / `show <host>` | the platform's record of the App's hosts (`agentTeamHosts` / `agentTeamHost`). `team host list` is unchanged: it lists registrations |

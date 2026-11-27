@@ -58,7 +58,7 @@ words (`failureClassHost`), as `app key create` does.
 
 - **join**: flags checked first (label 1-128, host id), then the App id
   (`TeamAppIdentity`; the join payload carries none), then the lock. A held
-  entry without `--replace` exits 5 before any request; `--replace` with a
+  entry without `--replace` exits 5 before the join request (after the App lookup); `--replace` with a
   different `--host-id` exits 5 (leave first); `--replace` alone sends the held
   host id. One `JoinAgentTeamHost`, never retried. A transport or internal
   failure exits with its code (7/1) and says a key may exist: run
@@ -71,7 +71,7 @@ words (`failureClassHost`), as `app key create` does.
   comes first, because the same join would get the same answer (blind review of
   #3283, P2 2). `--json {server, appId, hostId, label, replaced,
   next[]}`, no key field.
-- **leave**: the entry must be held (else 4, no request); `ConfirmDeletion`
+- **leave**: the entry must be held (else 4, no remove request); `ConfirmDeletion`
   (prompt, or `--yes`). Server first: `RemoveAgentTeamHost`, no force (RC4).
   - `HOST_NOT_FOUND`: RC3's dead-key guard. The stored key is presented once
     to `authenticationStatus` (a client built with the key, recorded as
