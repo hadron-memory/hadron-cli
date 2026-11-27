@@ -135,6 +135,20 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
 - **LOCAL P3-2 pins.** Every refused code of the start read (2/3/4/5/8) is pinned as not retried; a retry
   refused ends the retry; the claim compares server as well as App.
 
+## Deltas at 10bf3a7b (BLIND) and what they changed
+
+- **N-A, the transient half.** The claim is judged locally before the platform read (`peekHostClaim`, sharing
+  `judgeHostClaim` with `claimHostState`), so a host whose server is down is refused for good by another host's
+  claim and never takes the id; an unclaimed directory is still claimed only after the read.
+- **P2-1 same host, D-1.** A started host holds `<state>/hosts/<id>/host-run.lock` (gofrs/flock, `TryLock`) for
+  the life of the process; a second `host run` of it is exit 5. `leave` deletes the directory only if it can take
+  that lock (released before `RemoveAll`, which Windows needs), else keeps it with a warning.
+- **P2-5.** Each host reads Orca through its own copy of `hostfacts.Facts` (`hostSlot.facts`).
+- **D-2.** Without hard links (`os.Link` failing other than "exists") the stamp falls back to an `O_EXCL` create.
+- **D-3.** `platformRemoveTree` matches as `ResolveWorkdir` does (display name, which may hold "/", then one folder).
+- **D-4, N-I.** The `leave` help says when the directory is deleted; `host run` help names the orphan claim and the
+  run lock (both exit 5).
+
 ## Left for later (out of scope here)
 
 - The rest of #3288 (F8 only here; the task AT0.11114.1 builds the rest after this merges).

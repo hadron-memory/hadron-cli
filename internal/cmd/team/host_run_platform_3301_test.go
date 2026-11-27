@@ -8,11 +8,13 @@ package team
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/auth"
@@ -326,5 +328,213 @@ func TestClaimHostStateHasOneWinnerUnderARace3301(t *testing.T) {
 		if len(left) != 0 {
 			t.Fatalf("round %d: temporary stamps left behind: %v", i, left)
 		}
+	}
+}
+
+// BLIND delta N-A at 10bf3a7b: a first entry whose server is down is refused by the other host's claim before
+// its platform read, so it never takes the id and the claim holder runs.
+func TestHostRunPlatformATransientFirstHostDoesNotBlockTheClaimHolder3301(t *testing.T) {
+	fastBackoff3301(t)
+	var reads1 atomic.Int32
+	down := transientServer3301(t, &reads1)
+	srv2, calls2 := goodServer3237(t, "app-2", "host-1")
+	w := withDeps3237(t, []hostcred.Entry{
+		{Server: down, AppID: "app-1", HostID: "host-1", Key: key1},
+		{Server: srv2.URL, AppID: "app-2", HostID: "host-1", Key: key2},
+	})
+	dir, err := config.EnsureHostStateDir("host-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, _ := json.Marshal(hostIdentity{Server: strings.ToLower(auth.Host(srv2.URL)), AppID: "app-2"})
+	if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), append(claim, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, err := run3237(t, false, "--once")
+	if exitcode.FromError(err) != exitcode.Conflict {
+		t.Fatalf("the first host's claim refusal is the --once exit (5): %v\n%s\n%s", err, out, errOut)
+	}
+	if reads1.Load() != 0 {
+		t.Errorf("the claim is judged before the platform read; the first host read %d time(s)", reads1.Load())
+	}
+	if len(w.pollers) != 1 || len(calls2()) == 0 || strings.Contains(out+errOut, "same host id") {
+		t.Fatalf("the claim holder runs, not refused as a duplicate: %d poller(s)\n%s\n%s", len(w.pollers), out, errOut)
+	}
+}
+
+// BLIND P2-1 (same host) and D-1: a running host holds its run lock, so a second `host run` of it is refused
+// (exit 5) and `team host leave` keeps its directory; the lock is released when the run ends.
+func TestHostRunPlatformHoldsARunLockForItsLife3301(t *testing.T) {
+	srv, _ := goodServer3237(t, "app-1", "host-1")
+	e := hostcred.Entry{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1}
+	withDeps3237(t, []hostcred.Entry{e})
+	if _, _, err := run3237(t, false, "--once"); err != nil {
+		t.Fatalf("first run: %v", err)
+	}
+	lk, err := lockHostRun(e)
+	if err != nil {
+		t.Fatalf("the run released its lock when it ended: %v", err)
+	}
+	_, errOut, err := run3237(t, false, "--once")
+	if exitcode.FromError(err) != exitcode.Conflict || !strings.Contains(err.Error(), "already running this host") {
+		t.Fatalf("a second run of a running host is refused, exit 5: %v\n%s", err, errOut)
+	}
+	released, err := releaseHostState(e)
+	if released || err == nil || !strings.Contains(err.Error(), "still running") {
+		t.Fatalf("leave keeps a running host's directory: released %v, %v", released, err)
+	}
+	dir, _ := config.HostStateDir("host-1")
+	if _, err := os.Stat(filepath.Join(dir, hostIdentityFile)); err != nil {
+		t.Fatalf("the directory is kept whole: %v", err)
+	}
+	_ = lk.Unlock()
+	if released, err := releaseHostState(e); !released || err != nil {
+		t.Fatalf("with no run, leave releases the directory: %v, %v", released, err)
+	}
+}
+
+// BLIND delta D-2: on a file system without hard links the claim falls back to an exclusive create, still with
+// one winner.
+func TestClaimHostStateWithoutHardLinks3301(t *testing.T) {
+	old := linkFile
+	linkFile = func(string, string) error { return &os.LinkError{Op: "link", Err: errors.ErrUnsupported} }
+	t.Cleanup(func() { linkFile = old })
+	a := hostcred.Entry{Server: "https://a.example", AppID: "app-a", HostID: "host-1"}
+	b := hostcred.Entry{Server: "https://b.example", AppID: "app-b", HostID: "host-1"}
+	dir := t.TempDir()
+	if err := claimHostState(dir, a, []hostcred.Entry{a, b}); err != nil {
+		t.Fatalf("the fallback claims: %v", err)
+	}
+	if err := claimHostState(dir, a, []hostcred.Entry{a, b}); err != nil {
+		t.Fatalf("its own claim again: %v", err)
+	}
+	if err := claimHostState(dir, b, []hostcred.Entry{a, b}); exitcode.FromError(err) != exitcode.Conflict {
+		t.Fatalf("another host is refused: %v", err)
+	}
+	// Raced, the exclusive create still has exactly one winner.
+	for i := range 200 {
+		dir := t.TempDir()
+		var wins atomic.Int32
+		start := make(chan struct{})
+		done := make(chan struct{}, 2)
+		for _, e := range []hostcred.Entry{a, b} {
+			go func() {
+				<-start
+				if claimHostState(dir, e, []hostcred.Entry{a, b}) == nil {
+					wins.Add(1)
+				}
+				done <- struct{}{}
+			}()
+		}
+		close(start)
+		<-done
+		<-done
+		if n := wins.Load(); n != 1 {
+			t.Fatalf("round %d: %d claims won without hard links; exactly one may", i, n)
+		}
+	}
+}
+
+// QA P3 at 10bf3a7b: the claim compares the App as well: another App's claim on this server is not this host's.
+func TestClaimHostStateComparesTheApp3301(t *testing.T) {
+	a := hostcred.Entry{Server: "https://a.example", AppID: "app-a", HostID: "host-1"}
+	b := hostcred.Entry{Server: "https://a.example", AppID: "app-b", HostID: "host-1"}
+	dir := t.TempDir()
+	if err := claimHostState(dir, a, []hostcred.Entry{a, b}); err != nil {
+		t.Fatal(err)
+	}
+	if err := claimHostState(dir, b, []hostcred.Entry{a, b}); exitcode.FromError(err) != exitcode.Conflict {
+		t.Fatalf("another App on the same server is refused: %v", err)
+	}
+}
+
+// LOCAL delta N1 at 10bf3a7b: a stored host that --app leaves out still holds its claim, so the refusal names
+// `team host leave`, not a directory to remove.
+func TestHostRunPlatformAClaimOfAHostAppLeavesOutIsLive3301(t *testing.T) {
+	srv, _ := goodServer3237(t, "app-1", "host-1")
+	other := "https://other.example"
+	withDeps3237(t, []hostcred.Entry{
+		{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1},
+		{Server: other, AppID: "app-2", HostID: "host-1", Key: key2},
+	})
+	dir, err := config.EnsureHostStateDir("host-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, _ := json.Marshal(identityOf(hostcred.Entry{Server: other, AppID: "app-2"}))
+	if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), append(claim, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	io, _, _ := output.Test()
+	out, errOut := &strings.Builder{}, &strings.Builder{}
+	io.Out, io.ErrOut = output.Tracked(out), errOut
+	c := newCmdTeamHostRun(&cmdutil.Factory{IOStreams: io, AppFlag: "app-1"})
+	c.SetArgs([]string{"--once"})
+	c.SetOut(out)
+	c.SetErr(errOut)
+	err = c.Execute()
+	if exitcode.FromError(err) != exitcode.Conflict || !strings.Contains(err.Error(), "team host leave") || strings.Contains(err.Error(), "no longer holds") {
+		t.Fatalf("the claim of a stored host --app leaves out is live, naming `team host leave`: %v", err)
+	}
+}
+
+// LOCAL delta N1 at 10bf3a7b: while a first entry retries a transient start it holds its id (the directory is
+// unclaimed), so a second entry of that id is refused as a duplicate, never run beside it.
+func TestHostRunPlatformATransientStartHoldsItsID3301(t *testing.T) {
+	fastBackoff3301(t)
+	var reads atomic.Int32
+	down := transientServer3301(t, &reads)
+	srv2, calls2 := goodServer3237(t, "app-2", "host-1")
+	w := withDeps3237(t, []hostcred.Entry{
+		{Server: down, AppID: "app-1", HostID: "host-1", Key: key1},
+		{Server: srv2.URL, AppID: "app-2", HostID: "host-1", Key: key2},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	out, _ := runCtx3301(t, ctx)
+	if len(w.pollers) != 0 || len(calls2()) != 0 || !strings.Contains(out, "same host id") {
+		t.Fatalf("the second host of the id is refused while the first retries: %d poller(s), %d call(s)\n%s", len(w.pollers), len(calls2()), out)
+	}
+}
+
+// LOCAL P3-2 (d): an identity file that names no host is refused as unreadable (exit 1), never adopted.
+func TestClaimHostStateRefusesAnUnreadableClaim3301(t *testing.T) {
+	a := hostcred.Entry{Server: "https://a.example", AppID: "app-a", HostID: "host-1"}
+	for _, body := range []string{"not json", `{"server":"","appId":"app-a"}`, `{"server":"a.example"}`} {
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), []byte(body), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		err := claimHostState(dir, a, []hostcred.Entry{a})
+		if exitcode.FromError(err) != exitcode.Error || !strings.Contains(err.Error(), "does not say which host") {
+			t.Fatalf("%q is refused as unreadable: %v", body, err)
+		}
+	}
+}
+
+// LOCAL delta N1 at 10bf3a7b: leave releases only a directory claimed by this server as well as this App.
+func TestReleaseHostStateComparesTheServer3301(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	e := hostcred.Entry{Server: "https://a.example", AppID: "app-a", HostID: "host-1"}
+	dir, err := config.EnsureHostStateDir("host-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, _ := json.Marshal(hostIdentity{Server: "b.example", AppID: "app-a"})
+	if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), claim, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if released, err := releaseHostState(e); released || err != nil {
+		t.Fatalf("this App's claim on another server is kept: %v, %v", released, err)
+	}
+	// SEC10 D at 10bf3a7b: a directory with no claim is kept too.
+	if err := os.Remove(filepath.Join(dir, hostIdentityFile)); err != nil {
+		t.Fatal(err)
+	}
+	if released, err := releaseHostState(e); released || err != nil {
+		t.Fatalf("an unclaimed directory is kept: %v, %v", released, err)
+	}
+	if _, err := os.Stat(dir); err != nil {
+		t.Fatalf("the unclaimed directory is still there: %v", err)
 	}
 }

@@ -487,3 +487,38 @@ func TestPlatformRemoveOfAWorkdirAssignedTwiceFails3301(t *testing.T) {
 		t.Fatalf("nothing is removed: %v", got)
 	}
 }
+
+// BLIND delta D-3: a repository whose display name holds a "/" is matched whole, so its tree is found and
+// removed, never read as absent; and a token whose folder part holds a "/" names no listed repository.
+func TestPlatformRemoveMatchesARepositoryNameWithASlash3301(t *testing.T) {
+	fx, o := removeFixture3301(t)
+	o.repos = append(o.repos, hostfacts.Repo{ID: "r9", DisplayName: "acme/tools", Path: "/home/u/src/tools"})
+	path := "/home/u/orca/workspaces/tools/x"
+	o.trees = append(o.trees, hostfacts.Worktree{ID: "t9", RepoID: "r9", Path: path, Branch: "refs/heads/iris/x"})
+	_ = fx.p.state.addCreated("w-iris", "acme/tools/x")
+	fx.host.mu.Lock()
+	fx.host.trees[path] = WorktreeState{Exists: true, IsWorktree: true, Dirty: true, Branch: "iris/x", Upstream: "origin/iris/x"}
+	fx.host.mu.Unlock()
+	if r := fx.remove("acme/tools/x"); r.outcome != Failed || !strings.Contains(r.reason, "uncommitted") {
+		t.Fatalf("the tree is found and its checks run (dirty: refused), not reported removed: %+v", r)
+	}
+	if r := fx.remove("hadron-cli/a/b"); r.outcome != Failed || !strings.Contains(r.reason, "nothing was removed") {
+		t.Fatalf("a token no listed repository names is refused, not SUCCEEDED: %+v", r)
+	}
+}
+
+// LOCAL delta N1 at 10bf3a7b: a token matching several Orca trees, archived ones included, is refused.
+func TestPlatformRemoveOfAnAmbiguousTokenFails3301(t *testing.T) {
+	fx, o := removeFixture3301(t)
+	o.trees = append(o.trees,
+		hostfacts.Worktree{ID: "x1", RepoID: "r1", Path: "/home/u/a/x", Archived: true},
+		hostfacts.Worktree{ID: "x2", RepoID: "r1", Path: "/home/u/b/x"})
+	_ = fx.p.state.addCreated("w-iris", "hadron-cli/x")
+	r := fx.remove("hadron-cli/x")
+	if r.outcome != Failed || !strings.Contains(r.reason, hostfacts.CodeWorkdirAmbiguousOnHost) || !strings.Contains(r.reason, "nothing was removed") {
+		t.Fatalf("an ambiguous token is refused: %+v", r)
+	}
+	if got := fx.removedPaths(); len(got) != 0 {
+		t.Fatalf("nothing is removed: %v", got)
+	}
+}

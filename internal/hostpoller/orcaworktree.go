@@ -149,19 +149,21 @@ func (p *Poller) platformRemoveTree(ctx context.Context, token string) (string, 
 	if miss != nil {
 		return "", "Orca's worktrees could not be read (" + miss.Reason + ")"
 	}
-	repoName, base, _ := strings.Cut(token, "/")
-	ids := map[string]bool{}
+	// Matched as ResolveWorkdir matches: the repository's display name (which may itself hold a "/"), a "/", and
+	// the tree's folder (BLIND delta D-3). A repository counts as listed only when the rest of the token is one
+	// folder name.
+	names := map[string]string{}
 	for _, r := range repos {
-		if r.DisplayName == repoName {
-			ids[r.ID] = true
+		if rest, ok := strings.CutPrefix(token, r.DisplayName+"/"); ok && rest != "" && !strings.Contains(rest, "/") {
+			names[r.ID] = r.DisplayName
 		}
 	}
-	if len(ids) == 0 {
-		return "", fmt.Sprintf("%s: Orca lists no repository %q, so whether worktree %q is still on disk cannot be told", hostfacts.CodeWorkdirNotOnHost, repoName, token)
+	if len(names) == 0 {
+		return "", fmt.Sprintf("%s: Orca lists no repository that worktree %q names, so whether it is still on disk cannot be told", hostfacts.CodeWorkdirNotOnHost, token)
 	}
 	var cands []string
 	for _, w := range trees {
-		if ids[w.RepoID] && filepath.Base(w.Path) == base {
+		if name, ok := names[w.RepoID]; ok && name+"/"+filepath.Base(w.Path) == token {
 			cands = append(cands, w.Path)
 		}
 	}

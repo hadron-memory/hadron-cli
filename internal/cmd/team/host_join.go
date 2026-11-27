@@ -310,8 +310,9 @@ the sessions' workers named; end those sessions first (there is no force).
 When the server no longer has the host, the stored key is presented once to
 ask whether it still authenticates: only a key the server refuses is deleted
 (exit 0); otherwise the entry is kept (exit 4). With the key, the host's
-local state directory is deleted, so a later host of the same id starts
-clean.
+local state directory is deleted when it is this host's (its claim names
+this server and App), so a later host of the same id starts clean; it is
+kept, with a warning, while a ` + "`team host run`" + ` of the host still runs.
 
 WHO: whoever manages the App, signed in as themselves; the request never
 carries a worker session or the stored key. --json prints {server, appId,

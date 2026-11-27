@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Khan/genqlient/graphql"
+	"github.com/gofrs/flock"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -120,13 +121,41 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 	emit := hostEventPrinter(f)
 	slots := make([]*hostSlot, 0, len(entries))
 	started := map[string]hostcred.Entry{}
+	// Each started host holds its state directory's run lock for the life of this process (BLIND P2-1 and D-1 on
+	// #3301): a second `host run` of the same host is refused, and `team host leave` keeps a running host's
+	// directory.
+	var lockMu sync.Mutex
+	var held []*flock.Flock
+	defer func() {
+		lockMu.Lock()
+		defer lockMu.Unlock()
+		for _, l := range held {
+			_ = l.Unlock()
+		}
+	}()
+	start := func(ctx context.Context, s *hostSlot) (platformHost, *hostpoller.Poller, error) {
+		h, p, err := startPlatformHost(ctx, f, deps, s.facts, orcaBin, s.entry, stored, keys, s.emit)
+		if err != nil {
+			return h, p, err
+		}
+		lk, err := lockHostRun(s.entry)
+		if err != nil {
+			return h, nil, err
+		}
+		lockMu.Lock()
+		held = append(held, lk)
+		lockMu.Unlock()
+		return h, p, nil
+	}
 	for _, e := range entries {
-		s := &hostSlot{entry: e, emit: hostEmitter(emit, e.HostID)}
+		// Each host reads Orca through its own copy of the facts, so no poller shares another's (BLIND P2-5).
+		hf := *facts
+		s := &hostSlot{entry: e, facts: &hf, emit: hostEmitter(emit, e.HostID)}
 		if first, dup := started[e.HostID]; dup {
 			// A host's state lives under <state>/hosts/<hostId>, so two pollers of one id would share it.
 			s.err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as host %s (App %s) on %s, and this machine keeps a host's state by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, auth.Host(e.Server), first.HostID, first.AppID, auth.Host(first.Server))
 		} else {
-			s.host, s.poller, s.err = startPlatformHost(ctx, f, deps, facts, orcaBin, e, stored, keys, s.emit)
+			s.host, s.poller, s.err = start(ctx, s)
 			s.host.entry = e
 			// Only a host that started, or that will retry its start, holds the id: one refused for good (another
 			// host's claim on the state directory, a revoked key) leaves it to a later entry of that id, which may
@@ -140,16 +169,14 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 		}
 		slots = append(slots, s)
 	}
-	restart := func(ctx context.Context, s *hostSlot) (platformHost, *hostpoller.Poller, error) {
-		return startPlatformHost(ctx, f, deps, facts, orcaBin, s.entry, stored, keys, s.emit)
-	}
-	return runPollers(ctx, slots, once, restart)
+	return runPollers(ctx, slots, once, start)
 }
 
 // hostSlot is one stored credential of this run: the host and its poller once started, or the error its start
 // ended with (a transient one is retried in the slot's own goroutine, without --once: #3301 LOCAL F4).
 type hostSlot struct {
 	entry  hostcred.Entry
+	facts  *hostfacts.Facts
 	emit   func(hostpoller.Event)
 	host   platformHost
 	poller *hostpoller.Poller
@@ -234,6 +261,12 @@ func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDep
 		return platformHost{}, nil, err
 	}
 	h := platformHost{entry: e, client: client, srv: &hostServer{client: client, app: e.AppID, serverURL: e.Server}}
+	// The claim on the state directory is local: judged before the platform read, so a host whose server is
+	// down is refused for good by another host's claim rather than taking the id and retrying (BLIND delta N-A
+	// at 10bf3a7b). An unclaimed directory is claimed after the read, once the key answers for the App.
+	if err := peekHostClaim(e, stored); err != nil {
+		return h, nil, err
+	}
 	resp, err := readPlatform(ctx, h)
 	if err != nil {
 		return h, nil, err
@@ -305,11 +338,10 @@ type hostIdentity struct {
 // processes claiming one directory at once exactly one wins and the other reads its claim (BLIND delta N-B and
 // SECOND P3 on #3301); a reader never sees a half-written stamp.
 func claimHostState(dir string, e hostcred.Entry, stored []hostcred.Entry) error {
-	want := identityOf(e)
 	path := filepath.Join(dir, hostIdentityFile)
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
-		won, cerr := createHostIdentity(dir, path, want)
+		won, cerr := createHostIdentity(dir, path, identityOf(e))
 		if cerr != nil {
 			return exitcode.Newf(exitcode.Error, "host %s (App %s): claiming the host's state directory %s: %v", e.HostID, e.AppID, dir, cerr)
 		}
@@ -321,6 +353,28 @@ func claimHostState(dir string, e hostcred.Entry, stored []hostcred.Entry) error
 	if err != nil {
 		return exitcode.Newf(exitcode.Error, "host %s (App %s): reading %s: %v", e.HostID, e.AppID, path, err)
 	}
+	return judgeHostClaim(raw, dir, path, e, stored)
+}
+
+// peekHostClaim judges an existing claim without writing one; no claim, or none readable yet, is left to
+// claimHostState after the platform read.
+func peekHostClaim(e hostcred.Entry, stored []hostcred.Entry) error {
+	dir, err := config.HostStateDir(e.HostID)
+	if err != nil {
+		return nil
+	}
+	path := filepath.Join(dir, hostIdentityFile)
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return judgeHostClaim(raw, dir, path, e, stored)
+}
+
+// judgeHostClaim refuses a claim that is not this host's: exit 5 naming `team host leave` while the claiming host
+// is stored here, else naming the directory to remove.
+func judgeHostClaim(raw []byte, dir, path string, e hostcred.Entry, stored []hostcred.Entry) error {
+	want := identityOf(e)
 	var got hostIdentity
 	if err := json.Unmarshal(raw, &got); err != nil || got.Server == "" || got.AppID == "" {
 		return exitcode.Newf(exitcode.Error, "host %s (App %s): %s does not say which host owns this state directory; remove it if no other host of this id runs here", e.HostID, e.AppID, path)
@@ -335,7 +389,7 @@ func claimHostState(dir string, e hostcred.Entry, stored []hostcred.Entry) error
 	}
 	// The claim's host is no longer stored here (left with an older CLI, or its credential removed by hand):
 	// its state is not this host's to inherit, so the directory is named for removal (LOCAL delta D2 on #3301).
-	return exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s): this machine's state directory %s was claimed by the host of App %s on %s, which this machine no longer holds; its state is not this host's, so remove that directory and run again", e.HostID, e.AppID, want.Server, dir, got.AppID, got.Server)
+	return exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s): this machine's state directory %s was claimed by the host of App %s on %s, which this machine's host credential store no longer holds; its state is not this host's, so remove that directory and run again", e.HostID, e.AppID, want.Server, dir, got.AppID, got.Server)
 }
 
 // identityOf is the claim a stored host makes on its state directory.
@@ -372,6 +426,17 @@ func releaseHostState(e hostcred.Entry) (released bool, err error) {
 	if json.Unmarshal(raw, &got) != nil || got != identityOf(e) {
 		return false, nil
 	}
+	// A `host run` still running this host holds its run lock: its directory is kept (BLIND delta D-1).
+	lk := flock.New(filepath.Join(dir, hostRunLockFile))
+	ok, err := lk.TryLock()
+	if err != nil {
+		return false, err
+	}
+	if !ok {
+		return false, fmt.Errorf("a `hadron team host run` of this host is still running, so %s is kept; stop it, then remove that directory", dir)
+	}
+	// Released before the removal: Windows does not delete a locked file.
+	_ = lk.Unlock()
 	if err := os.RemoveAll(dir); err != nil {
 		return false, err
 	}
@@ -403,13 +468,50 @@ func createHostIdentity(dir, path string, id hostIdentity) (bool, error) {
 	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
 		return false, err
 	}
-	if err := os.Link(tmp.Name(), path); err != nil {
-		if errors.Is(err, os.ErrExist) {
-			return false, nil
-		}
+	err = linkFile(tmp.Name(), path)
+	switch {
+	case err == nil:
+		return true, nil
+	case errors.Is(err, os.ErrExist):
+		return false, nil
+	}
+	// A file system without hard links (BLIND delta D-2): an exclusive create is still one winner, though a
+	// reader racing the write may see it short and is refused as unreadable, not as another host's.
+	out, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, os.ErrExist) {
+		return false, nil
+	}
+	if err != nil {
 		return false, err
 	}
-	return true, nil
+	if _, err := out.Write(append(body, '\n')); err != nil {
+		_ = out.Close()
+		return false, err
+	}
+	return true, out.Close()
+}
+
+// linkFile is os.Link; a test makes it fail as a file system without hard links does.
+var linkFile = os.Link
+
+// hostRunLockFile, inside a host's state directory, is held by the `host run` that runs that host.
+const hostRunLockFile = "host-run.lock"
+
+// lockHostRun takes the host's run lock without waiting: held by another process, it is exit 5.
+func lockHostRun(e hostcred.Entry) (*flock.Flock, error) {
+	dir, err := config.HostStateDir(e.HostID)
+	if err != nil {
+		return nil, exitcode.Newf(exitcode.Error, "host %s (App %s): the host's state directory: %v", e.HostID, e.AppID, err)
+	}
+	lk := flock.New(filepath.Join(dir, hostRunLockFile))
+	ok, err := lk.TryLock()
+	if err != nil {
+		return nil, exitcode.Newf(exitcode.Error, "host %s (App %s): locking %s: %v", e.HostID, e.AppID, lk.Path(), err)
+	}
+	if !ok {
+		return nil, exitcode.Newf(exitcode.Conflict, "host %s (App %s): another `hadron team host run` on this machine is already running this host (it holds %s); stop that one first", e.HostID, e.AppID, lk.Path())
+	}
+	return lk, nil
 }
 
 // readPlatform is the one platform read, with the host key and no session. A server without V1 rejects the

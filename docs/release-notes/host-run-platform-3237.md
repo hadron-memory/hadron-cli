@@ -52,7 +52,9 @@ A host's state is kept under `<state dir>/hosts/<hostId>`, claimed by its server
 (`host-identity.json`). A host id is unique only on its server, so two stored hosts of one id (two servers)
 never both run on one machine: the second is a `host-not-started` event, and in a later process it is refused
 as above. `team host leave` deletes the left host's state directory, so a later host of the same id starts
-clean; a claim left by a host this machine no longer holds is refused naming the directory to remove. If
+clean (unless a `host run` of that host is still running, which keeps it, with a warning); a claim left by a
+host this machine no longer holds is refused naming the directory to remove. A host being run by one
+`host run` is refused by a second one on the same machine (exit 5). If
 the setup source flips to `HOST` mid-run, the poller registers nothing and waits, and says so once.
 
 ## Limits
