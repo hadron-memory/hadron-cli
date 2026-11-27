@@ -133,14 +133,12 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 			_ = l.Unlock()
 		}
 	}()
+	// startPlatformHost takes the lock before its platform read and releases it on every failure, so a retried
+	// start locks afresh and a started host is never started again (runPollers retries only a failed start).
 	start := func(ctx context.Context, s *hostSlot) (platformHost, *hostpoller.Poller, error) {
-		h, p, err := startPlatformHost(ctx, f, deps, s.facts, orcaBin, s.entry, stored, keys, s.emit)
+		h, p, lk, err := startPlatformHost(ctx, f, deps, s.facts, orcaBin, s.entry, stored, keys, s.emit)
 		if err != nil {
 			return h, p, err
-		}
-		lk, err := lockHostRun(s.entry)
-		if err != nil {
-			return h, nil, err
 		}
 		lockMu.Lock()
 		held = append(held, lk)
@@ -149,8 +147,7 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 	}
 	for _, e := range entries {
 		// Each host reads Orca through its own copy of the facts, so no poller shares another's (BLIND P2-5).
-		hf := *facts
-		s := &hostSlot{entry: e, facts: &hf, emit: hostEmitter(emit, e.HostID)}
+		s := &hostSlot{entry: e, facts: facts.Clone(), emit: hostEmitter(emit, e.HostID)}
 		if first, dup := started[e.HostID]; dup {
 			// A host's state lives under <state>/hosts/<hostId>, so two pollers of one id would share it.
 			s.err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as host %s (App %s) on %s, and this machine keeps a host's state by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, auth.Host(e.Server), first.HostID, first.AppID, auth.Host(first.Server))
@@ -255,18 +252,36 @@ func narrowEntries(f *cmdutil.Factory, entries []hostcred.Entry) ([]hostcred.Ent
 
 // startPlatformHost checks one credential against the platform and builds its poller. Every refusal is fixed
 // text naming the host and the fix; none quotes the server's own message or carries the key.
-func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDeps, facts *hostfacts.Facts, orcaBin string, e hostcred.Entry, stored []hostcred.Entry, keys []string, emit func(hostpoller.Event)) (platformHost, *hostpoller.Poller, error) {
+//
+// A started host comes back with its run lock held; every failure releases it.
+func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDeps, facts *hostfacts.Facts, orcaBin string, e hostcred.Entry, stored []hostcred.Entry, keys []string, emit func(hostpoller.Event)) (platformHost, *hostpoller.Poller, *flock.Flock, error) {
 	client, err := api.NewClient(e.Server, e.Key, f.HTTPClient, api.WithCredentialSent(f.Credentials(), api.CredentialHostKey))
 	if err != nil {
-		return platformHost{}, nil, err
+		return platformHost{}, nil, nil, err
 	}
 	h := platformHost{entry: e, client: client, srv: &hostServer{client: client, app: e.AppID, serverURL: e.Server}}
 	// The claim on the state directory is local: judged before the platform read, so a host whose server is
 	// down is refused for good by another host's claim rather than taking the id and retrying (BLIND delta N-A
 	// at 10bf3a7b). An unclaimed directory is claimed after the read, once the key answers for the App.
 	if err := peekHostClaim(e, stored); err != nil {
-		return h, nil, err
+		return h, nil, nil, err
 	}
+	// The run lock is taken before the read (BLIND delta R-1 at d210fc01): a second run of a running host is
+	// refused before it reads the platform, claims or builds a poller.
+	lk, err := lockHostRun(e)
+	if err != nil {
+		return h, nil, nil, err
+	}
+	h, p, err := startLockedHost(ctx, h, deps, facts, orcaBin, e, stored, keys, emit)
+	if err != nil {
+		_ = lk.Unlock()
+		return h, nil, nil, err
+	}
+	return h, p, lk, nil
+}
+
+// startLockedHost is startPlatformHost's part under the run lock: the platform read, the claim and the poller.
+func startLockedHost(ctx context.Context, h platformHost, deps platformDeps, facts *hostfacts.Facts, orcaBin string, e hostcred.Entry, stored []hostcred.Entry, keys []string, emit func(hostpoller.Event)) (platformHost, *hostpoller.Poller, error) {
 	resp, err := readPlatform(ctx, h)
 	if err != nil {
 		return h, nil, err
@@ -474,6 +489,10 @@ func createHostIdentity(dir, path string, id hostIdentity) (bool, error) {
 		return true, nil
 	case errors.Is(err, os.ErrExist):
 		return false, nil
+	case !noHardLinks(err):
+		// Only a file system without hard links falls back (BLIND delta R-3 at d210fc01); any other link
+		// failure is the claim's failure.
+		return false, err
 	}
 	// A file system without hard links (BLIND delta D-2): an exclusive create is still one winner, though a
 	// reader racing the write may see it short and is refused as unreadable, not as another host's.
@@ -484,22 +503,43 @@ func createHostIdentity(dir, path string, id hostIdentity) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if _, err := out.Write(append(body, '\n')); err != nil {
-		_ = out.Close()
+	// The file is this process's (O_EXCL): a failed write removes it, so a short claim never blocks a later run
+	// as unreadable (BLIND delta R-2 at d210fc01).
+	err = writeClaim(out, append(body, '\n'))
+	if err == nil {
+		err = out.Sync()
+	}
+	if cerr := out.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
+		_ = os.Remove(path)
 		return false, err
 	}
-	return true, out.Close()
+	return true, nil
+}
+
+// noHardLinks reports a link error that means the file system makes no hard links: unsupported (ENOTSUP,
+// EOPNOTSUPP, ENOSYS, and Windows' ERROR_NOT_SUPPORTED), EPERM (Linux's answer on vfat and similar) or EMLINK.
+func noHardLinks(err error) bool {
+	return errors.Is(err, errors.ErrUnsupported) || errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EMLINK)
 }
 
 // linkFile is os.Link; a test makes it fail as a file system without hard links does.
 var linkFile = os.Link
+
+// writeClaim writes the fallback's claim; a test makes it fail part-way.
+var writeClaim = func(f *os.File, b []byte) error {
+	_, err := f.Write(b)
+	return err
+}
 
 // hostRunLockFile, inside a host's state directory, is held by the `host run` that runs that host.
 const hostRunLockFile = "host-run.lock"
 
 // lockHostRun takes the host's run lock without waiting: held by another process, it is exit 5.
 func lockHostRun(e hostcred.Entry) (*flock.Flock, error) {
-	dir, err := config.HostStateDir(e.HostID)
+	dir, err := config.EnsureHostStateDir(e.HostID)
 	if err != nil {
 		return nil, exitcode.Newf(exitcode.Error, "host %s (App %s): the host's state directory: %v", e.HostID, e.AppID, err)
 	}

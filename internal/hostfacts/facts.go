@@ -89,6 +89,15 @@ type Facts struct {
 	FSType func(path string) (string, error)
 }
 
+// Clone returns a copy of f for one poller (hadron-cli#3301 BLIND P2-5). Every field is a function value or a
+// string and none of the production functions keeps state, so a field-by-field copy shares nothing mutable; a
+// test pins that every field stays a func or a string, so a field that could share state (a map, a slice, a
+// pointer, a mutex) fails it until Clone copies that field deeply.
+func (f *Facts) Clone() *Facts {
+	c := *f
+	return &c
+}
+
 // New returns a Facts over run, with the production lookups. run may be nil until Orca is found.
 func New(run Runner) *Facts {
 	home, _ := os.UserHomeDir()

@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -536,5 +537,107 @@ func TestReleaseHostStateComparesTheServer3301(t *testing.T) {
 	}
 	if _, err := os.Stat(dir); err != nil {
 		t.Fatalf("the unclaimed directory is still there: %v", err)
+	}
+}
+
+// BLIND delta R-1 at d210fc01: the run lock is taken before the platform read, so a second run of a running host
+// is refused without reading the platform, claiming or building a poller.
+func TestHostRunPlatformLocksBeforeThePlatformRead3301(t *testing.T) {
+	srv, calls := goodServer3237(t, "app-1", "host-1")
+	e := hostcred.Entry{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1}
+	w := withDeps3237(t, []hostcred.Entry{e})
+	lk, err := lockHostRun(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = lk.Unlock() }()
+	_, errOut, err := run3237(t, false, "--once")
+	if exitcode.FromError(err) != exitcode.Conflict || !strings.Contains(err.Error(), "already running this host") {
+		t.Fatalf("a run of a running host is refused, exit 5: %v\n%s", err, errOut)
+	}
+	if n := len(calls()); n != 0 {
+		t.Errorf("refused before the platform read; the server saw %d call(s)", n)
+	}
+	if len(w.pollers) != 0 {
+		t.Errorf("no poller is built for a refused run: %d", len(w.pollers))
+	}
+	dir, _ := config.HostStateDir("host-1")
+	if _, err := os.Stat(filepath.Join(dir, hostIdentityFile)); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("a refused run claims nothing: %v", err)
+	}
+}
+
+// A start that fails after the lock releases it, so the retried start (or another run) can take it.
+func TestHostRunPlatformAFailedStartReleasesTheLock3301(t *testing.T) {
+	var reads atomic.Int32
+	down := transientServer3301(t, &reads)
+	e := hostcred.Entry{Server: down, AppID: "app-1", HostID: "host-1", Key: key1}
+	withDeps3237(t, []hostcred.Entry{e})
+	if _, _, err := run3237(t, false, "--once"); err == nil {
+		t.Fatal("a host whose server is down does not start under --once")
+	}
+	if reads.Load() == 0 {
+		t.Fatal("the start reached the platform read")
+	}
+	lk, err := lockHostRun(e)
+	if err != nil {
+		t.Fatalf("the failed start released its lock: %v", err)
+	}
+	_ = lk.Unlock()
+}
+
+// BLIND delta R-3 at d210fc01: only a file system without hard links falls back; another link failure fails the
+// claim and creates nothing.
+func TestClaimHostStateFallsBackOnlyWithoutHardLinks3301(t *testing.T) {
+	old := linkFile
+	t.Cleanup(func() { linkFile = old })
+	a := hostcred.Entry{Server: "https://a.example", AppID: "app-a", HostID: "host-1"}
+	for _, c := range []struct {
+		err      error
+		fallback bool
+	}{
+		{syscall.EIO, false},
+		{syscall.ENOSPC, false},
+		{errors.ErrUnsupported, true},
+		{syscall.EPERM, true},
+		{syscall.EMLINK, true},
+	} {
+		linkFile = func(string, string) error { return &os.LinkError{Op: "link", Err: c.err} }
+		dir := t.TempDir()
+		err := claimHostState(dir, a, []hostcred.Entry{a})
+		_, statErr := os.Stat(filepath.Join(dir, hostIdentityFile))
+		if c.fallback {
+			if err != nil || statErr != nil {
+				t.Errorf("%v: falls back and claims: %v, %v", c.err, err, statErr)
+			}
+			continue
+		}
+		if err == nil || !errors.Is(statErr, os.ErrNotExist) {
+			t.Errorf("%v: no fallback, the claim fails and nothing is written: %v, %v", c.err, err, statErr)
+		}
+	}
+}
+
+// BLIND delta R-2 at d210fc01: a failed fallback write removes its short claim, so a later run is not refused for
+// good by an unreadable stamp.
+func TestClaimHostStateFallbackFailedWriteLeavesNoClaim3301(t *testing.T) {
+	oldLink, oldWrite := linkFile, writeClaim
+	t.Cleanup(func() { linkFile, writeClaim = oldLink, oldWrite })
+	linkFile = func(string, string) error { return &os.LinkError{Op: "link", Err: errors.ErrUnsupported} }
+	writeClaim = func(f *os.File, b []byte) error {
+		_, _ = f.Write(b[:len(b)/2])
+		return syscall.ENOSPC
+	}
+	a := hostcred.Entry{Server: "https://a.example", AppID: "app-a", HostID: "host-1"}
+	dir := t.TempDir()
+	if err := claimHostState(dir, a, []hostcred.Entry{a}); err == nil {
+		t.Fatal("a failed write fails the claim")
+	}
+	if _, err := os.Stat(filepath.Join(dir, hostIdentityFile)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("the short claim is removed: %v", err)
+	}
+	writeClaim = oldWrite
+	if err := claimHostState(dir, a, []hostcred.Entry{a}); err != nil {
+		t.Fatalf("a later claim succeeds: %v", err)
 	}
 }
