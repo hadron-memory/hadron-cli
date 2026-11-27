@@ -661,7 +661,7 @@ section between the markers.
 | `team ticker settings` |  |  | n | #1054 | 41487676ed09 |  | unread |  |
 | `team ticker settings get` |  |  | y | #1054 | 3ad5d4dba4d7 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team ticker settings set` |  |  | y | #1054 | aa056f945581 |  | unread |  |
-| `team usage` |  |  | y | #1054 | 440d6ac2ce7b | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
+| `team usage` |  |  | y | #1054 | 3c909aa69d39 |  | unread |  |
 | `team usage accounts` |  |  | y | #1054 | 7a3a1fa5c0e3 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team usage collect` |  |  | y | #1054 | a5848d3e96a5 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team usage install` |  |  | y | #1054 | 7bf5d0e56bdc | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |

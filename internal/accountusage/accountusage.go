@@ -3,9 +3,10 @@
 // ccusage JSON file the operator produced), validate everything before any
 // record exists, and shape one `account-usage` record per account.
 //
-// It reads exactly two kinds of file per account and nothing else: the
+// It reads exactly two kinds of file per Claude account and nothing else: the
 // snapshot at <configDir>/hadron-usage/rate-limits.json and the optional
-// ccusage file named in the config. It never runs a subprocess and never
+// ccusage file named in the config (a glm account reads only
+// hadron-usage/glm-quota.json; a codex account its newest rollout). It never runs a subprocess and never
 // reads anything else under a Claude config dir (credentials and transcripts
 // live there). Errors name a path and a reason class, never file contents.
 package accountusage
@@ -358,7 +359,7 @@ type Record struct {
 	CcusageBlocks *[]BlockCheckpoint `json:"ccusageBlocks,omitempty"`
 	// Codex windows keep their own length (cli#1659); a Claude record never
 	// carries them. SourceState is omitted for Claude: ok | no-reading-yet
-	// (codex) | no-local-source (glm).
+	// (codex, glm) | no-local-source (glm).
 	PrimaryPct        *float64 `json:"primaryPct,omitempty"`
 	PrimaryMinutes    *int     `json:"primaryMinutes,omitempty"`
 	PrimaryResetsAt   *string  `json:"primaryResetsAt,omitempty"`
@@ -371,6 +372,18 @@ type Record struct {
 	SchemaVersion     int      `json:"schemaVersion"`
 }
 
+// setOwnLengthWindows fills the primary/secondary fields (nil stays absent).
+func (r *Record) setOwnLengthWindows(primary, secondary *CodexWindow) {
+	if w := primary; w != nil {
+		pct, m, at := w.UsedPct, w.Minutes, rfc(w.ResetsAt)
+		r.PrimaryPct, r.PrimaryMinutes, r.PrimaryResetsAt = &pct, &m, &at
+	}
+	if w := secondary; w != nil {
+		pct, m, at := w.UsedPct, w.Minutes, rfc(w.ResetsAt)
+		r.SecondaryPct, r.SecondaryMinutes, r.SecondaryResetsAt = &pct, &m, &at
+	}
+}
+
 func rfc(t time.Time) string { return t.UTC().Format(time.RFC3339) }
 
 // Prepared is one account's validated input, ready to become a record.
@@ -379,6 +392,7 @@ type Prepared struct {
 	Snapshot Snapshot
 	Blocks   []Block
 	Codex    CodexSnapshot
+	GLM      GLMSnapshot
 }
 
 // Prepare validates every account's input before anything is written. The
@@ -395,7 +409,11 @@ func Prepare(cfg *Config) ([]Prepared, error) {
 			out = append(out, Prepared{Account: a, Codex: cx})
 			continue
 		case "glm":
-			out = append(out, Prepared{Account: a})
+			g, err := ReadGLM(a)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, Prepared{Account: a, GLM: g})
 			continue
 		}
 		snap, err := ReadSnapshot(a)
@@ -451,21 +469,24 @@ func BuildRecord(p Prepared, host string, now time.Time, prev Previous) Record {
 	}
 	switch p.Account.Family {
 	case "glm":
+		// No file: no local source. A file with no usable window: no reading
+		// yet. A usable window: ok (cli#3312).
 		r.SourceState = "no-local-source"
+		if p.GLM.Present {
+			r.SourceState = "no-reading-yet"
+			if p.GLM.Primary != nil {
+				r.SourceState = "ok"
+				r.ObservedAt = rfc(p.GLM.ObservedAt)
+				r.setOwnLengthWindows(p.GLM.Primary, p.GLM.Secondary)
+			}
+		}
 		return r
 	case "codex":
 		r.SourceState = "no-reading-yet"
 		if p.Codex.Present {
 			r.SourceState = "ok"
 			r.ObservedAt = rfc(p.Codex.ObservedAt)
-			if w := p.Codex.Primary; w != nil {
-				pct, m, at := w.UsedPct, w.Minutes, rfc(w.ResetsAt)
-				r.PrimaryPct, r.PrimaryMinutes, r.PrimaryResetsAt = &pct, &m, &at
-			}
-			if w := p.Codex.Secondary; w != nil {
-				pct, m, at := w.UsedPct, w.Minutes, rfc(w.ResetsAt)
-				r.SecondaryPct, r.SecondaryMinutes, r.SecondaryResetsAt = &pct, &m, &at
-			}
+			r.setOwnLengthWindows(p.Codex.Primary, p.Codex.Secondary)
 		}
 		return r
 	}

@@ -677,7 +677,7 @@ hadron team health sweep --config <host.yaml> [--dry-run[=false]] [--status-time
 hadron team health install --config <host.yaml> --interval <Nm> [--bin <abs hadron>]   # writes one user-level scheduler entry `hadron-team-health` running the sweep; see "Team health install" (cli#1374); exit 2 on no scheduler / orca unresolved / bad interval / different --config
 hadron team health uninstall   # removes exactly what install wrote, also after a failed install
 hadron team health status   # read-only; json {installed,scheduler,active,interval,binary,config,orca,files,lastRun{at,exitCode}}; lastRun unknown under cron
-hadron team usage collect --config <usage.yaml> [-m <memory>]   # cli#1472: record one account-usage object per configured model account (allowance windows, family claude/codex/glm; glm records "no local source"); validates every account first, exit 2 and NOTHING written on any bad config/snapshot/ccusage file; see "Team usage"
+hadron team usage collect --config <usage.yaml> [-m <memory>]   # cli#1472: record one account-usage object per configured model account (allowance windows, family claude/codex/glm; glm reads its session-written glm-quota.json, "no local source" without it); validates every account first, exit 2 and NOTHING written on any bad config/snapshot/ccusage file; see "Team usage"
 hadron team usage show [--config <usage.yaml> | -m <memory>] [--limit 1-200]   # per-account current use, resets, burn rate %/h, projected exhaustsAt; json {memory,accounts:[]}; unknown is null
 hadron team usage accounts   # cli#1875: the SERVER's list of the team App's usage accounts (accountUsageAccounts, hadron-server#3853), printed as returned: server order (label, host, family), one row per account+host+family, never filtered/deduped/re-sorted; json is the envelope {asOf,accounts:[{account,host,family,newestSnapshotAt,workers:[],workersConfigured}],complete} (no history: accounts [] + complete true, never a bare []); complete false (over 50 accounts, or the search stopped short) is exit 0 with a stderr note in text mode; workersConfigured false prints "not configured", an empty configured list "none"; APP_NOT_FOUND passes through unchanged; a server without the field (EVERY error exactly `Cannot query field "<field>" on type "Query".`; cli#1895): exit 1 "too old" + "(server said: <its message>)"; "Unknown argument", a mixed envelope (that error beside APP_NOT_FOUND or any other) and any other error keep their own mapping
 hadron team usage project [--account <label> [--host h] [--family f]] [--add-workers N | --move-worker <worker> --to-account <label> [--to-host h] [--to-family f]]   # the SERVER's token-burn projection (accountUsageProjection, hadron-server#3820), printed unmodified; per window lowPctAtReset..highPctAtReset + confidence LOW|MEDIUM|HIGH, runsOutAt only when the server returns one, status PROJECTED|INSUFFICIENT_DATA|UNKNOWN (+reason, windows null); json {app,accounts:[{account,host,family,asOf,newestSnapshotAt,workers:[],workersConfigured,windows:[],whatIf:{adjusted:[],target:{account,baseline:[],adjusted:[]}}|null}],complete?,whatIf}; no --account (cli#1878) = the SERVER's list (accountUsageAccounts, as `team usage accounts`), each entry's account/host/family projected unchanged, one call each, in server order (no client read/sort/dedupe); "complete" is present ONLY then (the server's value), absent with --account; complete false = exit 0 + one stderr warning line in text mode; empty list prints the empty result; APP_NOT_FOUND passes through; a null list from the server: exit 1 "server returned no account list"; -m/--memory or --config without --account: exit 2 before any call (ignored with --account); --account given empty or blank (`--account ""`, `--account=`, a quoted unset variable): exit 2 before any call, never read as omitted (cli#1899); what-if needs --account and exactly ONE kind; bad flags/--add-workers<1/half a move pair exit 2; a server without the field (EVERY error exactly `Cannot query field "<field>" on type "Query".`; cli#1895): exit 1 "too old" + "(server said: <its message>)"; "Unknown argument", a mixed envelope (that error beside APP_NOT_FOUND or any other) and any other error keep their own mapping
@@ -6137,8 +6137,14 @@ and 7-day allowance is used, so "which account runs out first, and when" has dat
 behind it. It is NOT `hadron usage` (AI-call events the server recorded in your
 memories); it never reads or writes those. It tracks every provider the team uses
 (cli#1659): `family` is `claude`, `codex` or `glm`; a provider with no readable
-source (`glm` today) is recorded as a finding (`sourceState: no-local-source`) and
-listed by `show`, never silently dropped.
+source is recorded as a finding (`sourceState: no-local-source`) and listed by
+`show`, never silently dropped. A `glm` (Z.ai) account's source is
+`<configDir>/hadron-usage/glm-quota.json` (cli#3312), written by a status-line
+snippet in the glm session (printed by `team usage --help`; the CLI holds no key
+and makes no network call): no file is `no-local-source`; a file with no window
+on the confirmed (unit, number) list (only 3,5 = 300 minutes so far; an
+unconfirmed code is dropped, never guessed) is `no-reading-yet`; a usable
+`TOKENS_LIMIT`/`CREDIT_LIMIT` window is `ok` with `primary*`/`secondary*` fields.
 
 The operator sets up, per account: a status line script that writes the harness's
 `rate_limits` to `$CLAUDE_CONFIG_DIR/hadron-usage/rate-limits.json` as
@@ -6171,7 +6177,7 @@ fiveHourResetsAt, sevenDayPct, sevenDayResetsAt, tokensSinceLast,
 estCostUsdSinceLast, ccusageBlocks, workers, workersConfigured, schemaVersion`; Codex
 records add `primaryPct, primaryMinutes, primaryResetsAt, secondaryPct,
 secondaryMinutes, secondaryResetsAt` (each window keeps its own length, never
-relabelled as 5h/7d) and `sourceState` (`ok | no-reading-yet`; glm:
+relabelled as 5h/7d) and `sourceState` (`ok | no-reading-yet`; glm also
 `no-local-source`); a Claude record is unchanged;
 `ccusageBlocks` is the checkpoint (blocks that started within 6h of the
 observation) and the since-last fields are the growth of those blocks since this
