@@ -1403,7 +1403,7 @@ func TestARefusedCoveredPrefixAckRetypesOnceThenFullAcks(t *testing.T) {
 // is retyped. A transport blip, an outage, an auth or stale-proof failure, or
 // no code at all is reported and retried next pass, typing nothing.
 func TestOnlyARefusedPartialAckIsRetyped(t *testing.T) {
-	for _, code := range []string{"transport-error", "unavailable", "unauthenticated", "forbidden", "WAKE_PROOF_STALE", "WAKE_PROOF_INVALID", "APP_NOT_FOUND"} {
+	for _, code := range []string{"server-refused", "transport-error", "unavailable", "unauthenticated", "forbidden", "WAKE_PROOF_STALE", "WAKE_PROOF_INVALID", "APP_NOT_FOUND"} {
 		t.Run(code, func(t *testing.T) {
 			h := newHarness(t)
 			seedRecord(t, h, rng("ch-team", 1, 5, 6))
@@ -1431,7 +1431,7 @@ func TestOnlyARefusedPartialAckIsRetyped(t *testing.T) {
 		h.deliver(h.batch(5, 6, 7))
 		h.wantNoSend()
 	})
-	for _, code := range []string{"BAD_USER_INPUT", "server-refused"} {
+	for _, code := range []string{"BAD_USER_INPUT"} {
 		t.Run("a refusal retypes: "+code, func(t *testing.T) {
 			h := newHarness(t)
 			seedRecord(t, h, rng("ch-team", 1, 5, 6))
@@ -1440,5 +1440,35 @@ func TestOnlyARefusedPartialAckIsRetyped(t *testing.T) {
 				t.Fatalf("outcome %+v sends %d", o, len(h.orca.sends))
 			}
 		})
+	}
+}
+
+// Jerry's P2-1 on #3306: the one-retype promise holds even when the record of
+// the retype cannot be written.
+func TestOneRetypeHoldsWhenTheRetypeRecordCannotBeWritten(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("a read-only directory does not stop root")
+	}
+	h := newHarness(t)
+	seedRecord(t, h, rng("ch-team", 1, 5, 6))
+	dir := filepath.Join(h.d.Records.Dir, workerID)
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o700) })
+	// pass 1: refusal, retype, full ack lost. pass 2, 3: refused again.
+	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}, codedErr{"BAD_USER_INPUT"}, codedErr{"BAD_USER_INPUT"}}
+	if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Delivered || o.Reason != "record-failed" || !o.AckPending {
+		t.Fatalf("pass 1 %+v", o)
+	}
+	for i := 2; i <= 3; i++ {
+		again := h.batch(5, 6, 7)
+		again.ID = fmt.Sprintf("proof-%d", i)
+		if o := h.deliver(again); o.Kind != Failed {
+			t.Fatalf("pass %d %+v", i, o)
+		}
+	}
+	if len(h.orca.sends) != 1 {
+		t.Fatalf("sends %d: the prefix was typed again", len(h.orca.sends))
 	}
 }

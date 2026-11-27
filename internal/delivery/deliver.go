@@ -172,6 +172,11 @@ type Deliverer struct {
 	// while the terminal is quiet; it never lets one be typed (see
 	// typeLine).
 	screens map[string]screenMemo
+	// retyped marks the covered-prefix records whose batch was already typed
+	// once more after a refused partial ack (cli#3300), by recordName. It holds
+	// the once-only promise even when the record of that retype could not be
+	// written; it lives for the process, which a restart resets.
+	retyped map[string]bool
 }
 
 type screenMemo struct {
@@ -368,6 +373,7 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	// Confirmed. The record is written even if the lock was lost meanwhile:
 	// it is the known outcome, and every deliverer reconciles records before
 	// typing.
+	d.markRetyped(stale)
 	if err := d.Records.Put(b, d.Now()); err != nil {
 		ok, code := d.ackCode(fin, b, nil)
 		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "record-failed", Terminal: handle, AckPending: !ok, Code: code})
@@ -382,16 +388,18 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	for _, m := range stale {
 		_ = d.Records.Retire(b.WorkerID, m, b.Ranges)
 	}
+	d.unmarkRetyped(stale)
 	return d.emit(b, r, Outcome{Kind: Delivered, Terminal: handle})
 }
 
 // refusalCodes are the codes of a server that ANSWERED the partial ack with a
 // refusal of it (cli#3300): the only failures after which the batch is typed
-// once more. BAD_USER_INPUT is the input the server will not take; server-
-// refused is any other GraphQL error. A transport class, an auth failure, a
-// stale proof (a fresh one comes next pass) or no code at all is retried, not
-// retyped.
-var refusalCodes = map[string]bool{"BAD_USER_INPUT": true, "server-refused": true}
+// once more. BAD_USER_INPUT is the input the server will not take. Anything
+// else is retried, never retyped: server-refused is any other GraphQL error,
+// transient server faults included (Jerry's P2 on #3306), as are a transport
+// class, an auth failure, a stale proof (a fresh one comes next pass) and no
+// code at all.
+var refusalCodes = map[string]bool{"BAD_USER_INPUT": true}
 
 // ackCode acknowledges a batch, bounded: true when it landed (or had already). On failure it names why: the error's declared
 // DeliveryCode when it is in the known vocabulary, else empty. Never the
@@ -453,10 +461,10 @@ func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (o Outc
 		// retype: once typed, a full record exists, and the next pass takes
 		// the full-cover branch (ack only) however the full ack fares.
 		o = d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code})
-		if !refusalCodes[code] {
-			// Not an answer from the server (a timeout, an outage, no code, an
-			// auth or stale-proof failure): nothing says the partial ack is
-			// unworkable, so nothing is typed again. The next pass retries.
+		if !refusalCodes[code] || d.alreadyRetyped(cover.Matched) {
+			// Not a refusal (a timeout, an outage, no code, a server fault, an
+			// auth or stale-proof failure), or this prefix was already typed
+			// once more: nothing is typed again. The next pass retries.
 			return o, true, nil
 		}
 		return Outcome{}, false, cover.Matched
@@ -836,4 +844,34 @@ func recordTouches(rec Record, ranges []Range) bool {
 		}
 	}
 	return false
+}
+
+func (d *Deliverer) alreadyRetyped(recs []Record) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, m := range recs {
+		if d.retyped[recordName(m.Ranges)] {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Deliverer) markRetyped(recs []Record) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.retyped == nil {
+		d.retyped = map[string]bool{}
+	}
+	for _, m := range recs {
+		d.retyped[recordName(m.Ranges)] = true
+	}
+}
+
+func (d *Deliverer) unmarkRetyped(recs []Record) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, m := range recs {
+		delete(d.retyped, recordName(m.Ranges))
+	}
 }
