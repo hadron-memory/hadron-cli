@@ -152655,8 +152655,10 @@ fragment InstructionsListedTask on AgentListedTask {
 
 // #5284 (cor:dmo:050:24): the role task to follow, with its body, or no task
 // fits. Every argument is omitempty: an omitted agentRef means "my own Agent"
-// (the server takes it from the worker's session), an omitted appRef keeps the
-// call App-less, and the CLI never fills any of them in on its own.
+// (the server takes it from the worker's session) and an omitted appRef keeps
+// the call App-less. The command sends appRef only from --app, or from the
+// configured App when --event-code is given (the register needs one); a
+// phrase-only call sends none. It never looks an Agent up for agentRef.
 func AgentInstructions(
 	ctx_ context.Context,
 	client_ graphql.Client,

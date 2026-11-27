@@ -1547,7 +1547,7 @@ request is unchanged); the server owns its rules (default 3, at most 10, outside
 1 to 10 is refused) and the CLI sends the value as given.
 
 --phrase replaces the experimental --symptom flag, which was removed, not
-aliased: --symptom is now an unknown flag. --phrase needs a server from 2026-11-27 or later;
+aliased: --symptom is now an unknown flag. --phrase needs a server at 0.48.0 or later;
 an older server refuses it, and the plain list keeps working against any server.`,
 		Example: `  hadron agent tasks list hrn:agent:acme.com:support-bot
   hadron agent tasks list hrn:agent:acme.com:support-bot --phrase "build fails on windows" --limit 2`,

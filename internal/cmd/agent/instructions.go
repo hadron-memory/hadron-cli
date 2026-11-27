@@ -94,7 +94,7 @@ not log them, and this command writes no history, log or cache of them.
 --json prints the whole answer: state, route, instructions, candidates (with
 scores), nearest, fallback and register.
 
-Needs a server from 2026-11-27 or later; an older server refuses the call.`,
+Needs a server at 0.48.0 or later; an older server refuses the call.`,
 		Example: `  hadron agent instructions "the build is red on windows" --agent hrn:agent:acme.com:support-bot
   hadron agent instructions "the nightly job failed"
   hadron agent instructions --event-code build.failed --app hrn:app:acme.com:team
@@ -208,8 +208,8 @@ func instructionsAnswer(a *gen.AgentInstructionsAgentInstructions) (instructions
 	}
 	switch a.State {
 	case gen.AgentInstructionsStateMatched:
-		if len(dto.Candidates) == 0 || dto.Instructions == nil {
-			return dto, exitcode.Newf(exitcode.Error, "the server answered MATCHED without a task and its body; nothing to print")
+		if len(dto.Candidates) == 0 || dto.Instructions == nil || dto.Route == nil {
+			return dto, exitcode.Newf(exitcode.Error, "the server answered MATCHED without a task, its route and its body; nothing to print")
 		}
 	case gen.AgentInstructionsStateNoMatch:
 		// A no-match is never instructions, whatever else the server sent.
@@ -222,46 +222,51 @@ func instructionsAnswer(a *gen.AgentInstructionsAgentInstructions) (instructions
 }
 
 func writeInstructions(w io.Writer, a instructionsDTO, appNote string) error {
+	// Every write is checked: a closed stdout must not exit 0 with truncated
+	// output. The first error stops the rest.
+	var werr error
+	p := func(format string, args ...any) {
+		if werr == nil {
+			_, werr = fmt.Fprintf(w, format, args...)
+		}
+	}
 	if appNote != "" {
-		fmt.Fprintf(w, "App:    %s\n", output.SafeCell(appNote))
+		p("App:    %s\n", output.SafeCell(appNote))
 	}
 	if a.State == string(gen.AgentInstructionsStateMatched) {
 		best := a.Candidates[0]
-		fmt.Fprintf(w, "Task:   %s\n", output.SafeCell(best.Node.Name))
-		fmt.Fprintf(w, "URN:    %s\n", output.SafeCell(best.Node.URN))
-		route := ""
-		if a.Route != nil {
-			route = *a.Route
-		}
-		fmt.Fprintf(w, "Route:  %s\n", route)
-		fmt.Fprintf(w, "Score:  %s\n", scoreCell(best.Score))
-		writeRegister(w, a.Register)
-		fmt.Fprintf(w, "\n%s\n", *a.Instructions)
-		if len(a.Candidates) > 1 {
-			fmt.Fprintln(w, "\nAlso considered (not instructions):")
-			if err := writeTaskTable(w, a.Candidates[1:]); err != nil {
-				return err
+		p("Task:   %s\n", output.SafeCell(best.Node.Name))
+		p("URN:    %s\n", output.SafeCell(best.Node.URN))
+		p("Route:  %s\n", *a.Route)
+		p("Score:  %s\n", scoreCell(best.Score))
+		p("%s", registerLine(a.Register))
+		p("\n%s\n", *a.Instructions)
+		if werr == nil && len(a.Candidates) > 1 {
+			p("\nAlso considered (not instructions):\n")
+			if werr == nil {
+				werr = writeTaskTable(w, a.Candidates[1:])
 			}
 		}
-		return nil
+		return werr
 	}
-	fmt.Fprintln(w, "No task fits.")
-	writeRegister(w, a.Register)
+	p("No task fits.\n")
+	p("%s", registerLine(a.Register))
 	if len(a.Nearest) > 0 {
-		fmt.Fprintln(w, "\nNearest tasks (not instructions):")
-		if err := writeTaskTable(w, a.Nearest); err != nil {
-			return err
+		p("\nNearest tasks (not instructions):\n")
+		if werr == nil {
+			werr = writeTaskTable(w, a.Nearest)
 		}
 	}
 	if a.Fallback != nil {
-		fmt.Fprintf(w, "\nFallback task (the App's register names it for no match): %s  %s\n", output.SafeCell(a.Fallback.Node.Name), output.SafeCell(a.Fallback.Node.URN))
+		p("\nFallback task (the App's register names it for no match): %s  %s\n", output.SafeCell(a.Fallback.Node.Name), output.SafeCell(a.Fallback.Node.URN))
 	}
-	return nil
+	return werr
 }
 
-func writeRegister(w io.Writer, r *registerDTO) {
+// registerLine is the register's answer as one line ("" when none was asked).
+func registerLine(r *registerDTO) string {
 	if r == nil {
-		return
+		return ""
 	}
 	line := fmt.Sprintf("Register: %s %s", output.SafeCell(r.Code), r.State)
 	if r.TaskURN != nil {
@@ -269,7 +274,7 @@ func writeRegister(w io.Writer, r *registerDTO) {
 	} else if r.TaskLoc != nil {
 		line += " (loc " + output.SafeCell(*r.TaskLoc) + ")"
 	}
-	fmt.Fprintln(w, line)
+	return line + "\n"
 }
 
 func writeTaskTable(w io.Writer, rows []phraseTaskDTO) error {

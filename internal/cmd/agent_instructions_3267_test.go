@@ -283,10 +283,14 @@ func TestAgentInstructionsRefusalMapsToItsExitCode(t *testing.T) {
 
 // A MATCHED answer with no candidate is malformed: refused, nothing printed.
 func TestAgentInstructionsMalformedMatchIsRefused(t *testing.T) {
-	resp := `{"data":{"agentInstructions":{"state":"MATCHED","route":"SEARCH","instructions":"body","candidates":[],"nearest":[],"fallback":null,"register":null}}}`
-	out, _, _, err := runInstructions(t, resp, "x")
-	if exitCodeFor(err) != exitcode.Error || out != "" {
-		t.Errorf("want exit %d and empty stdout, got %d (%v) out=%q", exitcode.Error, exitCodeFor(err), err, out)
+	for name, resp := range map[string]string{
+		"no candidate": `{"data":{"agentInstructions":{"state":"MATCHED","route":"SEARCH","instructions":"body","candidates":[],"nearest":[],"fallback":null,"register":null}}}`,
+		"no route":     strings.Replace(instrMatched, `"route":"SEARCH"`, `"route":null`, 1),
+	} {
+		out, _, _, err := runInstructions(t, resp, "x")
+		if exitCodeFor(err) != exitcode.Error || out != "" {
+			t.Errorf("%s: want exit %d and empty stdout, got %d (%v) out=%q", name, exitcode.Error, exitCodeFor(err), err, out)
+		}
 	}
 }
 
@@ -294,11 +298,20 @@ func TestAgentInstructionsMalformedMatchIsRefused(t *testing.T) {
 // caller's stdout, and appear on no stderr line and in no file the CLI writes.
 func TestAgentInstructionsKeepsNothing(t *testing.T) {
 	const phrase, code = "PHRASE-SECRET-3267", "EVENT-SECRET-3267"
-	cfgDir := t.TempDir()
 	gql, _ := captureGraphQL(t, map[string]string{"AgentInstructions": instrMatched})
 	f, _ := testFactory(t)
-	t.Setenv("XDG_CONFIG_HOME", cfgDir)
-	t.Setenv("HOME", cfgDir)
+	// The config tree the factory resolved (testFactory points it at a temp
+	// dir BEFORE any command runs), plus a file that must exist so the walk
+	// below provably looks at a real directory.
+	cfgDir := os.Getenv("XDG_CONFIG_HOME")
+	if cfgDir == "" {
+		t.Fatal("testFactory must pin XDG_CONFIG_HOME")
+	}
+	marker := filepath.Join(cfgDir, "marker")
+	if err := os.WriteFile(marker, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	walked := 0
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"agent", "instructions", phrase, "--event-code", code, "--app", "hrn:app:acme.com:team", "--server", gql.URL})
 	if err := root.Execute(); err != nil {
@@ -311,11 +324,45 @@ func TestAgentInstructionsKeepsNothing(t *testing.T) {
 		if err != nil || d.IsDir() {
 			return nil
 		}
+		walked++
 		if b, _ := os.ReadFile(path); strings.Contains(string(b), phrase) || strings.Contains(string(b), code) {
 			t.Errorf("%s holds the phrase or event code", path)
 		}
 		return nil
 	})
+	if walked == 0 {
+		t.Error("the walk saw no files: the test would prove nothing")
+	}
+}
+
+// A blank --agent or --app is refused locally, before any request.
+func TestAgentInstructionsBlankAgentOrAppIsAUsageError(t *testing.T) {
+	for _, args := range [][]string{{"x", "--agent", "  "}, {"x", "--app", "  "}} {
+		_, _, captured, err := runInstructions(t, instrMatched, args...)
+		if exitCodeFor(err) != exitcode.Usage || len(captured) != 0 {
+			t.Errorf("%v: want a usage error and no request, got %v %v", args, err, captured)
+		}
+	}
+}
+
+// The register naming a mapped task is printed with its task, and a MATCHED
+// answer carries the register through to --json.
+func TestAgentInstructionsMatchedShowsTheRegisterTask(t *testing.T) {
+	resp := strings.Replace(instrMatched, `"register":null`, `"register":{"code":"build.failed","state":"MAPPED","taskLoc":"tasks:fix","taskUrn":"hrn:node:acme.com:support-tasks:fix"}`, 1)
+	resp = strings.Replace(resp, `"route":"SEARCH"`, `"route":"REGISTER"`, 1)
+	out, _, _, err := runInstructions(t, resp, "x", "--event-code", "build.failed", "--app", "hrn:app:acme.com:team")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for _, want := range []string{"REGISTER", "build.failed", "MAPPED", "-> hrn:node:acme.com:support-tasks:fix"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output should carry %q:\n%s", want, out)
+		}
+	}
+	jsonOut, _, _, _ := runInstructions(t, resp, "x", "--event-code", "build.failed", "--app", "hrn:app:acme.com:team", "--json")
+	if !strings.Contains(jsonOut, "support-tasks:fix") {
+		t.Errorf("--json must carry the register's task:\n%s", jsonOut)
+	}
 }
 
 func TestAgentInstructionsHelpWording(t *testing.T) {
