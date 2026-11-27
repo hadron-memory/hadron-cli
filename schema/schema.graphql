@@ -337,14 +337,18 @@ type ActionTicketsPage {
 }
 
 """
-#1610 — public identity of a Worker or Agent that wrote a node: never the full object, whose own read gate this does not pass.
+#1610, #5319 — public identity of a Worker, an Agent or a person (the owner of a ticker, the creator of a subscription): never the full object, whose own read gate this does not pass.
 """
 type ActorRef {
+  """
+  #5319 — the person's handle. Null for a Worker or an Agent, and for a person with no handle.
+  """
+  handle: String
   id: ID!
   name: String!
 
   """
-  The canonical hrn:worker:/hrn:agent: URN. Null when it cannot be composed.
+  The canonical hrn:worker:/hrn:agent: URN, or hrn:user:<handle> for a person. Null when it cannot be composed, and for a person with no handle (such a person has no hrn:user: address).
   """
   urn: String
 }
@@ -649,6 +653,64 @@ type AgentImport {
   required: Boolean!
 }
 
+"""
+#5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24): the role task to follow, with its body, or no task fits.
+"""
+type AgentInstructions {
+  """
+  MATCHED: the best-fit task first, then at most two runners-up (search only). NO_MATCH: empty.
+  """
+  candidates: [AgentListedTask!]!
+
+  """
+  NO_MATCH asked in an App: the task the App's register maps instructions.no-match to, when it maps one.
+  """
+  fallback: AgentListedTask
+
+  """
+  MATCHED: the content of candidates[0], exactly as its node.content resolves it for you. NO_MATCH: null.
+  """
+  instructions: String
+
+  """
+  NO_MATCH with a phrase: up to 3 tasks under the floor, or unscored, best first, for diagnosis. Not instructions.
+  """
+  nearest: [AgentListedTask!]!
+
+  """The register's answer when an eventCode was given; null otherwise."""
+  register: TickAction
+
+  """Which route answered; null on NO_MATCH."""
+  route: AgentInstructionsRoute
+  state: AgentInstructionsState!
+}
+
+"""
+#5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24): which route answered a match.
+"""
+enum AgentInstructionsRoute {
+  """The App's action register mapped the event code to the task."""
+  REGISTER
+
+  """
+  The task's abstract scored at or above the no-match floor against the phrase.
+  """
+  SEARCH
+}
+
+"""
+#5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24): whether a task fits.
+"""
+enum AgentInstructionsState {
+  """
+  A task fits: candidates holds it first and instructions holds its body.
+  """
+  MATCHED
+
+  """No task fits: no candidates and no body."""
+  NO_MATCH
+}
+
 """#4224 (S3 of #4229): how long an Agent's workers run."""
 enum AgentLifecycle {
   """
@@ -680,7 +742,7 @@ type AgentListedProcess {
 """
 type AgentListedTask {
   """
-  #2421 experimental symptom search: which retriever ranked this task; null on the unfiltered list.
+  #2421 phrase search: which retriever found this task; null on the unfiltered list.
   """
   matchedBy: AgentTaskMatchedBy
 
@@ -688,6 +750,13 @@ type AgentListedTask {
   The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
   """
   node: Node!
+
+  """
+  #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15): the vector similarity of the task's abstract to the
+  phrase (1 minus the cosine distance). Null on the unfiltered list, when no embedding is available (the keyword
+  fallback), and for a task found by keyword that has no abstract vector yet.
+  """
+  score: Float
 
   """
   The name of the index edge that lists it; null for a task no index edge lists.
@@ -1340,9 +1409,7 @@ enum AgentTaskMatchSkipReason {
   USES_NO_TASKS
 }
 
-"""
-#2421 experimental symptom search: membership in the hybrid ranking inputs.
-"""
+"""#2421 phrase search: which retrievers found the task."""
 enum AgentTaskMatchedBy {
   """Ranked by both retrievers."""
   BOTH
@@ -5525,7 +5592,7 @@ loc) rejects with NodeLocConflictError (spec 039 Phase 0 D1/D4).
 """
 input CreateNodeInput {
   """
-  Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+  Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters; for the long form use `content`.
   """
   abstract: String
   aiAgent: String
@@ -14526,7 +14593,7 @@ CreateNodeInput / UpdateNodeInput (spec 039 Phase 0 D1).
 """
 input NodeInput {
   """
-  Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+  Paragraph-length summary of this node — see Node.abstract for the surfacing contract (hadron_get_node opt-in via contentScope; hadron_find_nodes preview ships in US2). Optional. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters; for the long form use `content`.
   """
   abstract: String
   aiAgent: String
@@ -15652,6 +15719,22 @@ type Query {
   agentAssets(agentUrn: String!, count: Int = 20, includeDeleted: Boolean = false, mimeType: String, skip: Int = 0): AssetListResult!
 
   """
+  #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24) - the role task to follow, with its body, or that no
+  task fits. Give a phrase, an eventCode or both; eventCode needs appRef. With an eventCode, the App's register
+  answers first (register), and a mapped task is MATCHED by REGISTER. Otherwise the phrase ranks the Agent's
+  agentTaskList tasks on their abstracts, and the tasks scoring at or above the no-match floor (default 0.45,
+  TASK_MATCH_MIN_SCORE) are MATCHED by SEARCH, best first, at most 3, with the body of the first only. With no
+  embedding available nothing can reach the floor, so the answer is NO_MATCH with the keyword hits as nearest.
+  NO_MATCH asked in an App also names the register's instructions.no-match task as fallback. agentRef may be
+  omitted: your own Agent (a bound worker's, or a run's) is used, and a caller with none gets BAD_USER_INPUT.
+  Without appRef the Agent is read as agentTaskList reads it; with appRef you must take part in the App and the
+  Agent must be installed or cast there. Refused as APP_NOT_FOUND or AGENT_NOT_FOUND, alike for unknown and
+  unreadable. A phrase is 1 to 500 characters. Nothing is recorded or logged. The MCP tool
+  hadron_get_instructions returns the same answer. Accepts IDs or URNs.
+  """
+  agentInstructions(agentRef: ID, appRef: ID, eventCode: String, phrase: String): AgentInstructions!
+
+  """
   #2831 S1 (hrn:node:hadronmemory.com:specs:cor:agt:060:12) - the model groups an Agent declares, by name. Whoever manages
   the Agent only (an org OWNER or ADMIN, the owner of a user-owned Agent, a platform admin as for the Agent's other
   management reads). An Agent the caller cannot read answers as absent (AGENT_NOT_FOUND); a reader who does not manage it
@@ -15751,13 +15834,14 @@ type Query {
   listed task outside the chain's memories is returned only when its own
   memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
   hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
-  #2421 experiment: optional symptom ranks only runnable effective-chain tasks
-  with non-empty abstracts; summary vectors and abstract-only lexical matches
-  share hybrid ranking. At most 3 candidates (limit defaults to 3, larger
-  values clamp); empty symptom or non-positive limit is BAD_USER_INPUT.
-  Without symptom the list is unchanged. matchedBy identifies ranking inputs.
+  #2421, #5284: an optional phrase ranks only runnable effective-chain tasks
+  with non-empty abstracts, by the vector similarity of the abstract (score),
+  best first; with no embedding available, by keyword on the abstract, with
+  score null. limit defaults to 3 and may be at most 10; an empty phrase or a
+  limit outside 1 to 10 is BAD_USER_INPUT. Without a phrase the list is
+  unchanged and limit is ignored. matchedBy says which retrievers found a task.
   """
-  agentTaskList(limit: Int, ref: ID!, symptom: String): [AgentListedTask!]!
+  agentTaskList(limit: Int, phrase: String, ref: ID!): [AgentListedTask!]!
 
   """
   #1706 — an App's effective stall windows (hrn:node:hadronmemory.com:specs:cor:agt:050:14–:17), and (#1763) its
@@ -17496,7 +17580,10 @@ type Query {
   ONE call instead of resolving each ref first. The split on a bad ref is by
   KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
   / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-  'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+  'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+  its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+  the error carries 'extensions.index' (an integer; first occurrence in the
+  order sent) — while a well-formed ref that names nothing
   the caller may read comes back in 'unavailable'. A caller mistake stays
   loud instead of hiding among denials. Per-node access is applied
   independently AFTER resolution: denied or missing refs come back in
@@ -23350,7 +23437,7 @@ Every content field is optional: omitted = preserved (D4).
 """
 input UpdateNodeInput {
   """
-  Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+  Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters; for the long form use `content`.
   """
   abstract: String
   aiAgent: String
