@@ -42,6 +42,10 @@ func newHelperRig(t *testing.T) *helperRig {
 		t.Fatal(err)
 	}
 	work := t.TempDir()
+	// t.TempDir makes this directory 0777 &^ umask; a helper's directory must not be writable by others.
+	if err := os.Chmod(work, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	r := &helperRig{cfg: filepath.Join(dir, "session-exit-helper"), script: filepath.Join(work, "exit-helper"), marker: filepath.Join(work, "ran")}
 	body := "#!/bin/sh\necho \"$@\" > " + r.marker + "\n"
 	if err := os.WriteFile(r.script, []byte(body), 0o700); err != nil {
@@ -188,6 +192,21 @@ func TestResetContextRefusesAnUnsafeHelperAndSaysExitNow3299(t *testing.T) {
 				t.Fatal(err)
 			}
 		}, "writable"},
+		{"helper in a group-writable directory", func(t *testing.T, r *helperRig) {
+			if err := os.Chmod(filepath.Dir(r.script), 0o775); err != nil {
+				t.Fatal(err)
+			}
+		}, "directory"},
+		{"helper in a world-writable directory", func(t *testing.T, r *helperRig) {
+			if err := os.Chmod(filepath.Dir(r.script), 0o777); err != nil {
+				t.Fatal(err)
+			}
+		}, "directory"},
+		{"config file too large", func(t *testing.T, r *helperRig) {
+			if err := os.WriteFile(r.cfg, []byte(strings.Repeat("a", 5000)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}, "too large"},
 		{"config file names two paths", func(t *testing.T, r *helperRig) {
 			if err := os.WriteFile(r.cfg, []byte(r.script+"\n"+r.script+"\n"), 0o600); err != nil {
 				t.Fatal(err)

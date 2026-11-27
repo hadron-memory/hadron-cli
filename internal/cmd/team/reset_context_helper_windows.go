@@ -1,4 +1,4 @@
-//go:build windows
+//go:build !unix
 
 package team
 
@@ -8,3 +8,4 @@ import "os"
 func unsafeFile(fi os.FileInfo) string { return "is not supported on this platform" }
 
 func openNoFollow(path string) (*os.File, error) { return os.Open(path) }
+func unsafeAncestors(path string) string         { return "is not supported on this platform" }

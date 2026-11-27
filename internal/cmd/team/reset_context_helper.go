@@ -54,46 +54,51 @@ func exitHelperRefusal(why string) string {
 
 // lookupExitHelper finds the configured helper. configured is false when there is none (the behaviour as before
 // #3299); refusal is non-empty when one is named and refused (fixed phrases only).
-func lookupExitHelper() (path, refusal string, configured bool) {
+func lookupExitHelper() (path string, validated os.FileInfo, refusal string, configured bool) {
 	if runtime.GOOS == "windows" {
-		return "", "", false
+		return "", nil, "", false
 	}
 	dir, err := config.Dir()
 	if err != nil {
-		return "", "", false
+		return "", nil, "the configuration directory cannot be found", true
 	}
 	cfg := filepath.Join(dir, exitHelperFile)
 	fi, err := os.Lstat(cfg)
 	if errors.Is(err, os.ErrNotExist) {
-		return "", "", false
+		return "", nil, "", false
 	}
 	if err != nil {
-		return "", "the configuration file cannot be read", true
+		return "", nil, "the configuration file cannot be read", true
 	}
 	if why := unsafeFile(fi); why != "" {
-		return "", "the configuration file " + why, true
+		return "", nil, "the configuration file " + why, true
 	}
 	named, why := readOnePath(cfg)
 	if why != "" {
-		return "", why, true
+		return "", nil, why, true
 	}
 	if !filepath.IsAbs(named) {
-		return "", "the helper path is not absolute", true
+		return "", nil, "the helper path is not absolute", true
 	}
 	hfi, err := os.Lstat(named)
 	if errors.Is(err, os.ErrNotExist) {
-		return "", "the helper is missing", true
+		return "", nil, "the helper is missing", true
 	}
 	if err != nil {
-		return "", "the helper cannot be read", true
+		return "", nil, "the helper cannot be read", true
 	}
 	if why := unsafeFile(hfi); why != "" {
-		return "", "the helper " + why, true
+		return "", nil, "the helper " + why, true
 	}
 	if hfi.Mode().Perm()&0o100 == 0 {
-		return "", "the helper is not executable by you", true
+		return "", nil, "the helper is not executable by you", true
 	}
-	return named, "", true
+	// The file may be safe while its directory is not: another user who can write a directory on the path can
+	// swap the helper (or a link in the path) between this check and the run (BLIND P2 on #3309).
+	if why := unsafeAncestors(named); why != "" {
+		return "", nil, "the helper " + why, true
+	}
+	return named, hfi, "", true
 }
 
 // readOnePath reads the config file (without following a symlink, so the checks above hold for what is read) and
@@ -105,8 +110,11 @@ func readOnePath(cfg string) (string, string) {
 	}
 	defer func() { _ = f.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(f, exitHelperReadLimit+1))
-	if err != nil || len(raw) > exitHelperReadLimit {
+	if err != nil {
 		return "", "the configuration file cannot be read"
+	}
+	if len(raw) > exitHelperReadLimit {
+		return "", "the configuration file is too large"
 	}
 	var paths []string
 	for _, l := range strings.Split(string(raw), "\n") {
@@ -149,10 +157,18 @@ func envWithout(env []string, name string) []string {
 // exitHelper is a validated helper as the "agent" finishResetContext ends: signal runs it, after the receipt.
 type exitHelper struct {
 	path, checkpoint string
+	validated        os.FileInfo
 }
 
-func (h exitHelper) signal() error { return runExitHelper(h.path, h.checkpoint) }
-func (h exitHelper) close()        {}
+func (h exitHelper) signal() error {
+	// Re-judged right before the run, so a swap after the receipt (which can be slow to write) is refused.
+	fi, err := os.Lstat(h.path)
+	if err != nil || unsafeFile(fi) != "" || !os.SameFile(fi, h.validated) || unsafeAncestors(h.path) != "" {
+		return fmt.Errorf("changed after it was checked")
+	}
+	return runExitHelper(h.path, h.checkpoint)
+}
+func (h exitHelper) close() {}
 
 func (exitHelper) receiptFailed() string {
 	return "hadron: team session reset-context: the receipt could not be written, so the exit helper was not run: exit your agent yourself; the host relaunches the worker."

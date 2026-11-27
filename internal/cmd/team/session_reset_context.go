@@ -106,8 +106,10 @@ repository, a binding or the server. The file and the helper must be regular
 files you own that group and others cannot write; a symlink is refused. The
 helper is run without a shell as "<helper> --checkpoint <node URN>" with a
 bounded timeout, its output discarded and never echoed. It must return
-promptly and end the agent only after this command has returned and the agent
-is idle. A refused helper is not run: "exit-now" with the reason.
+promptly (fork a watcher and return; never wait for this command to exit) and
+end the agent only after this command has returned and the agent is idle.
+The helper's directories must not be writable by group or others either
+(a sticky directory is allowed), and it is checked again just before it runs. A refused helper is not run: "exit-now" with the reason.
 Exit 0 unless the command line is wrong.`,
 		Example: `  # reset with your own narrative carried into the checkpoint
   hadron team session reset-context --note-file reset-notes.md --json`,
@@ -157,7 +159,7 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 		d.Exit = agentExitNow
 		if a, ok := pinOwnAgent(os.Getenv(AgentPIDEnv)); ok {
 			agent, d.Exit = a, agentSignalPending
-		} else if path, refusal, configured := lookupExitHelper(); configured {
+		} else if path, validated, refusal, configured := lookupExitHelper(); configured {
 			// cli#3299: only on this branch, only after the checkpoint and the stamp are written. A refused
 			// helper is not run and the receipt says exit-now with the reason; a validated one is run after
 			// the receipt, as the signal is.
@@ -166,7 +168,7 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 				d.Reason = &reason
 			} else {
 				reason := helperPendingReason
-				agent, d.Exit, d.Reason = exitHelper{path: path, checkpoint: *out.Node}, agentHelperPending, &reason
+				agent, d.Exit, d.Reason = exitHelper{path: path, checkpoint: *out.Node, validated: validated}, agentHelperPending, &reason
 			}
 		}
 	}
@@ -187,7 +189,7 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 				}
 			}
 			if e == nil && d.Exit == agentHelperPending {
-				_, e = fmt.Fprintln(w, "End your turn now and run nothing more: "+*d.Reason)
+				_, e = fmt.Fprintln(w, *d.Reason)
 			}
 			return e
 		})

@@ -47,3 +47,36 @@ func TestRunExitHelperDropsTheToken3299(t *testing.T) {
 		t.Fatalf("the helper got the API token:\n%s", b)
 	}
 }
+
+// A helper swapped for another file after it was validated is not run (BLIND P2 on #3309): signal re-judges it.
+func TestExitHelperSwappedAfterValidationIsNotRun3299(t *testing.T) {
+	work := t.TempDir()
+	if err := os.Chmod(work, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	marker := filepath.Join(work, "ran")
+	script := filepath.Join(work, "helper")
+	write := func() {
+		if err := os.WriteFile(script, []byte("#!/bin/sh\necho x > "+marker+"\n"), 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write()
+	fi, err := os.Lstat(script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := exitHelper{path: script, checkpoint: "hrn:node:x:y:z", validated: fi}
+	// Replace the file: a new inode, so it is no longer the one that was checked.
+	// (Moved aside, not removed: a freed inode number can be handed straight back.)
+	if err := os.Rename(script, script+".old"); err != nil {
+		t.Fatal(err)
+	}
+	write()
+	if err := h.signal(); err == nil {
+		t.Fatal("a swapped helper must not be run")
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("the swapped helper ran")
+	}
+}
