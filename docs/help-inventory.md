@@ -196,7 +196,7 @@ section between the markers.
 | path | aliases | generated | has-examples | child | help-hash | evaluator | result | finding |
 |---|---|---|---|---|---|---|---|---|
 | `access` |  |  | y | #1052 | a9eb93618831 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
-| `access check` |  |  | y | #1052 | fa460af5a605 |  | unread |  |
+| `access check` |  |  | y | #1052 | 5ff220c93e31 |  | unread |  |
 | `admin` |  |  | y | #1052 | fc6305fee329 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `admin impersonation` |  |  | n | #1052 | 0f371264641e | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `admin impersonation get` |  |  | y | #1052 | 5eea40bec04c | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |

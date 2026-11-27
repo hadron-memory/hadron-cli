@@ -58,13 +58,15 @@ that confer it. The server works the answer out; nothing is changed.
 hrn:mem:… (memory), hrn:node:…, hrn:app:…, hrn:agent:…, hrn:org:… or
 hrn:user:…; the legacy hrn:memory:<org>::<slug> spelling is still accepted. A
 bare id with no colon is read as an AI service config id. A shorthand such as
-acme.com:kb is refused (exit 2) with the URN to use instead.
+acme.com:kb is refused (exit 2) with the URN form to use instead.
 
-Who may check: you may always check your own access. To check someone else's
-you need a platform admin role, ADMIN or OWNER in the org that owns the
-resource, or, for a personal or private memory (which has a single owner and
-no org or App bypass), to be that memory's owner. Otherwise it exits 8; an
-unknown user or resource exits 4. Being allowed to check access does not let
+Who may check: you may check your own access to a resource you can read. To
+check someone else's you need a platform admin role, ADMIN or OWNER in the org
+that owns the resource, or the owner authority that applies (for a personal or
+private memory, which has a single owner and no org or App bypass, that is the
+memory's owner). A refused audit exits 8. A memory, node or agent you cannot
+open exits 4 as if it did not exist, whoever is being checked, your own access
+included; an unknown user or resource exits 4 too. Being allowed to check access does not let
 you change it.
 
 Output: the user, the resource and its kind, the effective role, a
