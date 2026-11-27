@@ -1,9 +1,11 @@
 package secret
 
 import (
+	"context"
 	"fmt"
 	"io"
 
+	"github.com/Khan/genqlient/graphql"
 	"github.com/spf13/cobra"
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
@@ -29,7 +31,12 @@ same message, so the answer says nothing about whether it exists.
 
 --json gives id, ownerType, ownerId, name, kind, metadata, createdAt,
 createdBy, updatedAt, updatedBy, currentVersion (null for org and user
-secrets) and protected.`,
+secrets), protected and deleteAfterUse.
+
+delete after use (deleteAfterUse) is the option that lets a read client's
+auto-delete mark delete a protected secret; the server reports false for org and
+user secrets. A server without the option shows "-" (null in --json). Change it
+with hadron secret update --delete-after-use.`,
 		Example: `  hadron secret get hrn:secret:alice:github-token
   hadron secret get 01a18cf643247d0fa261f320ec74d878 --json`,
 		Args: cobra.ExactArgs(1),
@@ -38,14 +45,14 @@ secrets) and protected.`,
 			if err != nil {
 				return err
 			}
-			resp, err := gen.Secret(cmd.Context(), client, args[0])
+			fields, option, err := readSecret(cmd.Context(), client, args[0])
 			if err != nil {
 				return api.MapErrorKeepingCode(err)
 			}
-			if resp == nil || resp.Secret == nil {
+			if fields == nil {
 				return exitcode.Newf(exitcode.NotFound, "secret not found, or not visible to you (the id or URN given is not shown)")
 			}
-			dto := dtoFromFields(resp.Secret.SecretFields)
+			dto := secretDetailDTO{secretDTO: dtoFromFields(*fields), DeleteAfterUse: option}
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
 				meta := "-"
 				if dto.Metadata != nil {
@@ -67,8 +74,33 @@ secrets) and protected.`,
 						return err
 					}
 				}
+				// Its label is wider than the column above, so it comes last.
+				if _, err := fmt.Fprintf(w, "delete after use: %s\n", optionCell(dto.DeleteAfterUse)); err != nil {
+					return err
+				}
 				return nil
 			})
 		},
 	}
+}
+
+// readSecret reads one secret with its delete-after-use option; nil fields mean
+// not found or not visible. A server whose schema lacks the field is read again
+// without it, and the option is then unknown (nil).
+func readSecret(ctx context.Context, client graphql.Client, ref string) (*gen.SecretFields, *bool, error) {
+	resp, err := gen.Secret(ctx, client, ref)
+	switch {
+	case err == nil:
+		if resp == nil || resp.Secret == nil {
+			return nil, nil, nil
+		}
+		return &resp.Secret.SecretFields, resp.Secret.DeleteAfterUse, nil
+	case !api.IsFrameworkValidationOnlyFor(err, "deleteAfterUse"):
+		return nil, nil, err
+	}
+	old, err := gen.SecretWithoutDeleteAfterUse(ctx, client, ref)
+	if err != nil || old == nil || old.Secret == nil {
+		return nil, nil, err
+	}
+	return &old.Secret.SecretFields, nil, nil
 }

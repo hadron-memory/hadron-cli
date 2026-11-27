@@ -269,3 +269,21 @@ instead of) a value/metadata change.
   the hedged `#4805` help sentence (stays conditional until the server lands it); the
   non-App `create --protected` refusal pin (declined in scope above); trimming this round
   log (the plan doc is the as-built record; the log is its history).
+
+## delete-after-use (cli#3308, companion to hadron-server#5335)
+
+Server contract read at hadron-server `bc57843e` (`resolvers.secret.ts`, `readClientIssuer.ts`).
+
+- `secret update --delete-after-use|--no-delete-after-use`: presence-based tri-state, sent as
+  `updateSecret(deleteAfterUse:)` on its own document (`UpdateSecretDeleteAfterUse`), so the
+  unflagged and `--protected` requests are unchanged. `--no-delete-after-use=false` is refused:
+  it asks for nothing. A staged answer rides `mapChange` (exit 5; the ceremony is never
+  completed). A returned secret counts only when it reports the value asked for; anything else
+  is exit 7.
+- `secret get` selects `deleteAfterUse` and retries once without it on a server whose schema
+  lacks the field (null, text `-`). `secretDetailDTO` adds the key to `get` and to a flagged
+  `update` only; every other secret answer keeps its shape.
+- `SECRET_AUTO_DELETE_NOT_ALLOWED` stays exit 8 with the server's message. The server answers
+  two causes with it (not an issuer; protected without the option), on purpose, so the CLI adds
+  one hint naming both and picks neither. The issue first asked for a "protected" state refusal;
+  the gate was amended (Xenophon, 2026-11-27).
