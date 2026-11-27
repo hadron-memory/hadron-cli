@@ -166,6 +166,9 @@ func TestHostRemove3282WithoutForceRefusesOnOpenSessions(t *testing.T) {
 	if !strings.Contains(r.err.Error(), "Iris") || strings.Contains(r.err.Error(), "Zed") || !strings.Contains(r.err.Error(), "--force") {
 		t.Errorf("the refusal must name the open session's worker and the --force way forward: %v", r.err)
 	}
+	if strings.Contains(r.err.Error(), "box1") {
+		t.Errorf("a refusal must not echo the host given (#2898): %v", r.err)
+	}
 	if _, sent := s.last("RemoveAgentTeamHost").vars["force"]; sent {
 		t.Error("force must not be sent without the flag")
 	}
@@ -296,5 +299,48 @@ func TestHostRemove3282ReportsLocalDeletionAndAnUnreadableListing(t *testing.T) 
 	}
 	if !strings.Contains(r.errOut, "could not list") {
 		t.Errorf("an unreadable listing must be said on stderr:\n%s", r.errOut)
+	}
+}
+
+// The stored key goes only when THIS machine holds the removed host's key: removing
+// another host of the same App, with the server confirming, leaves this machine's key
+// (and removedLocally false). This is the pin for the host guard.
+func TestHostRemove3282KeepsTheStoredKeyOfADifferentHost(t *testing.T) {
+	s := srv3282(t, desiredNone3282, "")
+	var before []byte
+	r := exec3239(t, s, func(dir string) {
+		holdBox1(t, s)(dir)
+		before, _ = os.ReadFile(filepath.Join(dir, "host-credentials.json"))
+	}, "team", "host", "remove", "box2", "--force", "--app", "acme.com:eng", "--yes", "--json")
+	if r.err != nil {
+		t.Fatalf("%v\n%s", r.err, r.errOut)
+	}
+	if after, _ := os.ReadFile(storePath3239()); !bytes.Equal(before, after) {
+		t.Error("removing another host must not delete this machine's stored key")
+	}
+	dto := jsonObject3072(t, r.out)
+	if dto["removedOnServer"] != true || dto["removedLocally"] != false || dto["hostId"] != "box2" {
+		t.Errorf("DTO: %v", dto)
+	}
+}
+
+// Without --force and with an unreadable listing the refusal still says what it can:
+// no worker names (none were read), the way forward, no echo of the host.
+func TestHostRemove3282RefusalWithoutAListingNamesNoWorkers(t *testing.T) {
+	s := newSrv3239(t, func(op string, _ map[string]any) string {
+		switch op {
+		case "HostDesiredState":
+			return refusal3239("INTERNAL_SERVER_ERROR")
+		case "RemoveAgentTeamHost":
+			return refusal3239("AGENT_TEAM_HOST_HAS_OPEN_SESSIONS")
+		}
+		return ""
+	})
+	r := exec3239(t, s, holdBox1(t, s), "team", "host", "remove", "box1", "--app", "acme.com:eng", "--yes")
+	if r.code != exitcode.Conflict {
+		t.Fatalf("exit %d (%v), want 5", r.code, r.err)
+	}
+	if !strings.Contains(r.err.Error(), "--force") || strings.Contains(r.err.Error(), "Iris") || strings.Contains(r.err.Error(), "box1") {
+		t.Errorf("refusal: %v", r.err)
 	}
 }
