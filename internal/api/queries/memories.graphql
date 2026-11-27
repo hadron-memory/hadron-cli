@@ -442,7 +442,12 @@ mutation CreateMemoryInApp(
   $appRef: ID!
   $agentRef: ID!
   $memoryClass: MemoryClass!
-  $name: String!
+  # cli#3184 (server#5183): optional. For personal and private the server derives the
+  # slug and the display name and ignores a name, so it is omitted unless --name was
+  # given (an older server still uses it); for app and knowledge a missing name is the
+  # server's BAD_USER_INPUT. omitempty so an unset flag is omitted, never sent as null.
+  # @genqlient(omitempty: true)
+  $name: String
   # @genqlient(omitempty: true)
   $shortDescription: String
   # @genqlient(omitempty: true)

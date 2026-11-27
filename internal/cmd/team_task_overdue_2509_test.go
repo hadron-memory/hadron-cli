@@ -34,15 +34,18 @@ func overdueFlagLine(t *testing.T, help string) string {
 
 func TestTaskListOverdueHelpNamesTheFinishByArm2509(t *testing.T) {
 	help := cmdHelpOut(t, "team", "task", "list")
-	// The long help states both arms, whose clock judges them, the
-	// never-overdue set, and the provider the finish-by arm needs.
+	// The long help states both arms, whose clock judges them and the
+	// never-overdue set. The finish-by arm's own 2026-11-17 floor was subsumed
+	// by the shared task-record floor (cli#3109, 2026-11-24): a server old
+	// enough to lack the arm refuses the whole read as schema skew, so the
+	// page states that one floor instead.
 	flat := strings.Join(strings.Fields(help), " ")
 	for _, want := range []string{
 		"finish-by has passed",
 		"server clock",
 		"never overdue",
 		"Blocking is ignored",
-		"needs a server released on or after 2026-11-17",
+		"released on or after 2026-11-24",
 	} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("team task list --help must say %q", want)
@@ -85,15 +88,16 @@ func helpParagraph(t *testing.T, help, phrase string) string {
 func TestTaskCreateFinishByHelpMentionsOverdue2509(t *testing.T) {
 	help := cmdHelpOut(t, "team", "task", "create")
 	// The --finish-by PARAGRAPH must say it, not just the --start-by one
-	// above it (which already names --overdue on main).
+	// above it (which already names --overdue on main). Its old arm floor
+	// (2026-11-17) was subsumed by the shared task-record floor (cli#3109),
+	// so the page — not the paragraph — states 2026-11-24.
 	para := strings.Join(strings.Fields(helpParagraph(t, help, "sets a deadline to finish")), " ")
-	for _, want := range []string{
-		"overdue",
-		"needs a server released on or after 2026-11-17",
-	} {
-		if !strings.Contains(para, want) {
-			t.Errorf("the --finish-by help must say %q:\n%s", want, para)
-		}
+	if !strings.Contains(para, "overdue") {
+		t.Errorf("the --finish-by help must say %q:\n%s", "overdue", para)
+	}
+	flat := strings.Join(strings.Fields(help), " ")
+	if !strings.Contains(flat, "released on or after 2026-11-24") {
+		t.Errorf("the create page must state the task-record floor 2026-11-24:\n%s", flat)
 	}
 	// And the start-by paragraph names its own arm, so it cannot read as
 	// the only one.
@@ -176,10 +180,15 @@ func TestAgenticUsagePinsOverdueFinishByArm2509(t *testing.T) {
 	for _, want := range []string{
 		"two arms on the server clock",
 		"finish-by passed and not ended",
-		"finish-by arm needs a provider containing hadron-server#2654",
+		// cli#3109 subsumed the arm's own #2654 floor: the finish-by arm rides
+		// the shared task-record read, so the task-command floor covers it.
+		"every task command needs a server released on or after 2026-11-24",
 	} {
 		if !strings.Contains(flat, want) {
 			t.Errorf("agentic-usage overdue filter sentence lacks %q", want)
 		}
+	}
+	if strings.Contains(flat, "finish-by arm needs a provider containing") {
+		t.Errorf("agentic-usage still states the overdue arm's own floor, subsumed by the task-command floor (cli#3109)")
 	}
 }

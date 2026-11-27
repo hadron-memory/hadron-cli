@@ -39,6 +39,8 @@ const (
 	AccessSourceMemoryPrincipal AccessSource = "MEMORY_PRINCIPAL"
 	// personal-class cross-user grant (MemoryShare).
 	AccessSourceMemoryShare AccessSource = "MEMORY_SHARE"
+	// cross-org MemorySubscription (#329): the subscribing org's live subscription — read at any membership role, write only for knowledge at CONTRIBUTOR+ membership AND subscription. role is the EFFECTIVE level conferred (READER, or CONTRIBUTOR where write holds), never the subscription row's own role. via is the subscribing org's URN.
+	AccessSourceMemorySubscription AccessSource = "MEMORY_SUBSCRIPTION"
 	// node inherits its memory's access.
 	AccessSourceNodeInherited AccessSource = "NODE_INHERITED"
 	// ADMIN/OWNER (or, for org-readable knowledge, any Role) of the owning org.
@@ -58,6 +60,7 @@ var AllAccessSource = []AccessSource{
 	AccessSourceMemoryMember,
 	AccessSourceMemoryPrincipal,
 	AccessSourceMemoryShare,
+	AccessSourceMemorySubscription,
 	AccessSourceNodeInherited,
 	AccessSourceOrgRole,
 	AccessSourcePlatformRole,
@@ -3238,6 +3241,11 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetCreatedBy() *AgentT
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskAddBlockerAddAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -3398,6 +3406,8 @@ type __premarshalAgentTaskAddBlockerAddAgentTaskBlockerAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -3467,6 +3477,7 @@ func (v *AgentTaskAddBlockerAddAgentTaskBlockerAgentTask) __premarshalJSON() (*_
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -3584,6 +3595,11 @@ func (v *AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask) GetAssignedB
 // GetCreatedBy returns AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -3746,6 +3762,8 @@ type __premarshalAgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask struc
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -3815,6 +3833,7 @@ func (v *AgentTaskAddBlockerInstructedAddAgentTaskBlockerAgentTask) __premarshal
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -3937,6 +3956,9 @@ func (v *AgentTaskAssignAssignAgentTask) GetAssignedBy() *AgentTaskFieldsAssigne
 func (v *AgentTaskAssignAssignAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskAssignAssignAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignAssignAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskAssignAssignAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignAssignAgentTask) GetParentTaskId() *string {
@@ -4080,6 +4102,8 @@ type __premarshalAgentTaskAssignAssignAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -4149,6 +4173,7 @@ func (v *AgentTaskAssignAssignAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -4258,6 +4283,11 @@ func (v *AgentTaskAssignInstructedAssignAgentTask) GetAssignedBy() *AgentTaskFie
 // GetCreatedBy returns AgentTaskAssignInstructedAssignAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskAssignInstructedAssignAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskAssignInstructedAssignAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskAssignInstructedAssignAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskAssignInstructedAssignAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -4418,6 +4448,8 @@ type __premarshalAgentTaskAssignInstructedAssignAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -4487,6 +4519,7 @@ func (v *AgentTaskAssignInstructedAssignAgentTask) __premarshalJSON() (*__premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -4623,6 +4656,9 @@ func (v *AgentTaskCancelCancelAgentTask) GetAssignedBy() *AgentTaskFieldsAssigne
 func (v *AgentTaskCancelCancelAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskCancelCancelAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelCancelAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskCancelCancelAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelCancelAgentTask) GetParentTaskId() *string {
@@ -4766,6 +4802,8 @@ type __premarshalAgentTaskCancelCancelAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -4835,6 +4873,7 @@ func (v *AgentTaskCancelCancelAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -4944,6 +4983,11 @@ func (v *AgentTaskCancelInstructedCancelAgentTask) GetAssignedBy() *AgentTaskFie
 // GetCreatedBy returns AgentTaskCancelInstructedCancelAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCancelInstructedCancelAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskCancelInstructedCancelAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCancelInstructedCancelAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskCancelInstructedCancelAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -5104,6 +5148,8 @@ type __premarshalAgentTaskCancelInstructedCancelAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -5173,6 +5219,7 @@ func (v *AgentTaskCancelInstructedCancelAgentTask) __premarshalJSON() (*__premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -5307,6 +5354,9 @@ func (v *AgentTaskCloneCloneAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedB
 func (v *AgentTaskCloneCloneAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskCloneCloneAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCloneCloneAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskCloneCloneAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskCloneCloneAgentTask) GetParentTaskId() *string {
@@ -5448,6 +5498,8 @@ type __premarshalAgentTaskCloneCloneAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -5517,6 +5569,7 @@ func (v *AgentTaskCloneCloneAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -5653,6 +5706,11 @@ func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetAssignedBy() *AgentTa
 // GetCreatedBy returns AgentTaskCreateBatchCreateAgentTasksAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskCreateBatchCreateAgentTasksAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskCreateBatchCreateAgentTasksAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -5815,6 +5873,8 @@ type __premarshalAgentTaskCreateBatchCreateAgentTasksAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -5884,6 +5944,7 @@ func (v *AgentTaskCreateBatchCreateAgentTasksAgentTask) __premarshalJSON() (*__p
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -6030,6 +6091,9 @@ func (v *AgentTaskCreateCreateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedB
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskCreateCreateAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateCreateAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskCreateCreateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateCreateAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -6174,6 +6238,8 @@ type __premarshalAgentTaskCreateCreateAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -6244,6 +6310,7 @@ func (v *AgentTaskCreateCreateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -6387,6 +6454,11 @@ func (v *AgentTaskCreateInstructedCreateAgentTask) GetAssignedBy() *AgentTaskFie
 // GetCreatedBy returns AgentTaskCreateInstructedCreateAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskCreateInstructedCreateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskCreateInstructedCreateAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskCreateInstructedCreateAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskCreateInstructedCreateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -6549,6 +6621,8 @@ type __premarshalAgentTaskCreateInstructedCreateAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -6619,6 +6693,7 @@ func (v *AgentTaskCreateInstructedCreateAgentTask) __premarshalJSON() (*__premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -7330,6 +7405,9 @@ type AgentTaskFields struct {
 	Assignee   *AgentTaskFieldsAssigneeAgentTaskParty   `json:"assignee"`
 	AssignedBy *AgentTaskFieldsAssignedByAgentTaskParty `json:"assignedBy"`
 	CreatedBy  *AgentTaskFieldsCreatedByAgentTaskParty  `json:"createdBy"`
+	// #4997 (hrn:node:hadronmemory.com:specs:cor:agt:050:01 Project marker): whether this task is a project for the team metrics
+	// (hrn:node:hadronmemory.com:specs:cor:agt:150). Set only when the task is created and never changed; AT0 is never one.
+	IsProject bool `json:"isProject"`
 	// Null for a root task.
 	ParentTaskId *string  `json:"parentTaskId"`
 	Tags         []string `json:"tags"`
@@ -7428,6 +7506,9 @@ func (v *AgentTaskFields) GetAssignedBy() *AgentTaskFieldsAssignedByAgentTaskPar
 
 // GetCreatedBy returns AgentTaskFields.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty { return v.CreatedBy }
+
+// GetIsProject returns AgentTaskFields.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskFields) GetIsProject() bool { return v.IsProject }
 
 // GetParentTaskId returns AgentTaskFields.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskFields) GetParentTaskId() *string { return v.ParentTaskId }
@@ -8488,6 +8569,9 @@ func (v *AgentTaskFinishFinishAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedB
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskFinishFinishAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishFinishAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskFinishFinishAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishFinishAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -8630,6 +8714,8 @@ type __premarshalAgentTaskFinishFinishAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -8699,6 +8785,7 @@ func (v *AgentTaskFinishFinishAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -8847,6 +8934,11 @@ func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetAssignedBy() *AgentTaskF
 // GetCreatedBy returns AgentTaskFinishWithFindingsFinishAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskFinishWithFindingsFinishAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskFinishWithFindingsFinishAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskFinishWithFindingsFinishAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -9011,6 +9103,8 @@ type __premarshalAgentTaskFinishWithFindingsFinishAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -9081,6 +9175,7 @@ func (v *AgentTaskFinishWithFindingsFinishAgentTask) __premarshalJSON() (*__prem
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -9309,6 +9404,9 @@ func (v *AgentTaskGetAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTas
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskGetAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskGetAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskGetAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskGetAgentTask) GetParentTaskId() *string { return v.AgentTaskFields.ParentTaskId }
 
@@ -9449,6 +9547,8 @@ type __premarshalAgentTaskGetAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -9520,6 +9620,7 @@ func (v *AgentTaskGetAgentTask) __premarshalJSON() (*__premarshalAgentTaskGetAge
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -9844,6 +9945,9 @@ func (v *AgentTaskHandBackHandBackAgentTask) GetCreatedBy() *AgentTaskFieldsCrea
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskHandBackHandBackAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskHandBackHandBackAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskHandBackHandBackAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskHandBackHandBackAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -9996,6 +10100,8 @@ type __premarshalAgentTaskHandBackHandBackAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -10065,6 +10171,7 @@ func (v *AgentTaskHandBackHandBackAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -10329,6 +10436,11 @@ func (v *AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedBy() 
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -10489,6 +10601,8 @@ type __premarshalAgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -10558,6 +10672,7 @@ func (v *AgentTaskListAgentTasksPageAgentTaskPageItemsAgentTask) __premarshalJSO
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -10696,6 +10811,11 @@ func (v *AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) GetAssig
 // GetCreatedBy returns AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -10858,6 +10978,8 @@ type __premarshalAgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask s
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -10927,6 +11049,7 @@ func (v *AgentTaskListCreatorAgentTasksPageAgentTaskPageItemsAgentTask) __premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -11083,6 +11206,11 @@ func (v *AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) GetAssi
 // GetCreatedBy returns AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -11245,6 +11373,8 @@ type __premarshalAgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask 
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -11314,6 +11444,7 @@ func (v *AgentTaskListFilteredAgentTasksPageAgentTaskPageItemsAgentTask) __prema
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -11490,6 +11621,11 @@ func (v *AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedB
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -11650,6 +11786,8 @@ type __premarshalAgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask stru
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -11719,6 +11857,7 @@ func (v *AgentTaskListTextAgentTasksPageAgentTaskPageItemsAgentTask) __premarsha
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -11875,6 +12014,11 @@ func (v *AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) GetAs
 // GetCreatedBy returns AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -12037,6 +12181,8 @@ type __premarshalAgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTas
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -12106,6 +12252,7 @@ func (v *AgentTaskListUnresolvedAgentTasksPageAgentTaskPageItemsAgentTask) __pre
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -12290,6 +12437,11 @@ func (v *AgentTaskParkInstructedParkAgentTask) GetCreatedBy() *AgentTaskFieldsCr
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskParkInstructedParkAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkInstructedParkAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskParkInstructedParkAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkInstructedParkAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -12444,6 +12596,8 @@ type __premarshalAgentTaskParkInstructedParkAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -12513,6 +12667,7 @@ func (v *AgentTaskParkInstructedParkAgentTask) __premarshalJSON() (*__premarshal
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -12629,6 +12784,9 @@ func (v *AgentTaskParkParkAgentTask) GetAssignedBy() *AgentTaskFieldsAssignedByA
 func (v *AgentTaskParkParkAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskParkParkAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskParkParkAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskParkParkAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskParkParkAgentTask) GetParentTaskId() *string { return v.AgentTaskFields.ParentTaskId }
@@ -12768,6 +12926,8 @@ type __premarshalAgentTaskParkParkAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -12837,6 +12997,7 @@ func (v *AgentTaskParkParkAgentTask) __premarshalJSON() (*__premarshalAgentTaskP
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -13023,6 +13184,11 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetCreatedBy() *Agen
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskProgressRecordAgentTaskProgressAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskProgressRecordAgentTaskProgressAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -13183,6 +13349,8 @@ type __premarshalAgentTaskProgressRecordAgentTaskProgressAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -13252,6 +13420,7 @@ func (v *AgentTaskProgressRecordAgentTaskProgressAgentTask) __premarshalJSON() (
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -13382,6 +13551,11 @@ func (v *AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask) GetAssignedBy() *A
 // GetCreatedBy returns AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -13544,6 +13718,8 @@ type __premarshalAgentTaskReadyInstructedMakeAgentTaskReadyAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -13613,6 +13789,7 @@ func (v *AgentTaskReadyInstructedMakeAgentTaskReadyAgentTask) __premarshalJSON()
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -13739,6 +13916,11 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetAssignedBy() *AgentTaskFi
 // GetCreatedBy returns AgentTaskReadyMakeAgentTaskReadyAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskReadyMakeAgentTaskReadyAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskReadyMakeAgentTaskReadyAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -13899,6 +14081,8 @@ type __premarshalAgentTaskReadyMakeAgentTaskReadyAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -13968,6 +14152,7 @@ func (v *AgentTaskReadyMakeAgentTaskReadyAgentTask) __premarshalJSON() (*__prema
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -14100,6 +14285,11 @@ func (v *AgentTaskReassignInstructedReassignAgentTask) GetAssignedBy() *AgentTas
 // GetCreatedBy returns AgentTaskReassignInstructedReassignAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignInstructedReassignAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskReassignInstructedReassignAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignInstructedReassignAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskReassignInstructedReassignAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -14262,6 +14452,8 @@ type __premarshalAgentTaskReassignInstructedReassignAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -14331,6 +14523,7 @@ func (v *AgentTaskReassignInstructedReassignAgentTask) __premarshalJSON() (*__pr
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -14451,6 +14644,9 @@ func (v *AgentTaskReassignReassignAgentTask) GetAssignedBy() *AgentTaskFieldsAss
 func (v *AgentTaskReassignReassignAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskReassignReassignAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReassignReassignAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskReassignReassignAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskReassignReassignAgentTask) GetParentTaskId() *string {
@@ -14604,6 +14800,8 @@ type __premarshalAgentTaskReassignReassignAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -14673,6 +14871,7 @@ func (v *AgentTaskReassignReassignAgentTask) __premarshalJSON() (*__premarshalAg
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -14863,6 +15062,11 @@ func (v *AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask) GetCreat
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -15023,6 +15227,8 @@ type __premarshalAgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask s
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -15092,6 +15298,7 @@ func (v *AgentTaskReleaseInstructedReleaseAgentTaskExternalIdAgentTask) __premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -15226,6 +15433,11 @@ func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetAssignedBy() *A
 // GetCreatedBy returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -15388,6 +15600,8 @@ type __premarshalAgentTaskReleaseReleaseAgentTaskExternalIdAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -15457,6 +15671,7 @@ func (v *AgentTaskReleaseReleaseAgentTaskExternalIdAgentTask) __premarshalJSON()
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -15591,6 +15806,11 @@ func (v *AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask) GetAss
 // GetCreatedBy returns AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -15753,6 +15973,8 @@ type __premarshalAgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -15822,6 +16044,7 @@ func (v *AgentTaskRemoveBlockerInstructedRemoveAgentTaskBlockerAgentTask) __prem
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -15950,6 +16173,11 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetAssignedBy() 
 // GetCreatedBy returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -16112,6 +16340,8 @@ type __premarshalAgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -16181,6 +16411,7 @@ func (v *AgentTaskRemoveBlockerRemoveAgentTaskBlockerAgentTask) __premarshalJSON
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -16550,6 +16781,11 @@ func (v *AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask) GetCreated
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
+}
+
 // GetParentTaskId returns AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -16710,6 +16946,8 @@ type __premarshalAgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask str
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -16779,6 +17017,7 @@ func (v *AgentTaskSetPriorityInstructedSetAgentTaskPriorityAgentTask) __premarsh
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -16907,6 +17146,11 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetAssignedBy() *Age
 // GetCreatedBy returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskSetPrioritySetAgentTaskPriorityAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -17069,6 +17313,8 @@ type __premarshalAgentTaskSetPrioritySetAgentTaskPriorityAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -17138,6 +17384,7 @@ func (v *AgentTaskSetPrioritySetAgentTaskPriorityAgentTask) __premarshalJSON() (
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -17307,6 +17554,9 @@ func (v *AgentTaskStartStartAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByA
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskStartStartAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskStartStartAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskStartStartAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskStartStartAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -17447,6 +17697,8 @@ type __premarshalAgentTaskStartStartAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -17516,6 +17768,7 @@ func (v *AgentTaskStartStartAgentTask) __premarshalJSON() (*__premarshalAgentTas
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -17740,6 +17993,9 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetCreatedBy() *AgentTaskFieldsCre
 	return v.AgentTaskFields.CreatedBy
 }
 
+// GetIsProject returns AgentTaskTreeAgentTaskTreeAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
+
 // GetParentTaskId returns AgentTaskTreeAgentTaskTreeAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskTreeAgentTaskTreeAgentTask) GetParentTaskId() *string {
 	return v.AgentTaskFields.ParentTaskId
@@ -17894,6 +18150,8 @@ type __premarshalAgentTaskTreeAgentTaskTreeAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -17963,6 +18221,7 @@ func (v *AgentTaskTreeAgentTaskTreeAgentTask) __premarshalJSON() (*__premarshalA
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -18101,6 +18360,11 @@ func (v *AgentTaskUpdateInstructedUpdateAgentTask) GetAssignedBy() *AgentTaskFie
 // GetCreatedBy returns AgentTaskUpdateInstructedUpdateAgentTask.CreatedBy, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateInstructedUpdateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
+}
+
+// GetIsProject returns AgentTaskUpdateInstructedUpdateAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateInstructedUpdateAgentTask) GetIsProject() bool {
+	return v.AgentTaskFields.IsProject
 }
 
 // GetParentTaskId returns AgentTaskUpdateInstructedUpdateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
@@ -18261,6 +18525,8 @@ type __premarshalAgentTaskUpdateInstructedUpdateAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -18330,6 +18596,7 @@ func (v *AgentTaskUpdateInstructedUpdateAgentTask) __premarshalJSON() (*__premar
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -18447,6 +18714,9 @@ func (v *AgentTaskUpdateUpdateAgentTask) GetAssignedBy() *AgentTaskFieldsAssigne
 func (v *AgentTaskUpdateUpdateAgentTask) GetCreatedBy() *AgentTaskFieldsCreatedByAgentTaskParty {
 	return v.AgentTaskFields.CreatedBy
 }
+
+// GetIsProject returns AgentTaskUpdateUpdateAgentTask.IsProject, and is useful for accessing the field via an interface.
+func (v *AgentTaskUpdateUpdateAgentTask) GetIsProject() bool { return v.AgentTaskFields.IsProject }
 
 // GetParentTaskId returns AgentTaskUpdateUpdateAgentTask.ParentTaskId, and is useful for accessing the field via an interface.
 func (v *AgentTaskUpdateUpdateAgentTask) GetParentTaskId() *string {
@@ -18590,6 +18860,8 @@ type __premarshalAgentTaskUpdateUpdateAgentTask struct {
 
 	CreatedBy *AgentTaskFieldsCreatedByAgentTaskParty `json:"createdBy"`
 
+	IsProject bool `json:"isProject"`
+
 	ParentTaskId *string `json:"parentTaskId"`
 
 	Tags []string `json:"tags"`
@@ -18659,6 +18931,7 @@ func (v *AgentTaskUpdateUpdateAgentTask) __premarshalJSON() (*__premarshalAgentT
 	retval.Assignee = v.AgentTaskFields.Assignee
 	retval.AssignedBy = v.AgentTaskFields.AssignedBy
 	retval.CreatedBy = v.AgentTaskFields.CreatedBy
+	retval.IsProject = v.AgentTaskFields.IsProject
 	retval.ParentTaskId = v.AgentTaskFields.ParentTaskId
 	retval.Tags = v.AgentTaskFields.Tags
 	retval.Source = v.AgentTaskFields.Source
@@ -18691,7 +18964,7 @@ type AgentTeamEventFields struct {
 	TaskId *string `json:"taskId"`
 	// The task's stored handle (hrn:node:hadronmemory.com:specs:cor:agt:050:01, Proposed). Null when taskId is null or the task no longer exists; never invented.
 	TaskHandle *string `json:"taskHandle"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.lead-cadence (#2763, #4375: task-less, subjectWorker is the lead that stopped assigning: a worker that at least one worker reports to; events raised before #4375 carry the type alarm.coordinator-cadence, the same alarm under its old name); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); team.dark (#4531: App-owned, task-less and workerless, with an empty chain, hrn:node:hadronmemory.com:specs:cor:agt:050:34: the team as a whole went silent past the dark window, one per episode; payload is reason (wake-unacked, no-turn or work-waiting), windowMinutes, workerCount, darkWorkerCount, oldestWakeAgeSeconds and waitingSeconds, counts and ages only; it wakes nobody and is not acknowledgeable) and team.recovered (an ordinary event, one per episode, when the condition clears); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.lead-cadence (#2763, #4375: task-less, subjectWorker is the lead that stopped assigning: a worker that at least one worker reports to; events raised before #4375 carry the type alarm.coordinator-cadence, the same alarm under its old name); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); team.dark (#4531: App-owned, task-less and workerless, with an empty chain, hrn:node:hadronmemory.com:specs:cor:agt:050:34: the team as a whole went silent past the dark window, one per episode; payload is reason (wake-unacked, no-turn or work-waiting), windowMinutes, workerCount, darkWorkerCount, oldestWakeAgeSeconds and waitingSeconds, counts and ages only; it wakes nobody and is not acknowledgeable) and team.recovered (an ordinary event, one per episode, when the condition clears); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.joined, host.updated, host.removed (#5259: payload is hostId, and for host.joined whether it replaced a live key; never the label or a key); host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -28181,7 +28454,7 @@ type AssignHostWorkerInput struct {
 	Effort *string `json:"effort,omitempty"`
 	// The model family it runs as there: any family token (letters, digits, . _ or -, starting with a letter or digit, at most 64 characters; case-insensitive and stored lowercase; anthropic is claude and openai is codex). Whether the host can run it is the host's to report: a start it cannot run is reported failed.
 	Family string `json:"family"`
-	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
+	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet, but it must be joined (#5259: joinAgentTeamHost).
 	HostId string `json:"hostId"`
 	// The model, a profile token: letters, digits, . _ or -, starting with a letter or digit, at most 128 characters. Optional.
 	Model *string `json:"model,omitempty"`
@@ -28292,16 +28565,19 @@ func (v *AttachMemoryToAppAttachMemoryToAppMemory) GetUpdatedAt() string { retur
 
 // AttachMemoryToAppResponse is returned by AttachMemoryToApp on success.
 type AttachMemoryToAppResponse struct {
-	// Attach an EXISTING free-standing memory to an App.
+	// #5185 — LINK a memory you can read to an App. The memory is not changed: same owner, class, App, Agent, URN and name. The
+	// App's key and its userless runs may then READ it (never write it) for as long as you can read it in your own right (not
+	// through any App); when you lose read the link goes inert, and it works again if you regain it. A user, with or without the
+	// App selected, gains nothing from a link. For a 'personal' or 'private' memory the key reads it only when the memory's owner
+	// is the App's owner (a user-owned App whose owner linked their own memory); in an organization's App the link is inert for
+	// the key. Any class except 'system', in any tenant. One memory may be linked into several Apps. A link you already hold is
+	// success and writes nothing. 'agentRef' is accepted and ignored (deployed clients keep working).
 	//
-	// Applies only to 'personal'/'private' memories owned by the caller (an
-	// 'app'-class memory can't be free-standing, so there is nothing to attach).
-	// Sets the App and Agent scope; the memory's URN, class, and owner are
-	// unchanged. memoryRef/appRef/agentRef accept an ID, bare URN, or prefixed
-	// URN; the Agent must be installed in the App. Requires App membership.
-	//
-	// Typed errors: UNSUPPORTED_MEMORY_CLASS, MEMORY_ALREADY_APP_SCOPED,
-	// APP_UNINSTALLED, AGENT_NOT_INSTALLED, FORBIDDEN, ORGANIZATION_MISMATCH.
+	// Person only: a signed-in user acting as themselves, and a member of the App. Typed errors, judged in this order before any
+	// write: UNAUTHENTICATED (no signed-in user); FORBIDDEN (an App key, run, worker session or impersonation; also an unknown or
+	// deleted App, or a caller who is not a member, one identical answer); MEMORY_NOT_FOUND (unknown, deleted or not readable by
+	// you in your own right, one identical answer); UNSUPPORTED_MEMORY_CLASS ('memoryClass: system'); APP_UNINSTALLED.
+	// No longer answered: MEMORY_ALREADY_APP_SCOPED, ORGANIZATION_MISMATCH, AGENT_NOT_INSTALLED.
 	AttachMemoryToApp *AttachMemoryToAppAttachMemoryToAppMemory `json:"attachMemoryToApp"`
 }
 
@@ -37316,9 +37592,9 @@ type CloneMemoryResponse struct {
 	// only the authored tag and nothing is created.
 	//
 	// Authorization: the SOURCE side requires (personal/private →
-	// owner only; knowledge/group → source-org memory.clone grant). When `targetUrn` names a
-	// DIFFERENT org, the caller must additionally be a non-reader member of that
-	// target org. system/app-class sources and encrypted memories are rejected.
+	// owner only; knowledge/group → source-org memory.clone grant). The caller must also be a
+	// non-reader member of the target org (any target, the source's own org included);
+	// reusing the URN of a soft-deleted org-owned memory additionally requires memory.create there. system/app-class sources and encrypted memories are rejected.
 	CloneMemory *CloneMemoryCloneMemory `json:"cloneMemory"`
 }
 
@@ -45196,8 +45472,10 @@ type CreateMemoryDraftResponse struct {
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
 	// caller owns (free-standing, no app/agent). An org-anchored personal/private
-	// memory requires actual membership of that org container; the org-less
-	// owner-only path requires no org membership. system- and app-class
+	// memory requires actual membership of that org container, and reusing the
+	// name of a deleted organization-owned memory there also requires the org's
+	// memory.create grant; the org-less owner-only path requires no org
+	// membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryDraftCreateMemory `json:"createMemory"`
@@ -45288,8 +45566,10 @@ type CreateMemoryDraftWithSlugResponse struct {
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
 	// caller owns (free-standing, no app/agent). An org-anchored personal/private
-	// memory requires actual membership of that org container; the org-less
-	// owner-only path requires no org membership. system- and app-class
+	// memory requires actual membership of that org container, and reusing the
+	// name of a deleted organization-owned memory there also requires the org's
+	// memory.create grant; the org-less owner-only path requires no org
+	// membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryDraftWithSlugCreateMemory `json:"createMemory"`
@@ -45420,8 +45700,10 @@ type CreateMemoryResponse struct {
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
 	// caller owns (free-standing, no app/agent). An org-anchored personal/private
-	// memory requires actual membership of that org container; the org-less
-	// owner-only path requires no org membership. system- and app-class
+	// memory requires actual membership of that org container, and reusing the
+	// name of a deleted organization-owned memory there also requires the org's
+	// memory.create grant; the org-less owner-only path requires no org
+	// membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryCreateMemory `json:"createMemory"`
@@ -45723,8 +46005,10 @@ type CreateMemoryWithSlugResponse struct {
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
 	// caller owns (free-standing, no app/agent). An org-anchored personal/private
-	// memory requires actual membership of that org container; the org-less
-	// owner-only path requires no org membership. system- and app-class
+	// memory requires actual membership of that org container, and reusing the
+	// name of a deleted organization-owned memory there also requires the org's
+	// memory.create grant; the org-less owner-only path requires no org
+	// membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryWithSlugCreateMemory `json:"createMemory"`
@@ -49146,6 +49430,9 @@ type CreditBalanceResponse struct {
 	// passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles the account's grants
 	// that expired more than a minute ago: it may write those settlement entries, once per grant,
 	// and never does for an impersonated session, which gets the same figure worked out and stored nowhere.
+	// Where the deployment sets a default monthly grant (hrn:node:hadronmemory.com:specs:cor:dmo:170:12), the read also
+	// writes the account's grant for the current UTC month if it has none yet, once per account and month; an impersonated
+	// session writes none, and its figure includes the grant still due. A failed grant write never fails the read.
 	CreditBalance *CreditBalanceCreditBalance `json:"creditBalance"`
 }
 
@@ -54440,7 +54727,7 @@ type ExtractParentNodeToMemoryResponse struct {
 	// NODE_NOT_FOUND). For knowledge/group sources the caller needs the SOURCE
 	// org's memory.clone grant (an export) AND the destination org's memory.create
 	// (plus a non-reader membership for a cross-org drop); a personal/private
-	// extract instead requires the owner to be a member of the destination org.
+	// extract instead requires the owner to be a non-reader member of the destination org; reusing the URN of a soft-deleted org-owned memory additionally requires memory.create there.
 	// 'move' additionally requires source write access and must leave a live
 	// node outside the extracted subtree; otherwise it would empty the source
 	// (clone + deleteMemory instead). The guard uses node membership, not the
@@ -61378,7 +61665,9 @@ type GrantAppKeyScopeResponse struct {
 	// A new key, and a rotated one, holds none. Unknown scope: BAD_USER_INPUT.
 	// #1709: host:operate is granted for ONE host, named by hostId (hrn:node:hadronmemory.com:specs:cor:agt:070:04), and
 	// hostId is refused for any other scope. A key already operating as another host is refused
-	// APP_KEY_SCOPE_HOST_CONFLICT: revoke host:operate first.
+	// APP_KEY_SCOPE_HOST_CONFLICT: revoke host:operate first. #5259: the host must be joined to the App
+	// (joinAgentTeamHost, hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed): a host the App does not have, or has
+	// removed, is refused HOST_NOT_FOUND.
 	GrantAppKeyScope *GrantAppKeyScopeGrantAppKeyScopeAppKey `json:"grantAppKeyScope"`
 }
 
@@ -96345,7 +96634,7 @@ type SecretChangeRequestSecretChangeRequest struct {
 	Id string `json:"id"`
 	// The effective state, with expiry judged on the server clock: open, completed, declined (the requester declined on the ceremony page), expired, withdrawn (the requester withdrew it) or stale (the secret changed first).
 	State string `json:"state"`
-	// The requested operation.
+	// The requested operation: STORE, DELETE, SET_PROTECTED or CLEAR_PROTECTED. STORE is staged by createSecret and updateSecret (a create, a new value version, a metadata edit or a protection change); DELETE by deleteSecret; the protection pair by setSecretProtected.
 	Operation string `json:"operation"`
 	// Creation time.
 	CreatedAt string `json:"createdAt"`
@@ -112367,8 +112656,9 @@ type TeamHostAssignInstructedResponse struct {
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
 	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
-	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
-	// already assigned to that host and replace is not set. A refusal writes nothing.
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, HOST_NOT_FOUND (#5259: the host is not
+	// joined to the App, or was removed), and HOST_ASSIGNMENT_EXISTS when this worker is already assigned to that host and
+	// replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
 
@@ -112386,8 +112676,9 @@ type TeamHostAssignResponse struct {
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
 	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
-	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
-	// already assigned to that host and replace is not set. A refusal writes nothing.
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, HOST_NOT_FOUND (#5259: the host is not
+	// joined to the App, or was removed), and HOST_ASSIGNMENT_EXISTS when this worker is already assigned to that host and
+	// replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
 
@@ -112697,8 +112988,9 @@ type TeamHostAssignWithProfileInstructedResponse struct {
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
 	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
-	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
-	// already assigned to that host and replace is not set. A refusal writes nothing.
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, HOST_NOT_FOUND (#5259: the host is not
+	// joined to the App, or was removed), and HOST_ASSIGNMENT_EXISTS when this worker is already assigned to that host and
+	// replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
 
@@ -112716,8 +113008,9 @@ type TeamHostAssignWithProfileResponse struct {
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
 	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
-	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
-	// already assigned to that host and replace is not set. A refusal writes nothing.
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, HOST_NOT_FOUND (#5259: the host is not
+	// joined to the App, or was removed), and HOST_ASSIGNMENT_EXISTS when this worker is already assigned to that host and
+	// replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
 
@@ -129639,6 +129932,15 @@ type UpdateSecretProtectedResponse struct {
 	// of a Secret, and nothing changes until the requester completes the passkey
 	// ceremony (hrn:node:hadronmemory.com:specs:cor:sec:070:02). The expiry and the two
 	// caps are as for createSecret.
+	// Legacy webfetch-auth rows (written before metadata.type was derived from
+	// the value) recover differently per owner kind, because only org and user
+	// rows are re-validated against their own decrypted stored value. There, any
+	// edit — metadata-only included — re-derives the type. An App row keeps its
+	// value in versions, which a metadata-only edit does not decrypt: rewriting
+	// the VALUE re-validates the (metadata, value) pair and re-derives the type,
+	// while a metadata-only edit of such a row is refused (the stored type is
+	// unavailable) until a value rewrite restores it. This holds for protected
+	// and unprotected App rows alike; it is not part of the passkey rules above.
 	UpdateSecret *UpdateSecretProtectedUpdateSecret `json:"updateSecret"`
 }
 
@@ -129782,6 +130084,15 @@ type UpdateSecretResponse struct {
 	// of a Secret, and nothing changes until the requester completes the passkey
 	// ceremony (hrn:node:hadronmemory.com:specs:cor:sec:070:02). The expiry and the two
 	// caps are as for createSecret.
+	// Legacy webfetch-auth rows (written before metadata.type was derived from
+	// the value) recover differently per owner kind, because only org and user
+	// rows are re-validated against their own decrypted stored value. There, any
+	// edit — metadata-only included — re-derives the type. An App row keeps its
+	// value in versions, which a metadata-only edit does not decrypt: rewriting
+	// the VALUE re-validates the (metadata, value) pair and re-derives the type,
+	// while a metadata-only edit of such a row is refused (the stored type is
+	// unavailable) until a value rewrite restores it. This holds for protected
+	// and unprotected App rows alike; it is not part of the passkey rules above.
 	UpdateSecret *UpdateSecretUpdateSecret `json:"updateSecret"`
 }
 
@@ -140768,7 +141079,7 @@ type __CreateMemoryInAppInput struct {
 	AppRef             string           `json:"appRef"`
 	AgentRef           string           `json:"agentRef"`
 	MemoryClass        MemoryClass      `json:"memoryClass"`
-	Name               string           `json:"name"`
+	Name               *string          `json:"name,omitempty"`
 	ShortDescription   *string          `json:"shortDescription,omitempty"`
 	Description        *string          `json:"description,omitempty"`
 	Tags               *[]string        `json:"tags,omitempty"`
@@ -140788,7 +141099,7 @@ func (v *__CreateMemoryInAppInput) GetAgentRef() string { return v.AgentRef }
 func (v *__CreateMemoryInAppInput) GetMemoryClass() MemoryClass { return v.MemoryClass }
 
 // GetName returns __CreateMemoryInAppInput.Name, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryInAppInput) GetName() string { return v.Name }
+func (v *__CreateMemoryInAppInput) GetName() *string { return v.Name }
 
 // GetShortDescription returns __CreateMemoryInAppInput.ShortDescription, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInAppInput) GetShortDescription() *string { return v.ShortDescription }
@@ -151725,7 +152036,7 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 
 // Platform-ADMIN or the BILLING role. Appends a signed adjustment; idempotent on
 // (sourceType, sourceId), a mismatched replay is IDEMPOTENCY_CONFLICT.
-// userRef is omitted for the reason given on GrantCredits.
+// cli#3184: userRef is omitted, as for GrantCredits (cli#3072 adds the person form).
 func AdjustCredits(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -152162,6 +152473,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152310,6 +152622,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152458,6 +152771,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152608,6 +152922,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152758,6 +153073,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -152902,6 +153218,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153048,6 +153365,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153208,6 +153526,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153382,6 +153701,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153539,6 +153859,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -153908,6 +154229,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154061,6 +154383,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154236,6 +154559,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154388,6 +154712,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154581,6 +154906,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154750,6 +155076,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -154949,6 +155276,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155147,6 +155475,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155316,6 +155645,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155509,6 +155839,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155657,6 +155988,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155803,6 +156135,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -155947,6 +156280,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156094,6 +156428,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156240,6 +156575,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156388,6 +156724,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156538,6 +156875,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156686,6 +157024,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156832,6 +157171,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -156980,6 +157320,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157180,6 +157521,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157328,6 +157670,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157476,6 +157819,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157674,6 +158018,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157818,6 +158163,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -157978,6 +158324,7 @@ fragment AgentTaskFields on AgentTask {
 	createdBy {
 		... AgentTaskPartyFields
 	}
+	isProject
 	parentTaskId
 	tags
 	source
@@ -167610,7 +167957,7 @@ func CreateMemoryDraftWithSlug(
 
 // The mutation executed by CreateMemoryInApp.
 const CreateMemoryInApp_Operation = `
-mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String!, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean) {
+mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean) {
 	createMemoryInApp(appRef: $appRef, agentRef: $agentRef, memoryClass: $memoryClass, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, maxRevCount: $maxRevCount, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled) {
 		id
 		urn
@@ -167635,7 +167982,7 @@ func CreateMemoryInApp(
 	appRef string,
 	agentRef string,
 	memoryClass MemoryClass,
-	name string,
+	name *string,
 	shortDescription *string,
 	description *string,
 	tags *[]string,
@@ -175757,8 +176104,9 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 // Platform-ADMIN or the BILLING role. Appends a positive grant to an org's ledger. The response
 // has no created/reused flag, so a replay of (sourceType, sourceId) is
 // indistinguishable from a first grant. An omitted optional is not sent.
-// userRef is the person owner (hadron-server#5207), not reached yet
-// (hadron-cli#3072): omitted, never null, so a server without it still accepts.
+// cli#3184: orgRef became optional beside userRef when a person got a ledger (server#5014). These
+// commands name an organization, so userRef is never sent: omitted, not an explicit null, which
+// an older server would reject as an unknown input field. The person forms are cli#3072.
 func GrantCredits(
 	ctx_ context.Context,
 	client_ graphql.Client,

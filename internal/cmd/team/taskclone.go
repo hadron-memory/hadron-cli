@@ -26,7 +26,7 @@ func newCmdTeamTaskClone(f *cmdutil.Factory) *cobra.Command {
 	var owner, properties, requireRole, familyIn, familyNotIn, modelGroupIn, modelGroupNotIn, minTier string
 	var tags, refs, excludeWorkers []string
 	var priority int
-	var noParent, closeSession, noCloseSession, project, clearTags, clearRefs, clearProperties, clearRequirements bool
+	var noParent, closeSession, noCloseSession, project, isProject, clearTags, clearRefs, clearProperties, clearRequirements bool
 	cmd := &cobra.Command{
 		Use:   "clone <task>",
 		Short: "Make a new task from an existing one",
@@ -36,7 +36,8 @@ in any status. The source is never changed and an ended task is never
 reopened.
 
 The server copies the title, description, source, tags, requirements,
-references, close-session choice, priority, properties and parent. It does not
+references, close-session choice, priority, properties, parent and the project
+marker. It does not
 copy the assignee, status, result, handle, blockers, start-by, finish-by or
 external id. The clone is PENDING (or BACKLOG with --status backlog) and a
 queued one is matched like any other. Priority and properties are copied only
@@ -69,6 +70,12 @@ included, and the server judges it.
   --project                                       make the clone a top-level project
                                                   (with --parent: exit 2; --project
                                                   --no-parent is allowed)
+  --is-project                                    override the copied project
+                                                  marker: true marks the clone a
+                                                  project, --is-project=false
+                                                  unmarks it; a contradiction
+                                                  with --project is the server's
+                                                  refusal
   --parent <task>                                 put the clone under another
                                                   parent in the same App
   --no-parent                                     put it under no parent: a root
@@ -90,7 +97,8 @@ TASK_OWNER_INVALID (exit 2); TASK_NOT_ASSIGNEE and a priority you may not set
 A transport failure after the request left can leave the outcome unknown: list
 the App's tasks before you clone again, since a clone is not deduplicated.
 
-Needs a server released on or after 2026-11-02; an older one rejects the
+Needs a server released on or after 2026-11-24 (the shared task-record read
+carries the project marker); an older one rejects the
 document as schema skew (exit 2). Success prints the new task's handle, id and
 status; --json returns the task with its warnings list, as
 ` + "`task create`" + ` does.`,
@@ -212,6 +220,14 @@ status; --json returns the task with its warnings list, as
 			}
 			if project {
 				input.Project = boolPtr(true)
+			}
+			// cli#3109 (hadron-server#4997): the marker override is three-state —
+			// omitted keeps the source's marker, a given value overrides it
+			// outright, false included (an unmark). A contradiction with
+			// --project is the server's refusal, shown verbatim, never
+			// re-implemented here.
+			if flags.Changed("is-project") {
+				input.IsProject = &isProject
 			}
 			// tags, references, properties and requirements are RawMessage on the
 			// wire: nil omits the key (keep the copied value), an explicit [] or null
@@ -342,5 +358,6 @@ status; --json returns the task with its warnings list, as
 	cmd.Flags().BoolVar(&clearRequirements, "clear-requirements", false, "the clone has no requirements")
 	cmd.Flags().StringVar(&owner, "owner", "", "party that owns the clone (worker:<…> / user:<…>); default is the caller")
 	cmd.Flags().BoolVar(&project, "project", false, "make the clone a top-level project")
+	cmd.Flags().BoolVar(&isProject, "is-project", false, "override the copied project marker: mark the clone a project, or with =false unmark it (omitted: keep the source's marker)")
 	return cmd
 }

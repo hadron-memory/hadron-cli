@@ -426,7 +426,7 @@ reminder only then; it never edits the register).`,
 	cmd.Flags().StringVar(&reason, "reason", "", "why it is retired, kept in the server's banner")
 	cmd.Flags().BoolVar(&copyBody, "copy-body", false, "seed the replacement's body/abstract from the old spec")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "write nothing: print what would be sent")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "write nothing: print what would be sent. It does not judge eligibility: the server does when the retirement runs, so it can still refuse")
 	cmd.Flags().StringVar(&by, "by", "", "retire to this existing citation in the same memory; creates no node")
 	cmd.Flags().StringVar(&summaryText, "summary", "", "historical summary for the retired abstract (default: its stored abstract)")
 	return cmd

@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 250: 217 command, 8 gap, 25 excluded
+[Query] 252: 217 command, 10 gap, 25 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -52,6 +52,8 @@ agentTasks  excluded not-a-capability: legacy unpaged spelling; agentTasksPage c
 agentTasksPage  command team task list
 agentTeamEvents  excluded not-a-capability: legacy unpaged spelling; agentTeamEventsPage carries the same capability (cli#1919); Proposed class unruled under #1334 (33-row review)
 agentTeamEventsPage  command team events
+agentTeamHost  gap #3239
+agentTeamHosts  gap #3239
 agentTickerTemplates  command agent ticker-templates list
 agentWebhooks  command webhook list
 agents  command agent list
@@ -279,7 +281,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 375: 346 command, 12 gap, 17 excluded
+[Mutation] 379: 346 command, 16 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -421,6 +423,7 @@ deleteTicker  command ticker delete
 deleteUser  command user delete
 deleteUserApiKey  command auth token delete
 deleteWorker  command team worker rm
+detachMemoryFromApp  gap #3277
 disposeAgentTaskFinding  command team task dispose-finding
 editComment  command comment edit
 emailCategorizeMessage  command email categorize
@@ -450,6 +453,7 @@ installAgentIntoApp  command app agent add
 inviteUser  command user invite
 issueHostOperation  command team host issue
 issueSecretReadClient  command secret client issue
+joinAgentTeamHost  gap #3239
 joinApp  command app join
 joinWaitingList  excluded not-a-capability: a public website form (waiting list, contact), not a platform capability
 leaveApp  command app leave
@@ -494,6 +498,7 @@ releaseWorker  command team worker release
 removeAgentFromApp  excluded deprecated: @deprecated: Use uninstallAgentFromApp (spec 023-app-shape US1).
 removeAgentImport  command agent import rm
 removeAgentTaskBlocker  command team task add-blocker
+removeAgentTeamHost  gap #3239
 removeAppMember  command app member remove
 removeMemoryFromAgent  command agent memory rm
 removeMemoryMember  command memory member rm
@@ -610,6 +615,7 @@ updateAgentAIConfig  excluded deprecated: its description names createAiServiceC
 updateAgentMemoryRole  command agent memory set-role
 updateAgentSchedule  command schedule update
 updateAgentTask  command team task update
+updateAgentTeamHost  gap #3239
 updateAgentTickerTemplate  command agent ticker-templates update
 updateAiServiceConfig  command ai-config update
 updateApp  command app update
@@ -656,11 +662,8 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 21: 8 gap, 13 excluded
+[Arguments] 18: 5 gap, 13 excluded
 Mutation.adjustCredits(input.userRef)  gap #3072
-Mutation.cloneAgentTask(input.isProject)  gap #3109
-Mutation.createAgentTask(input.isProject)  gap #3109
-Mutation.createAgentTasks(tasks.task.isProject)  gap #3109
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)

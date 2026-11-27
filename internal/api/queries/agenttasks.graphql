@@ -51,6 +51,10 @@ fragment AgentTaskFields on AgentTask {
   createdBy {
     ...AgentTaskPartyFields
   }
+  # cli#3109 (hadron-server#4997, cor:agt:150, cor:agt:050:01): the explicit
+  # project marker, set at creation only. Part of the shared task-record read,
+  # so every task command needs a server carrying hadron-server#5053.
+  isProject
   parentTaskId
   tags
   source

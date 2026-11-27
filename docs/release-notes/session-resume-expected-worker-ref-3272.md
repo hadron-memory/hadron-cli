@@ -22,10 +22,6 @@ the bound worker's id in it, as before.
 
 - The `WORKER_MISMATCH` refusal's extension keys are still `expectedWorkerId` and
   `expectedWorkerName`, as the server sends them.
-- `billing balance`, `ledger`, `grant` and `adjust` still name an organization
-  and print the same shapes. The schema refresh carries the server's person-owned
-  credit ledger (hadron-server#5207), which no command reaches yet (cli#3072);
-  `grant` and `adjust` send no `userRef`.
 
 ## Ships with
 

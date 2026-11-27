@@ -323,22 +323,12 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 	return cmd
 }
 
-// organizationID is the owning organization's id. The server leaves it null for
-// a person's ledger (hadron-server#5207), which no command here asks for: each
-// names an organization (hadron-cli#3072 adds the person owner).
-func organizationID(id *string) string {
-	if id == nil {
-		return ""
-	}
-	return *id
-}
-
 // ledgerEntryFrom copies a ledger entry into its stable DTO; money stays the
 // server's string.
 func ledgerEntryFrom(e *gen.CreditLedgerEntryFields) ledgerEntryDTO {
 	return ledgerEntryDTO{
 		ID:               e.Id,
-		OrganizationID:   organizationID(e.OrganizationId),
+		OrganizationID:   orgIDOrEmpty(e.OrganizationId),
 		Kind:             e.Kind,
 		AmountMicroCents: e.AmountMicroCents,
 		ExpiresAt:        e.ExpiresAt,

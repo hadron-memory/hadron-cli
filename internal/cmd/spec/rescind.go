@@ -182,7 +182,7 @@ and revision.`,
 	cmd.Flags().StringVar(&summaryFile, "summary-file", "", "read --summary from this file")
 	cmd.Flags().BoolVar(&withdrawn, "withdrawn", false, "a draft that never took effect, instead of a rule that was in force")
 	cmd.Flags().BoolVar(&yes, "yes", false, "skip the confirmation prompt")
-	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "read only: print what would be sent (exit 8 if you cannot write to the memory)")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "read only: print what would be sent (exit 8 if you cannot write to the memory). It does not judge eligibility: the server does when the retirement runs, so it can still refuse")
 	return cmd
 }
 

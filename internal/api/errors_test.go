@@ -425,7 +425,9 @@ func TestMapError(t *testing.T) {
 		{"task blocker cycle", gqlErr("TASK_BLOCKER_CYCLE"), exitcode.Conflict},
 		{"task invalid transition", gqlErr("TASK_INVALID_TRANSITION"), exitcode.Conflict},
 		{"task ended", gqlErr("TASK_ENDED"), exitcode.Conflict},
-		{"seat verdict required", gqlErr("SEAT_VERDICT_REQUIRED"), exitcode.Conflict}, // cli#3209
+		{"seat verdict required", gqlErr("SEAT_VERDICT_REQUIRED"), exitcode.Conflict},                   // cli#3209
+		{"memory urn conflict", gqlErr("MEMORY_URN_CONFLICT"), exitcode.Conflict},                       // cli#3184
+		{"app user memory already exists", gqlErr("APP_USER_MEMORY_ALREADY_EXISTS"), exitcode.Conflict}, // cli#3184 (the _ALREADY_EXISTS suffix rule)
 		{"alarm already acknowledged", gqlErr("ALARM_ALREADY_ACKNOWLEDGED"), exitcode.Conflict},
 		{"app uninstalled", gqlErr("APP_UNINSTALLED"), exitcode.Conflict},
 		{"app deleted", gqlErr("APP_DELETED"), exitcode.Conflict},
