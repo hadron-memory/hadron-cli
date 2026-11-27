@@ -186670,6 +186670,11 @@ mutation RemoveAgentTeamHost ($appRef: String!, $hostId: String!, $force: Boolea
 // refused AGENT_TEAM_HOST_HAS_OPEN_SESSIONS and the command says so. `team host remove
 // --force` (cli#3282, Holger's ruling) sends force: true; without the flag the variable
 // is omitted, never false, so the request is byte for byte the one leave sends.
+// The document names the `force` input field for both commands (omitting a variable does
+// not hide a field from validation), which is safe: `force` shipped in the SAME server
+// release as removeAgentTeamHost and its input type (hadron-server#5259, 0.47.0, one
+// commit), so a server without `force` has no removeAgentTeamHost at all and leave
+// already answers it with the "no team App hosts" mapping.
 func RemoveAgentTeamHost(
 	ctx_ context.Context,
 	client_ graphql.Client,
