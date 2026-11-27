@@ -1,0 +1,87 @@
+# hadron-cli#3239 (slice C1 of hadron-server#5209) over hadron-server#5259 (V1,
+# first carried by hadron-server 0.47.0, b8fba75a): the platform's record of a
+# team App's hosts and the key that makes a machine one. In their own file and
+# shared with no other command, so a server without V1 fails only these
+# commands (`IsFrameworkValidationOnlyFor`).
+#
+# Every operation runs as the signed-in person and is sent without the worker
+# session (api.WithoutSession): join and remove are person-only acts the server
+# refuses to a bound worker's session (cor:agt:070:07), and none of them ever
+# sends the stored host key (cor:agt:070:04). Two exceptions: HostCredentialStatus
+# is sent WITH a stored key, to ask the server whether that key still
+# authenticates; and UpdateAgentTeamHostInstructed (`set --instruction`) carries
+# the worktree session like `assign --instruction`, which the server allows
+# for an update.
+
+fragment AgentTeamHostFields on AgentTeamHost {
+  id
+  hostId
+  label
+  pollIntervalSeconds
+  deliveryEnabled
+  createdAt
+  updatedAt
+}
+
+# The raw key is in this answer once. The caller stores it and never prints it.
+# Every optional variable is omitempty: an omitted one lets the server default
+# it (hostId from the label, the label from hostId, replace false).
+mutation JoinAgentTeamHost(
+  $appRef: String!
+  # @genqlient(omitempty: true)
+  $hostId: String
+  # @genqlient(omitempty: true)
+  $label: String
+  # @genqlient(omitempty: true)
+  $replace: Boolean
+) {
+  joinAgentTeamHost(input: { appRef: $appRef, hostId: $hostId, label: $label, replace: $replace }) {
+    rawKey
+    host {
+      ...AgentTeamHostFields
+    }
+  }
+}
+
+# No force in C1 (ruling RC4): a host with an open session is refused
+# AGENT_TEAM_HOST_HAS_OPEN_SESSIONS and the command says so.
+mutation RemoveAgentTeamHost($appRef: String!, $hostId: String!) {
+  removeAgentTeamHost(input: { appRef: $appRef, hostId: $hostId })
+}
+
+# $input is bound to gqltypes.AgentTeamHostUpdateInput (genqlient.yaml): its
+# three-state fields omit, send null or send a value.
+mutation UpdateAgentTeamHost($input: UpdateAgentTeamHostInput!) {
+  updateAgentTeamHost(input: $input) {
+    ...AgentTeamHostFields
+  }
+}
+
+mutation UpdateAgentTeamHostInstructed($input: UpdateAgentTeamHostInput!, $instruction: ActInstructionInput!) {
+  updateAgentTeamHost(input: $input, instruction: $instruction) {
+    ...AgentTeamHostFields
+  }
+}
+
+query AgentTeamHosts($appRef: String!) {
+  agentTeamHosts(appRef: $appRef) {
+    ...AgentTeamHostFields
+  }
+}
+
+query AgentTeamHost($appRef: String!, $hostId: String!) {
+  agentTeamHost(appRef: $appRef, hostId: $hostId) {
+    ...AgentTeamHostFields
+  }
+}
+
+# Sent with a STORED host key, never the person's credential: whether that key
+# still authenticates (REFUSED once it is revoked; a revoked key's myApp is
+# null). `leave` deletes a local entry the server no longer has only on REFUSED
+# (ruling RC3).
+query HostCredentialStatus {
+  authenticationStatus
+  myApp {
+    id
+  }
+}

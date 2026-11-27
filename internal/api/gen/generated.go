@@ -19650,6 +19650,271 @@ func (v *AgentTeamEventsPageResponse) GetAgentTeamEventsPage() *AgentTeamEventsP
 	return v.AgentTeamEventsPage
 }
 
+// AgentTeamHostAgentTeamHost includes the requested fields of the GraphQL type AgentTeamHost.
+// The GraphQL type's documentation follows.
+//
+// #5259 — a host of a team App and its settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed). A null setting is the product default. It holds no path, program, credential or account detail, and never a key.
+type AgentTeamHostAgentTeamHost struct {
+	AgentTeamHostFields `json:"-"`
+}
+
+// GetId returns AgentTeamHostAgentTeamHost.Id, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostAgentTeamHost) GetId() string { return v.AgentTeamHostFields.Id }
+
+// GetHostId returns AgentTeamHostAgentTeamHost.HostId, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostAgentTeamHost) GetHostId() string { return v.AgentTeamHostFields.HostId }
+
+// GetLabel returns AgentTeamHostAgentTeamHost.Label, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostAgentTeamHost) GetLabel() string { return v.AgentTeamHostFields.Label }
+
+// GetPollIntervalSeconds returns AgentTeamHostAgentTeamHost.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostAgentTeamHost) GetPollIntervalSeconds() *int {
+	return v.AgentTeamHostFields.PollIntervalSeconds
+}
+
+// GetDeliveryEnabled returns AgentTeamHostAgentTeamHost.DeliveryEnabled, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostAgentTeamHost) GetDeliveryEnabled() *bool {
+	return v.AgentTeamHostFields.DeliveryEnabled
+}
+
+// GetCreatedAt returns AgentTeamHostAgentTeamHost.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostAgentTeamHost) GetCreatedAt() string { return v.AgentTeamHostFields.CreatedAt }
+
+// GetUpdatedAt returns AgentTeamHostAgentTeamHost.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostAgentTeamHost) GetUpdatedAt() string { return v.AgentTeamHostFields.UpdatedAt }
+
+func (v *AgentTeamHostAgentTeamHost) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTeamHostAgentTeamHost
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTeamHostAgentTeamHost = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTeamHostFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTeamHostAgentTeamHost struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	Label string `json:"label"`
+
+	PollIntervalSeconds *int `json:"pollIntervalSeconds"`
+
+	DeliveryEnabled *bool `json:"deliveryEnabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *AgentTeamHostAgentTeamHost) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTeamHostAgentTeamHost) __premarshalJSON() (*__premarshalAgentTeamHostAgentTeamHost, error) {
+	var retval __premarshalAgentTeamHostAgentTeamHost
+
+	retval.Id = v.AgentTeamHostFields.Id
+	retval.HostId = v.AgentTeamHostFields.HostId
+	retval.Label = v.AgentTeamHostFields.Label
+	retval.PollIntervalSeconds = v.AgentTeamHostFields.PollIntervalSeconds
+	retval.DeliveryEnabled = v.AgentTeamHostFields.DeliveryEnabled
+	retval.CreatedAt = v.AgentTeamHostFields.CreatedAt
+	retval.UpdatedAt = v.AgentTeamHostFields.UpdatedAt
+	return &retval, nil
+}
+
+// AgentTeamHostFields includes the GraphQL fields of AgentTeamHost requested by the fragment AgentTeamHostFields.
+// The GraphQL type's documentation follows.
+//
+// #5259 — a host of a team App and its settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed). A null setting is the product default. It holds no path, program, credential or account detail, and never a key.
+type AgentTeamHostFields struct {
+	Id string `json:"id"`
+	// The host's id within the App: the one its key's host:operate scope, its registration and its assignments name.
+	HostId string `json:"hostId"`
+	Label  string `json:"label"`
+	// Seconds between the host's check-ins, 1 to 86400. Null: the host's own default.
+	PollIntervalSeconds *int `json:"pollIntervalSeconds"`
+	// Whether the host delivers wakes to its workers. Null: the default, on.
+	DeliveryEnabled *bool  `json:"deliveryEnabled"`
+	CreatedAt       string `json:"createdAt"`
+	UpdatedAt       string `json:"updatedAt"`
+}
+
+// GetId returns AgentTeamHostFields.Id, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostFields) GetId() string { return v.Id }
+
+// GetHostId returns AgentTeamHostFields.HostId, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostFields) GetHostId() string { return v.HostId }
+
+// GetLabel returns AgentTeamHostFields.Label, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostFields) GetLabel() string { return v.Label }
+
+// GetPollIntervalSeconds returns AgentTeamHostFields.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostFields) GetPollIntervalSeconds() *int { return v.PollIntervalSeconds }
+
+// GetDeliveryEnabled returns AgentTeamHostFields.DeliveryEnabled, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostFields) GetDeliveryEnabled() *bool { return v.DeliveryEnabled }
+
+// GetCreatedAt returns AgentTeamHostFields.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostFields) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns AgentTeamHostFields.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostFields) GetUpdatedAt() string { return v.UpdatedAt }
+
+// AgentTeamHostResponse is returned by AgentTeamHost on success.
+type AgentTeamHostResponse struct {
+	// #5259 — one live host of the App and its settings. HOST_NOT_FOUND for a host the App does not have or has removed. A
+	// host key reads only its own host: another host's id answers exactly as an unknown one, decided before any lookup
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Each host-key read is recorded, a refused one too
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+	AgentTeamHost *AgentTeamHostAgentTeamHost `json:"agentTeamHost"`
+}
+
+// GetAgentTeamHost returns AgentTeamHostResponse.AgentTeamHost, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostResponse) GetAgentTeamHost() *AgentTeamHostAgentTeamHost {
+	return v.AgentTeamHost
+}
+
+// AgentTeamHostsAgentTeamHostsAgentTeamHost includes the requested fields of the GraphQL type AgentTeamHost.
+// The GraphQL type's documentation follows.
+//
+// #5259 — a host of a team App and its settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed). A null setting is the product default. It holds no path, program, credential or account detail, and never a key.
+type AgentTeamHostsAgentTeamHostsAgentTeamHost struct {
+	AgentTeamHostFields `json:"-"`
+}
+
+// GetId returns AgentTeamHostsAgentTeamHostsAgentTeamHost.Id, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) GetId() string { return v.AgentTeamHostFields.Id }
+
+// GetHostId returns AgentTeamHostsAgentTeamHostsAgentTeamHost.HostId, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) GetHostId() string {
+	return v.AgentTeamHostFields.HostId
+}
+
+// GetLabel returns AgentTeamHostsAgentTeamHostsAgentTeamHost.Label, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) GetLabel() string {
+	return v.AgentTeamHostFields.Label
+}
+
+// GetPollIntervalSeconds returns AgentTeamHostsAgentTeamHostsAgentTeamHost.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) GetPollIntervalSeconds() *int {
+	return v.AgentTeamHostFields.PollIntervalSeconds
+}
+
+// GetDeliveryEnabled returns AgentTeamHostsAgentTeamHostsAgentTeamHost.DeliveryEnabled, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) GetDeliveryEnabled() *bool {
+	return v.AgentTeamHostFields.DeliveryEnabled
+}
+
+// GetCreatedAt returns AgentTeamHostsAgentTeamHostsAgentTeamHost.CreatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) GetCreatedAt() string {
+	return v.AgentTeamHostFields.CreatedAt
+}
+
+// GetUpdatedAt returns AgentTeamHostsAgentTeamHostsAgentTeamHost.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) GetUpdatedAt() string {
+	return v.AgentTeamHostFields.UpdatedAt
+}
+
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentTeamHostsAgentTeamHostsAgentTeamHost
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentTeamHostsAgentTeamHostsAgentTeamHost = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTeamHostFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentTeamHostsAgentTeamHostsAgentTeamHost struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	Label string `json:"label"`
+
+	PollIntervalSeconds *int `json:"pollIntervalSeconds"`
+
+	DeliveryEnabled *bool `json:"deliveryEnabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentTeamHostsAgentTeamHostsAgentTeamHost) __premarshalJSON() (*__premarshalAgentTeamHostsAgentTeamHostsAgentTeamHost, error) {
+	var retval __premarshalAgentTeamHostsAgentTeamHostsAgentTeamHost
+
+	retval.Id = v.AgentTeamHostFields.Id
+	retval.HostId = v.AgentTeamHostFields.HostId
+	retval.Label = v.AgentTeamHostFields.Label
+	retval.PollIntervalSeconds = v.AgentTeamHostFields.PollIntervalSeconds
+	retval.DeliveryEnabled = v.AgentTeamHostFields.DeliveryEnabled
+	retval.CreatedAt = v.AgentTeamHostFields.CreatedAt
+	retval.UpdatedAt = v.AgentTeamHostFields.UpdatedAt
+	return &retval, nil
+}
+
+// AgentTeamHostsResponse is returned by AgentTeamHosts on success.
+type AgentTeamHostsResponse struct {
+	// #5259 — the App's live hosts and their settings, by host id (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the host
+	// and its settings, Proposed). A removed host is left out. Whoever reads the App's tasks and events, the App's own key
+	// included. A host key reads only its own host's record (hrn:node:hadronmemory.com:specs:cor:agt:070:04); a key whose
+	// host:operate was revoked is refused FORBIDDEN. Each host-key read is recorded
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+	AgentTeamHosts []*AgentTeamHostsAgentTeamHostsAgentTeamHost `json:"agentTeamHosts"`
+}
+
+// GetAgentTeamHosts returns AgentTeamHostsResponse.AgentTeamHosts, and is useful for accessing the field via an interface.
+func (v *AgentTeamHostsResponse) GetAgentTeamHosts() []*AgentTeamHostsAgentTeamHostsAgentTeamHost {
+	return v.AgentTeamHosts
+}
+
 // cli#913: per-template CRUD, no runtime ticker writes or worker session.
 type AgentTickerTemplateFields struct {
 	Id string `json:"id"`
@@ -62693,6 +62958,42 @@ func (v *HomeAssistantInstancesResponse) GetHomeAssistantInstances() *HomeAssist
 	return v.HomeAssistantInstances
 }
 
+// HostCredentialStatusMyApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type HostCredentialStatusMyApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns HostCredentialStatusMyApp.Id, and is useful for accessing the field via an interface.
+func (v *HostCredentialStatusMyApp) GetId() string { return v.Id }
+
+// HostCredentialStatusResponse is returned by HostCredentialStatus on success.
+type HostCredentialStatusResponse struct {
+	// Whether the credential THIS request presented authenticated
+	// (hrn:node:hadronmemory.com:specs:cor:aut:010:05). REFUSED is the identical answer, in status and body for the same
+	// operation, for every cause: garbage, expired, wrongly signed, revoked, from an ended sign-in, for a deleted user, or
+	// an ended impersonation. Timing is an accepted limit. It takes no argument, so it cannot test a token the caller does
+	// not hold. A credential check that could not complete is the ordinary internal error for this field, never REFUSED;
+	// every other field answers as before. me and authContext are unchanged (null for a refused credential).
+	AuthenticationStatus AuthenticationStatus `json:"authenticationStatus"`
+	// The App authenticated by the current AppKey (null for JWT users without an App)
+	MyApp *HostCredentialStatusMyApp `json:"myApp"`
+}
+
+// GetAuthenticationStatus returns HostCredentialStatusResponse.AuthenticationStatus, and is useful for accessing the field via an interface.
+func (v *HostCredentialStatusResponse) GetAuthenticationStatus() AuthenticationStatus {
+	return v.AuthenticationStatus
+}
+
+// GetMyApp returns HostCredentialStatusResponse.MyApp, and is useful for accessing the field via an interface.
+func (v *HostCredentialStatusResponse) GetMyApp() *HostCredentialStatusMyApp { return v.MyApp }
+
 // HostDesiredStateHostDesiredState includes the requested fields of the GraphQL type HostDesiredState.
 // The GraphQL type's documentation follows.
 //
@@ -66753,6 +67054,149 @@ type IssueSecretReadClientResponse struct {
 // GetIssueSecretReadClient returns IssueSecretReadClientResponse.IssueSecretReadClient, and is useful for accessing the field via an interface.
 func (v *IssueSecretReadClientResponse) GetIssueSecretReadClient() *IssueSecretReadClientIssueSecretReadClientSecretReadClientIssued {
 	return v.IssueSecretReadClient
+}
+
+// JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayload includes the requested fields of the GraphQL type JoinAgentTeamHostPayload.
+// The GraphQL type's documentation follows.
+//
+// #5259 — a host joined to its App, and the raw key it operates with: shown here once and never again.
+type JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayload struct {
+	RawKey string                                                                       `json:"rawKey"`
+	Host   *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost `json:"host"`
+}
+
+// GetRawKey returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayload.RawKey, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayload) GetRawKey() string {
+	return v.RawKey
+}
+
+// GetHost returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayload.Host, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayload) GetHost() *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost {
+	return v.Host
+}
+
+// JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost includes the requested fields of the GraphQL type AgentTeamHost.
+// The GraphQL type's documentation follows.
+//
+// #5259 — a host of a team App and its settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed). A null setting is the product default. It holds no path, program, credential or account detail, and never a key.
+type JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost struct {
+	AgentTeamHostFields `json:"-"`
+}
+
+// GetId returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost.Id, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) GetId() string {
+	return v.AgentTeamHostFields.Id
+}
+
+// GetHostId returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost.HostId, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) GetHostId() string {
+	return v.AgentTeamHostFields.HostId
+}
+
+// GetLabel returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost.Label, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) GetLabel() string {
+	return v.AgentTeamHostFields.Label
+}
+
+// GetPollIntervalSeconds returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) GetPollIntervalSeconds() *int {
+	return v.AgentTeamHostFields.PollIntervalSeconds
+}
+
+// GetDeliveryEnabled returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost.DeliveryEnabled, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) GetDeliveryEnabled() *bool {
+	return v.AgentTeamHostFields.DeliveryEnabled
+}
+
+// GetCreatedAt returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) GetCreatedAt() string {
+	return v.AgentTeamHostFields.CreatedAt
+}
+
+// GetUpdatedAt returns JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) GetUpdatedAt() string {
+	return v.AgentTeamHostFields.UpdatedAt
+}
+
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTeamHostFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	Label string `json:"label"`
+
+	PollIntervalSeconds *int `json:"pollIntervalSeconds"`
+
+	DeliveryEnabled *bool `json:"deliveryEnabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost) __premarshalJSON() (*__premarshalJoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost, error) {
+	var retval __premarshalJoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayloadHostAgentTeamHost
+
+	retval.Id = v.AgentTeamHostFields.Id
+	retval.HostId = v.AgentTeamHostFields.HostId
+	retval.Label = v.AgentTeamHostFields.Label
+	retval.PollIntervalSeconds = v.AgentTeamHostFields.PollIntervalSeconds
+	retval.DeliveryEnabled = v.AgentTeamHostFields.DeliveryEnabled
+	retval.CreatedAt = v.AgentTeamHostFields.CreatedAt
+	retval.UpdatedAt = v.AgentTeamHostFields.UpdatedAt
+	return &retval, nil
+}
+
+// JoinAgentTeamHostResponse is returned by JoinAgentTeamHost on success.
+type JoinAgentTeamHostResponse struct {
+	// #5259 — make a machine a host of the App (hrn:node:hadronmemory.com:specs:cor:agt:070:07, Proposed): in one
+	// transaction, the host's record (hrn:node:hadronmemory.com:specs:cor:agt:070:01), a new App key, and that key's
+	// host:operate for this host and attention:deliver. The raw key is in this answer once and nowhere else; only its
+	// hash is stored. hostId defaults to a slug of label, label to hostId. Joining a removed host revives its record with
+	// its settings reset. Whoever manages the App, as a person acting as themselves, exactly as for createAppKey: anyone
+	// else, a worker session, a run, an impersonation and an App key are refused as createAppKey refuses them
+	// (hrn:node:hadronmemory.com:specs:cor:dmo:050:12). Refused BAD_AGENT_TEAM_HOST_ARGS, APP_NOT_FOUND, and
+	// AGENT_TEAM_HOST_EXISTS when the host is joined, or a live key operates as it, and replace is not set; replace
+	// revokes every live key of this host and issues one new key. A refusal writes nothing.
+	JoinAgentTeamHost *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayload `json:"joinAgentTeamHost"`
+}
+
+// GetJoinAgentTeamHost returns JoinAgentTeamHostResponse.JoinAgentTeamHost, and is useful for accessing the field via an interface.
+func (v *JoinAgentTeamHostResponse) GetJoinAgentTeamHost() *JoinAgentTeamHostJoinAgentTeamHostJoinAgentTeamHostPayload {
+	return v.JoinAgentTeamHost
 }
 
 // JoinAppJoinAppJoinAppPayload includes the requested fields of the GraphQL type JoinAppPayload.
@@ -88793,6 +89237,21 @@ type RemoveAgentImportResponse struct {
 
 // GetRemoveAgentImport returns RemoveAgentImportResponse.RemoveAgentImport, and is useful for accessing the field via an interface.
 func (v *RemoveAgentImportResponse) GetRemoveAgentImport() *bool { return v.RemoveAgentImport }
+
+// RemoveAgentTeamHostResponse is returned by RemoveAgentTeamHost on success.
+type RemoveAgentTeamHostResponse struct {
+	// #5259 — remove a host from the App (hrn:node:hadronmemory.com:specs:cor:agt:070:07, Proposed), in one transaction:
+	// its keys are revoked, its registration ends (so its workers stop counting as launchable at once), its assignments
+	// are removed and its issued and collected operations are settled as failed with a reason starting HOST_REMOVED
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:02; one whose effect already happened reads succeeded). The gate is
+	// joinAgentTeamHost's: a person who manages the App, acting as themselves, never a held worker or an App key.
+	// Refused AGENT_TEAM_HOST_HAS_OPEN_SESSIONS while a worker of the host has an open session, unless force; and
+	// BAD_AGENT_TEAM_HOST_ARGS, APP_NOT_FOUND, HOST_NOT_FOUND (not joined, or already removed). True when removed.
+	RemoveAgentTeamHost bool `json:"removeAgentTeamHost"`
+}
+
+// GetRemoveAgentTeamHost returns RemoveAgentTeamHostResponse.RemoveAgentTeamHost, and is useful for accessing the field via an interface.
+func (v *RemoveAgentTeamHostResponse) GetRemoveAgentTeamHost() bool { return v.RemoveAgentTeamHost }
 
 // RemoveAppMemberInstructedResponse is returned by RemoveAppMemberInstructed on success.
 type RemoveAppMemberInstructedResponse struct {
@@ -124152,6 +124611,246 @@ func (v *UpdateAgentTaskInput) GetTags() json.RawMessage { return v.Tags }
 // GetTitle returns UpdateAgentTaskInput.Title, and is useful for accessing the field via an interface.
 func (v *UpdateAgentTaskInput) GetTitle() *string { return v.Title }
 
+// UpdateAgentTeamHostInstructedResponse is returned by UpdateAgentTeamHostInstructed on success.
+type UpdateAgentTeamHostInstructedResponse struct {
+	// #5259 — change a host's settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed): an omitted field is
+	// kept, null clears it to the product default; the label is never cleared. The server stores the settings and uses
+	// none of them itself: the host reads its own record (agentTeamHost, with its key) and applies them, and a
+	// registration's liveness and lapse window follow the interval the host declares when it registers.
+	// Whoever manages the App, as a person or through their held worker on an instruction; never an App key. Refused
+	// AGENT_TEAM_HOST_NOT_PERMITTED, BAD_AGENT_TEAM_HOST_ARGS, APP_NOT_FOUND and HOST_NOT_FOUND (not joined, or removed).
+	UpdateAgentTeamHost *UpdateAgentTeamHostInstructedUpdateAgentTeamHost `json:"updateAgentTeamHost"`
+}
+
+// GetUpdateAgentTeamHost returns UpdateAgentTeamHostInstructedResponse.UpdateAgentTeamHost, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostInstructedResponse) GetUpdateAgentTeamHost() *UpdateAgentTeamHostInstructedUpdateAgentTeamHost {
+	return v.UpdateAgentTeamHost
+}
+
+// UpdateAgentTeamHostInstructedUpdateAgentTeamHost includes the requested fields of the GraphQL type AgentTeamHost.
+// The GraphQL type's documentation follows.
+//
+// #5259 — a host of a team App and its settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed). A null setting is the product default. It holds no path, program, credential or account detail, and never a key.
+type UpdateAgentTeamHostInstructedUpdateAgentTeamHost struct {
+	AgentTeamHostFields `json:"-"`
+}
+
+// GetId returns UpdateAgentTeamHostInstructedUpdateAgentTeamHost.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) GetId() string {
+	return v.AgentTeamHostFields.Id
+}
+
+// GetHostId returns UpdateAgentTeamHostInstructedUpdateAgentTeamHost.HostId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) GetHostId() string {
+	return v.AgentTeamHostFields.HostId
+}
+
+// GetLabel returns UpdateAgentTeamHostInstructedUpdateAgentTeamHost.Label, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) GetLabel() string {
+	return v.AgentTeamHostFields.Label
+}
+
+// GetPollIntervalSeconds returns UpdateAgentTeamHostInstructedUpdateAgentTeamHost.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) GetPollIntervalSeconds() *int {
+	return v.AgentTeamHostFields.PollIntervalSeconds
+}
+
+// GetDeliveryEnabled returns UpdateAgentTeamHostInstructedUpdateAgentTeamHost.DeliveryEnabled, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) GetDeliveryEnabled() *bool {
+	return v.AgentTeamHostFields.DeliveryEnabled
+}
+
+// GetCreatedAt returns UpdateAgentTeamHostInstructedUpdateAgentTeamHost.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) GetCreatedAt() string {
+	return v.AgentTeamHostFields.CreatedAt
+}
+
+// GetUpdatedAt returns UpdateAgentTeamHostInstructedUpdateAgentTeamHost.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) GetUpdatedAt() string {
+	return v.AgentTeamHostFields.UpdatedAt
+}
+
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentTeamHostInstructedUpdateAgentTeamHost
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentTeamHostInstructedUpdateAgentTeamHost = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTeamHostFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentTeamHostInstructedUpdateAgentTeamHost struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	Label string `json:"label"`
+
+	PollIntervalSeconds *int `json:"pollIntervalSeconds"`
+
+	DeliveryEnabled *bool `json:"deliveryEnabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentTeamHostInstructedUpdateAgentTeamHost) __premarshalJSON() (*__premarshalUpdateAgentTeamHostInstructedUpdateAgentTeamHost, error) {
+	var retval __premarshalUpdateAgentTeamHostInstructedUpdateAgentTeamHost
+
+	retval.Id = v.AgentTeamHostFields.Id
+	retval.HostId = v.AgentTeamHostFields.HostId
+	retval.Label = v.AgentTeamHostFields.Label
+	retval.PollIntervalSeconds = v.AgentTeamHostFields.PollIntervalSeconds
+	retval.DeliveryEnabled = v.AgentTeamHostFields.DeliveryEnabled
+	retval.CreatedAt = v.AgentTeamHostFields.CreatedAt
+	retval.UpdatedAt = v.AgentTeamHostFields.UpdatedAt
+	return &retval, nil
+}
+
+// UpdateAgentTeamHostResponse is returned by UpdateAgentTeamHost on success.
+type UpdateAgentTeamHostResponse struct {
+	// #5259 — change a host's settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed): an omitted field is
+	// kept, null clears it to the product default; the label is never cleared. The server stores the settings and uses
+	// none of them itself: the host reads its own record (agentTeamHost, with its key) and applies them, and a
+	// registration's liveness and lapse window follow the interval the host declares when it registers.
+	// Whoever manages the App, as a person or through their held worker on an instruction; never an App key. Refused
+	// AGENT_TEAM_HOST_NOT_PERMITTED, BAD_AGENT_TEAM_HOST_ARGS, APP_NOT_FOUND and HOST_NOT_FOUND (not joined, or removed).
+	UpdateAgentTeamHost *UpdateAgentTeamHostUpdateAgentTeamHost `json:"updateAgentTeamHost"`
+}
+
+// GetUpdateAgentTeamHost returns UpdateAgentTeamHostResponse.UpdateAgentTeamHost, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostResponse) GetUpdateAgentTeamHost() *UpdateAgentTeamHostUpdateAgentTeamHost {
+	return v.UpdateAgentTeamHost
+}
+
+// UpdateAgentTeamHostUpdateAgentTeamHost includes the requested fields of the GraphQL type AgentTeamHost.
+// The GraphQL type's documentation follows.
+//
+// #5259 — a host of a team App and its settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed). A null setting is the product default. It holds no path, program, credential or account detail, and never a key.
+type UpdateAgentTeamHostUpdateAgentTeamHost struct {
+	AgentTeamHostFields `json:"-"`
+}
+
+// GetId returns UpdateAgentTeamHostUpdateAgentTeamHost.Id, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) GetId() string { return v.AgentTeamHostFields.Id }
+
+// GetHostId returns UpdateAgentTeamHostUpdateAgentTeamHost.HostId, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) GetHostId() string {
+	return v.AgentTeamHostFields.HostId
+}
+
+// GetLabel returns UpdateAgentTeamHostUpdateAgentTeamHost.Label, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) GetLabel() string {
+	return v.AgentTeamHostFields.Label
+}
+
+// GetPollIntervalSeconds returns UpdateAgentTeamHostUpdateAgentTeamHost.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) GetPollIntervalSeconds() *int {
+	return v.AgentTeamHostFields.PollIntervalSeconds
+}
+
+// GetDeliveryEnabled returns UpdateAgentTeamHostUpdateAgentTeamHost.DeliveryEnabled, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) GetDeliveryEnabled() *bool {
+	return v.AgentTeamHostFields.DeliveryEnabled
+}
+
+// GetCreatedAt returns UpdateAgentTeamHostUpdateAgentTeamHost.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) GetCreatedAt() string {
+	return v.AgentTeamHostFields.CreatedAt
+}
+
+// GetUpdatedAt returns UpdateAgentTeamHostUpdateAgentTeamHost.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) GetUpdatedAt() string {
+	return v.AgentTeamHostFields.UpdatedAt
+}
+
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateAgentTeamHostUpdateAgentTeamHost
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateAgentTeamHostUpdateAgentTeamHost = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.AgentTeamHostFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateAgentTeamHostUpdateAgentTeamHost struct {
+	Id string `json:"id"`
+
+	HostId string `json:"hostId"`
+
+	Label string `json:"label"`
+
+	PollIntervalSeconds *int `json:"pollIntervalSeconds"`
+
+	DeliveryEnabled *bool `json:"deliveryEnabled"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateAgentTeamHostUpdateAgentTeamHost) __premarshalJSON() (*__premarshalUpdateAgentTeamHostUpdateAgentTeamHost, error) {
+	var retval __premarshalUpdateAgentTeamHostUpdateAgentTeamHost
+
+	retval.Id = v.AgentTeamHostFields.Id
+	retval.HostId = v.AgentTeamHostFields.HostId
+	retval.Label = v.AgentTeamHostFields.Label
+	retval.PollIntervalSeconds = v.AgentTeamHostFields.PollIntervalSeconds
+	retval.DeliveryEnabled = v.AgentTeamHostFields.DeliveryEnabled
+	retval.CreatedAt = v.AgentTeamHostFields.CreatedAt
+	retval.UpdatedAt = v.AgentTeamHostFields.UpdatedAt
+	return &retval, nil
+}
+
 // UpdateAgentTickerTemplateResponse is returned by UpdateAgentTickerTemplate on success.
 type UpdateAgentTickerTemplateResponse struct {
 	// #2024 — change a template; absent fields are unchanged. expectedRevision must be the revision you read, else
@@ -137988,6 +138687,26 @@ func (v *__AgentTeamEventsPageInput) GetTaskId() *string { return v.TaskId }
 // GetTypes returns __AgentTeamEventsPageInput.Types, and is useful for accessing the field via an interface.
 func (v *__AgentTeamEventsPageInput) GetTypes() []string { return v.Types }
 
+// __AgentTeamHostInput is used internally by genqlient
+type __AgentTeamHostInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __AgentTeamHostInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTeamHostInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __AgentTeamHostInput.HostId, and is useful for accessing the field via an interface.
+func (v *__AgentTeamHostInput) GetHostId() string { return v.HostId }
+
+// __AgentTeamHostsInput is used internally by genqlient
+type __AgentTeamHostsInput struct {
+	AppRef string `json:"appRef"`
+}
+
+// GetAppRef returns __AgentTeamHostsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentTeamHostsInput) GetAppRef() string { return v.AppRef }
+
 // __AgentTickerTemplatesInput is used internally by genqlient
 type __AgentTickerTemplatesInput struct {
 	AgentRef string `json:"agentRef"`
@@ -143898,6 +144617,26 @@ type __IssueSecretReadClientInput struct {
 // GetInput returns __IssueSecretReadClientInput.Input, and is useful for accessing the field via an interface.
 func (v *__IssueSecretReadClientInput) GetInput() *IssueSecretReadClientInput { return v.Input }
 
+// __JoinAgentTeamHostInput is used internally by genqlient
+type __JoinAgentTeamHostInput struct {
+	AppRef  string  `json:"appRef"`
+	HostId  *string `json:"hostId,omitempty"`
+	Label   *string `json:"label,omitempty"`
+	Replace *bool   `json:"replace,omitempty"`
+}
+
+// GetAppRef returns __JoinAgentTeamHostInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__JoinAgentTeamHostInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __JoinAgentTeamHostInput.HostId, and is useful for accessing the field via an interface.
+func (v *__JoinAgentTeamHostInput) GetHostId() *string { return v.HostId }
+
+// GetLabel returns __JoinAgentTeamHostInput.Label, and is useful for accessing the field via an interface.
+func (v *__JoinAgentTeamHostInput) GetLabel() *string { return v.Label }
+
+// GetReplace returns __JoinAgentTeamHostInput.Replace, and is useful for accessing the field via an interface.
+func (v *__JoinAgentTeamHostInput) GetReplace() *bool { return v.Replace }
+
 // __JoinAppInput is used internally by genqlient
 type __JoinAppInput struct {
 	AppRef string `json:"appRef"`
@@ -145601,6 +146340,18 @@ func (v *__RemoveAgentImportInput) GetParentAgentRef() string { return v.ParentA
 
 // GetImportedAgentRef returns __RemoveAgentImportInput.ImportedAgentRef, and is useful for accessing the field via an interface.
 func (v *__RemoveAgentImportInput) GetImportedAgentRef() string { return v.ImportedAgentRef }
+
+// __RemoveAgentTeamHostInput is used internally by genqlient
+type __RemoveAgentTeamHostInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __RemoveAgentTeamHostInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__RemoveAgentTeamHostInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __RemoveAgentTeamHostInput.HostId, and is useful for accessing the field via an interface.
+func (v *__RemoveAgentTeamHostInput) GetHostId() string { return v.HostId }
 
 // __RemoveAppMemberInput is used internally by genqlient
 type __RemoveAppMemberInput struct {
@@ -149161,6 +149912,30 @@ func (v *__UpdateAgentScheduleInput) GetId() string { return v.Id }
 
 // GetInput returns __UpdateAgentScheduleInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateAgentScheduleInput) GetInput() *UpdateAgentScheduleInput { return v.Input }
+
+// __UpdateAgentTeamHostInput is used internally by genqlient
+type __UpdateAgentTeamHostInput struct {
+	Input *gqltypes.AgentTeamHostUpdateInput `json:"input,omitempty"`
+}
+
+// GetInput returns __UpdateAgentTeamHostInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTeamHostInput) GetInput() *gqltypes.AgentTeamHostUpdateInput { return v.Input }
+
+// __UpdateAgentTeamHostInstructedInput is used internally by genqlient
+type __UpdateAgentTeamHostInstructedInput struct {
+	Input       *gqltypes.AgentTeamHostUpdateInput `json:"input,omitempty"`
+	Instruction *ActInstructionInput               `json:"instruction,omitempty"`
+}
+
+// GetInput returns __UpdateAgentTeamHostInstructedInput.Input, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTeamHostInstructedInput) GetInput() *gqltypes.AgentTeamHostUpdateInput {
+	return v.Input
+}
+
+// GetInstruction returns __UpdateAgentTeamHostInstructedInput.Instruction, and is useful for accessing the field via an interface.
+func (v *__UpdateAgentTeamHostInstructedInput) GetInstruction() *ActInstructionInput {
+	return v.Instruction
+}
 
 // __UpdateAgentTickerTemplateInput is used internally by genqlient
 type __UpdateAgentTickerTemplateInput struct {
@@ -158545,6 +159320,94 @@ func AgentTeamEventsPage(
 	}
 
 	data_ = &AgentTeamEventsPageResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTeamHost.
+const AgentTeamHost_Operation = `
+query AgentTeamHost ($appRef: String!, $hostId: String!) {
+	agentTeamHost(appRef: $appRef, hostId: $hostId) {
+		... AgentTeamHostFields
+	}
+}
+fragment AgentTeamHostFields on AgentTeamHost {
+	id
+	hostId
+	label
+	pollIntervalSeconds
+	deliveryEnabled
+	createdAt
+	updatedAt
+}
+`
+
+func AgentTeamHost(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *AgentTeamHostResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTeamHost",
+		Query:  AgentTeamHost_Operation,
+		Variables: &__AgentTeamHostInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &AgentTeamHostResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by AgentTeamHosts.
+const AgentTeamHosts_Operation = `
+query AgentTeamHosts ($appRef: String!) {
+	agentTeamHosts(appRef: $appRef) {
+		... AgentTeamHostFields
+	}
+}
+fragment AgentTeamHostFields on AgentTeamHost {
+	id
+	hostId
+	label
+	pollIntervalSeconds
+	deliveryEnabled
+	createdAt
+	updatedAt
+}
+`
+
+func AgentTeamHosts(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+) (data_ *AgentTeamHostsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTeamHosts",
+		Query:  AgentTeamHosts_Operation,
+		Variables: &__AgentTeamHostsInput{
+			AppRef: appRef,
+		},
+	}
+
+	data_ = &AgentTeamHostsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -176426,6 +177289,41 @@ func HomeAssistantInstances(
 	return data_, err_
 }
 
+// The query executed by HostCredentialStatus.
+const HostCredentialStatus_Operation = `
+query HostCredentialStatus {
+	authenticationStatus
+	myApp {
+		id
+	}
+}
+`
+
+// Sent with a STORED host key, never the person's credential: whether that key
+// still authenticates (REFUSED once it is revoked; a revoked key's myApp is
+// null). `leave` deletes a local entry the server no longer has only on REFUSED
+// (ruling RC3).
+func HostCredentialStatus(
+	ctx_ context.Context,
+	client_ graphql.Client,
+) (data_ *HostCredentialStatusResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostCredentialStatus",
+		Query:  HostCredentialStatus_Operation,
+	}
+
+	data_ = &HostCredentialStatusResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by HostDesiredState.
 const HostDesiredState_Operation = `
 query HostDesiredState ($appRef: String!, $hostId: String!) {
@@ -177945,6 +178843,61 @@ func IssueSecretReadClient(
 	}
 
 	data_ = &IssueSecretReadClientResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by JoinAgentTeamHost.
+const JoinAgentTeamHost_Operation = `
+mutation JoinAgentTeamHost ($appRef: String!, $hostId: String, $label: String, $replace: Boolean) {
+	joinAgentTeamHost(input: {appRef:$appRef,hostId:$hostId,label:$label,replace:$replace}) {
+		rawKey
+		host {
+			... AgentTeamHostFields
+		}
+	}
+}
+fragment AgentTeamHostFields on AgentTeamHost {
+	id
+	hostId
+	label
+	pollIntervalSeconds
+	deliveryEnabled
+	createdAt
+	updatedAt
+}
+`
+
+// The raw key is in this answer once. The caller stores it and never prints it.
+// Every optional variable is omitempty: an omitted one lets the server default
+// it (hostId from the label, the label from hostId, replace false).
+func JoinAgentTeamHost(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId *string,
+	label *string,
+	replace *bool,
+) (data_ *JoinAgentTeamHostResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "JoinAgentTeamHost",
+		Query:  JoinAgentTeamHost_Operation,
+		Variables: &__JoinAgentTeamHostInput{
+			AppRef:  appRef,
+			HostId:  hostId,
+			Label:   label,
+			Replace: replace,
+		},
+	}
+
+	data_ = &JoinAgentTeamHostResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -185256,6 +186209,42 @@ func RemoveAgentImport(
 	}
 
 	data_ = &RemoveAgentImportResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by RemoveAgentTeamHost.
+const RemoveAgentTeamHost_Operation = `
+mutation RemoveAgentTeamHost ($appRef: String!, $hostId: String!) {
+	removeAgentTeamHost(input: {appRef:$appRef,hostId:$hostId})
+}
+`
+
+// No force in C1 (ruling RC4): a host with an open session is refused
+// AGENT_TEAM_HOST_HAS_OPEN_SESSIONS and the command says so.
+func RemoveAgentTeamHost(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *RemoveAgentTeamHostResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "RemoveAgentTeamHost",
+		Query:  RemoveAgentTeamHost_Operation,
+		Variables: &__RemoveAgentTeamHostInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &RemoveAgentTeamHostResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -198461,6 +199450,96 @@ func UpdateAgentSchedule(
 	}
 
 	data_ = &UpdateAgentScheduleResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentTeamHost.
+const UpdateAgentTeamHost_Operation = `
+mutation UpdateAgentTeamHost ($input: UpdateAgentTeamHostInput!) {
+	updateAgentTeamHost(input: $input) {
+		... AgentTeamHostFields
+	}
+}
+fragment AgentTeamHostFields on AgentTeamHost {
+	id
+	hostId
+	label
+	pollIntervalSeconds
+	deliveryEnabled
+	createdAt
+	updatedAt
+}
+`
+
+// $input is bound to gqltypes.AgentTeamHostUpdateInput (genqlient.yaml): its
+// three-state fields omit, send null or send a value.
+func UpdateAgentTeamHost(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *gqltypes.AgentTeamHostUpdateInput,
+) (data_ *UpdateAgentTeamHostResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentTeamHost",
+		Query:  UpdateAgentTeamHost_Operation,
+		Variables: &__UpdateAgentTeamHostInput{
+			Input: input,
+		},
+	}
+
+	data_ = &UpdateAgentTeamHostResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateAgentTeamHostInstructed.
+const UpdateAgentTeamHostInstructed_Operation = `
+mutation UpdateAgentTeamHostInstructed ($input: UpdateAgentTeamHostInput!, $instruction: ActInstructionInput!) {
+	updateAgentTeamHost(input: $input, instruction: $instruction) {
+		... AgentTeamHostFields
+	}
+}
+fragment AgentTeamHostFields on AgentTeamHost {
+	id
+	hostId
+	label
+	pollIntervalSeconds
+	deliveryEnabled
+	createdAt
+	updatedAt
+}
+`
+
+func UpdateAgentTeamHostInstructed(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *gqltypes.AgentTeamHostUpdateInput,
+	instruction *ActInstructionInput,
+) (data_ *UpdateAgentTeamHostInstructedResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateAgentTeamHostInstructed",
+		Query:  UpdateAgentTeamHostInstructed_Operation,
+		Variables: &__UpdateAgentTeamHostInstructedInput{
+			Input:       input,
+			Instruction: instruction,
+		},
+	}
+
+	data_ = &UpdateAgentTeamHostInstructedResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

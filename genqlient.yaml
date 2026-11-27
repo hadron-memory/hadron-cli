@@ -56,3 +56,7 @@ bindings:
   # clears) — see gqltypes.NodeAuthoringCheckInput (cli#3089).
   NodeAuthoringCheckInput:
     type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.NodeAuthoringCheckInput
+  # updateAgentTeamHost keeps an omitted field, clears a null one and sets a value
+  # (pollIntervalSeconds, deliveryEnabled) — see gqltypes.AgentTeamHostUpdateInput (cli#3239).
+  UpdateAgentTeamHostInput:
+    type: github.com/hadron-memory/hadron-cli/internal/api/gqltypes.AgentTeamHostUpdateInput
