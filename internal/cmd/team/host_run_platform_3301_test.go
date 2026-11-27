@@ -688,7 +688,9 @@ func TestHostRunPlatformHoldsTheLockWhileRunning3301(t *testing.T) {
 			t.Fatalf("failFirst %d: the host never collected", failFirst)
 		}
 		cancel()
-		<-done
+		if runErr := <-done; runErr != nil {
+			t.Errorf("failFirst %d: a stopped run ends without an error: %v", failFirst, runErr)
+		}
 		if exitcode.FromError(err) != exitcode.Conflict {
 			t.Errorf("failFirst %d: the running host holds its run lock; another lock got %v", failFirst, err)
 		}
