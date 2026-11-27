@@ -37,14 +37,17 @@ func TestDoctorSaysWhyNoWorkerWasChecked3286(t *testing.T) {
 		name      string
 		responses map[string]string
 		args      []string
-		why       any // the workersNotChecked value
+		why       any    // the workersNotChecked value
+		notFound  string // what the NOT_FOUND line says in place of the advice
 		advice    bool
 		exit      int
 	}{
-		{"no --host", nil, nil, "no --host", true, 0},
-		{"host-sourced setup", setup3236("HOST"), hostArgs3286(), "host-sourced setup", false, 0},
-		{"read failed", map[string]string{"TeamHostSetupWithProfile": gqlErrorJSON("FORBIDDEN")}, hostArgs3286(), "read failed", false, exitcode.Forbidden},
-		{"checked", setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), hostArgs3286(), nil, false, 0},
+		{"no --host", nil, nil, "no --host", "pass --host to check", true, 0},
+		{"host-sourced setup", setup3236("HOST"), hostArgs3286(), "host-sourced setup", "the App takes its setup from the host file", false, 0},
+		{"read failed", map[string]string{"TeamHostSetupWithProfile": gqlErrorJSON("FORBIDDEN")}, hostArgs3286(), "read failed", "the assignments could not be read", false, exitcode.Forbidden},
+		{"checked", setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), hostArgs3286(), nil, "no assigned worker runs it by default", false, 0},
+		// A successful read of zero assignments: nothing to check, nothing left unchecked.
+		{"zero assignments", setup3236("SERVER"), hostArgs3286(), nil, "no assigned worker runs it by default", false, 0},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -60,8 +63,30 @@ func TestDoctorSaysWhyNoWorkerWasChecked3286(t *testing.T) {
 					result = l
 				}
 			}
-			if got := strings.Contains(notFound, advice); tc.name != "checked" && got != tc.advice {
+			if got := strings.Contains(notFound, advice); got != tc.advice {
 				t.Errorf("NOT_FOUND line advice=%v, want %v: %q", got, tc.advice, notFound)
+			}
+			if !strings.Contains(notFound, tc.notFound) {
+				t.Errorf("NOT_FOUND line must say %q: %q", tc.notFound, notFound)
+			}
+			switch tc.name {
+			case "no --host", "host-sourced setup":
+				// Exit 0 and nothing checked: the result line names the reason, with the advice only for "no --host".
+				want := "result: ok for this machine; no workers were checked (" + tc.notFound
+				if tc.name == "no --host" {
+					want = "result: ok for this machine; no workers were checked (pass --host <id> to check"
+				}
+				if !strings.Contains(result, want) {
+					t.Errorf("result line must say %q: %q", want, result)
+				}
+			case "checked", "zero assignments":
+				if result != "result: ok" {
+					t.Errorf("a successful read, even of zero assignments, is plain ok: %q", result)
+				}
+			default: // read failed: the report is not ok, so the result line says something is missing; the reason is on the fact lines
+				if !strings.Contains(result, "something is missing") {
+					t.Errorf("a failed read is not ok: %q", result)
+				}
 			}
 			if got := strings.Contains(result, advice); got != tc.advice {
 				t.Errorf("result line advice=%v, want %v: %q", got, tc.advice, result)
@@ -71,6 +96,9 @@ func TestDoctorSaysWhyNoWorkerWasChecked3286(t *testing.T) {
 			d := doctorJSON3236(t, jout)
 			if v, ok := d["workersNotChecked"]; !ok || v != tc.why {
 				t.Errorf("--json workersNotChecked = %v (present %v), want %v", v, ok, tc.why)
+			}
+			if tc.why == nil && d["workersChecked"] != true {
+				t.Errorf("workersChecked must be true when the reason is null: %v", d["workersChecked"])
 			}
 			if tc.why != nil && d["workersChecked"] != false {
 				t.Errorf("workersChecked must be false beside a reason: %v", d["workersChecked"])
@@ -185,6 +213,9 @@ func TestDoctorExit10DominatesAFailedReadAndTheDocsSayIt3286(t *testing.T) {
 	if code != exitcode.OrcaUnreachable {
 		t.Fatalf("exit %d, want 10 to dominate the read's 8\n%s", code, out)
 	}
+	if !strings.Contains(doctorStderr3236.String(), "FORBIDDEN") {
+		t.Errorf("the failed read's error is still printed on stderr, as documented: %q", doctorStderr3236.String())
+	}
 	read := func(path ...string) string {
 		b, err := os.ReadFile(filepath.Join(path...))
 		if err != nil {
@@ -216,5 +247,36 @@ func TestDoctorExit10DominatesAFailedReadAndTheDocsSayIt3286(t *testing.T) {
 		if !strings.Contains(text, "exit 10 wins over a failed assignments read") && !strings.Contains(text, "Exit 10 wins over a failed assignments read") {
 			t.Errorf("%s must state that exit 10 wins over a failed assignments read", name)
 		}
+	}
+}
+
+// Item 9 (N6), the lost half of the old source scan, as behaviour: a host file that would break any loader
+// (bad app ref, missing key file, broken YAML) beside the working directory and the home directory changes
+// nothing about a --host run: the only request is the assignments read, carrying only appRef and hostId, and
+// the report never mentions the file.
+func TestDoctorWithHostIgnoresAHostFile3286(t *testing.T) {
+	h := newDoctorHost3236(t, true, "claude")
+	bad := []byte("app: not-a-ref\nkey_file: /nonexistent/key-3286\nworkers: [broken\n")
+	scratch := t.TempDir()
+	t.Chdir(scratch)
+	for _, p := range []string{filepath.Join(h.home, "host.yaml"), filepath.Join(scratch, "host.yaml")} {
+		if err := os.WriteFile(p, bad, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out, code, calls := doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), hostArgs3286()...)
+	if code != 0 {
+		t.Fatalf("a malformed host.yaml must not affect doctor: exit %d\n%s", code, out)
+	}
+	if len(*calls) != 1 || (*calls)[0].Op != "TeamHostSetupWithProfile" {
+		t.Fatalf("the one request is the assignments read: %v", *calls)
+	}
+	for k := range (*calls)[0].Vars {
+		if k != "appRef" && k != "hostId" {
+			t.Errorf("the read carries only appRef and hostId, got %q", k)
+		}
+	}
+	if strings.Contains(out, "host.yaml") || strings.Contains(out, "key-3286") {
+		t.Errorf("the report never mentions a host file:\n%s", out)
 	}
 }

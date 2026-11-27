@@ -98,6 +98,9 @@ func setup3236(source string, assignments ...string) map[string]string {
 	return map[string]string{"TeamHostSetupWithProfile": `{"data":{"hostSetup":{"source":"` + source + `","assignments":[` + strings.Join(assignments, ",") + `]}}}`}
 }
 
+// doctorStderr3236 is the stderr of the last doctor3236 run (package state, like doctorPending3236).
+var doctorStderr3236 *strings.Builder
+
 func doctor3236(t *testing.T, responses map[string]string, args ...string) (string, int, *[]attnCall) {
 	t.Helper()
 	t.Cleanup(func() { doctorPending3236 = nil }) // the pending list is package state: no test leaks into the next
@@ -105,6 +108,8 @@ func doctor3236(t *testing.T, responses map[string]string, args ...string) (stri
 	srv, calls := attnServer(t, responses)
 	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
+	doctorStderr3236 = &strings.Builder{}
+	f.IOStreams.ErrOut = doctorStderr3236
 	for _, place := range doctorPending3236 {
 		place(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron"))
 	}
