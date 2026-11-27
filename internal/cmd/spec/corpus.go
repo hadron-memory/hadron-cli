@@ -19,7 +19,8 @@ import (
 
 // Draft spec corpora and minting (hadron-server#1447, cli#777).
 //
-// A corpus created with `memory set --draft-corpus` starts DRAFT. These
+// A corpus is DRAFT while none of its nodes is minted (derived by the server,
+// hadron-server#1591). These
 // commands reserve citations, renumber unminted specs and rewrite references,
 // inspect references, and mint eligible nodes. The server owns each operation's
 // state checks and refuses incompatible writes with typed errors (exit 5).
