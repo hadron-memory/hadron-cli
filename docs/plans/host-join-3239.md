@@ -62,8 +62,14 @@ words (`failureClassHost`), as `app key create` does.
   different `--host-id` exits 5 (leave first); `--replace` alone sends the held
   host id. One `JoinAgentTeamHost`, never retried. A transport or internal
   failure exits with its code (7/1) and says a key may exist: run
-  `join --replace`, which revokes it. A store write failing after the mint
-  exits 1 with the same route. `--json {server, appId, hostId, label, replaced,
+  `join --replace --host-id <id>` (or with the same `--label` when no id was
+  given), which revokes it. The recovery names the host because the machine
+  now holds nothing, so a bare `--replace` would re-key whichever host the
+  server derives (`rejoinHint`). A store write failing after the mint exits 1
+  with the same route after "fix that"; an answer the store refuses as not a
+  whole entry (a host id or key this version cannot store) says a newer hadron
+  comes first, because the same join would get the same answer (blind review of
+  #3283, P2 2). `--json {server, appId, hostId, label, replaced,
   next[]}`, no key field.
 - **leave**: the entry must be held (else 4, no request); `ConfirmDeletion`
   (prompt, or `--yes`). Server first: `RemoveAgentTeamHost`, no force (RC4).

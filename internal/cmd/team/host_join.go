@@ -159,6 +159,20 @@ func storeErr(err error) error {
 	return exitcode.Newf(exitcode.Error, "host credential store: %v", err)
 }
 
+// rejoinHint is the join that recovers a key nobody holds, from a machine that holds nothing for the App: it
+// must name the same host, because a bare --replace would re-key whichever host the server derives. The host
+// id when one is known; else the label the server derives it from (its value is not shown); else the bare form.
+func rejoinHint(hostID string, labelGiven bool) string {
+	switch {
+	case hostID != "" && hostid.Valid(hostID):
+		return "`hadron team host join --replace --host-id " + hostID + "`"
+	case labelGiven:
+		return "`hadron team host join --replace` with the same --label (value not shown)"
+	default:
+		return "`hadron team host join --replace`"
+	}
+}
+
 func newCmdTeamHostJoin(f *cmdutil.Factory) *cobra.Command {
 	var label, hostID string
 	var replace bool
@@ -182,7 +196,8 @@ WHO: whoever manages the App, signed in as themselves (` + "`hadron auth login`"
 request never carries a worker session, so a bound worktree is fine.
 
 A join whose answer is lost is not retried, and may have minted a key
-nobody holds: run join --replace, which revokes it. --json prints {server,
+nobody holds: run join --replace with the same --host-id (or --label), which
+revokes it; the error names the command. --json prints {server,
 appId, hostId, label, replaced, next[]}. Exit codes: 2 bad flags, 3 not
 signed in, 4 App not found, 5 already a host (or the host is held by a live
 key elsewhere), 7 answer lost, 8 not permitted.`,
@@ -230,16 +245,21 @@ key elsewhere), 7 answer lost, 8 not permitted.`,
 				}
 				code := exitcode.FromError(api.MapError(err))
 				if lostAnswer(code) {
-					return exitcode.Newf(code, "joinAgentTeamHost was sent and its answer was lost, so a key may exist that nobody holds. It was not retried. Run `hadron team host join --replace` (it revokes the host's other keys). Cause: %s", failureClassHost(code))
+					return exitcode.Newf(code, "joinAgentTeamHost was sent and its answer was lost, so a key may exist that nobody holds. It was not retried. Run %s (it revokes the host's other keys). Cause: %s", rejoinHint(hostID, cmd.Flags().Changed("label")), failureClassHost(code))
 				}
 				return exitcode.Newf(code, "joinAgentTeamHost refused: %s; no key was minted", failureClassHost(code))
 			}
 			if resp == nil || resp.JoinAgentTeamHost == nil || resp.JoinAgentTeamHost.Host == nil || resp.JoinAgentTeamHost.RawKey == "" {
-				return exitcode.Newf(exitcode.Error, "the server's answer carried no key or no host, so a key may exist that nobody holds; run `hadron team host join --replace`")
+				return exitcode.Newf(exitcode.Error, "the server's answer carried no key or no host, so a key may exist that nobody holds; run %s", rejoinHint(hostID, cmd.Flags().Changed("label")))
 			}
 			host := resp.JoinAgentTeamHost.Host.AgentTeamHostFields
 			if err := store.Put(hostcred.Entry{Server: server, AppID: appID, HostID: host.HostId, Key: resp.JoinAgentTeamHost.RawKey}); err != nil {
-				return exitcode.Newf(exitcode.Error, "the key minted for host %s could not be stored, so nobody holds it (%s); run `hadron team host join --replace`, which revokes it", output.SafeCell(host.HostId), storeErr(err).Error())
+				if errors.Is(err, hostcred.ErrBadEntry) {
+					// The answer itself is one this CLI cannot store: the same join gets the same answer, so a
+					// newer hadron comes first (blind review of #3283, P2 2).
+					return exitcode.Newf(exitcode.Error, "the server answered for host %s with a host id or key this version of hadron cannot store, so the key it minted is held by nobody, and the same join would get the same answer. Install a newer hadron, then run `hadron team host join --replace --host-id <that id>`, which revokes it", output.SafeCell(host.HostId))
+				}
+				return exitcode.Newf(exitcode.Error, "the key minted for host %s could not be stored, so nobody holds it (%s); fix that, then run %s, which revokes it", output.SafeCell(host.HostId), storeErr(err).Error(), rejoinHint(host.HostId, false))
 			}
 			appLabel := lazyAppLabel(cmd.Context(), f, scope)
 			d := hostJoinDTO{Server: server, AppID: appID, HostID: host.HostId, Label: host.Label, Replaced: replace,
