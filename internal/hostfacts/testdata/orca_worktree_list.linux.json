@@ -1,0 +1,9 @@
+{"id":"req-2","ok":true,"result":{"worktrees":[
+ {"id":"wt-1","repoId":"repo-hs","path":"/home/u/src/hadron-server","branch":"refs/heads/main","isMainWorktree":true,"isArchived":false,"displayName":"main"},
+ {"id":"wt-2","repoId":"repo-hs","path":"/home/u/orca/workspaces/hadron-server/antonio","branch":"refs/heads/antonio/x","isMainWorktree":false,"isArchived":false,"displayName":"Antonio [Server Engineer, Sonnet]"},
+ {"id":"wt-3","repoId":"repo-hs","path":"/home/u/orca/workspaces/hadron-server/wt","branch":"refs/heads/qa1","isMainWorktree":false,"isArchived":false,"displayName":"QA one"},
+ {"id":"wt-4","repoId":"repo-hs","path":"/home/u/scratch/qa/wt","branch":"refs/heads/qa2","isMainWorktree":false,"isArchived":false,"displayName":"QA two"},
+ {"id":"wt-5","repoId":"repo-cli","path":"/home/u/orca/workspaces/hadron-cli/judy","branch":"refs/heads/judy/x","isMainWorktree":false,"isArchived":false,"displayName":"Judy [CLI Engineer]"},
+ {"id":"wt-6","repoId":"repo-cli","path":"/home/u/orca/workspaces/hadron-cli/old","branch":"refs/heads/old","isMainWorktree":false,"isArchived":true,"displayName":"Old"},
+ {"id":"wt-7","repoId":"repo-ws","path":"/home/u/ws/notes","branch":"","isMainWorktree":false,"isArchived":false,"displayName":"Notes"}
+],"hostScope":{"hostIds":["local"],"omittedHostIds":[]},"totalCount":7,"truncated":false},"_meta":{"runtimeId":"rt-1"}}

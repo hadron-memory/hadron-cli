@@ -1,0 +1,5 @@
+{"id":"req-1","ok":true,"result":{"repos":[
+ {"id":"repo-hs","path":"/home/u/src/hadron-server","displayName":"hadron-server","kind":"git","executionHostId":"local"},
+ {"id":"repo-cli","path":"/home/u/src/hadron-cli","displayName":"hadron-cli","kind":"git","executionHostId":"local"},
+ {"id":"repo-ws","path":"/home/u/ws","displayName":"worker","kind":"folder","executionHostId":"local"}
+]},"_meta":{"runtimeId":"rt-1"}}
