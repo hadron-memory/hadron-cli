@@ -172,6 +172,12 @@ type Deliverer struct {
 	// while the terminal is quiet; it never lets one be typed (see
 	// typeLine).
 	screens map[string]screenMemo
+	// retyped marks a (worker, covered-prefix record, batch) already typed once
+	// more after a refused partial ack (cli#3300). It holds the once-only
+	// promise even when the record of that retype could not be written. Every
+	// reconcile drops a worker's marks whose record is gone, so it is bounded by
+	// the records on disk. It lives for the process: a restart resets it.
+	retyped map[retypeKey]bool
 }
 
 type screenMemo struct {
@@ -335,7 +341,8 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	if err := CheckBatch(b); err != nil {
 		return d.emit(b, r, Outcome{Kind: Failed, Reason: "malformed-batch"})
 	}
-	if o, done := d.reconcile(ctx, b, r); done {
+	o, done, stale := d.reconcile(ctx, b, r)
+	if done {
 		return o
 	}
 	now := d.Now()
@@ -367,24 +374,34 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	// Confirmed. The record is written even if the lock was lost meanwhile:
 	// it is the known outcome, and every deliverer reconciles records before
 	// typing.
+	d.markRetyped(b, stale)
 	if err := d.Records.Put(b, d.Now()); err != nil {
-		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "record-failed", Terminal: handle, AckPending: !d.ack(fin, b, nil)})
+		ok, code := d.ackCode(fin, b, nil)
+		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "record-failed", Terminal: handle, AckPending: !ok, Code: code})
 	}
 	d.forget(b)
-	if !d.ack(fin, b, nil) {
-		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "ack-pending", Terminal: handle, AckPending: true})
+	if ok, code := d.ackCode(fin, b, nil); !ok {
+		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "ack-pending", Terminal: handle, AckPending: true, Code: code})
 	}
 	_ = d.Records.Delete(b.WorkerID, b.Ranges)
+	// A retype after a refused partial ack: the prefix's own record is
+	// covered by this full ack too (cli#3300).
+	for _, m := range stale {
+		_ = d.Records.Retire(b.WorkerID, m, b.Ranges)
+	}
 	return d.emit(b, r, Outcome{Kind: Delivered, Terminal: handle})
 }
 
-// ack acknowledges a batch, bounded. True when it landed (or had already).
-func (d *Deliverer) ack(ctx context.Context, b Batch, through []Through) bool {
-	ok, _ := d.ackCode(ctx, b, through)
-	return ok
-}
+// refusalCodes are the codes of a server that ANSWERED the partial ack with a
+// refusal of it (cli#3300): the only failures after which the batch is typed
+// once more. BAD_USER_INPUT is the input the server will not take. Anything
+// else is retried, never retyped: server-refused is any other GraphQL error,
+// transient server faults included, as are a transport
+// class, an auth failure, a stale proof (a fresh one comes next pass) and no
+// code at all.
+var refusalCodes = map[string]bool{"BAD_USER_INPUT": true}
 
-// ackCode is ack that also names why it failed: the error's declared
+// ackCode acknowledges a batch, bounded: true when it landed (or had already). On failure it names why: the error's declared
 // DeliveryCode when it is in the known vocabulary, else empty. Never the
 // error's text (cli#3300).
 func (d *Deliverer) ackCode(ctx context.Context, b Batch, through []Through) (bool, string) {
@@ -402,36 +419,61 @@ func (d *Deliverer) ackCode(ctx context.Context, b Batch, through []Through) (bo
 }
 
 // reconcile acks what confirmed records prove, with no typing. done is true
-// when the batch needs nothing further this time.
-func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (Outcome, bool) {
+// when the batch needs nothing further this time. stale are the records of a
+// covered prefix whose partial ack was refused: the batch is then typed once
+// more and full-acked, and these are retired with that ack.
+func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (o Outcome, done bool, stale []Record) {
 	recs, err := d.Records.List(b.WorkerID)
 	if err != nil {
-		return d.emit(b, r, Outcome{Kind: Failed, Reason: "records-unreadable"}), true
+		return d.emit(b, r, Outcome{Kind: Failed, Reason: "records-unreadable"}), true, nil
 	}
+	// recs is the worker's whole record set (Records.List's contract), and d.mu
+	// is not held here: Deliver never takes it around reconcile, and each mark
+	// helper locks and unlocks on its own.
+	d.pruneRetyped(b.WorkerID, recs)
 	cover := Reconcile(b, recs)
 	switch {
 	case cover.Full:
 		if ok, code := d.ackCode(ctx, b, nil); !ok {
-			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code}), true
+			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code}), true, nil
 		}
 		// The ack covered this batch's messages only: a matched record
 		// keeps whatever else it confirmed.
-		for _, m := range cover.Matched {
-			_ = d.Records.Retire(b.WorkerID, m, b.Ranges)
+		// Any other record naming these messages (a covered prefix whose
+		// partial ack was refused and then retyped, cli#3300) is retired too.
+		for _, m := range recs {
+			if recordTouches(m, b.Ranges) {
+				_ = d.Records.Retire(b.WorkerID, m, b.Ranges)
+			}
 		}
 		d.forget(b)
-		return d.emit(b, r, Outcome{Kind: Reconciled}), true
+		return d.emit(b, r, Outcome{Kind: Reconciled}), true, nil
 	case len(cover.Through) > 0:
 		// A covered prefix: ack exactly it; the rest arrives as the next
 		// batch. A refused entry rolls the whole ack back on the server, so
 		// on failure nothing moved and the record stays.
-		if ok, code := d.ackCode(ctx, b, cover.Through); !ok {
-			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code}), true
+		ok, code := d.ackCode(ctx, b, cover.Through)
+		if ok {
+			d.forget(b)
+			return d.emit(b, r, Outcome{Kind: Reconciled, Reason: "covered-prefix"}), true, nil
 		}
-		d.forget(b)
-		return d.emit(b, r, Outcome{Kind: Reconciled, Reason: "covered-prefix"}), true
+		// Holger's ruling on #3300 (record decisions:2026-11-27-holger-
+		// answer-cli3300-partial-ack-fallback): a refused partial ack is
+		// reported, then the whole batch is typed once more and full-acked,
+		// so the newer message is never held back for good. The prefix is
+		// seen twice, a stated one-time exception to cor:agt:080:12. Only one
+		// retype: once typed, a full record exists, and the next pass takes
+		// the full-cover branch (ack only) however the full ack fares.
+		o = d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code})
+		if !refusalCodes[code] || d.alreadyRetyped(b, cover.Matched) {
+			// Not a refusal (a timeout, an outage, no code, a server fault, an
+			// auth or stale-proof failure), or this prefix was already typed
+			// once more: nothing is typed again. The next pass retries.
+			return o, true, nil
+		}
+		return Outcome{}, false, cover.Matched
 	}
-	return Outcome{}, false
+	return Outcome{}, false, nil
 }
 
 // line is what one delivery types, and how its outcomes are reported: a
@@ -794,4 +836,69 @@ func bindingDir(worktree string) (string, bindingDirState) {
 		}
 	}
 	return gitDir, bindingDirGit
+}
+
+// recordTouches reports whether rec confirmed any message in ranges.
+func recordTouches(rec Record, ranges []Range) bool {
+	for _, rr := range rec.Ranges {
+		for _, seq := range rr.Seqs {
+			if coveredBy(ranges, rr.ChannelID, rr.Incarnation, seq) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// retypeKey names one retype: the prefix record's file, for one batch of one
+// worker. A different batch under the same prefix (5-7, then 5-8) is its own.
+type retypeKey struct{ worker, record, batch string }
+
+func retypeKeys(b Batch, recs []Record) []retypeKey {
+	keys := make([]retypeKey, 0, len(recs))
+	for _, m := range recs {
+		keys = append(keys, retypeKey{b.WorkerID, recordName(m.Ranges), batchKey(b)})
+	}
+	return keys
+}
+
+func (d *Deliverer) alreadyRetyped(b Batch, recs []Record) bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	for _, k := range retypeKeys(b, recs) {
+		if d.retyped[k] {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Deliverer) markRetyped(b Batch, recs []Record) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if d.retyped == nil {
+		d.retyped = map[retypeKey]bool{}
+	}
+	for _, k := range retypeKeys(b, recs) {
+		d.retyped[k] = true
+	}
+}
+
+// pruneRetyped drops the worker's marks whose prefix record is no longer on
+// disk (it was retired by an ack, or pruned).
+func (d *Deliverer) pruneRetyped(workerID string, recs []Record) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.retyped) == 0 {
+		return
+	}
+	live := map[string]bool{}
+	for _, m := range recs {
+		live[recordName(m.Ranges)] = true
+	}
+	for k := range d.retyped {
+		if k.worker == workerID && !live[k.record] {
+			delete(d.retyped, k)
+		}
+	}
 }

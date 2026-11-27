@@ -95,7 +95,10 @@ func (s *Records) write(dir string, rec Record) error {
 	return os.Rename(tmp.Name(), filepath.Join(dir, recordName(rec.Ranges)))
 }
 
-// List is the worker's confirmed records. A file that does not parse as a
+// List is the worker's confirmed records: the FULL set on disk for that
+// worker, unfiltered by any batch. The retype marks (deliver.go pruneRetyped)
+// depend on it: they are pruned against this set, so a List that returned only
+// the records relevant to one batch would drop another batch's marks. A file that does not parse as a
 // confirmed record for this worker is ignored: only typed, confirmed
 // evidence may suppress a send.
 func (s *Records) List(workerID string) ([]Record, error) {
