@@ -1472,3 +1472,46 @@ func TestOneRetypeHoldsWhenTheRetypeRecordCannotBeWritten(t *testing.T) {
 		t.Fatalf("sends %d: the prefix was typed again", len(h.orca.sends))
 	}
 }
+
+// The once-only marks are per (worker, prefix record, batch) and bounded by
+// the records on disk (Jerry's N1 and N2, Charles's P3 on #3306).
+func TestRetypeMarksAreScopedAndPruned(t *testing.T) {
+	prefix := Record{Ranges: []Range{rng("ch-team", 1, 5, 6)}}
+	t.Run("a different batch under the same prefix is its own retype", func(t *testing.T) {
+		h := newHarness(t)
+		h.d.markRetyped(h.batch(5, 6, 7), []Record{prefix})
+		if !h.d.alreadyRetyped(h.batch(5, 6, 7), []Record{prefix}) {
+			t.Fatal("the marked batch must count as retyped")
+		}
+		if h.d.alreadyRetyped(h.batch(5, 6, 8), []Record{prefix}) {
+			t.Fatal("5-8 is a different batch: a mark for 5-7 must not suppress its retype")
+		}
+	})
+	t.Run("another worker with the same ranges is not withheld", func(t *testing.T) {
+		h := newHarness(t)
+		h.d.markRetyped(h.batch(5, 6, 7), []Record{prefix})
+		other := h.batch(5, 6, 7)
+		other.WorkerID = "w-other"
+		if h.d.alreadyRetyped(other, []Record{prefix}) {
+			t.Fatal("a mark is per worker")
+		}
+	})
+	t.Run("marks whose record is gone are dropped at the next reconcile", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}}
+		h.deliver(h.batch(5, 6, 7)) // retype, full ack lost: record-failed or ack-pending
+		again := h.batch(5, 6, 7)
+		again.ID = "proof-2"
+		h.deliver(again) // full cover: ack lands, every touching record retired
+		later := h.batch(9)
+		later.ID = "proof-3"
+		h.deliver(later) // any reconcile prunes
+		h.d.mu.Lock()
+		n := len(h.d.retyped)
+		h.d.mu.Unlock()
+		if n != 0 {
+			t.Fatalf("%d marks leaked", n)
+		}
+	})
+}
