@@ -67,9 +67,16 @@ the server exactly as typed (300000000 is 3 USD per million tokens;
 is valid and says so if it refuses.
 
 Leave --tier, --markup-bp and --effective-at off to take the server's defaults:
-tier 1, the server's default markup, effective now. --markup-bp is the debit
-markup for this tier in hundredths of a percent (2500 = 25%); 0 is a real
-markup of none, different from leaving it off.
+tier 1, the server's default markup, and the earliest time the server allows
+(a short way ahead, never now). --markup-bp is the debit markup for this tier in
+hundredths of a percent (2500 = 25%); 0 is a real markup of none, different from
+leaving it off.
+
+--effective-at is when the row starts to apply, an ISO 8601 date or date-time (a
+date alone is midnight UTC). A row is never dated in the past, and not before the
+moment every server can apply it from, so the server refuses an earlier time (exit
+2) and its message names the earliest allowed time. The CLI does not check the time
+itself. Leave it off to take that earliest time.
 
 --tier says which pricing tier the row belongs to (1 to 3). Every charge
 resolves tier 1 today, so leave --tier off. Rows at tier 2 or 3 are stored but
@@ -137,7 +144,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 	cmd.Flags().StringVar(&output_, "output", "", "output micro-cents per million tokens, a whole number (required)")
 	cmd.Flags().IntVar(&tier, "tier", 0, "the pricing tier this row belongs to (1-3); leave it off for the server default (1): tiers 2 and 3 are stored but not read yet")
 	cmd.Flags().IntVar(&markupBP, "markup-bp", 0, "debit markup in basis points (2500 = 25%); unset takes the server default")
-	cmd.Flags().StringVar(&effectiveAt, "effective-at", "", "when the row takes effect (ISO-8601); unset means now")
+	cmd.Flags().StringVar(&effectiveAt, "effective-at", "", "when the row takes effect: an ISO 8601 date or date-time, never in the past (the server refuses an earlier time and names the earliest allowed); unset takes that earliest time")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
 	return cmd
 }
