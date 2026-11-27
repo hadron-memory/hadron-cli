@@ -854,16 +854,21 @@ func TestCoveredPrefixRecovery(t *testing.T) {
 			t.Fatalf("through %+v: ch-lane must be omitted", got)
 		}
 	})
-	t.Run("a refused through rolls back: record kept, nothing typed", func(t *testing.T) {
+	t.Run("a refused through: the batch is typed once more and full-acked (cli#3300, Holger)", func(t *testing.T) {
 		h := newHarness(t)
 		seedRecord(t, h, rng("ch-team", 1, 5, 6))
 		h.server.ackErrs = []error{errors.New("BAD_USER_INPUT")}
-		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Failed {
+		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Delivered || o.AckPending {
 			t.Fatalf("outcome %+v", o)
 		}
-		h.wantNoSend()
-		if len(h.records()) != 1 {
-			t.Fatal("a refused reconciliation must keep the record")
+		if len(h.orca.sends) != 1 {
+			t.Fatalf("sends %d, want exactly one retype", len(h.orca.sends))
+		}
+		if last := h.ack(-1); last.through != nil {
+			t.Fatalf("the closing ack must be a full ack, got %+v", last.through)
+		}
+		if len(h.records()) != 0 {
+			t.Fatalf("records left: %+v", h.records())
 		}
 	})
 }
@@ -1314,9 +1319,9 @@ func TestAFailedReconcileAckCarriesTheServerCodeNotItsText(t *testing.T) {
 			h := newHarness(t)
 			seed(h)
 			h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
-			o := h.deliver(h.batch(5, 6, 7))
-			if o.Kind != Failed || o.Reason != "reconcile-ack-failed" || o.Code != "BAD_USER_INPUT" {
-				t.Fatalf("outcome %+v", o)
+			h.deliver(h.batch(5, 6, 7))
+			if e := h.events[0]; e.Kind != Failed || e.Reason != "reconcile-ack-failed" || e.Code != "BAD_USER_INPUT" {
+				t.Fatalf("events %+v", h.events)
 			}
 			blob, _ := json.Marshal(h.events)
 			if strings.Contains(string(blob), "SECRET") || !strings.Contains(string(blob), "BAD_USER_INPUT") {
@@ -1328,39 +1333,68 @@ func TestAFailedReconcileAckCarriesTheServerCodeNotItsText(t *testing.T) {
 		h := newHarness(t)
 		seedRecord(t, h, rng("ch-team", 1, 5, 6))
 		h.server.ackErrs = []error{codedErr{"token=abc123"}}
-		if o := h.deliver(h.batch(5, 6, 7)); o.Code != "" {
-			t.Fatalf("outcome %+v", o)
+		h.deliver(h.batch(5, 6, 7))
+		if h.events[0].Code != "" {
+			t.Fatalf("events %+v", h.events)
 		}
 	})
 }
 
-// cli#3300 (B): while a covered-prefix ack is refused, nothing unseen is
-// acked (never a full ack of the batch), nothing is retyped, the record
-// stays, and every pass retries the same partial ack until it lands.
-func TestARefusedCoveredPrefixAckNeverAcksUnseenAndRetriesEachPass(t *testing.T) {
-	h := newHarness(t)
-	seedRecord(t, h, rng("ch-team", 1, 5, 6))
-	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"BAD_USER_INPUT"}}
-	for i := 0; i < 2; i++ {
-		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Failed || o.Code != "BAD_USER_INPUT" {
-			t.Fatalf("pass %d: %+v", i, o)
+// cli#3300 item 1 (Holger's ruling A): a refused covered-prefix ack is
+// reported with its code, then the whole batch is typed ONCE more and full-acked.
+func TestARefusedCoveredPrefixAckRetypesOnceThenFullAcks(t *testing.T) {
+	t.Run("retypes once, then the full ack, and the prefix's record is retired", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
+		o := h.deliver(h.batch(5, 6, 7))
+		if o.Kind != Delivered || o.AckPending || len(h.orca.sends) != 1 {
+			t.Fatalf("outcome %+v sends %d", o, len(h.orca.sends))
 		}
-	}
-	h.wantNoSend()
-	for i, a := range h.server.acks {
-		if len(a.through) != 1 || a.through[0] != (Through{"ch-team", 6}) {
-			t.Fatalf("ack %d went beyond the covered prefix: %+v", i, a.through)
+		if len(h.server.acks) != 2 || len(h.ack(0).through) != 1 || h.ack(1).through != nil {
+			t.Fatalf("acks %+v: want the refused partial, then a full ack", h.server.acks)
 		}
-	}
-	if len(h.records()) != 1 {
-		t.Fatal("the record must stay while the ack is refused")
-	}
-	// The server recovers: the same partial ack lands, still nothing typed.
-	if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Reconciled || o.Reason != "covered-prefix" {
-		t.Fatalf("outcome %+v", o)
-	}
-	h.wantNoSend()
-	if n := len(h.server.acks); n != 3 {
-		t.Fatalf("acks %d", n)
-	}
+		if h.events[0].Reason != "reconcile-ack-failed" || h.events[0].Code != "BAD_USER_INPUT" {
+			t.Fatalf("the refusal was not reported first: %+v", h.events)
+		}
+		if len(h.records()) != 0 {
+			t.Fatalf("stale prefix record left: %+v", h.records())
+		}
+	})
+	t.Run("nothing unseen is acked before the retype is confirmed", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
+		h.orca.screens = nil // no terminal screen: the retype cannot be confirmed
+		h.deliver(h.batch(5, 6, 7))
+		for i, a := range h.server.acks {
+			if a.through == nil {
+				t.Fatalf("ack %d was a full ack without a confirmed retype", i)
+			}
+		}
+	})
+	t.Run("a refused full ack too: one retype only, nothing acked, later passes ack only", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"WAKE_PROOF_STALE"}}
+		o := h.deliver(h.batch(5, 6, 7))
+		if o.Kind != Delivered || !o.AckPending || o.Code != "WAKE_PROOF_STALE" {
+			t.Fatalf("outcome %+v", o)
+		}
+		// The next pass re-hands the same batch: ack only, nothing typed.
+		again := h.batch(5, 6, 7)
+		again.ID = "proof-2"
+		if o := h.deliver(again); o.Kind != Reconciled {
+			t.Fatalf("next pass %+v", o)
+		}
+		if len(h.records()) != 0 {
+			t.Fatalf("records left: %+v", h.records())
+		}
+		if len(h.orca.sends) != 1 {
+			t.Fatalf("sends %d: the batch must be typed exactly once more, never a loop", len(h.orca.sends))
+		}
+		if last := h.ack(-1); last.through != nil {
+			t.Fatalf("later acks must be full, got %+v", last.through)
+		}
+	})
 }

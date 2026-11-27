@@ -335,7 +335,8 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	if err := CheckBatch(b); err != nil {
 		return d.emit(b, r, Outcome{Kind: Failed, Reason: "malformed-batch"})
 	}
-	if o, done := d.reconcile(ctx, b, r); done {
+	o, done, stale := d.reconcile(ctx, b, r)
+	if done {
 		return o
 	}
 	now := d.Now()
@@ -368,23 +369,23 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	// it is the known outcome, and every deliverer reconciles records before
 	// typing.
 	if err := d.Records.Put(b, d.Now()); err != nil {
-		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "record-failed", Terminal: handle, AckPending: !d.ack(fin, b, nil)})
+		ok, code := d.ackCode(fin, b, nil)
+		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "record-failed", Terminal: handle, AckPending: !ok, Code: code})
 	}
 	d.forget(b)
-	if !d.ack(fin, b, nil) {
-		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "ack-pending", Terminal: handle, AckPending: true})
+	if ok, code := d.ackCode(fin, b, nil); !ok {
+		return d.emit(b, r, Outcome{Kind: Delivered, Reason: "ack-pending", Terminal: handle, AckPending: true, Code: code})
 	}
 	_ = d.Records.Delete(b.WorkerID, b.Ranges)
+	// A retype after a refused partial ack: the prefix's own record is
+	// covered by this full ack too (cli#3300).
+	for _, m := range stale {
+		_ = d.Records.Retire(b.WorkerID, m, b.Ranges)
+	}
 	return d.emit(b, r, Outcome{Kind: Delivered, Terminal: handle})
 }
 
-// ack acknowledges a batch, bounded. True when it landed (or had already).
-func (d *Deliverer) ack(ctx context.Context, b Batch, through []Through) bool {
-	ok, _ := d.ackCode(ctx, b, through)
-	return ok
-}
-
-// ackCode is ack that also names why it failed: the error's declared
+// ackCode acknowledges a batch, bounded: true when it landed (or had already). On failure it names why: the error's declared
 // DeliveryCode when it is in the known vocabulary, else empty. Never the
 // error's text (cli#3300).
 func (d *Deliverer) ackCode(ctx context.Context, b Batch, through []Through) (bool, string) {
@@ -402,36 +403,51 @@ func (d *Deliverer) ackCode(ctx context.Context, b Batch, through []Through) (bo
 }
 
 // reconcile acks what confirmed records prove, with no typing. done is true
-// when the batch needs nothing further this time.
-func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (Outcome, bool) {
+// when the batch needs nothing further this time. stale are the records of a
+// covered prefix whose partial ack was refused: the batch is then typed once
+// more and full-acked, and these are retired with that ack.
+func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (o Outcome, done bool, stale []Record) {
 	recs, err := d.Records.List(b.WorkerID)
 	if err != nil {
-		return d.emit(b, r, Outcome{Kind: Failed, Reason: "records-unreadable"}), true
+		return d.emit(b, r, Outcome{Kind: Failed, Reason: "records-unreadable"}), true, nil
 	}
 	cover := Reconcile(b, recs)
 	switch {
 	case cover.Full:
 		if ok, code := d.ackCode(ctx, b, nil); !ok {
-			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code}), true
+			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code}), true, nil
 		}
 		// The ack covered this batch's messages only: a matched record
 		// keeps whatever else it confirmed.
-		for _, m := range cover.Matched {
-			_ = d.Records.Retire(b.WorkerID, m, b.Ranges)
+		// Any other record naming these messages (a covered prefix whose
+		// partial ack was refused and then retyped, cli#3300) is retired too.
+		for _, m := range recs {
+			if recordTouches(m, b.Ranges) {
+				_ = d.Records.Retire(b.WorkerID, m, b.Ranges)
+			}
 		}
 		d.forget(b)
-		return d.emit(b, r, Outcome{Kind: Reconciled}), true
+		return d.emit(b, r, Outcome{Kind: Reconciled}), true, nil
 	case len(cover.Through) > 0:
 		// A covered prefix: ack exactly it; the rest arrives as the next
 		// batch. A refused entry rolls the whole ack back on the server, so
 		// on failure nothing moved and the record stays.
-		if ok, code := d.ackCode(ctx, b, cover.Through); !ok {
-			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code}), true
+		ok, code := d.ackCode(ctx, b, cover.Through)
+		if ok {
+			d.forget(b)
+			return d.emit(b, r, Outcome{Kind: Reconciled, Reason: "covered-prefix"}), true, nil
 		}
-		d.forget(b)
-		return d.emit(b, r, Outcome{Kind: Reconciled, Reason: "covered-prefix"}), true
+		// Holger's ruling on #3300 (record decisions:2026-11-27-holger-
+		// answer-cli3300-partial-ack-fallback): a refused partial ack is
+		// reported, then the whole batch is typed once more and full-acked,
+		// so the newer message is never held back for good. The prefix is
+		// seen twice, a stated one-time exception to cor:agt:080:12. Only one
+		// retype: once typed, a full record exists, and the next pass takes
+		// the full-cover branch (ack only) however the full ack fares.
+		d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code})
+		return Outcome{}, false, cover.Matched
 	}
-	return Outcome{}, false
+	return Outcome{}, false, nil
 }
 
 // line is what one delivery types, and how its outcomes are reported: a
@@ -794,4 +810,16 @@ func bindingDir(worktree string) (string, bindingDirState) {
 		}
 	}
 	return gitDir, bindingDirGit
+}
+
+// recordTouches reports whether rec confirmed any message in ranges.
+func recordTouches(rec Record, ranges []Range) bool {
+	for _, rr := range rec.Ranges {
+		for _, seq := range rr.Seqs {
+			if coveredBy(ranges, rr.ChannelID, rr.Incarnation, seq) {
+				return true
+			}
+		}
+	}
+	return false
 }
