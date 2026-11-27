@@ -1227,10 +1227,24 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   `--agent` without `--app` is still exit 2. Server refusals keep their
   server sentence and mapped exit code (FORBIDDEN 8; BAD_USER_INPUT and
   AGENT_NOT_INSTALLED 2).
-- `memory attach <memory> --app <ref> --agent <ref>` binds an existing
-  free-standing personal/private memory to that App/installed Agent. The
-  memory must be caller-owned and keeps its URN, class, and owner; server typed
-  errors report already-scoped, cross-org, membership, and install failures.
+- `memory attach <memory> --app <ref> [--agent <ref>]` links any memory you can
+  read, of any class except system, into an App (hadron-server#5185, cor:dmo:060:20).
+  The memory is unchanged (name, URN, class, owner, App) and may be linked into
+  more than one App; it does not count toward the one-per-class limit. The link
+  is read-only for the App's key and runs, gives members nothing, never widens
+  what you can read, and stops working when you stop reading the memory. A
+  personal or private memory reaches the key only when its owner is the App's
+  owner (an App you own); in an organization's App the link is made but inert
+  for the key. Person
+  only, and only an App you are a member of; a repeat attach changes nothing. There is no
+  command to remove a link yet (#3277).
+  `--agent` is optional, sent only when given, and ignored by current servers.
+  The CLI checks no class, owner or organization: the server judges it. Refusals
+  keep the server's sentence and code (`--json` `serverCode`): UNAUTHENTICATED 3,
+  FORBIDDEN 8 (key, run, worker session, impersonation, unknown App or not a
+  member, identical bytes), MEMORY_NOT_FOUND 4 (unknown or unreadable, concealed),
+  UNSUPPORTED_MEMORY_CLASS 2 (a system memory), APP_UNINSTALLED 5. Output shows
+  the memory's own URN.
 - Successful node writes can carry server advice (including `include.pin.unkept`
   for a readable plain revision pin with no recorded approval or signature).
   The writes that display it are exactly those that send one of these
@@ -3445,8 +3459,8 @@ server error fails the command).
   and nothing is posted or recorded; `RESUME_REFUSED` (the lifecycle gate) is
   exit 5 and has spent the claim, except reason `WORKER_MISMATCH`, which
   spends nothing; `RESUME_AMBIGUOUS` is exit 2 (name the worker). A worktree
-  with a binding file (lapsed or ended) sends that worker as `expectedWorkerId`
-  (needs hadron-server#3822, never with `--as`; an older server rejects the field and the resume refuses, exit 2, consuming nothing and not retrying without it: use `start --as <worker>`): if nothing of that worker's
+  with a binding file (lapsed or ended) sends that worker as `expectedWorkerRef`
+  (needs server 0.48.0 or later, never with `--as`; an older server rejects the field and the resume refuses, exit 2, consuming nothing and not retrying without it: use `start --as <worker>`): if nothing of that worker's
   waits but another worker's claim or live session does, the resume is refused
   `WORKER_MISMATCH` (exit 5), naming both workers, that worker's item is
   untouched and no binding is written (run `start` in that worker's own

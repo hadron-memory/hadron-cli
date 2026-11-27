@@ -18964,7 +18964,7 @@ type AgentTeamEventFields struct {
 	TaskId *string `json:"taskId"`
 	// The task's stored handle (hrn:node:hadronmemory.com:specs:cor:agt:050:01, Proposed). Null when taskId is null or the task no longer exists; never invented.
 	TaskHandle *string `json:"taskHandle"`
-	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.lead-cadence (#2763, #4375: task-less, subjectWorker is the lead that stopped assigning: a worker that at least one worker reports to; events raised before #4375 carry the type alarm.coordinator-cadence, the same alarm under its old name); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); team.dark (#4531: App-owned, task-less and workerless, with an empty chain, hrn:node:hadronmemory.com:specs:cor:agt:050:34: the team as a whole went silent past the dark window, one per episode; payload is reason (wake-unacked, no-turn or work-waiting), windowMinutes, workerCount, darkWorkerCount, oldestWakeAgeSeconds and waitingSeconds, counts and ages only; it wakes nobody and is not acknowledgeable) and team.recovered (an ordinary event, one per episode, when the condition clears); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
+	// e.g. task.created, task.assigned, task.reassigned, task.started, task.progress, task.finished, task.cancelled, task.handed-back (#2651: its payload is the reason code only, never the reason text); the alarms stall.not-started, stall.no-progress, stall.owner-unreactive, assignment.unassignable, stall.finish-by (#2648), alarm.dark-worker (#2755: task-less, subjectWorker is the worker gone dark), alarm.lead-cadence (#2763, #4375: task-less, subjectWorker is the lead that stopped assigning: a worker that at least one worker reports to; events raised before #4375 carry the type alarm.coordinator-cadence, the same alarm under its old name); alarm.stale-sweep (#4233: task-less and workerless: a host of an App in sweep mode OBSERVE or APPLY whose last run the server recorded more than five minutes ago (the server's clock, not the host's; a switch-on of the mode restarts the clock); payload.hostId names the host, the alarm goes to the App's managers and ends when the host records its next run); alarm.saturation (#3819: task-less and workerless: a family/tier/role combination the platform could not give work to, hrn:node:hadronmemory.com:specs:cor:agt:060:14; #4777: its chain names the App's workers whose roles its saturation-alarm list named when it was raised, each offered one wake while its episode is open, and is empty (waking nobody) when the list was, hrn:node:hadronmemory.com:specs:cor:agt:060:16; payload is reason (no-worker or none-eligible), family, tier and role, null for a dimension the task left open; only whoever manages the App acknowledges it, and acknowledging does not end its episode); team.dark (#4531: App-owned, task-less and workerless, with an empty chain, hrn:node:hadronmemory.com:specs:cor:agt:050:34: the team as a whole went silent past the dark window, one per episode; payload is reason (wake-unacked, no-turn or work-waiting), windowMinutes, workerCount, darkWorkerCount, oldestWakeAgeSeconds and waitingSeconds, counts and ages only; it wakes nobody and is not acknowledgeable) and team.recovered (an ordinary event, one per episode, when the condition clears); availability.changed; assignment.queued, assignment.matched (the platform's assignment, hrn:node:hadronmemory.com:specs:cor:agt:060:06); host.registered, host.lost; host.joined, host.updated, host.removed (#5259: payload is hostId, and for host.joined whether it replaced a live key; never the label or a key); host.operation.succeeded, host.operation.failed (hrn:node:hadronmemory.com:specs:cor:agt:070:02); question.answered, question.answer-retracted (#4431: a question that blocks the task was answered, or its answer taken back; payload is questionId, code, revision and state only, never the answer; only question.answered wakes the task's assignee).
 	Type string `json:"type"`
 	// ALARM for an alarm; null for an ordinary event.
 	Severity  *AgentTeamEventSeverity `json:"severity"`
@@ -28454,7 +28454,7 @@ type AssignHostWorkerInput struct {
 	Effort *string `json:"effort,omitempty"`
 	// The model family it runs as there: any family token (letters, digits, . _ or -, starting with a letter or digit, at most 64 characters; case-insensitive and stored lowercase; anthropic is claude and openai is codex). Whether the host can run it is the host's to report: a start it cannot run is reported failed.
 	Family string `json:"family"`
-	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet.
+	// The host's id within the App: the one its key's host:operate scope names. It need not have registered yet, but it must be joined (#5259: joinAgentTeamHost).
 	HostId string `json:"hostId"`
 	// The model, a profile token: letters, digits, . _ or -, starting with a letter or digit, at most 128 characters. Optional.
 	Model *string `json:"model,omitempty"`
@@ -61665,7 +61665,9 @@ type GrantAppKeyScopeResponse struct {
 	// A new key, and a rotated one, holds none. Unknown scope: BAD_USER_INPUT.
 	// #1709: host:operate is granted for ONE host, named by hostId (hrn:node:hadronmemory.com:specs:cor:agt:070:04), and
 	// hostId is refused for any other scope. A key already operating as another host is refused
-	// APP_KEY_SCOPE_HOST_CONFLICT: revoke host:operate first.
+	// APP_KEY_SCOPE_HOST_CONFLICT: revoke host:operate first. #5259: the host must be joined to the App
+	// (joinAgentTeamHost, hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed): a host the App does not have, or has
+	// removed, is refused HOST_NOT_FOUND.
 	GrantAppKeyScope *GrantAppKeyScopeGrantAppKeyScopeAppKey `json:"grantAppKeyScope"`
 }
 
@@ -91763,15 +91765,21 @@ type ResumeSessionInput struct {
 	// #4291: recorded on a session the redemption starts, and refreshed on an open session it resumes. Omitted or null never clears.
 	Effort *EffortLevel `json:"effort,omitempty"`
 	// #3822 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — the worker the caller expects to recover, e.g. the
-	// worker a CLI worktree was last bound to. Narrows the resume to that worker: its claim or live session binds
-	// even when another worker's waits too, and a CHOOSE lists only its candidates. When nothing of that worker's
-	// waits but a claim or live session of another worker of the caller's does, the call refuses RESUME_REFUSED
-	// with extensions reason WORKER_MISMATCH, picked (true when `session` chose that other worker's item),
-	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
-	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
-	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
-	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read. That id-only refusal is built behaviour (#3822), not a rule of hrn:node:hadronmemory.com:specs:cor:agt:020:03, which says only that the caller may name the worker it expects and that a blank one is refused; the field is a known gap against hrn:node:hadronmemory.com:specs:cor:api:140:01, deferred to hadron-server#5163.
-	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
+	// worker a CLI worktree was last bound to. #5163: a worker reference, its id or its fully qualified worker URN,
+	// resolved through the shared worker resolver (hrn:node:hadronmemory.com:specs:cor:api:140:00,
+	// hrn:node:hadronmemory.com:specs:cor:api:140:01); it replaces expectedWorkerId, which is gone with no alias.
+	// Narrows the resume to that worker: its claim or live session binds even when another worker's waits too, and a
+	// CHOOSE lists only its candidates. When nothing of that worker's waits but a claim or live session of another
+	// worker of the caller's does, the call refuses RESUME_REFUSED with extensions reason WORKER_MISMATCH, picked
+	// (true when `session` chose that other worker's item), expectedWorkerId, expectedWorkerName (null unless the
+	// caller may read that worker), foundWorkerId, foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any
+	// write: no claim is consumed and no session is started, ended or touched. expectedWorkerId is the id the caller
+	// sent; for a URN it is the resolved id when the caller may read the worker and null otherwise. A URN naming no
+	// worker and one naming a worker the caller may not read get the same answer (no existence oracle). With nothing
+	// of the caller's waiting the answer stays NOTHING_TO_RESUME. Omitted or null: unchanged. Blank: BAD_USER_INPUT,
+	// before any read (hrn:node:hadronmemory.com:specs:cor:agt:020:03). Neither an id nor a fully qualified worker
+	// URN (a name, a relative URN, another type): URN_NOT_QUALIFIED, before any read.
+	ExpectedWorkerRef *string `json:"expectedWorkerRef,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
 	// Recorded on a session the redemption starts only.
@@ -91792,8 +91800,8 @@ func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
 // GetEffort returns ResumeSessionInput.Effort, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetEffort() *EffortLevel { return v.Effort }
 
-// GetExpectedWorkerId returns ResumeSessionInput.ExpectedWorkerId, and is useful for accessing the field via an interface.
-func (v *ResumeSessionInput) GetExpectedWorkerId() *string { return v.ExpectedWorkerId }
+// GetExpectedWorkerRef returns ResumeSessionInput.ExpectedWorkerRef, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetExpectedWorkerRef() *string { return v.ExpectedWorkerRef }
 
 // GetFamily returns ResumeSessionInput.Family, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetFamily() *string { return v.Family }
@@ -112648,8 +112656,9 @@ type TeamHostAssignInstructedResponse struct {
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
 	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
-	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
-	// already assigned to that host and replace is not set. A refusal writes nothing.
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, HOST_NOT_FOUND (#5259: the host is not
+	// joined to the App, or was removed), and HOST_ASSIGNMENT_EXISTS when this worker is already assigned to that host and
+	// replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
 
@@ -112667,8 +112676,9 @@ type TeamHostAssignResponse struct {
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
 	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
-	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
-	// already assigned to that host and replace is not set. A refusal writes nothing.
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, HOST_NOT_FOUND (#5259: the host is not
+	// joined to the App, or was removed), and HOST_ASSIGNMENT_EXISTS when this worker is already assigned to that host and
+	// replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
 
@@ -112978,8 +112988,9 @@ type TeamHostAssignWithProfileInstructedResponse struct {
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
 	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
-	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
-	// already assigned to that host and replace is not set. A refusal writes nothing.
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, HOST_NOT_FOUND (#5259: the host is not
+	// joined to the App, or was removed), and HOST_ASSIGNMENT_EXISTS when this worker is already assigned to that host and
+	// replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignWithProfileInstructedAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
 
@@ -112997,8 +113008,9 @@ type TeamHostAssignWithProfileResponse struct {
 	// A worker may be assigned to several hosts. The assignment is a record until the App's hostSetupSource is SERVER.
 	// Refused BAD_HOST_ASSIGNMENT_ARGS (a workdir or host id that is not its token shape: a path, an option, a command),
 	// BAD_LAUNCHER_PROFILE (a family that is not a model-family token, or a model, effort or accountProfile that is not a
-	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, and HOST_ASSIGNMENT_EXISTS when this worker is
-	// already assigned to that host and replace is not set. A refusal writes nothing.
+	// profile token), HOST_ASSIGNMENT_NOT_PERMITTED, WORKER_NOT_FOUND, WORKER_RETIRED, HOST_NOT_FOUND (#5259: the host is not
+	// joined to the App, or was removed), and HOST_ASSIGNMENT_EXISTS when this worker is already assigned to that host and
+	// replace is not set. A refusal writes nothing.
 	AssignHostWorker *TeamHostAssignWithProfileAssignHostWorkerHostWorkerAssignment `json:"assignHostWorker"`
 }
 
@@ -138662,9 +138674,9 @@ func (v *__AssetDownloadUrlInput) GetTtlSeconds() *int { return v.TtlSeconds }
 
 // __AttachMemoryToAppInput is used internally by genqlient
 type __AttachMemoryToAppInput struct {
-	MemoryRef string `json:"memoryRef"`
-	AppRef    string `json:"appRef"`
-	AgentRef  string `json:"agentRef"`
+	MemoryRef string  `json:"memoryRef"`
+	AppRef    string  `json:"appRef"`
+	AgentRef  *string `json:"agentRef,omitempty"`
 }
 
 // GetMemoryRef returns __AttachMemoryToAppInput.MemoryRef, and is useful for accessing the field via an interface.
@@ -138674,7 +138686,7 @@ func (v *__AttachMemoryToAppInput) GetMemoryRef() string { return v.MemoryRef }
 func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
-func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
+func (v *__AttachMemoryToAppInput) GetAgentRef() *string { return v.AgentRef }
 
 // __AutomationApprovalDepthInput is used internally by genqlient
 type __AutomationApprovalDepthInput struct {
@@ -161717,7 +161729,7 @@ func AssetDownloadUrl(
 
 // The mutation executed by AttachMemoryToApp.
 const AttachMemoryToApp_Operation = `
-mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
+mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID) {
 	attachMemoryToApp(memoryRef: $memoryRef, appRef: $appRef, agentRef: $agentRef) {
 		id
 		urn
@@ -161733,14 +161745,16 @@ mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
 }
 `
 
-// Bind an existing free-standing personal/private memory to an App. All refs
-// accept either IDs or URNs and are resolved by the server.
+// Link a memory the caller can read (any class but system) into an App; the
+// memory itself is unchanged (hadron-server#5185). All refs accept either IDs or
+// URNs and are resolved by the server. agentRef is optional and ignored by a
+// server with the link; an older one still needs it, so it is sent when given.
 func AttachMemoryToApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryRef string,
 	appRef string,
-	agentRef string,
+	agentRef *string,
 ) (data_ *AttachMemoryToAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AttachMemoryToApp",

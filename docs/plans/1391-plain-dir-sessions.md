@@ -53,7 +53,7 @@ Ruling 0230 (Holger, 2026-11-06) chose **B, a file in the directory**:
   - a launch grant, whose worker is known only after the bind (start rolls the bind back);
   - a resume (the session stays open, as every failed resume write leaves it);
   - two starts racing in one directory.
-- A resume in a directory whose binding names a worker also sends that worker as `expectedWorkerId`, so the server refuses another worker's claim instead of consuming it (cli#1839).
+- A resume in a directory whose binding names a worker also sends that worker as the expected worker (`expectedWorkerRef` since server 0.48.0, cli#3272), so the server refuses another worker's claim instead of consuming it (cli#1839).
   - A resume over a binding with no worker id has no worker to send, so it refuses (exit 5) before the claim is redeemed.
 - Worktrees keep their documented behaviour: a fresh bind replaces whatever binding was there.
 

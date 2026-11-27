@@ -724,8 +724,9 @@ func newCmdClientList(f *cmdutil.Factory) *cobra.Command {
 was self-issued, whether it carries the auto-delete mark (AUTO-DELETE yes: the
 secret is deleted at the client's last read or when its window ends, see
 'secret client issue --help'; --json destroyOnEnd), the end reason the server
-reported (SECRET_DELETED or PROTECTED; a dash means no reason reported, not that
-the client is live) and when it was created. The server returns nothing else:
+reported (a dash means the client is live; otherwise SECRET_DELETED, PROTECTED,
+REVOKED, PENDING, SPENT, EXPIRED, NOT_STARTED, ISSUER_GONE or ENDED) and when it
+was created. The server returns nothing else:
 there is no window, read budget or live/spent column here.
 
 Acting as you (the default, no worker session) lists the clients you issued or

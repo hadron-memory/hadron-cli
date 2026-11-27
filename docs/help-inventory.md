@@ -70,9 +70,9 @@ section between the markers.
 | `edge rm` | delete |  | y | #1051 | 4bb66f0b250d | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `edge update` |  |  | y | #1051 | 5004beafa2aa | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `find` |  |  | y | #1051 | 2c1d315bed5e |  | unread |  |
-| `memory` | memories |  | y | #1051 | b2069c4079c0 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
+| `memory` | memories |  | y | #1051 | b58c7dc20ac7 |  | unread |  |
 | `memory approve-all` |  |  | y | #1051 | ce275ffbf884 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
-| `memory attach` |  |  | y | #1051 | ad7a8c47ff16 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
+| `memory attach` |  |  | y | #1051 | 4369fcec2401 |  | unread |  |
 | `memory clone` | cp |  | y | #1051 | 2b0667cf898c | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory config` |  |  | y | #1051 | 880303ce9999 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory config get` |  |  | y | #1051 | 2d8bef37e68c | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
@@ -266,7 +266,7 @@ section between the markers.
 | `secret change withdraw` |  |  | y | #1052 | ef6db9541a93 |  | unread |  |
 | `secret client` |  |  | n | #1052 | 79a8437f4a50 |  | unread |  |
 | `secret client issue` |  |  | y | #1052 | 9be27bc1aea6 |  | unread |  |
-| `secret client list` | ls |  | y | #1052 | ba1baa933224 |  | unread |  |
+| `secret client list` | ls |  | y | #1052 | 21d2a01605f0 |  | unread |  |
 | `secret client revoke` |  |  | y | #1052 | 10241b746d74 |  | unread |  |
 | `secret create` |  |  | y | #1052 | 700f54785ae1 |  | unread |  |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
@@ -611,7 +611,7 @@ section between the markers.
 | `team session served-prompts` |  |  | y | #1054 | d668bb78f149 |  | unread |  |
 | `team session set-model` |  |  | y | #1054 | e51736abe5b9 |  | unread |  |
 | `team session shed` |  |  | y | #1054 | 3a98d6ff8a57 |  | unread |  |
-| `team session start` |  |  | y | #1054 | 31d7523691c8 |  | unread |  |
+| `team session start` |  |  | y | #1054 | 756fcaa0c763 |  | unread |  |
 | `team session sync-model` |  |  | y | #1054 | 28bc63be5c00 |  | unread |  |
 | `team session whoami` |  |  | y | #1054 | 20b80a78bd7f |  | unread |  |
 | `team session work-items` |  |  | y | #1054 | aa707c9c9f95 |  | unread |  |
