@@ -50833,6 +50833,20 @@ var AllDesiredStateReason = []DesiredStateReason{
 	DesiredStateReasonTeamPaused,
 }
 
+// DetachMemoryFromAppResponse is returned by DetachMemoryFromApp on success.
+type DetachMemoryFromAppResponse struct {
+	// #5185 — remove the link of a memory to an App; the memory is never changed. The person who attached it removes their own
+	// link (even after losing read); the memory's owner and the person who manages the App remove every link of that memory in
+	// that App. No link to remove is success. The memory is judged first. A caller who cannot read it gets MEMORY_NOT_FOUND
+	// (the same answer as an unknown memory) whatever the App, so the App side tells them nothing. A caller who can read it gets FORBIDDEN when they have no authority over the link, and the
+	// same FORBIDDEN for an unknown or deleted App. The links of a soft-deleted memory cannot be detached; they sit inert
+	// until it is restored. Person only, as 'attachMemoryToApp'.
+	DetachMemoryFromApp bool `json:"detachMemoryFromApp"`
+}
+
+// GetDetachMemoryFromApp returns DetachMemoryFromAppResponse.DetachMemoryFromApp, and is useful for accessing the field via an interface.
+func (v *DetachMemoryFromAppResponse) GetDetachMemoryFromApp() bool { return v.DetachMemoryFromApp }
+
 // Only the public flat reference, never members or nested resource details.
 type DiscoveryPublicRef struct {
 	Id          string  `json:"id"`
@@ -142194,6 +142208,18 @@ func (v *__DeliveryBatchesInput) GetFirst() int { return v.First }
 // GetAfter returns __DeliveryBatchesInput.After, and is useful for accessing the field via an interface.
 func (v *__DeliveryBatchesInput) GetAfter() *string { return v.After }
 
+// __DetachMemoryFromAppInput is used internally by genqlient
+type __DetachMemoryFromAppInput struct {
+	MemoryRef string `json:"memoryRef"`
+	AppRef    string `json:"appRef"`
+}
+
+// GetMemoryRef returns __DetachMemoryFromAppInput.MemoryRef, and is useful for accessing the field via an interface.
+func (v *__DetachMemoryFromAppInput) GetMemoryRef() string { return v.MemoryRef }
+
+// GetAppRef returns __DetachMemoryFromAppInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__DetachMemoryFromAppInput) GetAppRef() string { return v.AppRef }
+
 // __DriveCreateDocInput is used internally by genqlient
 type __DriveCreateDocInput struct {
 	ConnectionRef string  `json:"connectionRef"`
@@ -171220,6 +171246,43 @@ func DeliveryBatches(
 	}
 
 	data_ = &DeliveryBatchesResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by DetachMemoryFromApp.
+const DetachMemoryFromApp_Operation = `
+mutation DetachMemoryFromApp ($memoryRef: ID!, $appRef: ID!) {
+	detachMemoryFromApp(memoryRef: $memoryRef, appRef: $appRef)
+}
+`
+
+// Detach a memory from an App: removes the attachment only, never the memory
+// (hadron-server#5185). The server judges who may detach and answers true when
+// the attachment is gone or was never there.
+func DetachMemoryFromApp(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	memoryRef string,
+	appRef string,
+) (data_ *DetachMemoryFromAppResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "DetachMemoryFromApp",
+		Query:  DetachMemoryFromApp_Operation,
+		Variables: &__DetachMemoryFromAppInput{
+			MemoryRef: memoryRef,
+			AppRef:    appRef,
+		},
+	}
+
+	data_ = &DetachMemoryFromAppResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
