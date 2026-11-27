@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/hostfacts"
 )
 
 // worktree.create: a new worktree for a worker, from a configured repo. Its
@@ -21,6 +23,12 @@ func (p *Poller) worktreeCreate(ctx context.Context, op Operation) {
 	}
 	repo, base, branch, label := argString(op, "repo"), argString(op, "baseBranch"), argString(op, "branchName"), argString(op, "label")
 	c := p.config() // one snapshot for the repo and the worktree owner check
+	if c.FromPlatform() {
+		// hadron-cli#3237: the tree is made by Orca; c.Repo and WorktreePath hold only what the last poll
+		// resolved, so a new token has no path to inspect or create at.
+		p.platformWorktreeCreate(ctx, op, c, ref, repo, label, branch, base)
+		return
+	}
 	repoPath, ok := c.Repo(repo)
 	if !ok {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("repo %q is not configured on this host", repo))
@@ -56,6 +64,30 @@ func (p *Poller) worktreeCreate(ctx context.Context, op Operation) {
 	p.finish(ctx, op, Succeeded, token, "")
 }
 
+func (p *Poller) platformWorktreeCreate(ctx context.Context, op Operation, c *Config, ref, repo, label, branch, base string) {
+	// As under --config, the token's repo part is the repo's last segment (an owner/name reads as name), and
+	// that is the Orca repository's displayName the create selects.
+	repo = path.Base(repo)
+	token := repo + "/" + label
+	if !ValidNameToken(token) {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree name %q is not a valid name token", token))
+		return
+	}
+	if owner, ok := p.state.ownerOf(token, c); ok && owner != ref {
+		p.finish(ctx, op, Failed, "", fmt.Sprintf("%s is registered for another worker here", token))
+		return
+	}
+	got, why := p.orcaWorktreeCreate(ctx, repo, label, branch, base)
+	if why != "" {
+		p.finish(ctx, op, Failed, "", why)
+		return
+	}
+	if err := p.state.addCreated(ref, got); err != nil {
+		p.log("state-failed", op.ID, op.Type, "", err.Error())
+	}
+	p.finish(ctx, op, Succeeded, got, "")
+}
+
 // worktree.remove: only a tree with nothing to lose. Uncommitted changes, a
 // branch with no upstream, commits not pushed, a running agent, or an
 // earlier failed worker.end all refuse, with the reason reported.
@@ -65,7 +97,30 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not a valid name token", token))
 		return
 	}
-	dir := p.config().WorktreePath(token)
+	c := p.config()
+	dir := c.WorktreePath(token)
+	if c.FromPlatform() && dir == "" {
+		// A host that runs from the platform, and no assignment resolved the token at this poll: a tree this
+		// worker created here, or one an assignment named before, is found on Orca's live list (hadron-cli#3301
+		// LOCAL F2). Not there is already removed; unreadable or ambiguous refuses, and nothing is inspected.
+		if strings.HasPrefix(c.unresolved[token], hostfacts.CodeWorkdirAssignedTwice) {
+			// Assigned to several workers, it is no one's: not even the worker that created it removes it
+			// (LOCAL delta P3-1 on #3301).
+			p.finish(ctx, op, Failed, "", fmt.Sprintf("%s: workdir %q is assigned to more than one worker on this host, so it is no one's to remove; nothing was removed", hostfacts.CodeWorkdirAssignedTwice, token))
+			return
+		}
+		tree, why := p.platformRemoveTree(ctx, token)
+		switch {
+		case why != "":
+			p.finish(ctx, op, Failed, "", why+"; nothing was removed")
+			return
+		case tree == "":
+			_ = p.state.removeCreated(token)
+			p.finish(ctx, op, Succeeded, "", "")
+			return
+		}
+		dir = tree
+	}
 	st, err := p.host.Inspect(ctx, dir)
 	if err != nil {
 		p.finish(ctx, op, Failed, "", "reading the worktree: "+err.Error())
@@ -87,7 +142,19 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", "the worker is not configured on this host")
 		return
 	}
-	if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
+	if c.FromPlatform() {
+		// A worker's trees on a platform host are its assignment's workdir and the trees it created here
+		// (state.Created survives; configuredOnly only keeps a created tree out of starts). Never a tree another
+		// worker is assigned, and never one this worker neither is assigned nor created.
+		if owner, held := p.state.ownerOf(token, c); held && owner != ref {
+			p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is assigned to another worker on this host; nothing was removed", token))
+			return
+		}
+		if !contains(w.Worktrees, token) && !p.state.createdBy(ref, token) {
+			p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is neither this worker's assigned workdir on this host nor a tree it created here, so it is not this worker's to remove; nothing was removed", token))
+			return
+		}
+	} else if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not registered for this worker here", token))
 		return
 	}
@@ -178,6 +245,11 @@ func (p *Poller) workerStart(ctx context.Context, op Operation) {
 		return
 	}
 	token := argString(op, "worktree")
+	if why := p.config().WorkdirRefusal(token); why != "" {
+		// A host that runs from the platform: the token did not resolve to one Orca worktree (hadron-cli#3237).
+		p.finish(ctx, op, Failed, "", why)
+		return
+	}
 	if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not registered for this worker here", token))
 		return
@@ -501,12 +573,16 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	note := ""
 	prompted := false
 	if len(w.End) > 0 {
-		dir := ""
+		dir, resolved := "", true
 		if t, ok := p.agentWorktree(op.WorkerID); ok {
 			dir = p.config().WorktreePath(t)
+			resolved = dir != ""
 		}
-		env := agentEnv(os.Environ(), p.key, "HADRON_SESSION_ID="+session, "HADRON_WORKER_ID="+op.WorkerID)
-		if err := p.host.Prompt(ctx, w.End, dir, env); err != nil {
+		env := agentEnvKeys(os.Environ(), p.scrubKeys(), "HADRON_SESSION_ID="+session, "HADRON_WORKER_ID="+op.WorkerID)
+		if !resolved {
+			// A platform host's token that did not resolve at this poll (hadron-cli#3237): never the poller's own directory.
+			note = "; the end prompt was not sent: the agent's worktree did not resolve to a directory on this host at this poll"
+		} else if err := p.host.Prompt(ctx, w.End, dir, env); err != nil {
 			note = "; the end prompt failed: " + err.Error()
 		} else {
 			prompted = true
@@ -597,6 +673,9 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 // which clears it: the tree is then the worker's by this host's own
 // configuration, where a worktree belongs to one worker.
 func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string, w WorkerConfig, session string, agent Agent) string {
+	// One Config for the whole stop: a platform poll can swap it in between, and a tree's path must not turn ""
+	// between the check that allows the stop and the scan that signals (#3301 BLIND N2).
+	c := p.config()
 	// allowed answers whether the tree's session binding still leaves its
 	// processes to this end: not another worker's, not another session of
 	// this worker than the one being ended, readable. It is asked before any
@@ -605,7 +684,11 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 	// session's end (the window cannot be closed against a separate process
 	// writing the binding, only made as short as the signal itself).
 	allowed := func(t string) (bool, string) {
-		b := p.bound(p.config().WorktreePath(t))
+		dir := c.WorktreePath(t)
+		if dir == "" {
+			return false, fmt.Sprintf("worktree %s did not resolve to a directory on this host at this poll, so its processes were not touched", t)
+		}
+		b := p.bound(dir)
 		switch {
 		case b.Unusable:
 			return false, fmt.Sprintf("worktree %s has a session binding that cannot be read, so its processes were not touched", t)
@@ -650,7 +733,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 				}
 				return true, ""
 			}
-			b := p.bound(p.config().WorktreePath(t))
+			b := p.bound(c.WorktreePath(t))
 			if b.Unusable || b.WorkerID != op.WorkerID || b.SessionID == "" || b.SessionID != session {
 				return false, "the session of the launched agent is not recorded and the worktree's binding does not name this session, so the agent could not be identified and was not touched"
 			}
@@ -717,7 +800,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 			say("stop-skipped", why)
 			continue
 		}
-		stops, err := p.host.StopAgents(ctx, p.config().WorktreePath(t), p.authorizeStop(t, func() bool { ok, _ := allowed(t); return ok }, op))
+		stops, err := p.host.StopAgents(ctx, c.WorktreePath(t), p.authorizeStop(t, func() bool { ok, _ := allowed(t); return ok }, op))
 		if err != nil {
 			say("stop-skipped", fmt.Sprintf("this host could not look for agent processes in worktree %s, so none was touched: %v", t, err))
 			continue

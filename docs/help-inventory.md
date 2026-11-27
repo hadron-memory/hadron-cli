@@ -266,19 +266,19 @@ section between the markers.
 | `secret change get` |  |  | y | #1052 | 8b86ef8c679d |  | unread |  |
 | `secret change withdraw` |  |  | y | #1052 | ef6db9541a93 |  | unread |  |
 | `secret client` |  |  | n | #1052 | 79a8437f4a50 |  | unread |  |
-| `secret client issue` |  |  | y | #1052 | 9be27bc1aea6 |  | unread |  |
+| `secret client issue` |  |  | y | #1052 | 10be1d5b4534 |  | unread |  |
 | `secret client list` | ls |  | y | #1052 | 21d2a01605f0 |  | unread |  |
 | `secret client revoke` |  |  | y | #1052 | 10241b746d74 |  | unread |  |
 | `secret create` |  |  | y | #1052 | 700f54785ae1 |  | unread |  |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `secret exec` |  |  | y | #1052 | 9676504c1659 |  | unread |  |
-| `secret get` |  |  | y | #1052 | 3d942cb0742a | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
+| `secret get` |  |  | y | #1052 | 1a9321df0db0 |  | unread |  |
 | `secret list` | ls |  | y | #1052 | 9bc54e793ad3 | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `secret protect` |  |  | y | #1052 | a64fd7ac3574 |  | unread |  |
 | `secret reveal` |  |  | y | #1052 | c88c9aca1c54 |  | unread |  |
 | `secret rm` | delete |  | y | #1052 | db33bfb427be |  | unread |  |
 | `secret set` |  |  | y | #1052 | 84e1914ebb55 |  | unread |  |
-| `secret update` |  |  | y | #1052 | e0add87d5286 |  | unread |  |
+| `secret update` |  |  | y | #1052 | 72fc1ca5f49a |  | unread |  |
 | `secret versions` |  |  | y | #1052 | 88687b5fc254 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
 | `ticket` | tickets |  | y | #1052 | 711ad904534e | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
 | `ticket list` | ls |  | y | #1052 | e3708e782d3e | Cameron | pass | [Cameron f740a50](https://hadronmemory.com/app/u/hrn:node:hadronmemory.com:hadron-dev-team-shared:sprints:sprint-2:reviews:hadron-cli-1052:cameron-fixhead-f740a50) |
@@ -554,12 +554,12 @@ section between the markers.
 | `team host import` |  |  | y | #1054 | dec913560d72 |  | unread |  |
 | `team host issue` |  |  | y | #1054 | 76d1ecad5fd3 |  | unread |  |
 | `team host join` |  |  | y | #1054 | 90d46c30c71f |  | unread |  |
-| `team host leave` |  |  | y | #1054 | db0d3fc77c9e |  | unread |  |
+| `team host leave` |  |  | y | #1054 | b40a0c74a102 |  | unread |  |
 | `team host list` | ls |  | y | #1054 | f76136bcd459 |  | unread |  |
 | `team host ops` |  |  | y | #1054 | a435002b8aa7 |  | unread |  |
 | `team host remove` |  |  | y | #1054 | 6525d7a84314 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
-| `team host run` |  |  | y | #1054 | b6e84c347235 |  | unread |  |
+| `team host run` |  |  | y | #1054 | c1cad622494f |  | unread |  |
 | `team host set` |  |  | y | #1054 | 82ac123115a2 |  | unread |  |
 | `team host settings-check` |  |  | y | #1054 | c97a82cc9f78 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | ced4dce47e88 |  | unread |  |

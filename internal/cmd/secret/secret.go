@@ -129,6 +129,22 @@ func dtoFromFields(s gen.SecretFields) secretDTO {
 	}
 }
 
+// secretDetailDTO is secretDTO plus the delete-after-use option, for the
+// answers that select it (secret get, and update with its flag). null means the
+// server did not report it, never false.
+type secretDetailDTO struct {
+	secretDTO
+	DeleteAfterUse *bool `json:"deleteAfterUse"`
+}
+
+// optionCell is a server boolean as given, "-" when it was not reported.
+func optionCell(v *bool) string {
+	if v == nil {
+		return "-"
+	}
+	return fmt.Sprint(*v)
+}
+
 func validateOwner(scope, owner string) (string, *string, error) {
 	switch scope {
 	case scopeUser:
@@ -211,13 +227,18 @@ func writeSecretLine(w io.Writer, verb string, dto secretDTO) error {
 // the words in any case, and 1, 0, t and f, which pflag would happily leave
 // as positionals too.
 func refuseDetachedProtectedValue(cmd *cobra.Command, args []string) error {
-	if !cmd.Flags().Changed("protected") {
+	return refuseDetachedBoolValue(cmd, args, "protected", "write --protected or --protected=false (attached, no space)")
+}
+
+// refuseDetachedBoolValue is that refusal for any bool flag a command takes.
+func refuseDetachedBoolValue(cmd *cobra.Command, args []string, flag, spellings string) error {
+	if !cmd.Flags().Changed(flag) {
 		return nil
 	}
 	for _, a := range args {
 		switch strings.ToLower(a) {
 		case "true", "false", "1", "0", "t", "f":
-			return exitcode.Newf(exitcode.Usage, "--protected takes no separate value: write --protected or --protected=false (attached, no space)")
+			return exitcode.Newf(exitcode.Usage, "--%s takes no separate value: %s", flag, spellings)
 		}
 	}
 	return nil

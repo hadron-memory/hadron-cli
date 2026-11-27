@@ -732,7 +732,21 @@ func (p *Poller) resolveOrcaRun(ctx context.Context, op Operation, ref string, r
 		p.finish(ctx, op, Failed, "", "launching the agent through Orca failed: this poller has no Orca launcher (orca_launch is not wired)")
 		return Resolved{}, false
 	}
-	prof, acct, ok, err := p.profiles.Profile(ref)
+	var (
+		prof     LauncherProfile
+		acct     AccountProfile
+		ok       bool
+		err      error
+		resolved bool
+	)
+	if src, isResolving := p.profiles.(AccountResolving); isResolving {
+		// A host that runs from the platform: the account is resolved now, from the start's name when it
+		// names one (hadron-cli#3237), before any process or terminal exists.
+		prof, acct, err = src.ResolveProfile(ref, rs)
+		ok, resolved = err == nil, true
+	} else {
+		prof, acct, ok, err = p.profiles.Profile(ref)
+	}
 	if err == nil && !ok {
 		err = errors.New("the worker has no launcher profile")
 	}
@@ -744,8 +758,16 @@ func (p *Poller) resolveOrcaRun(ctx context.Context, op Operation, ref string, r
 		run, err = ResolveRun(prof, acct, rs, prof.Account)
 	}
 	if err != nil {
+		var lr *LaunchRefusal
+		if errors.As(err, &lr) && lr.Local != "" {
+			p.log("launch-refused", op.ID, op.Type, "", lr.Error()+" ("+lr.Local+")")
+		}
 		p.finish(ctx, op, Failed, "", err.Error())
 		return Resolved{}, false
+	}
+	if resolved {
+		a := acct
+		run.Account = &a
 	}
 	if run.Note != "" {
 		p.log("run-settings", op.ID, op.Type, "", run.Note)
@@ -773,6 +795,10 @@ func (p *Poller) orcaStart(ctx context.Context, op Operation, ref string, w Work
 func (p *Poller) orcaLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string, run Resolved) (OrcaLaunchSpec, error) {
 	if p.profiles == nil {
 		return OrcaLaunchSpec{}, errors.New("this poller has no launcher profiles")
+	}
+	if run.Account != nil && run.Profile.Family != "" {
+		// Resolved for this start (AccountResolving): launch exactly what was checked.
+		return orcaProfileLaunchSpec(ref, w, dir, grant, taskID, run.Profile, *run.Account, run.Bind)
 	}
 	prof, acct, ok, err := p.profiles.Profile(ref)
 	if err != nil {
@@ -809,6 +835,11 @@ func orcaProfileLaunchSpec(ref string, w WorkerConfig, dir, grant, taskID string
 	)
 	if acct.CodexHome != "" {
 		env = append(env, "CODEX_HOME="+acct.CodexHome)
+	}
+	if acct.ClaudeConfigDir != "" {
+		// hadron-cli#3237 (U1 as corrected): exported in the sourced launch file, inside the command, so it
+		// replaces whatever Orca exported first; only an accounts-file entry sets it, never the host file.
+		env = append(env, "CLAUDE_CONFIG_DIR="+acct.ClaudeConfigDir)
 	}
 	return OrcaLaunchSpec{
 		Argv: argv, Dir: dir, Env: env, Title: ref,

@@ -438,15 +438,35 @@ func (p *Poller) relaunchTarget(s RelaunchSnapshot, row RelaunchWorker) (hostrel
 	if !ValidNameToken(token) || !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
 		return hostrelaunch.Target{}, "", WorkerConfig{}, "", false
 	}
-	root, err := filepath.EvalSymlinks(p.config().WorktreesRoot)
-	if err != nil {
-		return hostrelaunch.Target{}, "", WorkerConfig{}, "", false
-	}
-	dir, err := filepath.EvalSymlinks(p.config().WorktreePath(token))
-	if err != nil || !within(dir, root) {
+	dir, ok := containedWorktree(p.config(), token)
+	if !ok {
 		return hostrelaunch.Target{}, "", WorkerConfig{}, "", false
 	}
 	return hostrelaunch.Target{AppID: s.AppID, HostID: s.HostID, WorkerID: row.WorkerID, SessionID: row.SessionID, Server: strings.TrimRight(s.Server, "/"), Worktree: dir}, ref, w, token, true
+}
+
+// containedWorktree is token's directory with symlinks resolved, when it is a tree this host may act in. Under
+// --config that is a tree inside worktrees_root. On a host that runs from the platform there is no root
+// (hadron-cli#3301 LOCAL F1): the tree is the one Orca worktree the token resolved to at this poll, and a token
+// that did not resolve has no directory.
+func containedWorktree(c *Config, token string) (string, bool) {
+	if c.FromPlatform() {
+		path := c.WorktreePath(token)
+		if path == "" {
+			return "", false
+		}
+		dir, err := filepath.EvalSymlinks(path)
+		return dir, err == nil
+	}
+	root, err := filepath.EvalSymlinks(c.WorktreesRoot)
+	if err != nil {
+		return "", false
+	}
+	dir, err := filepath.EvalSymlinks(c.WorktreePath(token))
+	if err != nil || !within(dir, root) {
+		return "", false
+	}
+	return dir, true
 }
 
 type relaunchOwnedAgent struct {
@@ -576,8 +596,10 @@ func postLaunchObservation(ctx context.Context, d *RelaunchDependencies, a Agent
 }
 
 func (p *Poller) relaunchCause(raw string) string {
-	if p.key != "" {
-		raw = strings.ReplaceAll(raw, p.key, "[redacted]")
+	for _, k := range p.scrubKeys() {
+		if k != "" {
+			raw = strings.ReplaceAll(raw, k, "[redacted]")
+		}
 	}
 	raw = strings.Map(func(r rune) rune {
 		if r < ' ' || r == 127 {

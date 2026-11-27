@@ -13,6 +13,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
+	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
 
 // The closed set of operation types a host carries out (cor:agt:070:03).
@@ -177,10 +178,15 @@ type Event struct {
 	Detail                                      string
 	WorkerID, SessionID, TerminalHandle, Reason string
 	Attempt                                     int
+	// HostID names the host an event is about when one process runs several (hadron-cli#3237); "" otherwise.
+	HostID string
 }
 
 // Poller is one host's loop.
 type Poller struct {
+	// orcaFacts and orcaCreate serve a platform worktree.create (SetOrcaWorktrees, hadron-cli#3237).
+	orcaFacts     OrcaWorktreeFacts
+	orcaCreate    orcaterm.Runner
 	relaunchEpoch string
 	// outageBackoff paces S10_UNAVAILABLE retries of a pending outage report
 	// (cli#2156 F9). In memory only: a restart may retry at once.
@@ -294,6 +300,12 @@ type Poller struct {
 	// finished, and when a relaunch job has released its lock.
 	afterExitPass    func(workerID string)
 	afterRelaunchJob func()
+	// otherKeys are the other host keys this process holds (SetScrubKeys).
+	otherKeys []string
+	// refresh, when set, is a host that runs from the platform (hadron-cli#3237): each Step builds the
+	// Config from the platform's answer instead of reloading a file (SetPlatformRefresh).
+	refresh        func(ctx context.Context) (*Config, error)
+	sourceHostSaid bool
 }
 
 // New builds a poller. key is the host key, kept only to scrub it from
@@ -317,6 +329,17 @@ func New(cfg *Config, server Server, host Host, state *State, key string, emit f
 		agentSessions: map[string]string{},
 	}
 }
+
+// SetScrubKeys names every host key this process holds (hadron-cli#3237: one poller per stored credential).
+// A launched or ended agent's environment drops a value carrying any of them, and a reported cause redacts
+// them all, not only this poller's own. Call before Run.
+func (p *Poller) SetScrubKeys(keys []string) { p.otherKeys = append([]string{}, keys...) }
+
+func (p *Poller) scrubKeys() []string { return append([]string{p.key}, p.otherKeys...) }
+
+// ScrubKeys is every key this poller scrubs from a launched agent's environment and redacts from what it
+// reports: its own and each one SetScrubKeys named (hadron-cli#3237: a run of several hosts scrubs them all).
+func (p *Poller) ScrubKeys() []string { return p.scrubKeys() }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)
@@ -358,7 +381,6 @@ func (p *Poller) Current() *Config { return p.config() }
 
 // Run polls until ctx ends, then waits for operations in flight.
 func (p *Poller) Run(ctx context.Context) error {
-	interval := time.Duration(p.config().PollIntervalSeconds) * time.Second
 	for {
 		if err := p.Step(ctx); err != nil {
 			p.log("error", "", "", "", err.Error())
@@ -368,6 +390,9 @@ func (p *Poller) Run(ctx context.Context) error {
 				return err
 			}
 		}
+		// Read after every Step: a platform host's interval is its platform row's, which the Step just read,
+		// so a change applies at the next cycle (hadron-cli#3237); a file's is read only at start.
+		interval := time.Duration(p.config().PollIntervalSeconds) * time.Second
 		if err := p.pause(ctx, interval); err != nil {
 			p.wg.Wait()
 			return nil
@@ -433,7 +458,13 @@ func (p *Poller) ReportFailures() int {
 // (Liam, team chat #11415: a re-collect omits a start whose grant is still
 // live), and this poller depends on it rather than pausing collection.
 func (p *Poller) Step(ctx context.Context) error {
-	p.reloadConfig()
+	if p.refresh != nil {
+		if hold, err := p.platformRefresh(ctx); err != nil || hold {
+			return err
+		}
+	} else {
+		p.reloadConfig()
+	}
 	if err := p.register(ctx); err != nil {
 		return fmt.Errorf("registering: %w", err)
 	}

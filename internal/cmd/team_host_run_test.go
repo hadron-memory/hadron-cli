@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -226,11 +227,26 @@ func TestTeamHostRunRefusesABadConfig(t *testing.T) {
 			}
 		})
 	}
+	// hadron-cli#3237: no --config is no longer a usage error; it runs from the platform, and a machine with
+	// no stored host credential (testFactory's fresh XDG dirs) is told to join first (exit 3). An EMPTY
+	// --config is still the file path's refusal.
+	t.Setenv("XDG_STATE_HOME", t.TempDir())
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
 	root.SetArgs([]string{"team", "host", "run", "--once"})
+	err := root.Execute()
+	want := exitcode.AuthRequired
+	if runtime.GOOS != "linux" {
+		want = exitcode.Usage // every worker launches through Orca, which needs Linux
+	}
+	if code := exitCodeFor(err); code != want || (want == exitcode.AuthRequired && !strings.Contains(err.Error(), "hadron team host join")) {
+		t.Errorf("no --config: exit = %d (%v), want %d naming `hadron team host join`", code, err, want)
+	}
+	f, _ = testFactory(t)
+	root = NewRootCmd(f)
+	root.SetArgs([]string{"team", "host", "run", "--once", "--config", ""})
 	if code := exitCodeFor(root.Execute()); code != exitcode.Usage {
-		t.Errorf("no --config: exit = %d, want %d", code, exitcode.Usage)
+		t.Errorf("an empty --config: exit = %d, want %d", code, exitcode.Usage)
 	}
 }
 

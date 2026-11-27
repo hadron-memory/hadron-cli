@@ -44,6 +44,12 @@ type Config struct {
 	// consistent set of workers however long it runs.
 	sourcePath string
 	sourceHash [sha256.Size]byte
+	// platform marks a Config built from the platform (hadron-cli#3237, BuildPlatformConfig), never loaded
+	// from a file: paths maps each worktree token this poll resolved to Orca's path for it, and unresolved
+	// holds the coded reason a start for an unresolved or ambiguous token fails with.
+	platform   bool
+	paths      map[string]string
+	unresolved map[string]string
 	// Capabilities is an explicit full declaration at every refresh, never inferred.
 	Capabilities []string `yaml:"capabilities"`
 	// Server is the Hadron server URL; empty means the CLI's usual resolution.
@@ -685,7 +691,13 @@ func (c *Config) ReadHostKey() (string, error) {
 }
 
 // WorktreePath is the absolute path of a worktree name token.
+// On a host that runs from the platform it is the Orca worktree the token
+// resolved to at this poll, and "" for a token that did not resolve: every
+// reader refuses on "" (hadron-cli#3237).
 func (c *Config) WorktreePath(token string) string {
+	if c.platform {
+		return c.paths[token]
+	}
 	return filepath.Join(c.WorktreesRoot, filepath.FromSlash(token))
 }
 
