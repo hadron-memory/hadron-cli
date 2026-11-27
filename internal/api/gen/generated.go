@@ -138674,9 +138674,9 @@ func (v *__AssetDownloadUrlInput) GetTtlSeconds() *int { return v.TtlSeconds }
 
 // __AttachMemoryToAppInput is used internally by genqlient
 type __AttachMemoryToAppInput struct {
-	MemoryRef string `json:"memoryRef"`
-	AppRef    string `json:"appRef"`
-	AgentRef  string `json:"agentRef"`
+	MemoryRef string  `json:"memoryRef"`
+	AppRef    string  `json:"appRef"`
+	AgentRef  *string `json:"agentRef,omitempty"`
 }
 
 // GetMemoryRef returns __AttachMemoryToAppInput.MemoryRef, and is useful for accessing the field via an interface.
@@ -138686,7 +138686,7 @@ func (v *__AttachMemoryToAppInput) GetMemoryRef() string { return v.MemoryRef }
 func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
-func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
+func (v *__AttachMemoryToAppInput) GetAgentRef() *string { return v.AgentRef }
 
 // __AutomationApprovalDepthInput is used internally by genqlient
 type __AutomationApprovalDepthInput struct {
@@ -161729,7 +161729,7 @@ func AssetDownloadUrl(
 
 // The mutation executed by AttachMemoryToApp.
 const AttachMemoryToApp_Operation = `
-mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
+mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID) {
 	attachMemoryToApp(memoryRef: $memoryRef, appRef: $appRef, agentRef: $agentRef) {
 		id
 		urn
@@ -161745,14 +161745,16 @@ mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
 }
 `
 
-// Bind an existing free-standing personal/private memory to an App. All refs
-// accept either IDs or URNs and are resolved by the server.
+// Link a memory the caller can read (any class but system) into an App; the
+// memory itself is unchanged (hadron-server#5185). All refs accept either IDs or
+// URNs and are resolved by the server. agentRef is optional and ignored by a
+// server with the link; an older one still needs it, so it is sent when given.
 func AttachMemoryToApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryRef string,
 	appRef string,
-	agentRef string,
+	agentRef *string,
 ) (data_ *AttachMemoryToAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AttachMemoryToApp",
