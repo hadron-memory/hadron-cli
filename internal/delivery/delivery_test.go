@@ -1547,3 +1547,37 @@ func TestRetypeMarksAreScopedAndPruned(t *testing.T) {
 		}
 	})
 }
+
+// Records.List is the worker's whole set, so a second batch's reconcile does
+// not prune the first batch's mark (real store, two batches of one worker).
+func TestRetypeMarksSurviveAnotherBatchesReconcileOnTheRealStore(t *testing.T) {
+	h := newHarness(t)
+	seedRecord(t, h, rng("ch-team", 1, 5, 6)) // batch A's prefix
+	seedRecord(t, h, rng("ch-lane", 1, 40, 41))
+	marks := func() int {
+		h.d.mu.Lock()
+		defer h.d.mu.Unlock()
+		return len(h.d.retyped)
+	}
+	// Batch A: its partial ack is refused, it is retyped, its full ack is lost:
+	// its prefix record stays and its mark is set.
+	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}}
+	h.deliver(h.batch(5, 6, 7))
+	if n := marks(); n != 1 {
+		t.Fatalf("after batch A: %d marks, want 1", n)
+	}
+	// Batch B of the same worker, on another channel: its reconcile reads the
+	// worker's whole set, so A's mark and record are both seen and kept.
+	b := h.batch(40, 41, 42)
+	b.Ranges = []Range{rng("ch-lane", 1, 40, 41, 42)}
+	b.ID, b.BatchKey = "proof-b", "key-b"
+	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"transport-error"}}
+	h.deliver(b)
+	if n := marks(); n != 2 {
+		t.Fatalf("after batch B: %d marks, want A's and B's", n)
+	}
+	recs, err := h.d.Records.List(workerID)
+	if err != nil || len(recs) < 3 {
+		t.Fatalf("List must return the worker's whole set (A's prefix, B's prefix, both retypes): %d, %v", len(recs), err)
+	}
+}

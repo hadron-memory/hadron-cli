@@ -427,6 +427,9 @@ func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (o Outc
 	if err != nil {
 		return d.emit(b, r, Outcome{Kind: Failed, Reason: "records-unreadable"}), true, nil
 	}
+	// recs is the worker's whole record set (Records.List's contract), and d.mu
+	// is not held here: Deliver never takes it around reconcile, and each mark
+	// helper locks and unlocks on its own.
 	d.pruneRetyped(b.WorkerID, recs)
 	cover := Reconcile(b, recs)
 	switch {
