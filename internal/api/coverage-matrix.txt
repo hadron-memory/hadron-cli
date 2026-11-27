@@ -663,7 +663,7 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 20: 6 gap, 14 excluded
+[Arguments] 21: 7 gap, 14 excluded
 Mutation.adjustCredits(input.userRef)  gap #3072
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -679,6 +679,7 @@ Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership); Proposed class unruled under #1334 (33-row review)
+Query.aiSpend(userRef)  gap #3072
 Query.creditBalance(userRef)  gap #3072
 Query.creditLedgerEntries(userRef)  gap #3072
 Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)

@@ -23066,7 +23066,7 @@ var AllAiSpendGroup = []AiSpendGroup{
 
 // AiSpendResponse is returned by AiSpend on success.
 type AiSpendResponse struct {
-	// One organization's AI spend for [from, to), grouped one way (#5008, hrn:node:hadronmemory.com:specs:cor:dmo:170:04). Org-ADMIN, the gate of creditBalance, answered before the range is read. from is inclusive and to exclusive; both are ISO 8601 dates or date-times, a value with no offset is UTC and a date alone is midnight UTC. The range is at most 366 days. At most 500 rows are returned, largest charge first; truncated says more groups exist and totalGroups is the exact number of groups. Only token-bearing units of the organization count, soft-deleted ones are left out.
+	// One organization's or one person's AI spend for [from, to), grouped one way (#5008, hrn:node:hadronmemory.com:specs:cor:dmo:170:04). Give exactly one of orgRef and userRef, else BAD_USER_INPUT, answered before anything is read. An organization's: its ADMIN or OWNER, the gate of creditBalance, answered before the range is read. A person's (#5020, hrn:node:hadronmemory.com:specs:cor:dmo:170:05): that person in their own session, or a platform admin; an App key and an impersonated session are refused, and so is anyone else, with the same FORBIDDEN whether or not the user exists. A person's figures are the units billed to them as the owner of the work, never the units of an organization's App done for them, and never the token counts a client reports itself (those are not spend). from is inclusive and to exclusive; both are ISO 8601 dates or date-times, a value with no offset is UTC and a date alone is midnight UTC. The range is at most 366 days. At most 500 rows are returned, largest charge first; truncated says more groups exist and totalGroups is the exact number of groups. Only token-bearing units of that account count, soft-deleted ones are left out.
 	AiSpend *AiSpendAiSpendAiSpendSummary `json:"aiSpend"`
 }
 
@@ -48595,13 +48595,14 @@ type CreateSecretProtectedResponse struct {
 	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl, no
 	// secret exists yet, and the requester's own passkey ceremony at that URL makes
 	// it (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged request lasts
-	// one hour; at most 5 are open per secret name and at most 2 per requester
-	// (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Across the App at
-	// most 100 are open (SECRET_CHANGE_APP_LIMIT) and one requester holds at most 20
-	// (SECRET_CHANGE_REQUESTER_LIMIT). A staged create counts open protected creates
-	// toward the App's 500-secret limit and is refused SECRET_LIMIT_REACHED at staging
-	// when there is no room; completion rejudges it. Those numbers are engineering
-	// bounds, not ruled values (hrn:node:hadronmemory.com:specs:cor:sec:070:02).
+	// one hour. Open staged requests are capped by scope (#5356): at most 5 per
+	// secret name (SECRET_CHANGE_REQUEST_LIMIT); at most 2 per requester for one
+	// secret name and at most 20 per requester across the App, both refused with
+	// SECRET_CHANGE_REQUESTER_LIMIT; and at most 100 across the App
+	// (SECRET_CHANGE_APP_LIMIT). These four caps are engineering bounds, not ruled
+	// values (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged create counts
+	// open protected creates toward the App's 500-secret limit and is refused
+	// SECRET_LIMIT_REACHED at staging when there is no room; completion rejudges it.
 	CreateSecret *CreateSecretProtectedCreateSecret `json:"createSecret"`
 }
 
@@ -48627,13 +48628,14 @@ type CreateSecretResponse struct {
 	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl, no
 	// secret exists yet, and the requester's own passkey ceremony at that URL makes
 	// it (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged request lasts
-	// one hour; at most 5 are open per secret name and at most 2 per requester
-	// (SECRET_CHANGE_REQUEST_LIMIT, SECRET_CHANGE_REQUESTER_LIMIT). Across the App at
-	// most 100 are open (SECRET_CHANGE_APP_LIMIT) and one requester holds at most 20
-	// (SECRET_CHANGE_REQUESTER_LIMIT). A staged create counts open protected creates
-	// toward the App's 500-secret limit and is refused SECRET_LIMIT_REACHED at staging
-	// when there is no room; completion rejudges it. Those numbers are engineering
-	// bounds, not ruled values (hrn:node:hadronmemory.com:specs:cor:sec:070:02).
+	// one hour. Open staged requests are capped by scope (#5356): at most 5 per
+	// secret name (SECRET_CHANGE_REQUEST_LIMIT); at most 2 per requester for one
+	// secret name and at most 20 per requester across the App, both refused with
+	// SECRET_CHANGE_REQUESTER_LIMIT; and at most 100 across the App
+	// (SECRET_CHANGE_APP_LIMIT). These four caps are engineering bounds, not ruled
+	// values (hrn:node:hadronmemory.com:specs:cor:sec:070:02). A staged create counts
+	// open protected creates toward the App's 500-secret limit and is refused
+	// SECRET_LIMIT_REACHED at staging when there is no room; completion rejudges it.
 	CreateSecret *CreateSecretCreateSecret `json:"createSecret"`
 }
 
@@ -70261,8 +70263,15 @@ type MemoriesResponse struct {
 	// Default scope: the caller's union — (1) their OWN personal/private
 	// memories (always; they are user-owned and show in every org context),
 	// (2) memories their member orgs own, (3) memories their member orgs
-	// subscribe to. Per-user agent memories (userMemoryOfAgentId) are excluded.
+	// subscribe to, (4) their OWN per-user Agent memories (#5026,
+	// hrn:node:hadronmemory.com:specs:cor:api:120:03: listed to their owner like
+	// any other user-owned memory, and to nobody else, not even through
+	// filter.sharedWithMe, which still omits them: a share grant on a per-user
+	// memory surfaces nothing in either list).
 	// App-key callers get the union of their installed Agents' memory items.
+	// A pure App key's list also holds every memory its App's links let it read
+	// (#5272, hrn:node:hadronmemory.com:specs:cor:api:120:03), judged at the call
+	// by the same rule as its reads, so a lapsed link leaves the list.
 	//
 	// filter.visibility: PUBLIC selects the public marketplace slice instead
 	// (every PUBLIC memory — the old publicMemories). filter.memoryClasses
@@ -70498,8 +70507,15 @@ type MemoriesSharedWithMeResponse struct {
 	// Default scope: the caller's union — (1) their OWN personal/private
 	// memories (always; they are user-owned and show in every org context),
 	// (2) memories their member orgs own, (3) memories their member orgs
-	// subscribe to. Per-user agent memories (userMemoryOfAgentId) are excluded.
+	// subscribe to, (4) their OWN per-user Agent memories (#5026,
+	// hrn:node:hadronmemory.com:specs:cor:api:120:03: listed to their owner like
+	// any other user-owned memory, and to nobody else, not even through
+	// filter.sharedWithMe, which still omits them: a share grant on a per-user
+	// memory surfaces nothing in either list).
 	// App-key callers get the union of their installed Agents' memory items.
+	// A pure App key's list also holds every memory its App's links let it read
+	// (#5272, hrn:node:hadronmemory.com:specs:cor:api:120:03), judged at the call
+	// by the same rule as its reads, so a lapsed link leaves the list.
 	//
 	// filter.visibility: PUBLIC selects the public marketplace slice instead
 	// (every PUBLIC memory — the old publicMemories). filter.memoryClasses
@@ -94193,7 +94209,7 @@ type RevokeAppKeyInstructedResponse struct {
 	// `instruction` (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0098; hrn:node:hadronmemory.com:specs:cor:dmo:050:05;
 	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340). A worker session that is refused cannot tell a missing key from an existing one.
 	// An admitted instructed revoke records one team event (never the key id); a key already revoked records none.
-	// AppKey has no URN; the id is raw ID-only.
+	// AppKey has no URN; the id is raw ID-only. An unknown key id answers APP_KEY_NOT_FOUND to a person (#5266); it never quotes the id.
 	RevokeAppKey bool `json:"revokeAppKey"`
 }
 
@@ -94206,7 +94222,7 @@ type RevokeAppKeyResponse struct {
 	// `instruction` (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0098; hrn:node:hadronmemory.com:specs:cor:dmo:050:05;
 	// hrn:node:hadronmemory.com:specs:cor:acl:010:01). Never an App key, a host-launched or uninstructed worker session, an impersonation, or a run that carries a worker session; a plain user-backed run is admitted, as before, when the user it carries manages the App (#3340). A worker session that is refused cannot tell a missing key from an existing one.
 	// An admitted instructed revoke records one team event (never the key id); a key already revoked records none.
-	// AppKey has no URN; the id is raw ID-only.
+	// AppKey has no URN; the id is raw ID-only. An unknown key id answers APP_KEY_NOT_FOUND to a person (#5266); it never quotes the id.
 	RevokeAppKey bool `json:"revokeAppKey"`
 }
 
@@ -105899,6 +105915,11 @@ func (v *StartImpersonationStartImpersonationStartImpersonationResultSessionImpe
 type StartTeamSessionResponse struct {
 	// Open a session — and, when `input.workerRef` is given, a WORKER SESSION:
 	// the binding that makes the work attributable to that named teammate.
+	//
+	// Refusals worth knowing (#5266, none quotes your value): a `parentSessionId` or `prevSessionId` that names no
+	// session you may read answers SESSION_NOT_FOUND, the same for a session that does not exist and for one you may not read,
+	// before anything is written; an `id` that is already taken answers SESSION_ID_TAKEN, whoever owns the existing row,
+	// your own repeat included (a repeat is not a resume: resume through the claim and `--session` paths).
 	//
 	// The binding is held server-side and is independent of the caller's CHAT
 	// SESSION (the human's Desktop window, Claude Code session or IDE chat).
@@ -130945,7 +130966,13 @@ type UpdateSecretProtectedResponse struct {
 	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl instead
 	// of a Secret, and nothing changes until the requester completes the passkey
 	// ceremony (hrn:node:hadronmemory.com:specs:cor:sec:070:02). The expiry and the two
-	// caps are as for createSecret.
+	// caps are as for createSecret. One exception: protected: true on a secret
+	// that is already protected, with no value and with metadata omitted or
+	// identical to the stored metadata, asks for no change and answers the
+	// Secret unchanged, staging nothing, to a person who passes the staging
+	// checks (hrn:node:hadronmemory.com:specs:cor:sec:070:01). A worker session,
+	// an App key, an impersonation and a run keep SECRET_PROTECTED_NEEDS_PASSKEY,
+	// as for a real change.
 	// Legacy webfetch-auth rows (written before metadata.type was derived from
 	// the value) recover differently per owner kind, because only org and user
 	// rows are re-validated against their own decrypted stored value. There, any
@@ -131097,7 +131124,13 @@ type UpdateSecretResponse struct {
 	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl instead
 	// of a Secret, and nothing changes until the requester completes the passkey
 	// ceremony (hrn:node:hadronmemory.com:specs:cor:sec:070:02). The expiry and the two
-	// caps are as for createSecret.
+	// caps are as for createSecret. One exception: protected: true on a secret
+	// that is already protected, with no value and with metadata omitted or
+	// identical to the stored metadata, asks for no change and answers the
+	// Secret unchanged, staging nothing, to a person who passes the staging
+	// checks (hrn:node:hadronmemory.com:specs:cor:sec:070:01). A worker session,
+	// an App key, an impersonation and a run keep SECRET_PROTECTED_NEEDS_PASSKEY,
+	// as for a real change.
 	// Legacy webfetch-auth rows (written before metadata.type was derived from
 	// the value) recover differently per owner kind, because only org and user
 	// rows are re-validated against their own decrypted stored value. There, any
@@ -134687,7 +134720,9 @@ func (v *WithdrawQuestionWithdrawQuestion) __premarshalJSON() (*__premarshalWith
 // WithdrawSecretChangeRequestResponse is returned by WithdrawSecretChangeRequest on success.
 type WithdrawSecretChangeRequestResponse struct {
 	// Withdraw your own open change request and clear its staged value; the request then
-	// reads withdrawn. Only the requester can withdraw, complete or decline a request, and
+	// reads withdrawn, and the answer is true. The answer is false when nothing was withdrawn:
+	// the request had already ended, or it expired while still open (it is then recorded as
+	// expired, with its staged value cleared). Only the requester can withdraw, complete or decline a request, and
 	// anyone else is answered as for a request that does not exist. Declining is done on
 	// the ceremony page, with a passkey proof, and reads declined.
 	// hrn:node:hadronmemory.com:specs:cor:sec:070:02
