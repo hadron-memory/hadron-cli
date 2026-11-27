@@ -35,6 +35,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gofrs/flock"
 
@@ -119,6 +120,9 @@ func Keys(entries []Entry) []string {
 	}
 	return out
 }
+
+// lockWait bounds how long Lock waits for a lock another process holds (hadron-cli#3288 F11).
+var lockWait = 30 * time.Second
 
 // Store is the store held under its lock. Unlock releases it.
 type Store struct {

@@ -177,6 +177,11 @@ func exec3239(t *testing.T, s *srv3239, setup func(configDir string), args ...st
 	teamGitDir(t)
 	f, out := testFactory(t)
 	t.Setenv("XDG_STATE_HOME", t.TempDir())
+	// The store lives under the config home testFactory isolates; asserted here rather than assumed
+	// (hadron-cli#3288 F15), so a factory that stops setting it fails loudly instead of using the real one.
+	if home := os.Getenv("XDG_CONFIG_HOME"); home == "" || !strings.HasPrefix(home, os.TempDir()) {
+		t.Fatalf("exec3239 needs testFactory's temporary XDG_CONFIG_HOME, got %q", home)
+	}
 	if setup != nil {
 		setup(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron"))
 	}
