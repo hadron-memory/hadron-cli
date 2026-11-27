@@ -351,7 +351,7 @@ func TestOwnerLimitReachedIsAConflictWithItsExtensions3072(t *testing.T) {
 		"memory set, a caller who cannot manage the owner": {"CreateMemory", []string{"memory", "set", "--org", "acme.com", "--name", "KB"}, partial,
 			map[string]any{"limitKey": "memories", "ownerType": "USER", "callerCanManageOwner": false}},
 		"agent clone keeps the fields": {"CloneAgent", []string{"agent", "clone", "src", "--to", "tgt"}, full,
-			map[string]any{"limitKey": "agents", "limit": "5"}},
+			map[string]any{"limitKey": "agents", "limit": "5", "ownerType": "ORGANIZATION", "callerCanManageOwner": true, "ownerId": "org1"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			ext := c.ext

@@ -27,7 +27,7 @@
 # reached list query's filter input. A gap here is not a claim of full parity: while any line
 # says gap, the CLI does not cover the platform.
 
-[Query] 253: 220 command, 8 gap, 25 excluded
+[Query] 253: 222 command, 7 gap, 24 excluded
 accountUsageAccounts  command team usage accounts
 accountUsageProjection  command team usage project
 action  command team grant action
@@ -164,7 +164,7 @@ marketplaceOrganizations  command marketplace orgs
 mcpServer  command mcp-server get
 mcpServerTools  command mcp-server tools
 mcpServers  command mcp-server list
-me  excluded not-a-capability: the same identity read as authContext, which `auth whoami` reaches
+me  command billing balance
 memories  command memory list
 memory  command memory get
 memoryAssets  command asset list
@@ -200,7 +200,7 @@ orgBootPromptSigning  command org signing get
 orgBootPromptSigningPreview  command org signing preview
 organization  command org get
 organizations  command org list
-ownerLimits  gap #3072
+ownerLimits  command billing limits
 previewAgentSchedule  command schedule preview
 previewAutomation  command automation preview
 principalGrant  command grant get
@@ -282,7 +282,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 379: 350 command, 12 gap, 17 excluded
+[Mutation] 379: 352 command, 10 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -326,7 +326,7 @@ changeWorkerAgent  command team worker change-agent
 claimContextReset  excluded host-protocol: claiming a reset went with the removed host-side handler (cli#3017); a collected reset op is answered FAILED instead, so the claim is never sent
 clearAgentAIConfig  command agent ai-config clear
 clearNodeHistory  command node revision clear
-clearOwnerLimits  gap #3072
+clearOwnerLimits  command billing limits clear
 cloneAgent  command agent clone
 cloneAgentTask  command team task clone
 cloneMemory  command memory clone
@@ -576,7 +576,7 @@ setHostWorkerTerminals  command team health sweep
 setMemorySourceToken  command memory sync set-token
 setModelFamilyAvailability  command team availability set
 setOrgBootPromptSigning  command org signing on
-setOwnerLimits  gap #3072
+setOwnerLimits  command billing limits set
 setQuestionLogDeciders  command question log set-deciders
 setQuotaLimit  command quota set
 setRateLimitPolicy  gap #1482: platform-admin rate-limit policy edit (server #1793)
@@ -663,15 +663,13 @@ withdrawReviewVerdict  command team pr withdraw
 withdrawSecretChangeRequest  command secret change withdraw
 withdrawSigningRequest  command node signing-request withdraw
 
-[Arguments] 21: 7 gap, 14 excluded
-Mutation.adjustCredits(input.userRef)  gap #3072
+[Arguments] 16: 2 gap, 14 excluded
 Mutation.createApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiModel)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.createApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.createAppUser(email)  excluded not-a-capability: accepts only empty values (SDL); an address is established through verified sign-in; cor:api:240:02 (argument that changes nothing); Proposed class unruled under #1334 (33-row review)
 Mutation.createMemory(draftCorpus)  excluded deprecated: @deprecated: Accepted and ignored since #1591: a memory's draft or minted state is derived from its nodes.
-Mutation.grantCredits(input.userRef)  gap #3072
 Mutation.mergeUsers(input.consentProof)  gap #1304
 Mutation.removeAgentTeamHost(input.force)  gap #3282
 Mutation.updateApp(aiApiKey)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
@@ -679,9 +677,6 @@ Mutation.updateApp(aiModel)  excluded deprecated: legacy shim; ai-config create/
 Mutation.updateApp(aiProvider)  excluded deprecated: legacy shim; ai-config create/update reach the App's AI config; Proposed class unruled under #1334 (33-row review)
 Mutation.updateApp(role)  excluded deprecated: the App's own role was removed (cli#2515, ruled in cli#2497); the server still accepts and ignores it until its notice period ends, so the CLI refuses the flag locally (exit 2, cli#2515) and never puts a role on the wire
 Mutation.updateMemory(orgRef)  excluded not-a-capability: updateMemory accepts only the memory's current organization and refuses any other with USE_TRANSFER_MEMORY_OWNERSHIP; moving a memory is `memory transfer` (transferMemoryOwnership); Proposed class unruled under #1334 (33-row review)
-Query.aiSpend(userRef)  gap #3072
-Query.creditBalance(userRef)  gap #3072
-Query.creditLedgerEntries(userRef)  gap #3072
 Query.exchangeMessages(filter)  excluded deprecated: the server says raw provider filters are gone and only unreadOnly translates; `email messages --unread` reaches that; Proposed class unruled under #1334 (33-row review)
 Query.node(memoryRef)  excluded not-a-capability: the CLI composes -m and a bare loc into the full node URN, which the SDL documents as the equivalent address (the one case memoryRef adds, forcing loc reading of an unprefixed 3+-segment ref, the hrn:node: form already removes); Proposed class unruled under #1334 (33-row review)
 Query.webPollsPage(offset)  excluded not-a-capability: offset is the server's exclusive alternative to the after cursor (never combined with it); the CLI pages by the opaque cursor only (cli#2032); Proposed class unruled under #1334 (33-row review)

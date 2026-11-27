@@ -203,7 +203,7 @@ func TestBillingSpendBareDateIsMidnightUTC(t *testing.T) {
 	}
 }
 
-const adjustEntryJSON = `{"id":"l3","organizationId":"org1","kind":"adjustment",
+const adjustEntryJSON = `{"id":"l3","organizationId":"org1","ownerUserId":null,"kind":"adjustment",
 	"amountMicroCents":"-300","expiresAt":null,"sourceType":"refund",
 	"sourceId":"r1","note":"n","createdAt":"2026-11-25T00:00:00.000Z","createdBy":"u1"}`
 
@@ -229,7 +229,7 @@ func TestBillingAdjustJSONGoldenAndAmountByteForByte(t *testing.T) {
 		if len(in) != 5 {
 			t.Errorf("exactly the five inputs are sent: %v", in)
 		}
-		want := `{"id":"l3","organizationId":"org1","kind":"adjustment","amountMicroCents":"-300","expiresAt":null,"sourceType":"refund","sourceId":"r1","note":"n","createdAt":"2026-11-25T00:00:00.000Z","createdBy":"u1"}`
+		want := `{"id":"l3","organizationId":"org1","ownerUserId":null,"kind":"adjustment","amountMicroCents":"-300","expiresAt":null,"sourceType":"refund","sourceId":"r1","note":"n","createdAt":"2026-11-25T00:00:00.000Z","createdBy":"u1"}`
 		if got := compactJSON3071(t, out); got != want {
 			t.Errorf("golden\nwant %s\ngot  %s", want, got)
 		}
@@ -357,7 +357,7 @@ func TestBillingBalanceExpiringParts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}
-	if want := `{"organizationId":"org1","balanceMicroCents":"7","expiring":[]}`; compactJSON3071(t, out) != want {
+	if want := `{"organizationId":"org1","ownerUserId":null,"balanceMicroCents":"7","expiring":[]}`; compactJSON3071(t, out) != want {
 		t.Errorf("want %s, got %s", want, out)
 	}
 	two := `{"amountMicroCents":"` + bigMicroCents + `","expiresAt":"2027-02-01T00:00:00.000Z"},{"amountMicroCents":"2","expiresAt":"2027-01-01T00:00:00.000Z"}`

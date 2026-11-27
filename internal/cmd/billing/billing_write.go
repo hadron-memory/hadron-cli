@@ -145,14 +145,18 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 func newCmdGrant(f *cmdutil.Factory) *cobra.Command {
 	var amount, sourceType, sourceID, expiresAt, note string
 	var yes bool
+	var who ownerFlags
 	cmd := &cobra.Command{
 		Use:   "grant <org> --amount <micro-cents> --source-type <t> --source-id <i> [--expires-at <time>] [--note <text>]",
-		Short: "Grant credit to an organization (platform admin or billing role)",
-		Long: `Add credit to an organization's ledger. For platform admins and the billing
-role. It really credits the organization: use it deliberately.
+		Short: "Grant credit to an organization or a person (platform admin or billing role)",
+		Long: `Add credit to an organization's or a person's ledger. For platform admins and
+the billing role. It really credits the owner: use it deliberately. Name exactly
+one owner.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example
-hrn:org:acme.com). --amount is micro-cents (100000000 micro-cents = 1 USD), a whole number sent to the server exactly as typed. The
+hrn:org:acme.com). --user names a person by id, @handle, hrn:user: URN or email,
+matched exactly (a service credential that cannot search users should pass the
+id); --owner-me is your own ledger. --amount is micro-cents (100000000 micro-cents = 1 USD), a whole number sent to the server exactly as typed. The
 CLI does not check it: the server requires a positive whole number and says so
 if it refuses.
 
@@ -178,11 +182,12 @@ codes and ids.
 It asks before sending (or pass --yes; without a terminal --yes is required).`,
 		Example: `  hadron billing grant hrn:org:acme.com --amount 500000000 --source-type trial --source-id t-1 --expires-at 2027-06-01T00:00:00Z --yes
   hadron billing grant hrn:org:acme.com --amount 500000000 \
-    --source-type stripe-checkout --source-id cs_123 --yes --json`,
-		Args: cobra.ExactArgs(1),
+    --source-type stripe-checkout --source-id cs_123 --yes --json
+  hadron billing grant --user @ann --amount 100000000 --source-type trial --source-id t-2 --yes`,
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if args[0] == "" {
-				return exitcode.Newf(exitcode.Usage, "the organization is empty")
+			if err := who.check(cmd, args); err != nil {
+				return err
 			}
 			if err := requireFlag(cmd, "amount", amount); err != nil {
 				return err
@@ -203,20 +208,24 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 				return err
 			}
 			in := gen.GrantCreditsInput{
-				OrgRef:           &args[0],
 				AmountMicroCents: amount,
 				SourceType:       &sourceType,
 				SourceId:         &sourceID,
 				ExpiresAt:        exp,
 				Note:             nt,
 			}
-			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Grant %s micro-cents of credit to %s?", promptValue(amount), promptValue(args[0]))); err != nil {
+			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Grant %s micro-cents of credit to %s?", promptValue(amount), who.label(args))); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
+			o, err := who.resolve(cmd, f, args)
+			if err != nil {
+				return err
+			}
+			in.OrgRef, in.UserRef = o.orgRef, o.userRef
 			resp, err := gen.GrantCredits(cmd.Context(), client, &in)
 			if err != nil {
 				return api.MapError(err)
@@ -227,8 +236,8 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 			e := resp.GrantCredits.CreditLedgerEntryFields
 			dto := ledgerEntryFrom(&e)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "Ledger entry %s: %s micro-cents to organization %s\n",
-					output.SafeCell(dto.ID), output.SafeCell(dto.AmountMicroCents), output.SafeCell(dto.OrganizationID))
+				_, err := fmt.Fprintf(w, "Ledger entry %s: %s micro-cents to %s\n",
+					output.SafeCell(dto.ID), output.SafeCell(dto.AmountMicroCents), output.SafeCell(ownerText(dto.OrganizationID, dto.OwnerUserID)))
 				return err
 			})
 		},
@@ -239,21 +248,25 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 	cmd.Flags().StringVar(&expiresAt, "expires-at", "", "when what is left of the grant stops counting (ISO-8601, later than now); unset never expires")
 	cmd.Flags().StringVar(&note, "note", "", "a note on the entry; kept for good, must not hold personal data")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
+	who.register(cmd)
 	return cmd
 }
 
 func newCmdAdjust(f *cmdutil.Factory) *cobra.Command {
 	var amount, sourceType, sourceID, note string
 	var yes bool
+	var who ownerFlags
 	cmd := &cobra.Command{
 		Use:   "adjust <org> --amount <signed micro-cents> --source-type <t> --source-id <i> --note <text>",
-		Short: "Correct an organization's credit, up or down (platform admin or billing role)",
-		Long: `Write a signed correction, such as a refund, on an organization's ledger. For
-platform admins and the billing role. It really changes the balance. An entry is
-never edited: a correction is a new entry.
+		Short: "Correct an organization's or a person's credit, up or down (platform admin or billing role)",
+		Long: `Write a signed correction, such as a refund, on an organization's or a
+person's ledger. For platform admins and the billing role. It really changes the
+balance. An entry is never edited: a correction is a new entry. Name exactly one
+owner.
 
 <org> is an organization ID or its URN, hrn:org:<root> (for example
-hrn:org:acme.com). --amount is micro-cents (100000000 micro-cents = 1 USD), a
+hrn:org:acme.com). --user names a person by id, @handle, hrn:user: URN or email,
+matched exactly; --owner-me is your own ledger. --amount is micro-cents (100000000 micro-cents = 1 USD), a
 whole number sent to the server exactly as typed; a leading minus lowers the
 balance. The CLI does not check it: the server refuses zero and anything that is
 not a whole number.
@@ -275,11 +288,12 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 		Example: `  hadron billing adjust hrn:org:acme.com --amount -300 \
     --source-type refund --source-id r-1 --note "refund r-1" --yes
   hadron billing adjust hrn:org:acme.com --amount 5000000 \
-    --source-type correction --source-id c-7 --note "ticket c-7" --yes --json`,
-		Args: cobra.ExactArgs(1),
+    --source-type correction --source-id c-7 --note "ticket c-7" --yes --json
+  hadron billing adjust --user @ann --amount -300 --source-type refund --source-id r-2 --note "refund r-2" --yes`,
+		Args: cobra.RangeArgs(0, 1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if args[0] == "" {
-				return exitcode.Newf(exitcode.Usage, "the organization is empty")
+			if err := who.check(cmd, args); err != nil {
+				return err
 			}
 			for _, r := range []struct{ name, val string }{{"amount", amount}, {"source-type", sourceType}, {"source-id", sourceID}, {"note", note}} {
 				if err := requireFlag(cmd, r.name, r.val); err != nil {
@@ -287,15 +301,20 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 				}
 			}
 			if err := cmdutil.Confirm(f.IOStreams, yes, fmt.Sprintf("Adjust the credit of %s by %s micro-cents (source %s / %s, note %s; the note is kept for good)?",
-				promptValue(args[0]), promptValue(amount), promptValue(sourceType), promptValue(sourceID), promptValue(note))); err != nil {
+				who.label(args), promptValue(amount), promptValue(sourceType), promptValue(sourceID), promptValue(note))); err != nil {
 				return err
 			}
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
 			}
+			o, err := who.resolve(cmd, f, args)
+			if err != nil {
+				return err
+			}
 			resp, err := gen.AdjustCredits(cmd.Context(), client, &gen.AdjustCreditsInput{
-				OrgRef:           &args[0],
+				OrgRef:           o.orgRef,
+				UserRef:          o.userRef,
 				AmountMicroCents: amount,
 				SourceType:       sourceType,
 				SourceId:         sourceID,
@@ -309,8 +328,8 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 			}
 			dto := ledgerEntryFrom(&resp.AdjustCredits.CreditLedgerEntryFields)
 			return output.Write(f.IOStreams, f.JSON, dto, func(w io.Writer) error {
-				_, err := fmt.Fprintf(w, "Ledger entry %s: %s micro-cents on organization %s\n",
-					output.SafeCell(dto.ID), output.SafeCell(dto.AmountMicroCents), output.SafeCell(dto.OrganizationID))
+				_, err := fmt.Fprintf(w, "Ledger entry %s: %s micro-cents on %s\n",
+					output.SafeCell(dto.ID), output.SafeCell(dto.AmountMicroCents), output.SafeCell(ownerText(dto.OrganizationID, dto.OwnerUserID)))
 				return err
 			})
 		},
@@ -320,6 +339,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 	cmd.Flags().StringVar(&sourceID, "source-id", "", "the source's id (required); repeating the same adjustment returns the existing entry")
 	cmd.Flags().StringVar(&note, "note", "", "why (required); kept for good, must not hold personal data")
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt")
+	who.register(cmd)
 	return cmd
 }
 
@@ -328,7 +348,8 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 func ledgerEntryFrom(e *gen.CreditLedgerEntryFields) ledgerEntryDTO {
 	return ledgerEntryDTO{
 		ID:               e.Id,
-		OrganizationID:   orgIDOrEmpty(e.OrganizationId),
+		OrganizationID:   e.OrganizationId,
+		OwnerUserID:      e.OwnerUserId,
 		Kind:             e.Kind,
 		AmountMicroCents: e.AmountMicroCents,
 		ExpiresAt:        e.ExpiresAt,
