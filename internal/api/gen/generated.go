@@ -2334,6 +2334,375 @@ func (v *AgentFilter) GetType() *AgentType { return v.Type }
 // GetVisibility returns AgentFilter.Visibility, and is useful for accessing the field via an interface.
 func (v *AgentFilter) GetVisibility() *AgentVisibility { return v.Visibility }
 
+// AgentInstructionsAgentInstructions includes the requested fields of the GraphQL type AgentInstructions.
+// The GraphQL type's documentation follows.
+//
+// #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24): the role task to follow, with its body, or no task fits.
+type AgentInstructionsAgentInstructions struct {
+	State AgentInstructionsState `json:"state"`
+	// Which route answered; null on NO_MATCH.
+	Route *AgentInstructionsRoute `json:"route"`
+	// MATCHED: the content of candidates[0], exactly as its node.content resolves it for you. NO_MATCH: null.
+	Instructions *string `json:"instructions"`
+	// MATCHED: the best-fit task first, then at most two runners-up (search only). NO_MATCH: empty.
+	Candidates []*AgentInstructionsAgentInstructionsCandidatesAgentListedTask `json:"candidates"`
+	// NO_MATCH with a phrase: up to 3 tasks under the floor, or unscored, best first, for diagnosis. Not instructions.
+	Nearest []*AgentInstructionsAgentInstructionsNearestAgentListedTask `json:"nearest"`
+	// NO_MATCH asked in an App: the task the App's register maps instructions.no-match to, when it maps one.
+	Fallback *AgentInstructionsAgentInstructionsFallbackAgentListedTask `json:"fallback"`
+	// The register's answer when an eventCode was given; null otherwise.
+	Register *AgentInstructionsAgentInstructionsRegisterTickAction `json:"register"`
+}
+
+// GetState returns AgentInstructionsAgentInstructions.State, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructions) GetState() AgentInstructionsState { return v.State }
+
+// GetRoute returns AgentInstructionsAgentInstructions.Route, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructions) GetRoute() *AgentInstructionsRoute { return v.Route }
+
+// GetInstructions returns AgentInstructionsAgentInstructions.Instructions, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructions) GetInstructions() *string { return v.Instructions }
+
+// GetCandidates returns AgentInstructionsAgentInstructions.Candidates, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructions) GetCandidates() []*AgentInstructionsAgentInstructionsCandidatesAgentListedTask {
+	return v.Candidates
+}
+
+// GetNearest returns AgentInstructionsAgentInstructions.Nearest, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructions) GetNearest() []*AgentInstructionsAgentInstructionsNearestAgentListedTask {
+	return v.Nearest
+}
+
+// GetFallback returns AgentInstructionsAgentInstructions.Fallback, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructions) GetFallback() *AgentInstructionsAgentInstructionsFallbackAgentListedTask {
+	return v.Fallback
+}
+
+// GetRegister returns AgentInstructionsAgentInstructions.Register, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructions) GetRegister() *AgentInstructionsAgentInstructionsRegisterTickAction {
+	return v.Register
+}
+
+// AgentInstructionsAgentInstructionsCandidatesAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+type AgentInstructionsAgentInstructionsCandidatesAgentListedTask struct {
+	InstructionsListedTask `json:"-"`
+}
+
+// GetNode returns AgentInstructionsAgentInstructionsCandidatesAgentListedTask.Node, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsCandidatesAgentListedTask) GetNode() *InstructionsListedTaskNode {
+	return v.InstructionsListedTask.Node
+}
+
+// GetTrigger returns AgentInstructionsAgentInstructionsCandidatesAgentListedTask.Trigger, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsCandidatesAgentListedTask) GetTrigger() *string {
+	return v.InstructionsListedTask.Trigger
+}
+
+// GetMatchedBy returns AgentInstructionsAgentInstructionsCandidatesAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsCandidatesAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
+	return v.InstructionsListedTask.MatchedBy
+}
+
+// GetScore returns AgentInstructionsAgentInstructionsCandidatesAgentListedTask.Score, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsCandidatesAgentListedTask) GetScore() *float64 {
+	return v.InstructionsListedTask.Score
+}
+
+func (v *AgentInstructionsAgentInstructionsCandidatesAgentListedTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentInstructionsAgentInstructionsCandidatesAgentListedTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentInstructionsAgentInstructionsCandidatesAgentListedTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.InstructionsListedTask)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentInstructionsAgentInstructionsCandidatesAgentListedTask struct {
+	Node *InstructionsListedTaskNode `json:"node"`
+
+	Trigger *string `json:"trigger"`
+
+	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
+
+	Score *float64 `json:"score"`
+}
+
+func (v *AgentInstructionsAgentInstructionsCandidatesAgentListedTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentInstructionsAgentInstructionsCandidatesAgentListedTask) __premarshalJSON() (*__premarshalAgentInstructionsAgentInstructionsCandidatesAgentListedTask, error) {
+	var retval __premarshalAgentInstructionsAgentInstructionsCandidatesAgentListedTask
+
+	retval.Node = v.InstructionsListedTask.Node
+	retval.Trigger = v.InstructionsListedTask.Trigger
+	retval.MatchedBy = v.InstructionsListedTask.MatchedBy
+	retval.Score = v.InstructionsListedTask.Score
+	return &retval, nil
+}
+
+// AgentInstructionsAgentInstructionsFallbackAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+type AgentInstructionsAgentInstructionsFallbackAgentListedTask struct {
+	InstructionsListedTask `json:"-"`
+}
+
+// GetNode returns AgentInstructionsAgentInstructionsFallbackAgentListedTask.Node, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsFallbackAgentListedTask) GetNode() *InstructionsListedTaskNode {
+	return v.InstructionsListedTask.Node
+}
+
+// GetTrigger returns AgentInstructionsAgentInstructionsFallbackAgentListedTask.Trigger, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsFallbackAgentListedTask) GetTrigger() *string {
+	return v.InstructionsListedTask.Trigger
+}
+
+// GetMatchedBy returns AgentInstructionsAgentInstructionsFallbackAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsFallbackAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
+	return v.InstructionsListedTask.MatchedBy
+}
+
+// GetScore returns AgentInstructionsAgentInstructionsFallbackAgentListedTask.Score, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsFallbackAgentListedTask) GetScore() *float64 {
+	return v.InstructionsListedTask.Score
+}
+
+func (v *AgentInstructionsAgentInstructionsFallbackAgentListedTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentInstructionsAgentInstructionsFallbackAgentListedTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentInstructionsAgentInstructionsFallbackAgentListedTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.InstructionsListedTask)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentInstructionsAgentInstructionsFallbackAgentListedTask struct {
+	Node *InstructionsListedTaskNode `json:"node"`
+
+	Trigger *string `json:"trigger"`
+
+	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
+
+	Score *float64 `json:"score"`
+}
+
+func (v *AgentInstructionsAgentInstructionsFallbackAgentListedTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentInstructionsAgentInstructionsFallbackAgentListedTask) __premarshalJSON() (*__premarshalAgentInstructionsAgentInstructionsFallbackAgentListedTask, error) {
+	var retval __premarshalAgentInstructionsAgentInstructionsFallbackAgentListedTask
+
+	retval.Node = v.InstructionsListedTask.Node
+	retval.Trigger = v.InstructionsListedTask.Trigger
+	retval.MatchedBy = v.InstructionsListedTask.MatchedBy
+	retval.Score = v.InstructionsListedTask.Score
+	return &retval, nil
+}
+
+// AgentInstructionsAgentInstructionsNearestAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+type AgentInstructionsAgentInstructionsNearestAgentListedTask struct {
+	InstructionsListedTask `json:"-"`
+}
+
+// GetNode returns AgentInstructionsAgentInstructionsNearestAgentListedTask.Node, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsNearestAgentListedTask) GetNode() *InstructionsListedTaskNode {
+	return v.InstructionsListedTask.Node
+}
+
+// GetTrigger returns AgentInstructionsAgentInstructionsNearestAgentListedTask.Trigger, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsNearestAgentListedTask) GetTrigger() *string {
+	return v.InstructionsListedTask.Trigger
+}
+
+// GetMatchedBy returns AgentInstructionsAgentInstructionsNearestAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsNearestAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
+	return v.InstructionsListedTask.MatchedBy
+}
+
+// GetScore returns AgentInstructionsAgentInstructionsNearestAgentListedTask.Score, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsNearestAgentListedTask) GetScore() *float64 {
+	return v.InstructionsListedTask.Score
+}
+
+func (v *AgentInstructionsAgentInstructionsNearestAgentListedTask) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*AgentInstructionsAgentInstructionsNearestAgentListedTask
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.AgentInstructionsAgentInstructionsNearestAgentListedTask = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.InstructionsListedTask)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalAgentInstructionsAgentInstructionsNearestAgentListedTask struct {
+	Node *InstructionsListedTaskNode `json:"node"`
+
+	Trigger *string `json:"trigger"`
+
+	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
+
+	Score *float64 `json:"score"`
+}
+
+func (v *AgentInstructionsAgentInstructionsNearestAgentListedTask) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *AgentInstructionsAgentInstructionsNearestAgentListedTask) __premarshalJSON() (*__premarshalAgentInstructionsAgentInstructionsNearestAgentListedTask, error) {
+	var retval __premarshalAgentInstructionsAgentInstructionsNearestAgentListedTask
+
+	retval.Node = v.InstructionsListedTask.Node
+	retval.Trigger = v.InstructionsListedTask.Trigger
+	retval.MatchedBy = v.InstructionsListedTask.MatchedBy
+	retval.Score = v.InstructionsListedTask.Score
+	return &retval, nil
+}
+
+// AgentInstructionsAgentInstructionsRegisterTickAction includes the requested fields of the GraphQL type TickAction.
+type AgentInstructionsAgentInstructionsRegisterTickAction struct {
+	// Permanent action code (hrn:node:hadronmemory.com:specs:cor:agt:110:01).
+	Code  string          `json:"code"`
+	State TickActionState `json:"state"`
+	// The readable entry's loc, including when no usable task was found.
+	TaskLoc *string `json:"taskLoc"`
+	// The readable runnable task nearest in the woken worker's Agent chain.
+	TaskUrn *string `json:"taskUrn"`
+}
+
+// GetCode returns AgentInstructionsAgentInstructionsRegisterTickAction.Code, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsRegisterTickAction) GetCode() string { return v.Code }
+
+// GetState returns AgentInstructionsAgentInstructionsRegisterTickAction.State, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsRegisterTickAction) GetState() TickActionState {
+	return v.State
+}
+
+// GetTaskLoc returns AgentInstructionsAgentInstructionsRegisterTickAction.TaskLoc, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsRegisterTickAction) GetTaskLoc() *string { return v.TaskLoc }
+
+// GetTaskUrn returns AgentInstructionsAgentInstructionsRegisterTickAction.TaskUrn, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsAgentInstructionsRegisterTickAction) GetTaskUrn() *string { return v.TaskUrn }
+
+// AgentInstructionsResponse is returned by AgentInstructions on success.
+type AgentInstructionsResponse struct {
+	// #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24) - the role task to follow, with its body, or that no
+	// task fits. Give a phrase, an eventCode or both; eventCode needs appRef. With an eventCode, the App's register
+	// answers first (register), and a mapped task is MATCHED by REGISTER. Otherwise the phrase ranks the Agent's
+	// agentTaskList tasks on their abstracts, and the tasks scoring at or above the no-match floor (default 0.45,
+	// TASK_MATCH_MIN_SCORE) are MATCHED by SEARCH, best first, at most 3, with the body of the first only. With no
+	// embedding available nothing can reach the floor, so the answer is NO_MATCH with the keyword hits as nearest.
+	// NO_MATCH asked in an App also names the register's instructions.no-match task as fallback. agentRef may be
+	// omitted: your own Agent (a bound worker's, or a run's) is used, and a caller with none gets BAD_USER_INPUT.
+	// Without appRef the Agent is read as agentTaskList reads it; with appRef you must take part in the App and the
+	// Agent must be installed or cast there. Refused as APP_NOT_FOUND or AGENT_NOT_FOUND, alike for unknown and
+	// unreadable. A phrase is 1 to 500 characters. Nothing is recorded or logged. The MCP tool
+	// hadron_get_instructions returns the same answer. Accepts IDs or URNs.
+	AgentInstructions *AgentInstructionsAgentInstructions `json:"agentInstructions"`
+}
+
+// GetAgentInstructions returns AgentInstructionsResponse.AgentInstructions, and is useful for accessing the field via an interface.
+func (v *AgentInstructionsResponse) GetAgentInstructions() *AgentInstructionsAgentInstructions {
+	return v.AgentInstructions
+}
+
+// #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24): which route answered a match.
+type AgentInstructionsRoute string
+
+const (
+	// The App's action register mapped the event code to the task.
+	AgentInstructionsRouteRegister AgentInstructionsRoute = "REGISTER"
+	// The task's abstract scored at or above the no-match floor against the phrase.
+	AgentInstructionsRouteSearch AgentInstructionsRoute = "SEARCH"
+)
+
+var AllAgentInstructionsRoute = []AgentInstructionsRoute{
+	AgentInstructionsRouteRegister,
+	AgentInstructionsRouteSearch,
+}
+
+// #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24): whether a task fits.
+type AgentInstructionsState string
+
+const (
+	// A task fits: candidates holds it first and instructions holds its body.
+	AgentInstructionsStateMatched AgentInstructionsState = "MATCHED"
+	// No task fits: no candidates and no body.
+	AgentInstructionsStateNoMatch AgentInstructionsState = "NO_MATCH"
+)
+
+var AllAgentInstructionsState = []AgentInstructionsState{
+	AgentInstructionsStateMatched,
+	AgentInstructionsStateNoMatch,
+}
+
 // #4224 (S3 of #4229): how long an Agent's workers run.
 type AgentLifecycle string
 
@@ -10306,11 +10675,12 @@ type AgentTaskIndexListResponse struct {
 	// listed task outside the chain's memories is returned only when its own
 	// memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
 	// hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
-	// #2421 experiment: optional symptom ranks only runnable effective-chain tasks
-	// with non-empty abstracts; summary vectors and abstract-only lexical matches
-	// share hybrid ranking. At most 3 candidates (limit defaults to 3, larger
-	// values clamp); empty symptom or non-positive limit is BAD_USER_INPUT.
-	// Without symptom the list is unchanged. matchedBy identifies ranking inputs.
+	// #2421, #5284: an optional phrase ranks only runnable effective-chain tasks
+	// with non-empty abstracts, by the vector similarity of the abstract (score),
+	// best first; with no embedding available, by keyword on the abstract, with
+	// score null. limit defaults to 3 and may be at most 10; an empty phrase or a
+	// limit outside 1 to 10 is BAD_USER_INPUT. Without a phrase the list is
+	// unchanged and limit is ignored. matchedBy says which retrievers found a task.
 	AgentTaskList []*AgentTaskIndexListAgentTaskListAgentListedTask `json:"agentTaskList"`
 }
 
@@ -12337,7 +12707,7 @@ var AllAgentTaskMatchSkipReason = []AgentTaskMatchSkipReason{
 	AgentTaskMatchSkipReasonUsesNoTasks,
 }
 
-// #2421 experimental symptom search: membership in the hybrid ranking inputs.
+// #2421 phrase search: which retrievers found the task.
 type AgentTaskMatchedBy string
 
 const (
@@ -13086,6 +13456,112 @@ const (
 var AllAgentTaskPartyKind = []AgentTaskPartyKind{
 	AgentTaskPartyKindUser,
 	AgentTaskPartyKindWorker,
+}
+
+// AgentTaskPhraseSearchAgentTaskListAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+type AgentTaskPhraseSearchAgentTaskListAgentListedTask struct {
+	// The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
+	Node *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode `json:"node"`
+	// The name of the index edge that lists it; null for a task no index edge lists.
+	Trigger *string `json:"trigger"`
+	// #2421 phrase search: which retriever found this task; null on the unfiltered list.
+	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
+	// #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15): the vector similarity of the task's abstract to the
+	// phrase (1 minus the cosine distance). Null on the unfiltered list, when no embedding is available (the keyword
+	// fallback), and for a task found by keyword that has no abstract vector yet.
+	Score *float64 `json:"score"`
+}
+
+// GetNode returns AgentTaskPhraseSearchAgentTaskListAgentListedTask.Node, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTask) GetNode() *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode {
+	return v.Node
+}
+
+// GetTrigger returns AgentTaskPhraseSearchAgentTaskListAgentListedTask.Trigger, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTask) GetTrigger() *string { return v.Trigger }
+
+// GetMatchedBy returns AgentTaskPhraseSearchAgentTaskListAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
+	return v.MatchedBy
+}
+
+// GetScore returns AgentTaskPhraseSearchAgentTaskListAgentListedTask.Score, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTask) GetScore() *float64 { return v.Score }
+
+// AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode includes the requested fields of the GraphQL type Node.
+type AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+	// was read through an Agent that extends a base: the node belongs to that
+	// base's system memory and comes into the Agent's effective system memory by
+	// inheritance. The node keeps its own address (its urn is the base's); this
+	// names the base it comes from. Null for a node read in its own memory.
+	InheritedFrom *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom `json:"inheritedFrom"`
+}
+
+// GetId returns AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode) GetId() string { return v.Id }
+
+// GetUrn returns AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode.Urn, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode) GetUrn() string { return v.Urn }
+
+// GetName returns AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode) GetName() string { return v.Name }
+
+// GetInheritedFrom returns AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode.InheritedFrom, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNode) GetInheritedFrom() *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom {
+	return v.InheritedFrom
+}
+
+// AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
+// The GraphQL type's documentation follows.
+//
+// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+// inherited node comes from.
+type AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom struct {
+	AgentId string `json:"agentId"`
+	// The base Agent's URN, fully qualified.
+	AgentUrn string `json:"agentUrn"`
+}
+
+// GetAgentId returns AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentId() string {
+	return v.AgentId
+}
+
+// GetAgentUrn returns AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentUrn() string {
+	return v.AgentUrn
+}
+
+// AgentTaskPhraseSearchResponse is returned by AgentTaskPhraseSearch on success.
+type AgentTaskPhraseSearchResponse struct {
+	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - an Agent's tasks, across its base chain:
+	// every runnable node in its effective system memory, and every task the
+	// tasks index of an Agent in the chain lists, each once. A task an index
+	// lists carries that edge's name as its trigger, the nearest index's where
+	// two list it. Readable by whoever may read the Agent's system memory; a
+	// listed task outside the chain's memories is returned only when its own
+	// memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
+	// hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
+	// #2421, #5284: an optional phrase ranks only runnable effective-chain tasks
+	// with non-empty abstracts, by the vector similarity of the abstract (score),
+	// best first; with no embedding available, by keyword on the abstract, with
+	// score null. limit defaults to 3 and may be at most 10; an empty phrase or a
+	// limit outside 1 to 10 is BAD_USER_INPUT. Without a phrase the list is
+	// unchanged and limit is ignored. matchedBy says which retrievers found a task.
+	AgentTaskList []*AgentTaskPhraseSearchAgentTaskListAgentListedTask `json:"agentTaskList"`
+}
+
+// GetAgentTaskList returns AgentTaskPhraseSearchResponse.AgentTaskList, and is useful for accessing the field via an interface.
+func (v *AgentTaskPhraseSearchResponse) GetAgentTaskList() []*AgentTaskPhraseSearchAgentTaskListAgentListedTask {
+	return v.AgentTaskList
 }
 
 // AgentTaskProgressRecordAgentTaskProgressAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -17811,104 +18287,6 @@ var AllAgentTaskStatus = []AgentTaskStatus{
 	AgentTaskStatusFinished,
 	AgentTaskStatusPending,
 	AgentTaskStatusStarted,
-}
-
-// AgentTaskSymptomSearchAgentTaskListAgentListedTask includes the requested fields of the GraphQL type AgentListedTask.
-// The GraphQL type's documentation follows.
-//
-// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
-type AgentTaskSymptomSearchAgentTaskListAgentListedTask struct {
-	// The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
-	Node *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode `json:"node"`
-	// The name of the index edge that lists it; null for a task no index edge lists.
-	Trigger *string `json:"trigger"`
-	// #2421 experimental symptom search: which retriever ranked this task; null on the unfiltered list.
-	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
-}
-
-// GetNode returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.Node, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetNode() *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode {
-	return v.Node
-}
-
-// GetTrigger returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.Trigger, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetTrigger() *string { return v.Trigger }
-
-// GetMatchedBy returns AgentTaskSymptomSearchAgentTaskListAgentListedTask.MatchedBy, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTask) GetMatchedBy() *AgentTaskMatchedBy {
-	return v.MatchedBy
-}
-
-// AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode includes the requested fields of the GraphQL type Node.
-type AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode struct {
-	Id string `json:"id"`
-	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
-	Urn  string `json:"urn"`
-	Name string `json:"name"`
-	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
-	// was read through an Agent that extends a base: the node belongs to that
-	// base's system memory and comes into the Agent's effective system memory by
-	// inheritance. The node keeps its own address (its urn is the base's); this
-	// names the base it comes from. Null for a node read in its own memory.
-	InheritedFrom *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom `json:"inheritedFrom"`
-}
-
-// GetId returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Id, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetId() string { return v.Id }
-
-// GetUrn returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Urn, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetUrn() string { return v.Urn }
-
-// GetName returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.Name, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetName() string { return v.Name }
-
-// GetInheritedFrom returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode.InheritedFrom, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNode) GetInheritedFrom() *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom {
-	return v.InheritedFrom
-}
-
-// AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
-// The GraphQL type's documentation follows.
-//
-// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
-// inherited node comes from.
-type AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom struct {
-	AgentId string `json:"agentId"`
-	// The base Agent's URN, fully qualified.
-	AgentUrn string `json:"agentUrn"`
-}
-
-// GetAgentId returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentId() string {
-	return v.AgentId
-}
-
-// GetAgentUrn returns AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom) GetAgentUrn() string {
-	return v.AgentUrn
-}
-
-// AgentTaskSymptomSearchResponse is returned by AgentTaskSymptomSearch on success.
-type AgentTaskSymptomSearchResponse struct {
-	// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - an Agent's tasks, across its base chain:
-	// every runnable node in its effective system memory, and every task the
-	// tasks index of an Agent in the chain lists, each once. A task an index
-	// lists carries that edge's name as its trigger, the nearest index's where
-	// two list it. Readable by whoever may read the Agent's system memory; a
-	// listed task outside the chain's memories is returned only when its own
-	// memory is readable too. Refused as AGENT_NOT_FOUND otherwise. The MCP tool
-	// hadron_agent_tasks returns the same list. Accepts the Agent's ID or URN.
-	// #2421 experiment: optional symptom ranks only runnable effective-chain tasks
-	// with non-empty abstracts; summary vectors and abstract-only lexical matches
-	// share hybrid ranking. At most 3 candidates (limit defaults to 3, larger
-	// values clamp); empty symptom or non-positive limit is BAD_USER_INPUT.
-	// Without symptom the list is unchanged. matchedBy identifies ranking inputs.
-	AgentTaskList []*AgentTaskSymptomSearchAgentTaskListAgentListedTask `json:"agentTaskList"`
-}
-
-// GetAgentTaskList returns AgentTaskSymptomSearchResponse.AgentTaskList, and is useful for accessing the field via an interface.
-func (v *AgentTaskSymptomSearchResponse) GetAgentTaskList() []*AgentTaskSymptomSearchAgentTaskListAgentListedTask {
-	return v.AgentTaskList
 }
 
 // AgentTaskTreeAgentTaskTreeAgentTask includes the requested fields of the GraphQL type AgentTask.
@@ -30964,7 +31342,10 @@ type BootPromptApprovalBatchResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -40029,7 +40410,10 @@ type CompiledPromptLintBatchResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -46361,7 +46745,7 @@ func (v *CreateNodeCreateNode) GetUpdatedAt() string { return v.UpdatedAt }
 // error (BAD_USER_INPUT). Creating is create-only — a live node at (memoryRef,
 // loc) rejects with NodeLocConflictError (spec 039 Phase 0 D1/D4).
 type CreateNodeInput struct {
-	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Optional. Empty + whitespace-only normalize to null. Cap is 2000 characters; for the long form use `content`.
 	Abstract *string `json:"abstract,omitempty"`
 	AiAgent  *string `json:"aiAgent,omitempty"`
 	Alias    *string `json:"alias,omitempty"`
@@ -65864,6 +66248,80 @@ func (v *InstallTargetInput) GetAgentRef() string { return v.AgentRef }
 // GetAppRef returns InstallTargetInput.AppRef, and is useful for accessing the field via an interface.
 func (v *InstallTargetInput) GetAppRef() string { return v.AppRef }
 
+// InstructionsListedTask includes the GraphQL fields of AgentListedTask requested by the fragment InstructionsListedTask.
+// The GraphQL type's documentation follows.
+//
+// #1892 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15) - one task on an Agent's task list.
+type InstructionsListedTask struct {
+	// The task. A base's task, listed through the Agent, keeps its own URN and carries inheritedFrom.
+	Node *InstructionsListedTaskNode `json:"node"`
+	// The name of the index edge that lists it; null for a task no index edge lists.
+	Trigger *string `json:"trigger"`
+	// #2421 phrase search: which retriever found this task; null on the unfiltered list.
+	MatchedBy *AgentTaskMatchedBy `json:"matchedBy"`
+	// #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:15): the vector similarity of the task's abstract to the
+	// phrase (1 minus the cosine distance). Null on the unfiltered list, when no embedding is available (the keyword
+	// fallback), and for a task found by keyword that has no abstract vector yet.
+	Score *float64 `json:"score"`
+}
+
+// GetNode returns InstructionsListedTask.Node, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTask) GetNode() *InstructionsListedTaskNode { return v.Node }
+
+// GetTrigger returns InstructionsListedTask.Trigger, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTask) GetTrigger() *string { return v.Trigger }
+
+// GetMatchedBy returns InstructionsListedTask.MatchedBy, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTask) GetMatchedBy() *AgentTaskMatchedBy { return v.MatchedBy }
+
+// GetScore returns InstructionsListedTask.Score, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTask) GetScore() *float64 { return v.Score }
+
+// InstructionsListedTaskNode includes the requested fields of the GraphQL type Node.
+type InstructionsListedTaskNode struct {
+	Id string `json:"id"`
+	// Fully-qualified node URN (hrn:node:<root>:<memory>:<loc>), composed server-side from the node's memory URN + loc (#481). Carried by every Node-returning surface (findNodes, node, appNodes, nodeBatch, mutation returns).
+	Urn  string `json:"urn"`
+	Name string `json:"name"`
+	// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - set when this node
+	// was read through an Agent that extends a base: the node belongs to that
+	// base's system memory and comes into the Agent's effective system memory by
+	// inheritance. The node keeps its own address (its urn is the base's); this
+	// names the base it comes from. Null for a node read in its own memory.
+	InheritedFrom *InstructionsListedTaskNodeInheritedFrom `json:"inheritedFrom"`
+}
+
+// GetId returns InstructionsListedTaskNode.Id, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTaskNode) GetId() string { return v.Id }
+
+// GetUrn returns InstructionsListedTaskNode.Urn, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTaskNode) GetUrn() string { return v.Urn }
+
+// GetName returns InstructionsListedTaskNode.Name, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTaskNode) GetName() string { return v.Name }
+
+// GetInheritedFrom returns InstructionsListedTaskNode.InheritedFrom, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTaskNode) GetInheritedFrom() *InstructionsListedTaskNodeInheritedFrom {
+	return v.InheritedFrom
+}
+
+// InstructionsListedTaskNodeInheritedFrom includes the requested fields of the GraphQL type InheritedFrom.
+// The GraphQL type's documentation follows.
+//
+// #1885 (hrn:node:hadronmemory.com:specs:cor:dmo:050:14) - the base Agent an
+// inherited node comes from.
+type InstructionsListedTaskNodeInheritedFrom struct {
+	AgentId string `json:"agentId"`
+	// The base Agent's URN, fully qualified.
+	AgentUrn string `json:"agentUrn"`
+}
+
+// GetAgentId returns InstructionsListedTaskNodeInheritedFrom.AgentId, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTaskNodeInheritedFrom) GetAgentId() string { return v.AgentId }
+
+// GetAgentUrn returns InstructionsListedTaskNodeInheritedFrom.AgentUrn, and is useful for accessing the field via an interface.
+func (v *InstructionsListedTaskNodeInheritedFrom) GetAgentUrn() string { return v.AgentUrn }
+
 // IntakeClaimTaskCreateAgentTask includes the requested fields of the GraphQL type AgentTask.
 // The GraphQL type's documentation follows.
 //
@@ -74984,7 +75442,10 @@ type NodeBatchContentResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -75446,7 +75907,10 @@ type NodeBatchResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -75555,7 +76019,10 @@ type NodeCommentSummariesResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -76882,7 +77349,10 @@ type NodeLiveRevisionsApprovedResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -77311,7 +77781,10 @@ type NodeLiveRevisionsContentCheckedResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -77734,7 +78207,10 @@ type NodeLiveRevisionsMintedResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -77815,7 +78291,10 @@ type NodeLiveRevisionsResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -78062,7 +78541,10 @@ type NodeLiveRevisionsStampedResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -104789,7 +105271,10 @@ type SpecLintBatchResponse struct {
 	// ONE call instead of resolving each ref first. The split on a bad ref is by
 	// KIND, not by luck: a ref whose SHAPE is wrong errors the call — unqualified
 	// / relative (UrnNotQualifiedError) or a URN of the wrong entity type, e.g.
-	// 'hrn:mem:...' (BAD_USER_INPUT) — while a well-formed ref that names nothing
+	// 'hrn:mem:...' (BAD_USER_INPUT), which names the FIRST wrong-type entry by
+	// its 0-based index in 'refs' — the message ends '(the ref at index N)' and
+	// the error carries 'extensions.index' (an integer; first occurrence in the
+	// order sent) — while a well-formed ref that names nothing
 	// the caller may read comes back in 'unavailable'. A caller mistake stays
 	// loud instead of hiding among denials. Per-node access is applied
 	// independently AFTER resolution: denied or missing refs come back in
@@ -122254,11 +122739,11 @@ func (v *TickerFieldsChannelsChannel) GetName() string { return v.Name }
 // TickerFieldsOwnerActorRef includes the requested fields of the GraphQL type ActorRef.
 // The GraphQL type's documentation follows.
 //
-// #1610 — public identity of a Worker or Agent that wrote a node: never the full object, whose own read gate this does not pass.
+// #1610, #5319 — public identity of a Worker, an Agent or a person (the owner of a ticker, the creator of a subscription): never the full object, whose own read gate this does not pass.
 type TickerFieldsOwnerActorRef struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
-	// The canonical hrn:worker:/hrn:agent: URN. Null when it cannot be composed.
+	// The canonical hrn:worker:/hrn:agent: URN, or hrn:user:<handle> for a person. Null when it cannot be composed, and for a person with no handle (such a person has no hrn:user: address).
 	Urn *string `json:"urn"`
 }
 
@@ -122594,11 +123079,11 @@ func (v *TickerSubscriptionFields) GetEndedReason() *TickerSubscriptionEndReason
 // TickerSubscriptionFieldsCreatedByActorRef includes the requested fields of the GraphQL type ActorRef.
 // The GraphQL type's documentation follows.
 //
-// #1610 — public identity of a Worker or Agent that wrote a node: never the full object, whose own read gate this does not pass.
+// #1610, #5319 — public identity of a Worker, an Agent or a person (the owner of a ticker, the creator of a subscription): never the full object, whose own read gate this does not pass.
 type TickerSubscriptionFieldsCreatedByActorRef struct {
 	Id   string `json:"id"`
 	Name string `json:"name"`
-	// The canonical hrn:worker:/hrn:agent: URN. Null when it cannot be composed.
+	// The canonical hrn:worker:/hrn:agent: URN, or hrn:user:<handle> for a person. Null when it cannot be composed, and for a person with no handle (such a person has no hrn:user: address).
 	Urn *string `json:"urn"`
 }
 
@@ -128374,7 +128859,7 @@ func (v *UpdateNodeDataUpdateNodeDataNode) GetUpdatedAt() string { return v.Upda
 // error (spec 039 Phase 0 D2). updateNode never creates and never moves (D3).
 // Every content field is optional: omitted = preserved (D4).
 type UpdateNodeInput struct {
-	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters.
+	// Paragraph-length summary of this node — see Node.abstract for the surfacing contract. Omit to preserve; null to clear; string to replace. Empty + whitespace-only normalize to null. Cap is 2000 characters; for the long form use `content`.
 	Abstract *string `json:"abstract,omitempty"`
 	AiAgent  *string `json:"aiAgent,omitempty"`
 	Alias    *string `json:"alias,omitempty"`
@@ -137603,6 +138088,26 @@ func (v *__AdvanceChannelReadStateInput) GetSeq() int { return v.Seq }
 // GetAppRef returns __AdvanceChannelReadStateInput.AppRef, and is useful for accessing the field via an interface.
 func (v *__AdvanceChannelReadStateInput) GetAppRef() *string { return v.AppRef }
 
+// __AgentInstructionsInput is used internally by genqlient
+type __AgentInstructionsInput struct {
+	AgentRef  *string `json:"agentRef,omitempty"`
+	AppRef    *string `json:"appRef,omitempty"`
+	EventCode *string `json:"eventCode,omitempty"`
+	Phrase    *string `json:"phrase,omitempty"`
+}
+
+// GetAgentRef returns __AgentInstructionsInput.AgentRef, and is useful for accessing the field via an interface.
+func (v *__AgentInstructionsInput) GetAgentRef() *string { return v.AgentRef }
+
+// GetAppRef returns __AgentInstructionsInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__AgentInstructionsInput) GetAppRef() *string { return v.AppRef }
+
+// GetEventCode returns __AgentInstructionsInput.EventCode, and is useful for accessing the field via an interface.
+func (v *__AgentInstructionsInput) GetEventCode() *string { return v.EventCode }
+
+// GetPhrase returns __AgentInstructionsInput.Phrase, and is useful for accessing the field via an interface.
+func (v *__AgentInstructionsInput) GetPhrase() *string { return v.Phrase }
+
 // __AgentModelGroupsInput is used internally by genqlient
 type __AgentModelGroupsInput struct {
 	AgentRef string `json:"agentRef"`
@@ -138411,6 +138916,22 @@ func (v *__AgentTaskParkInstructedInput) GetTaskId() string { return v.TaskId }
 // GetInstruction returns __AgentTaskParkInstructedInput.Instruction, and is useful for accessing the field via an interface.
 func (v *__AgentTaskParkInstructedInput) GetInstruction() *ActInstructionInput { return v.Instruction }
 
+// __AgentTaskPhraseSearchInput is used internally by genqlient
+type __AgentTaskPhraseSearchInput struct {
+	Ref    string `json:"ref"`
+	Phrase string `json:"phrase"`
+	Limit  *int   `json:"limit,omitempty"`
+}
+
+// GetRef returns __AgentTaskPhraseSearchInput.Ref, and is useful for accessing the field via an interface.
+func (v *__AgentTaskPhraseSearchInput) GetRef() string { return v.Ref }
+
+// GetPhrase returns __AgentTaskPhraseSearchInput.Phrase, and is useful for accessing the field via an interface.
+func (v *__AgentTaskPhraseSearchInput) GetPhrase() string { return v.Phrase }
+
+// GetLimit returns __AgentTaskPhraseSearchInput.Limit, and is useful for accessing the field via an interface.
+func (v *__AgentTaskPhraseSearchInput) GetLimit() *int { return v.Limit }
+
 // __AgentTaskProgressInput is used internally by genqlient
 type __AgentTaskProgressInput struct {
 	TaskId string `json:"taskId"`
@@ -138584,22 +139105,6 @@ type __AgentTaskStartInput struct {
 
 // GetTaskId returns __AgentTaskStartInput.TaskId, and is useful for accessing the field via an interface.
 func (v *__AgentTaskStartInput) GetTaskId() string { return v.TaskId }
-
-// __AgentTaskSymptomSearchInput is used internally by genqlient
-type __AgentTaskSymptomSearchInput struct {
-	Ref     string `json:"ref"`
-	Symptom string `json:"symptom"`
-	Limit   *int   `json:"limit,omitempty"`
-}
-
-// GetRef returns __AgentTaskSymptomSearchInput.Ref, and is useful for accessing the field via an interface.
-func (v *__AgentTaskSymptomSearchInput) GetRef() string { return v.Ref }
-
-// GetSymptom returns __AgentTaskSymptomSearchInput.Symptom, and is useful for accessing the field via an interface.
-func (v *__AgentTaskSymptomSearchInput) GetSymptom() string { return v.Symptom }
-
-// GetLimit returns __AgentTaskSymptomSearchInput.Limit, and is useful for accessing the field via an interface.
-func (v *__AgentTaskSymptomSearchInput) GetLimit() *int { return v.Limit }
 
 // __AgentTaskTreeInput is used internally by genqlient
 type __AgentTaskTreeInput struct {
@@ -152909,6 +153414,83 @@ func AdvanceChannelReadState(
 	return data_, err_
 }
 
+// The query executed by AgentInstructions.
+const AgentInstructions_Operation = `
+query AgentInstructions ($agentRef: ID, $appRef: ID, $eventCode: String, $phrase: String) {
+	agentInstructions(agentRef: $agentRef, appRef: $appRef, eventCode: $eventCode, phrase: $phrase) {
+		state
+		route
+		instructions
+		candidates {
+			... InstructionsListedTask
+		}
+		nearest {
+			... InstructionsListedTask
+		}
+		fallback {
+			... InstructionsListedTask
+		}
+		register {
+			code
+			state
+			taskLoc
+			taskUrn
+		}
+	}
+}
+fragment InstructionsListedTask on AgentListedTask {
+	node {
+		id
+		urn
+		name
+		inheritedFrom {
+			agentId
+			agentUrn
+		}
+	}
+	trigger
+	matchedBy
+	score
+}
+`
+
+// #5284 (cor:dmo:050:24): the role task to follow, with its body, or no task
+// fits. Every argument is omitempty: an omitted agentRef means "my own Agent"
+// (the server takes it from the worker's session) and an omitted appRef keeps
+// the call App-less. The command sends appRef only from --app, or from the
+// configured App when --event-code is given (the register needs one); a
+// phrase-only call sends none. It never looks an Agent up for agentRef.
+func AgentInstructions(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	agentRef *string,
+	appRef *string,
+	eventCode *string,
+	phrase *string,
+) (data_ *AgentInstructionsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentInstructions",
+		Query:  AgentInstructions_Operation,
+		Variables: &__AgentInstructionsInput{
+			AgentRef:  agentRef,
+			AppRef:    appRef,
+			EventCode: eventCode,
+			Phrase:    phrase,
+		},
+	}
+
+	data_ = &AgentInstructionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The query executed by AgentModelGroups.
 const AgentModelGroups_Operation = `
 query AgentModelGroups ($agentRef: ID!) {
@@ -156891,6 +157473,62 @@ func AgentTaskParkInstructed(
 	return data_, err_
 }
 
+// The query executed by AgentTaskPhraseSearch.
+const AgentTaskPhraseSearch_Operation = `
+query AgentTaskPhraseSearch ($ref: ID!, $phrase: String!, $limit: Int) {
+	agentTaskList(ref: $ref, phrase: $phrase, limit: $limit) {
+		node {
+			id
+			urn
+			name
+			inheritedFrom {
+				agentId
+				agentUrn
+			}
+		}
+		trigger
+		matchedBy
+		score
+	}
+}
+`
+
+// #2421, #5284: the phrase search is its OWN document on the same server
+// field, so the plain list above stays valid against a server that predates
+// phrase/limit/matchedBy/score (the document, not just the variables, is
+// unchanged). limit is omitempty: nil is omitted so the server's default
+// applies; the server owns the limit rules (default 3, cap 10, BAD_USER_INPUT
+// outside 1 to 10) and the CLI sends it as given. score is null under the
+// keyword fallback and is never read as 0.
+func AgentTaskPhraseSearch(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	phrase string,
+	limit *int,
+) (data_ *AgentTaskPhraseSearchResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "AgentTaskPhraseSearch",
+		Query:  AgentTaskPhraseSearch_Operation,
+		Variables: &__AgentTaskPhraseSearchInput{
+			Ref:    ref,
+			Phrase: phrase,
+			Limit:  limit,
+		},
+	}
+
+	data_ = &AgentTaskPhraseSearchResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by AgentTaskProgress.
 const AgentTaskProgress_Operation = `
 mutation AgentTaskProgress ($taskId: ID!) {
@@ -158709,60 +159347,6 @@ func AgentTaskStart(
 	}
 
 	data_ = &AgentTaskStartResponse{}
-	resp_ := &graphql.Response{Data: data_}
-
-	err_ = client_.MakeRequest(
-		ctx_,
-		req_,
-		resp_,
-	)
-
-	return data_, err_
-}
-
-// The query executed by AgentTaskSymptomSearch.
-const AgentTaskSymptomSearch_Operation = `
-query AgentTaskSymptomSearch ($ref: ID!, $symptom: String!, $limit: Int) {
-	agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
-		node {
-			id
-			urn
-			name
-			inheritedFrom {
-				agentId
-				agentUrn
-			}
-		}
-		trigger
-		matchedBy
-	}
-}
-`
-
-// #2421 experiment: the symptom search is its OWN document on the same server
-// field, so the plain list above stays valid against a server that predates
-// symptom/limit/matchedBy (the document, not just the variables, is unchanged).
-// limit is omitempty: nil is omitted so the server's default applies; the server
-// owns the limit rules (default 3, clamp, BAD_USER_INPUT) and the CLI sends it
-// as given.
-func AgentTaskSymptomSearch(
-	ctx_ context.Context,
-	client_ graphql.Client,
-	ref string,
-	symptom string,
-	limit *int,
-) (data_ *AgentTaskSymptomSearchResponse, err_ error) {
-	req_ := &graphql.Request{
-		OpName: "AgentTaskSymptomSearch",
-		Query:  AgentTaskSymptomSearch_Operation,
-		Variables: &__AgentTaskSymptomSearchInput{
-			Ref:     ref,
-			Symptom: symptom,
-			Limit:   limit,
-		},
-	}
-
-	data_ = &AgentTaskSymptomSearchResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
