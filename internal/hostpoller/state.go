@@ -101,8 +101,6 @@ func (s *State) save() error {
 	return os.Rename(tmp, s.path)
 }
 
-// worktreesFor is the configured worktrees plus the ones created, unique and
-// sorted.
 // SetFromPlatform marks the state of a host that runs from the platform (see configuredOnly).
 func (s *State) SetFromPlatform() {
 	s.mu.Lock()
@@ -110,6 +108,8 @@ func (s *State) SetFromPlatform() {
 	s.configuredOnly = true
 }
 
+// worktreesFor is the configured worktrees plus the ones created, unique and
+// sorted.
 func (s *State) worktreesFor(ref string, configured []string) []string {
 	s.mu.Lock()
 	defer s.mu.Unlock()

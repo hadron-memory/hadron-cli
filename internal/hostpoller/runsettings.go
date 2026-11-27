@@ -31,11 +31,10 @@ type RunSettings struct {
 // RunSettingsFrom reads the run settings off a worker.start's args.
 func RunSettingsFrom(op Operation) RunSettings {
 	return RunSettings{
-		Family: argString(op, "family"),
-		Model:  argString(op, "model"),
-		Tier:   argString(op, "tier"),
-		Effort: argString(op, "effort"),
-
+		Family:  argString(op, "family"),
+		Model:   argString(op, "model"),
+		Tier:    argString(op, "tier"),
+		Effort:  argString(op, "effort"),
 		Account: argString(op, "accountProfile"),
 	}
 }

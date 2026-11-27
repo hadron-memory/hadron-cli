@@ -26,12 +26,14 @@ var accountsOwnerOf = func(_ string, fi os.FileInfo) (uint32, bool) {
 	return st.Uid, true
 }
 
-func trustedOwner(path string, fi os.FileInfo) (uint32, bool) {
+// trustedOwner names a path's owner for a message and reports whether it is the user or root. An owner that
+// cannot be read is not trusted (fail closed).
+func trustedOwner(path string, fi os.FileInfo) (string, bool) {
 	uid, ok := accountsOwnerOf(path, fi)
 	if !ok {
-		return 0, true
+		return "an owner that cannot be read", false
 	}
-	return uid, int(uid) == os.Geteuid() || uid == 0
+	return fmt.Sprintf("uid %d", uid), int(uid) == os.Geteuid() || uid == 0
 }
 
 const accountsRunsWhy = "hadron runs the programs this file names"
@@ -39,7 +41,7 @@ const accountsRunsWhy = "hadron runs the programs this file names"
 // checkAccountsTrust judges the file (already Lstat'ed, a regular file) and everything above it.
 func checkAccountsTrust(path string, fi os.FileInfo) error {
 	if uid, ok := trustedOwner(path, fi); !ok {
-		return &AccountsError{Path: path, Msg: fmt.Sprintf("the accounts file is owned by uid %d, not you or root; %s, so recreate it as yourself (cp it to a new file, then mv it over %s)", uid, accountsRunsWhy, path)}
+		return &AccountsError{Path: path, Msg: fmt.Sprintf("the accounts file is owned by %s, not you or root; %s, so recreate it as yourself (cp it to a new file, then mv it over %s)", uid, accountsRunsWhy, path)}
 	}
 	dirs, links, err := accountsVisitedDirs(path)
 	if err != nil {
@@ -51,7 +53,7 @@ func checkAccountsTrust(path string, fi os.FileInfo) error {
 			return &AccountsError{Path: path, Msg: fmt.Sprintf("the directory %s above the accounts file cannot be judged: %v", d, err)}
 		}
 		if uid, ok := trustedOwner(d, di); !ok {
-			return &AccountsError{Path: path, Msg: fmt.Sprintf("the directory %s above the accounts file is owned by uid %d, not you or root; %s, so keep the Hadron config directory in a tree you own", d, uid, accountsRunsWhy)}
+			return &AccountsError{Path: path, Msg: fmt.Sprintf("the directory %s above the accounts file is owned by %s, not you or root; %s, so keep the Hadron config directory in a tree you own", d, uid, accountsRunsWhy)}
 		}
 		if di.Mode().Perm()&0o022 != 0 && di.Mode()&os.ModeSticky == 0 {
 			return &AccountsError{Path: path, Msg: fmt.Sprintf("the directory %s above the accounts file is writable by group or others and not sticky (mode %o); %s, so tighten it: chmod go-w %s", d, di.Mode().Perm(), accountsRunsWhy, d)}
@@ -63,7 +65,7 @@ func checkAccountsTrust(path string, fi os.FileInfo) error {
 			return &AccountsError{Path: path, Msg: fmt.Sprintf("the symlink %s above the accounts file cannot be judged: %v", l, err)}
 		}
 		if uid, ok := trustedOwner(l, li); !ok {
-			return &AccountsError{Path: path, Msg: fmt.Sprintf("the symlink %s on the path to the accounts file is owned by uid %d, not you or root; whoever owns it chose where it leads, so replace it with a link or directory you own", l, uid)}
+			return &AccountsError{Path: path, Msg: fmt.Sprintf("the symlink %s on the path to the accounts file is owned by %s, not you or root; whoever owns it chose where it leads, so replace it with a link or directory you own", l, uid)}
 		}
 	}
 	return nil

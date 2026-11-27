@@ -194,7 +194,8 @@ func (p *Poller) platformRefresh(ctx context.Context) (hold bool, err error) {
 		return true, nil
 	}
 	if err != nil {
-		return false, fmt.Errorf("reading this host's platform settings: %w", err)
+		// The refresh's own errors say what was read and for which host (hadron-cli#3301 BLIND P3-14).
+		return false, err
 	}
 	if p.sourceHostSaid {
 		p.sourceHostSaid = false

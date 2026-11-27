@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 	"sort"
 	"strconv"
 	"strings"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/delivery"
 	"github.com/hadron-memory/hadron-cli/internal/hostrelaunch"
+	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
 
 // The closed set of operation types a host carries out (cor:agt:070:03).
@@ -302,7 +302,7 @@ type Poller struct {
 	afterRelaunchJob func()
 	// otherKeys are the other host keys this process holds (SetScrubKeys).
 	otherKeys []string
-	// Refresh, when set, is a host that runs from the platform (hadron-cli#3237): each Step builds the
+	// refresh, when set, is a host that runs from the platform (hadron-cli#3237): each Step builds the
 	// Config from the platform's answer instead of reloading a file (SetPlatformRefresh).
 	refresh        func(ctx context.Context) (*Config, error)
 	sourceHostSaid bool

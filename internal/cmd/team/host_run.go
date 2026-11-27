@@ -294,9 +294,11 @@ when the worker starts. worktree.create goes through ` + "`orca worktree create`
 No account program or account directory is sent, and workers register
 with workdir names, not paths (a start refused because a workdir matches
 several worktrees names their paths, so they can be told apart).
-Refused at start: no joined host (exit 3, join first), a key that no longer
-answers for its App (exit 3, ` + "`team host join --replace`" + `), an App whose
-host setup source is HOST (exit 5, ` + "`team host setup --source SERVER`" + `),
+Refused at start: no joined host (exit 3, join first); a key that no longer
+answers for its App or is refused (exit 3), a host that was removed (exit 4)
+or a key no longer permitted for it (exit 8), each naming
+` + "`team host join --replace`" + `; no Orca on this machine (exit 10); an App
+whose host setup source is HOST (exit 5, ` + "`team host setup --source SERVER`" + `);
 an older server (names 0.47.0). With several hosts, one that cannot start
 is reported and the others run.
 

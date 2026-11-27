@@ -73,7 +73,9 @@ type Worktree struct {
 	Archived                 bool
 }
 
-// Facts is the detector. All fields are seams; New fills the production values.
+// Facts is the detector. All fields are seams; New fills the production values. Its methods only read the
+// fields and keep nothing between calls, so one Facts, once built, serves several pollers concurrently
+// (hadron-cli#3237 runs one poller per host credential over one Facts).
 type Facts struct {
 	Run          Runner
 	LookPath     func(string) (string, error)

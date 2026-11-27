@@ -542,12 +542,16 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 	note := ""
 	prompted := false
 	if len(w.End) > 0 {
-		dir := ""
+		dir, resolved := "", true
 		if t, ok := p.agentWorktree(op.WorkerID); ok {
 			dir = p.config().WorktreePath(t)
+			resolved = dir != ""
 		}
 		env := agentEnvKeys(os.Environ(), p.scrubKeys(), "HADRON_SESSION_ID="+session, "HADRON_WORKER_ID="+op.WorkerID)
-		if err := p.host.Prompt(ctx, w.End, dir, env); err != nil {
+		if !resolved {
+			// A platform host's token that did not resolve at this poll (hadron-cli#3237): never the poller's own directory.
+			note = "; the end prompt was not sent: the agent's worktree did not resolve to a directory on this host at this poll"
+		} else if err := p.host.Prompt(ctx, w.End, dir, env); err != nil {
 			note = "; the end prompt failed: " + err.Error()
 		} else {
 			prompted = true
@@ -646,6 +650,9 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 	// session's end (the window cannot be closed against a separate process
 	// writing the binding, only made as short as the signal itself).
 	allowed := func(t string) (bool, string) {
+		if p.config().WorktreePath(t) == "" {
+			return false, fmt.Sprintf("worktree %s did not resolve to a directory on this host at this poll, so its processes were not touched", t)
+		}
 		b := p.bound(p.config().WorktreePath(t))
 		switch {
 		case b.Unusable:

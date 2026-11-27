@@ -88,3 +88,27 @@ func TestWindowsReservedNamesNeverNameAStatePath3288(t *testing.T) {
 		t.Errorf("a reserved Windows name is a plain name on Unix: %v", err)
 	}
 }
+
+// hadron-cli#3301 (BLIND P3-7): a symlinked hosts is refused before MkdirAll, which would otherwise create <id>
+// inside the link's target first.
+func TestEnsureHostStateDirCreatesNothingThroughASymlinkedHosts3301(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("creating a symlink needs a privilege on Windows")
+	}
+	base := t.TempDir()
+	t.Setenv("XDG_STATE_HOME", base)
+	if err := os.MkdirAll(filepath.Join(base, "hadron"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	elsewhere := t.TempDir()
+	hosts := filepath.Join(base, "hadron", "hosts")
+	if err := os.Symlink(elsewhere, hosts); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := EnsureHostStateDir("box1"); err == nil || !strings.Contains(err.Error(), "symlink") {
+		t.Errorf("a symlinked hosts must be refused: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(elsewhere, "box1")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("nothing is created through the link: %v", err)
+	}
+}

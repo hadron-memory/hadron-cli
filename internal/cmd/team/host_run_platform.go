@@ -99,6 +99,8 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 		// The store's own refusal names the file and the fix (a loose mode, a symlink); it never holds a key.
 		return exitcode.New(exitcode.AuthRequired, err)
 	}
+	// Every stored key is scrubbed from every agent, including the keys of hosts this run does not serve.
+	keys := hostcred.Keys(entries)
 	entries, err = narrowEntries(f, entries)
 	if err != nil {
 		return err
@@ -108,15 +110,23 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 	if miss != nil {
 		return exitcode.Newf(exitcode.OrcaUnreachable, "%s", miss.Error())
 	}
-	keys := hostcred.Keys(entries)
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	emit := hostEventPrinter(f)
 	var pollers []*hostpoller.Poller
 	var hosts []platformHost
+	started := map[string]platformHost{}
 	for _, e := range entries {
 		hostEmit := hostEmitter(emit, e.HostID)
-		h, p, err := startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, hostEmit)
+		var h platformHost
+		var p *hostpoller.Poller
+		var err error
+		if first, dup := started[e.HostID]; dup {
+			// A host's state lives under <state>/hosts/<hostId>, so two pollers of one id would share it.
+			err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as %s on %s, and a host's state on this machine is kept by its id; run them one at a time with --app <App id>", e.HostID, e.AppID, auth.Host(e.Server), first.who(), auth.Host(first.entry.Server))
+		} else {
+			h, p, err = startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, hostEmit)
+		}
 		if err != nil {
 			if len(entries) == 1 {
 				return err
@@ -125,6 +135,7 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 			hostEmit(hostpoller.Event{Kind: "host-not-started", Outcome: "FAILED", Detail: err.Error()})
 			continue
 		}
+		started[e.HostID] = h
 		hosts, pollers = append(hosts, h), append(pollers, p)
 	}
 	if len(pollers) == 0 {
@@ -203,8 +214,9 @@ func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDep
 	if err != nil {
 		return h, nil, exitcode.Newf(exitcode.Error, "%s: the host's state directory: %v", h.who(), err)
 	}
+	last := &lastFacts{}
 	build := func(r *gen.HostRunPlatformResponse) *hostpoller.Config {
-		return platformConfig(ctx, r, e, facts, orcaBin, dir, emit)
+		return platformConfig(ctx, r, e, facts, orcaBin, dir, emit, last)
 	}
 	cfg := build(resp)
 	state, err := hostpoller.LoadState(cfg.StateFile)
@@ -267,10 +279,21 @@ func failureClassPlatform(code int) string {
 	return failureClassHost(code)
 }
 
+// lastFacts is what Orca last answered for one host: an Orca that stops answering keeps these, so a brief
+// outage never empties the worktree paths of agents that are still running (BLIND P2-4 on #3301). down marks
+// the episode, so facts-unavailable is said once per outage, not every poll.
+type lastFacts struct {
+	ok    bool
+	down  bool
+	repos []hostfacts.Repo
+	trees []hostfacts.Worktree
+}
+
 // platformConfig builds one poll's Config from the platform's answer and this machine's facts. Orca not
-// answering is not fatal: the workers register with no worktree (so nothing starts) and the host keeps
-// checking in, which a lapsed host would not.
-func platformConfig(ctx context.Context, r *gen.HostRunPlatformResponse, e hostcred.Entry, facts *hostfacts.Facts, orcaBin, dir string, emit func(hostpoller.Event)) *hostpoller.Config {
+// answering is not fatal: the worktrees Orca last answered are kept (none at a start with Orca silent, so the
+// workers register with no worktree and nothing starts), and the host keeps checking in, which a lapsed host
+// would not.
+func platformConfig(ctx context.Context, r *gen.HostRunPlatformResponse, e hostcred.Entry, facts *hostfacts.Facts, orcaBin, dir string, emit func(hostpoller.Event), last *lastFacts) *hostpoller.Config {
 	set := hostpoller.PlatformSettings{HostID: e.HostID, Label: e.HostID}
 	if r.AgentTeamHost != nil {
 		set.Label = r.AgentTeamHost.Label
@@ -304,13 +327,33 @@ func platformConfig(ctx context.Context, r *gen.HostRunPlatformResponse, e hostc
 		if miss == nil {
 			trees, miss = facts.Worktrees(ctx)
 		}
-		if miss != nil {
-			emit(hostpoller.Event{Kind: "facts-unavailable", Detail: miss.Error() + "; the assigned workers register with no worktree until Orca answers"})
-		} else {
-			pf.Repos, pf.Worktrees = repos, trees
+		switch {
+		case miss == nil:
+			if last.down {
+				emit(hostpoller.Event{Kind: "facts-available", Detail: "Orca answers again; the worktrees are resolved from its answer"})
+			}
+			*last = lastFacts{ok: true, repos: repos, trees: trees}
+		case !last.down:
+			last.down = true
+			detail := miss.Error() + "; the assigned workers register with no worktree until Orca answers"
+			if last.ok {
+				detail = miss.Error() + "; the worktrees Orca last answered are kept until it answers again"
+			}
+			emit(hostpoller.Event{Kind: "facts-unavailable", Detail: detail})
+		}
+		if last.ok {
+			pf.Repos, pf.Worktrees = last.repos, last.trees
 		}
 	}
 	return hostpoller.BuildPlatformConfig(e.AppID, set, as, pf)
+}
+
+// namedHostError names the host an error came from, once: a platform read's own error already starts with it.
+func namedHostError(h platformHost, err error) error {
+	if strings.HasPrefix(err.Error(), h.who()) {
+		return err
+	}
+	return fmt.Errorf("%s: %w", h.who(), err)
 }
 
 // runPollers runs every host's poller. Ruling Q4 (a): a fatal stops only that poller; the process ends when none
@@ -327,14 +370,14 @@ func runPollers(ctx context.Context, hosts []platformHost, pollers []*hostpoller
 				err := p.Step(ctx)
 				p.Wait()
 				if err != nil {
-					errs[i] = hostStepError(fmt.Errorf("%s: %w", hosts[i].who(), err))
+					errs[i] = hostStepError(namedHostError(hosts[i], err))
 				} else if n := p.ReportFailures(); n > 0 {
 					errs[i] = exitcode.Newf(exitcode.Unavailable, "%s: %d report(s) did not reach the server; those operations are re-delivered at the next collect", hosts[i].who(), n)
 				}
 				return
 			}
 			if err := p.Run(ctx); err != nil {
-				errs[i] = hostStepError(fmt.Errorf("%s: %w", hosts[i].who(), err))
+				errs[i] = hostStepError(namedHostError(hosts[i], err))
 			}
 		}(i, p)
 	}

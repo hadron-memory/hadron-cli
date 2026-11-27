@@ -113,6 +113,10 @@ func EnsureHostStateDir(hostID string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// A symlinked hosts is refused before MkdirAll, which would otherwise create <id> in the link's target.
+	if fi, err := os.Lstat(filepath.Dir(dir)); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("%s is a symlink; hadron keeps a host's state only in a directory of its own: remove the link", filepath.Dir(dir))
+	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", err
 	}

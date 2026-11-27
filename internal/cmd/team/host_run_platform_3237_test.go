@@ -13,10 +13,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -41,7 +43,7 @@ func fakeServer3237(t *testing.T, answer func(op string, vars json.RawMessage) s
 	var mu sync.Mutex
 	var calls []call3237
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		raw, _ := ioReadAll3237(r)
+		raw, _ := io.ReadAll(r.Body)
 		var body struct {
 			OperationName string          `json:"operationName"`
 			Variables     json.RawMessage `json:"variables"`
@@ -60,19 +62,6 @@ func fakeServer3237(t *testing.T, answer func(op string, vars json.RawMessage) s
 	}))
 	t.Cleanup(srv.Close)
 	return srv, func() []call3237 { mu.Lock(); defer mu.Unlock(); return append([]call3237{}, calls...) }
-}
-
-func ioReadAll3237(r *http.Request) ([]byte, error) {
-	defer func() { _ = r.Body.Close() }()
-	var b strings.Builder
-	buf := make([]byte, 4096)
-	for {
-		n, err := r.Body.Read(buf)
-		b.Write(buf[:n])
-		if err != nil {
-			return []byte(b.String()), nil
-		}
-	}
 }
 
 func testdata3237(t *testing.T, name string) string {
@@ -140,6 +129,9 @@ func withDeps3237(t *testing.T, entries []hostcred.Entry) *wired3237 {
 // stateHome3237 is a 0700 directory under /tmp: this host's TMPDIR may be group-writable, which the host state
 // directory's checks would refuse for reasons that are not the test's.
 func stateHome3237(t *testing.T) string {
+	if runtime.GOOS == "windows" {
+		return t.TempDir()
+	}
 	d, err := os.MkdirTemp("/tmp", "hadron-3237-state-")
 	if err != nil {
 		t.Fatal(err)
@@ -385,7 +377,7 @@ func TestHostRunPlatformOneHostFailingLeavesTheOtherRunning3237(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ruling Q4 (a): one host that cannot start is reported and the other runs: %v\n%s\n%s", err, out, errOut)
 	}
-	if !strings.Contains(out+errOut, "host-not-started") && !strings.Contains(out+errOut, "host host-2") {
+	if !strings.Contains(out+errOut, "host-not-started") || !strings.Contains(out+errOut, "host-2") {
 		t.Errorf("the host that could not start is reported:\n%s\n%s", out, errOut)
 	}
 	for _, c := range calls2() {

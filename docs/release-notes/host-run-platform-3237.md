@@ -25,8 +25,9 @@ server is refused at start with a message that names 0.47.0. The platform read i
   names its candidate worktrees so they can be told apart. Every stored host key is removed from an agent's
   environment and redacted from what the host reports.
 - **Events name their host:** with no `--config`, each `--json` event carries `hostId`, and text lines show
-  `[<hostId>]` after the time. New kinds: `host-not-started`, `facts-unavailable`, `setup-source-host`,
-  `setup-source-server`, `assignments-changed`, `launch-refused`.
+  `[<hostId>]` after the time. New kinds: `host-not-started`, `facts-unavailable` (once per Orca outage; the
+  worktrees Orca last answered are kept) and `facts-available`, `setup-source-host`, `setup-source-server`,
+  `assignments-changed`, `launch-refused` (the local detail of an account or program refusal).
 
 ## Refusals at start
 
@@ -34,8 +35,12 @@ server is refused at start with a message that names 0.47.0. The platform read i
 |---|---|---|
 | No joined host, or none matches `--app`/`--server` (the server is matched by host name) | 3 | `hadron team host join` |
 | `--app` given as a URN or `<root>:<slug>` (the store keeps App ids only) | 2 | the App id `team host show` prints |
-| The stored key does not answer for its App, or the host was removed or its key revoked | 3 | `hadron team host join --replace` |
+| The stored key does not answer for its App, or the server refuses the key (revoked) | 3 | `hadron team host join --replace` |
+| The host was removed from the App (`HOST_NOT_FOUND`) | 4 | `hadron team host join --replace` |
+| The key is no longer permitted to act as this host (`host:operate` taken away) | 8 | `hadron team host join --replace` |
+| Orca is not found on this machine | 10 | install Orca, or put it on `PATH` |
 | The App's host setup source is `HOST` | 5 | `hadron team host setup --source SERVER` |
+| Two stored hosts have one host id (the second is not started) | 5 | run them one at a time with `--app <App id>` |
 | Server older than 0.47.0 | 1 | upgrade the server, or use `--config` |
 
 If one of several hosts cannot start, a `host-not-started` event reports it and the others keep running. If

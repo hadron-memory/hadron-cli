@@ -188,3 +188,18 @@ func TestTheDefaultOwnerIsTheFilesOwner3285(t *testing.T) {
 		t.Fatalf("accountsOwnerOf = %d, %v; want this process's uid %d", uid, ok, os.Geteuid())
 	}
 }
+
+// hadron-cli#3301 (BLIND P3-6): an owner that cannot be read is not trusted (fail closed).
+func TestAnUnreadableOwnerIsRefused3301(t *testing.T) {
+	p := filepath.Join(trustedRoot3285(t), "hadron", "accounts.yaml")
+	put3285(t, p, okAccounts3285)
+	prev := accountsOwnerOf
+	accountsOwnerOf = func(path string, fi os.FileInfo) (uint32, bool) {
+		if path == p {
+			return 0, false
+		}
+		return prev(path, fi)
+	}
+	t.Cleanup(func() { accountsOwnerOf = prev })
+	wantRefused3285(t, p, "cannot be read")
+}

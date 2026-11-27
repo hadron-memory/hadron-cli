@@ -41,6 +41,10 @@ func (p *Poller) proveAgentAbsent(ctx context.Context, probe func(context.Contex
 	}
 	skipped := 0
 	for _, dir := range dirs {
+		if dir == "" {
+			// A platform host's token that did not resolve at this poll (hadron-cli#3237): a census of "" proves nothing.
+			return absenceProof{Detail: "the strict census was not run: a worktree of this worker did not resolve to a directory on this host at this poll"}
+		}
 		obs, err := retryCensusProbe(ctx, probe, hostrelaunch.Target{Worktree: dir})
 		switch {
 		case err != nil:
