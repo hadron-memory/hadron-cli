@@ -70,8 +70,9 @@ you change it.
 Output: the user, the resource and its kind, the effective role, a
 READ/WRITE/MANAGE/DELETE row of ✓/✗, then the grants as SOURCE, ROLE, VIA.
 SOURCE says where a grant comes from: PLATFORM_ROLE, ORG_ROLE, MEMORY_PRINCIPAL
-(the memory's owner), MEMORY_MEMBER, MEMORY_SHARE, PRINCIPAL_GRANT,
-NODE_INHERITED, APP_MEMBER, AGENT_SUBSCRIPTION or AICONFIG_OWNER. With no grants
+(the memory's owner), MEMORY_MEMBER, MEMORY_SHARE, MEMORY_SUBSCRIPTION,
+PUBLIC_VISIBILITY, PRINCIPAL_GRANT, NODE_INHERITED, APP_MEMBER,
+AGENT_SUBSCRIPTION or AICONFIG_OWNER. With no grants
 it prints "No access — <user> has no grants on this resource." --json gives
 user, resource {urn, kind}, canRead, canWrite, canManage, canDelete, role and
 grants [{source, role, via}] (an empty list is []).`,

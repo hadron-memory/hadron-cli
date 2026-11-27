@@ -18,13 +18,18 @@ import (
 //
 // Exceptions:
 //   - cobra built-ins (help, completion + its per-shell leaves) — auto-generated.
-//   - groups documented in prose without a surface line — their leaf must still
-//     appear somewhere in the doc.
+//   - groups documented in prose without a surface line — a proseGroups entry
+//     requires a DEDICATED SECTION heading naming the group (cli#3290); the
+//     bare word in ordinary prose is not documentation.
 func TestAgenticUsageDocumentsEveryCommand(t *testing.T) {
 	doc := agentic.Doc()
 
 	// Groups intentionally covered in prose rather than a `hadron <group>` line.
-	proseGroups := map[string]bool{"access": true}
+	// Empty since cli#3290: every group is on a surface line. A future entry is
+	// legitimate only with a dedicated `## <group>` section — hasProseSection
+	// enforces that; the old bare-word check passed vacuously for `access`,
+	// which shipped with no surface line and no section at all.
+	proseGroups := map[string]bool{}
 	// Whole subtrees to skip (cobra-generated, not part of the contract).
 	skipGroup := map[string]bool{"help": true, "completion": true}
 
@@ -66,19 +71,13 @@ func TestAgenticUsageDocumentsEveryCommand(t *testing.T) {
 	}
 	visit(root, "")
 
-	// Match a command name as a whole token on a surface line, tolerating the
-	// `|`-separated shorthand (e.g. "create|ls|validate|revoke", "| use <urn>").
-	wordRE := func(w string) *regexp.Regexp {
-		return regexp.MustCompile(`(^|[^a-zA-Z0-9-])` + regexp.QuoteMeta(w) + `([^a-zA-Z0-9-]|$)`)
-	}
-
 	for _, lf := range leaves {
 		if skipGroup[lf.group] {
 			continue
 		}
 		if proseGroups[lf.group] {
-			if !strings.Contains(doc, lf.group) {
-				t.Errorf("prose group %q not mentioned in agentic-usage.md", lf.group)
+			if !hasProseSection(doc, lf.group) {
+				t.Errorf("prose group %q has no dedicated section heading in agentic-usage.md — the bare word in prose is not documentation (cli#3290)", lf.group)
 			}
 			continue
 		}
@@ -97,6 +96,79 @@ func TestAgenticUsageDocumentsEveryCommand(t *testing.T) {
 		if !documented {
 			t.Errorf("`hadron %s %s` is not on the %q surface line in agentic-usage.md — add it (or update the doc)", lf.group, lf.names[0], lf.group)
 		}
+	}
+}
+
+// wordRE matches a command name as a whole token, tolerating the
+// `|`-separated shorthand of the surface lines (e.g. "create|ls|validate",
+// "| use <urn>").
+func wordRE(w string) *regexp.Regexp {
+	return regexp.MustCompile(`(^|[^a-zA-Z0-9-])` + regexp.QuoteMeta(w) + `([^a-zA-Z0-9-]|$)`)
+}
+
+// hasProseSection reports whether agentic-usage.md carries a dedicated section
+// heading naming the group. A prose-group exemption is a claim that the group
+// is documented in prose instead of on a surface line, so the doc must have an
+// actual section for it: the bare group word appearing in ordinary prose is
+// NOT documentation. The looser strings.Contains check passed vacuously for
+// `access` — the word showed up in unrelated sentences while `hadron access
+// check` shipped with no surface line and no section at all (cli#3290).
+//
+// The heading match is case-insensitive because the doc's headings are
+// title-case ("## Error text from the server") while group names are
+// lowercase cobra tokens; the word boundary still applies, so
+// "## Accessory commands" does not name the group `access`.
+//
+// Lines inside a fenced code block do not count: the command-surface fence
+// carries "# …" continuation lines that are prose about a line, not
+// headings. An unclosed fence swallows the rest of the doc — the ambiguity
+// resolves toward NOT exempting, the direction that keeps detecting.
+func hasProseSection(doc, group string) bool {
+	re := regexp.MustCompile(`(?i)(^|[^a-zA-Z0-9-])` + regexp.QuoteMeta(group) + `([^a-zA-Z0-9-]|$)`)
+	inFence := false
+	for _, ln := range strings.Split(doc, "\n") {
+		trimmed := strings.TrimSpace(ln)
+		if strings.HasPrefix(trimmed, "```") || strings.HasPrefix(trimmed, "~~~") {
+			inFence = !inFence
+			continue
+		}
+		if !inFence && strings.HasPrefix(trimmed, "#") && re.MatchString(trimmed) {
+			return true
+		}
+	}
+	return false
+}
+
+// TestProseGroupSectionRequiresHeading pins the Arm B half of cli#3290: a
+// kept prose-group exemption demands a dedicated section heading. The bare
+// word in prose must not satisfy it — that vacuous pass is exactly how
+// `access` stayed exempt while undocumented.
+func TestProseGroupSectionRequiresHeading(t *testing.T) {
+	// The word appears twice in ordinary prose, never as a heading.
+	proseOnly := "Error text says which case it is: ask for access elsewhere.\n\n" +
+		"## Other commands\n\nA caller may hold write access, so check it.\n"
+	if hasProseSection(proseOnly, "access") {
+		t.Errorf("bare word in prose satisfied the prose-group check — a dedicated section heading is required (cli#3290)")
+	}
+	if !hasProseSection("## Access permissions\n\nWho may check, and the grants.\n", "access") {
+		t.Errorf("a dedicated heading naming the group must satisfy the prose-group check")
+	}
+	// Whole-token, same shape as the surface-line match: `accessory` is not
+	// `access`.
+	if hasProseSection("## Accessory commands\n", "access") {
+		t.Errorf("a heading naming a longer word is not a heading naming the group")
+	}
+	// A "# …" line inside the command-surface fence is prose about a surface
+	// line, not a section heading (the hiding place this guard closes).
+	fenced := "```\nhadron access check <user> <resource>\n# access is read-only\n```\n\n## Real headings elsewhere\n"
+	if hasProseSection(fenced, "access") {
+		t.Errorf("a fence-interior # comment satisfied the prose-group check — only a heading outside a code fence is a section")
+	}
+	// An unclosed fence swallows the rest of the doc: resolve toward NOT
+	// exempting.
+	unclosed := "```\n## access prose\nstill fenced\n"
+	if hasProseSection(unclosed, "access") {
+		t.Errorf("an unclosed fence must not yield a section — the ambiguity resolves toward detecting")
 	}
 }
 
