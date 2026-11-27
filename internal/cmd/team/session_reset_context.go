@@ -100,7 +100,8 @@ Exit your agent yourself within two minutes.
 
 Exit helper (host configuration, only on the "exit-now" branch, after the
 checkpoint and the relaunch stamp are written): the file ` + exitHelperFile + ` in the
-Hadron config directory holds one absolute path. It is never read from a
+Hadron config directory ($XDG_CONFIG_HOME/hadron, default ~/.config/hadron)
+holds one absolute path. It is never read from a
 repository, a binding or the server. The file and the helper must be regular
 files you own that group and others cannot write; a symlink is refused. The
 helper is run without a shell as "<helper> --checkpoint <node URN>" with a

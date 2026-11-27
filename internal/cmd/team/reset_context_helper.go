@@ -103,7 +103,7 @@ func readOnePath(cfg string) (string, string) {
 	if err != nil {
 		return "", "the configuration file cannot be read"
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(f, exitHelperReadLimit+1))
 	if err != nil || len(raw) > exitHelperReadLimit {
 		return "", "the configuration file cannot be read"

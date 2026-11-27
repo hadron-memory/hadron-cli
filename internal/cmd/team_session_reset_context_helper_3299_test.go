@@ -318,3 +318,44 @@ func TestResetContextHelpAndUsageDescribeTheHelper3299(t *testing.T) {
 		}
 	}
 }
+
+// A helper that is not executable by its owner is not run: exit-now with the reason.
+func TestResetContextRefusesAHelperThatIsNotExecutable3299(t *testing.T) {
+	bindWorktree(t)
+	t.Setenv(team.AgentPIDEnv, "")
+	url, _ := shedServer(t, nil)
+	rig, out, _, err := runRig3299(t, url, func(t *testing.T, r *helperRig) {
+		if err := os.Chmod(r.script, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := resetReceipt3299(t, out)
+	if d.Exit != "exit-now" || d.Reason == nil || !strings.Contains(*d.Reason, "not executable") || rig.ran() {
+		t.Fatalf("want exit-now naming 'not executable' and no run, got %s (ran=%v)", out, rig.ran())
+	}
+}
+
+// The text receipt (no --json) tells the agent to end its turn and run nothing more, and never says the session
+// ends (cor:agt:050:27).
+func TestResetContextTextReceiptSaysEndYourTurn3299(t *testing.T) {
+	bindWorktree(t)
+	t.Setenv(team.AgentPIDEnv, "")
+	url, _ := shedServer(t, nil)
+	f, out := testFactory(t)
+	newHelperRig(t)
+	root := NewRootCmd(f)
+	root.SetArgs([]string{"team", "session", "reset-context", "--server", url})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	text := strings.ToLower(out.String())
+	if !strings.Contains(text, "end your turn now and run nothing more") {
+		t.Fatalf("the text receipt must say to end the turn and run nothing more:\n%s", out.String())
+	}
+	if strings.Contains(text, "session ends") || strings.Contains(text, "end the session") {
+		t.Fatalf("the helper ends the AGENT only, never the session:\n%s", out.String())
+	}
+}

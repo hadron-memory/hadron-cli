@@ -612,7 +612,7 @@ section between the markers.
 | `team session log` |  |  | y | #1054 | 98dcd2702482 |  | unread |  |
 | `team session outcome` |  |  | y | #1054 | 447243aadda4 |  | unread |  |
 | `team session recover` |  |  | y | #1054 | 26a71dd0e860 |  | unread |  |
-| `team session reset-context` |  |  | y | #1054 | 648babebbe50 |  | unread |  |
+| `team session reset-context` |  |  | y | #1054 | 17c7d2962b45 |  | unread |  |
 | `team session restart` |  |  | y | #1054 | 0498c3bc78f1 |  | unread |  |
 | `team session resume-claim` |  |  | y | #1054 | 766da90e0ff4 |  | unread |  |
 | `team session served-prompts` |  |  | y | #1054 | d668bb78f149 |  | unread |  |
