@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
 	"regexp"
 	"strings"
 	"testing"
@@ -172,6 +173,15 @@ func TestMemoryDetachWordingIsTheAttachVocabulary3277(t *testing.T) {
 		if strings.Contains(strings.ToLower(text), "revoke") {
 			t.Errorf("%s says detaching revokes access:\n%s", name, text)
 		}
+	}
+	// The runtime strings and comments of attach.go too (#3293): the schema-skew
+	// hint is not on any help surface.
+	src, err := os.ReadFile("memory/attach.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if m := retiredTerm3277.FindString(string(src)); m != "" {
+		t.Errorf("memory/attach.go says %q (retired term)", m)
 	}
 	h := read("memory", "detach", "--help")
 	for _, want := range []string{"detach", "attachment", "memory itself is unchanged", "--yes", "server decides who may detach", "attach it again"} {

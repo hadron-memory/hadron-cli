@@ -63,10 +63,10 @@ App as a whole; an older server still needs it.`,
 			}
 			resp, err := gen.AttachMemoryToApp(cmd.Context(), client, memoryRef, appRef, agentRef)
 			if err != nil {
-				// A server that predates the link needs --agent: say so when the
+				// A server that predates attaching without an agent needs --agent: say so when the
 				// schema-skew line is what came back and none was given.
 				if agent == "" && api.IsSchemaSkew(err) {
-					return api.WithCause(exitcode.Newf(exitcode.Usage, "%v; if the server predates attach-as-link, pass --agent <agent>", api.MapError(err)), api.MapError(err))
+					return api.WithCause(exitcode.Newf(exitcode.Usage, "%v; if the server predates attaching without an agent, pass --agent <agent>", api.MapError(err)), api.MapError(err))
 				}
 				// Keeps the server's code for the --json error's serverCode.
 				return api.MapErrorKeepingCode(err)
