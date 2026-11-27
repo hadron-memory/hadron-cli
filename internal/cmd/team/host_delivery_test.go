@@ -347,3 +347,15 @@ func TestEveryAdapterCodeIsKnown(t *testing.T) {
 		t.Fatal("an unknown token is known")
 	}
 }
+
+// cli#3300: a failed reconcile ack's server code reaches the log line; an
+// unknown code never does.
+func TestDeliveryEventPrintsOnlyAKnownServerCode(t *testing.T) {
+	e := deliveryEvent(delivery.Event{Worker: "Iris", Span: "ch1#2:4-5", Kind: delivery.Failed, Reason: "reconcile-ack-failed", Code: "BAD_USER_INPUT"})
+	if e.Kind != "delivery-error" || e.Outcome != "reconcile-ack-failed" || !strings.Contains(e.Detail, "server code BAD_USER_INPUT") {
+		t.Fatalf("event %+v", e)
+	}
+	if e := deliveryEvent(delivery.Event{Worker: "Iris", Span: "ch1#2:4-5", Kind: delivery.Failed, Code: "key=abc"}); strings.Contains(e.Detail, "abc") {
+		t.Fatalf("an unknown code leaked: %+v", e)
+	}
+}

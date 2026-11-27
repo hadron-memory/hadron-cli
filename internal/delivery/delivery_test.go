@@ -1296,3 +1296,40 @@ func TestEventsSayHowTheTerminalWasResolved(t *testing.T) {
 		t.Fatalf("no terminal found, yet resolvedBy %q", e.ResolvedBy)
 	}
 }
+
+// codedErr is an ack failure as the host adapter declares it.
+type codedErr struct{ code string }
+
+func (e codedErr) Error() string        { return "SECRET message text " + e.code }
+func (e codedErr) DeliveryCode() string { return e.code }
+
+// cli#3300 item 2: a refused reconcile ack names the server's code, and
+// never its message text.
+func TestAFailedReconcileAckCarriesTheServerCodeNotItsText(t *testing.T) {
+	for name, seed := range map[string]func(*harness){
+		"covered prefix": func(h *harness) { seedRecord(t, h, rng("ch-team", 1, 5, 6)) },
+		"full cover":     func(h *harness) { seedRecord(t, h, rng("ch-team", 1, 5, 6, 7)) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			h := newHarness(t)
+			seed(h)
+			h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
+			o := h.deliver(h.batch(5, 6, 7))
+			if o.Kind != Failed || o.Reason != "reconcile-ack-failed" || o.Code != "BAD_USER_INPUT" {
+				t.Fatalf("outcome %+v", o)
+			}
+			blob, _ := json.Marshal(h.events)
+			if strings.Contains(string(blob), "SECRET") || !strings.Contains(string(blob), "BAD_USER_INPUT") {
+				t.Fatalf("events %s", blob)
+			}
+		})
+	}
+	t.Run("an unknown code is dropped", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{codedErr{"token=abc123"}}
+		if o := h.deliver(h.batch(5, 6, 7)); o.Code != "" {
+			t.Fatalf("outcome %+v", o)
+		}
+	})
+}

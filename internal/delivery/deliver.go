@@ -102,6 +102,9 @@ type Outcome struct {
 	// Unreported: Held, but the server was not told (ErrHoldUnavailable).
 	// No server hold, episode, alarm or escalation exists for it.
 	Unreported bool
+	// Code is the server's error code behind a failed ack (cli#3300): a
+	// KnownCode or empty, never message text.
+	Code string
 }
 
 // Event is one line of what delivery did, for the operator.
@@ -123,6 +126,9 @@ type Event struct {
 	Wake bool
 	// Unreported: a hold the server was not told about (cli#940).
 	Unreported bool
+	// Code: the server's error code behind a failed ack, a KnownCode or
+	// empty; never message text (cli#3300).
+	Code string
 }
 
 // Deliverer delivers batches into Orca terminals.
@@ -255,7 +261,7 @@ func New(server Server, orca Terminals, stateDir string) *Deliverer {
 
 func (d *Deliverer) emit(b Batch, r Recipient, o Outcome) Outcome {
 	if d.Emit != nil {
-		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: b.Span(), Kind: o.Kind, Reason: o.Reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy, Unreported: o.Unreported})
+		d.Emit(Event{Time: d.Now().UTC(), Worker: r.Name, WorkerID: r.WorkerID, Span: b.Span(), Kind: o.Kind, Reason: o.Reason, Terminal: o.Terminal, ResolvedBy: r.resolvedBy, Unreported: o.Unreported, Code: o.Code})
 	}
 	return o
 }
@@ -374,10 +380,25 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 
 // ack acknowledges a batch, bounded. True when it landed (or had already).
 func (d *Deliverer) ack(ctx context.Context, b Batch, through []Through) bool {
+	ok, _ := d.ackCode(ctx, b, through)
+	return ok
+}
+
+// ackCode is ack that also names why it failed: the error's declared
+// DeliveryCode when it is in the known vocabulary, else empty. Never the
+// error's text (cli#3300).
+func (d *Deliverer) ackCode(ctx context.Context, b Batch, through []Through) (bool, string) {
 	actx, cancel := context.WithTimeout(context.WithoutCancel(ctx), AckTimeout)
 	defer cancel()
 	res, err := d.Server.Ack(actx, b.ID, through)
-	return err == nil && (res == Acked || res == Unchanged)
+	if err != nil {
+		var coded interface{ DeliveryCode() string }
+		if errors.As(err, &coded) && KnownCode(coded.DeliveryCode()) {
+			return false, coded.DeliveryCode()
+		}
+		return false, ""
+	}
+	return res == Acked || res == Unchanged, ""
 }
 
 // reconcile acks what confirmed records prove, with no typing. done is true
@@ -390,8 +411,8 @@ func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (Outcom
 	cover := Reconcile(b, recs)
 	switch {
 	case cover.Full:
-		if !d.ack(ctx, b, nil) {
-			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed"}), true
+		if ok, code := d.ackCode(ctx, b, nil); !ok {
+			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code}), true
 		}
 		// The ack covered this batch's messages only: a matched record
 		// keeps whatever else it confirmed.
@@ -404,8 +425,8 @@ func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (Outcom
 		// A covered prefix: ack exactly it; the rest arrives as the next
 		// batch. A refused entry rolls the whole ack back on the server, so
 		// on failure nothing moved and the record stays.
-		if !d.ack(ctx, b, cover.Through) {
-			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed"}), true
+		if ok, code := d.ackCode(ctx, b, cover.Through); !ok {
+			return d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code}), true
 		}
 		d.forget(b)
 		return d.emit(b, r, Outcome{Kind: Reconciled, Reason: "covered-prefix"}), true
