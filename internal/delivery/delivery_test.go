@@ -1333,3 +1333,34 @@ func TestAFailedReconcileAckCarriesTheServerCodeNotItsText(t *testing.T) {
 		}
 	})
 }
+
+// cli#3300 (B): while a covered-prefix ack is refused, nothing unseen is
+// acked (never a full ack of the batch), nothing is retyped, the record
+// stays, and every pass retries the same partial ack until it lands.
+func TestARefusedCoveredPrefixAckNeverAcksUnseenAndRetriesEachPass(t *testing.T) {
+	h := newHarness(t)
+	seedRecord(t, h, rng("ch-team", 1, 5, 6))
+	h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}, codedErr{"BAD_USER_INPUT"}}
+	for i := 0; i < 2; i++ {
+		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Failed || o.Code != "BAD_USER_INPUT" {
+			t.Fatalf("pass %d: %+v", i, o)
+		}
+	}
+	h.wantNoSend()
+	for i, a := range h.server.acks {
+		if len(a.through) != 1 || a.through[0] != (Through{"ch-team", 6}) {
+			t.Fatalf("ack %d went beyond the covered prefix: %+v", i, a.through)
+		}
+	}
+	if len(h.records()) != 1 {
+		t.Fatal("the record must stay while the ack is refused")
+	}
+	// The server recovers: the same partial ack lands, still nothing typed.
+	if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Reconciled || o.Reason != "covered-prefix" {
+		t.Fatalf("outcome %+v", o)
+	}
+	h.wantNoSend()
+	if n := len(h.server.acks); n != 3 {
+		t.Fatalf("acks %d", n)
+	}
+}
