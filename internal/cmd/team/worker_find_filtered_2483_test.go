@@ -16,6 +16,9 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/zalando/go-keyring"
+
+	"github.com/hadron-memory/hadron-cli/internal/auth/store"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 	"github.com/hadron-memory/hadron-cli/internal/filterreport"
@@ -89,6 +92,35 @@ func TestFindFilteredMalformedList2483(t *testing.T) {
 	}
 }
 
+// noCredentialFactory2564 is a real factory that can reach no credential:
+// no HADRON_TOKEN, a config/file-store dir of its own, and an empty in-memory
+// keyring in place of the OS keychain (cli#2564 item 8: clearing only the env
+// and XDG left the keychain, a source the factory reads, to leak a developer's
+// stored login into the "unauthenticated" case).
+func noCredentialFactory2564(t *testing.T) *cmdutil.Factory {
+	t.Helper()
+	t.Setenv("HADRON_TOKEN", "")
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(t.TempDir(), "config"))
+	keyring.MockInit()
+	return cmdutil.NewFactory()
+}
+
+// TestNoCredentialFactoryIgnoresKeychain2564 pins the helper: a credential
+// planted in the keychain seam before the factory is built (the stand-in for
+// a developer's real login) must not change the "unauthenticated" outcome.
+func TestNoCredentialFactoryIgnoresKeychain2564(t *testing.T) {
+	keyring.MockInit()
+	if err := (store.Keyring{}).Set("test.example", "planted2564"); err != nil {
+		t.Fatal(err)
+	}
+	f := noCredentialFactory2564(t)
+	f.ServerFlag = "https://test.example"
+	_, err := findFilteredTargets(context.Background(), f, "hrn:app:test.com:team", nil)
+	if err == nil || err.Error() != "team_roster_unauthenticated" {
+		t.Fatalf("got %v, want team_roster_unauthenticated", err)
+	}
+}
+
 // TestFindFilteredTargetErrorCodes2483 pins F11: target-read failures carry
 // distinct fixed codes — unauthenticated, unreachable transport — instead of
 // every failure collapsing into team_roster_unreadable. No raw backend text.
@@ -98,10 +130,7 @@ func TestFindFilteredMalformedList2483(t *testing.T) {
 // team_roster_unreadable.
 func TestFindFilteredTargetErrorCodes2483(t *testing.T) {
 	t.Run("unauthenticated", func(t *testing.T) {
-		root := t.TempDir()
-		t.Setenv("HADRON_TOKEN", "")
-		t.Setenv("XDG_CONFIG_HOME", filepath.Join(root, "config"))
-		f := cmdutil.NewFactory()
+		f := noCredentialFactory2564(t)
 		f.ServerFlag = "https://test.example"
 		_, err := findFilteredTargets(context.Background(), f, "hrn:app:test.com:team", nil)
 		if err == nil || err.Error() != "team_roster_unauthenticated" || exitcode.FromError(err) != exitcode.Error {
