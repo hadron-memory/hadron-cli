@@ -27,21 +27,24 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
    - `AccountProfile.ClaudeConfigDir` (`yaml:"-"`) → `CLAUDE_CONFIG_DIR` in the launch env; Codex → `CODEX_HOME`.
    - `SetScrubKeys` / `agentEnvKeys`: every stored key scrubbed and redacted.
 
-4. **Stage B (WIP, 33fe6f5b)** `internal/cmd/team/host_run_platform.go` + `internal/api/queries/host_run_platform.graphql`:
+4. **Stage B** (33fe6f5b; pins in `internal/cmd/team/host_run_platform_3237_test.go`) `internal/cmd/team/host_run_platform.go` + `internal/api/queries/host_run_platform.graphql`:
    `runPlatformHosts` (no `--config` → this path; `cmd.Flags().Changed("config")`), seams in `platformDepsFor`
    (goos, credentials, facts, wire, delivery); `narrowEntries` (--app = App id, --server); `startPlatformHost`
    (myApp id check exit 3, source HOST exit 5, `platformNeedsV1` names server 0.47.0, `EnsureHostStateDir`,
    `SetScrubKeys`, `SetPlatformRefresh`, `wirePlatformOrca` in host_orca_launch.go, delivery wired once and
    gated in `deliverStep`); `runPollers` (Q4 a). `TestTeamHostRunRefusesABadConfig` updated (no --config → exit 3).
+   `Poller.ScrubKeys` (exported) lets the command pin read what each poller scrubs.
+   Pins (written after the code, each guard proved by a killed mutant: myApp check, source check, scrub-all,
+   narrowEntries --app and --server, Q4 one-host-fails, schema-skew mapping, store refusal exit 3): two assigned
+   workers register by worker id with their resolved worktree token; no request carries a local path, a config
+   directory, a program or the person's token; host key only, no session; myApp mismatch / HOST_NOT_FOUND /
+   HOST source (exit 5, nothing registered) / a server without V1 (names 0.47.0) refused naming the fix with no
+   key on stdout, stderr or --json; two credentials run two pollers, each on its own key, each scrubbing both.
+   The --config golden is `TestTeamHostRunOnceUsesOnlyTheHostKey` unchanged: exactly register/collect/report, and
+   its fake fails any other operation, HostRunPlatform included.
 
 ## Still to build
 
-- Command pins for stage B (`internal/cmd/team_host_run_platform_3237_test.go`, override `platformDepsFor`):
-  two assigned workers registered; no request carries an entry's program/configDir/any path; host-key-only,
-  no session header; myApp mismatch / HOST_NOT_FOUND refused with no key in stdout/stderr/--json; HOST source
-  exit 5 naming SERVER with no RegisterHost; two entries → two pollers each scrubbing both keys; skew answer
-  names 0.47.0; --config golden: same RegisterHost input as before and no HostRunPlatform request.
-  Then mutants for: myApp check, source check, scrub-all, narrowEntries.
 - Stage C: `worktree.create` through `orca worktree create --repo name:<displayName> --name <label> --branch
   <b> --base-branch <base> --setup skip --json` with a new closed `orcaterm.WorktreeCreateGuard`; unknown repo
   fails naming `orca repo add`; `--config` keeps `git worktree add`. Currently ops.go worktreeCreate in platform

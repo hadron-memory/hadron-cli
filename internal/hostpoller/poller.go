@@ -331,6 +331,10 @@ func (p *Poller) SetScrubKeys(keys []string) { p.otherKeys = append([]string{}, 
 
 func (p *Poller) scrubKeys() []string { return append([]string{p.key}, p.otherKeys...) }
 
+// ScrubKeys is every key this poller scrubs from a launched agent's environment and redacts from what it
+// reports: its own and each one SetScrubKeys named (hadron-cli#3237: a run of several hosts scrubs them all).
+func (p *Poller) ScrubKeys() []string { return p.scrubKeys() }
+
 func sleepCtx(ctx context.Context, d time.Duration) error {
 	t := time.NewTimer(d)
 	defer t.Stop()
