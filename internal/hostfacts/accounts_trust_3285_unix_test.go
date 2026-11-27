@@ -18,19 +18,11 @@ import (
 
 const okAccounts3285 = "accounts:\n  work:\n    family: claude\n"
 
-// trustedRoot3285 is a directory whose ancestors pass the walk: the scratch TMPDIR on a shared host can be
-// group-writable, which is exactly what the walk refuses, so these pins build under /tmp (sticky).
-func trustedRoot3285(t *testing.T) string {
-	t.Helper()
-	dir, err := os.MkdirTemp("/tmp", "accounts3285-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(dir) })
-	return dir
-}
+// trustedRoot3285 is a directory whose ancestors pass the walk (accountsTestDir: under /tmp, sticky).
+func trustedRoot3285(t *testing.T) string { t.Helper(); return accountsTestDir(t) }
 
-func put3285(t *testing.T, path, body string, mode os.FileMode) {
+func put3285(t *testing.T, path, body string) {
+	const mode = 0o600
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		t.Fatal(err)
@@ -64,7 +56,7 @@ func wantRefused3285(t *testing.T, path string, wants ...string) {
 
 func TestATrustedFileStillLoads3285(t *testing.T) {
 	p := filepath.Join(trustedRoot3285(t), "hadron", "accounts.yaml")
-	put3285(t, p, okAccounts3285, 0o600)
+	put3285(t, p, okAccounts3285)
 	if a, err := LoadAccounts(p); err != nil || a.Entries["work"].Family != "claude" {
 		t.Fatalf("a 0600 file in a 0700 directory the user owns loads: %+v, %v", a, err)
 	}
@@ -73,7 +65,7 @@ func TestATrustedFileStillLoads3285(t *testing.T) {
 func TestASymlinkToA0600FileIsRefused3285(t *testing.T) {
 	root := trustedRoot3285(t)
 	target := filepath.Join(root, "elsewhere", "real.yaml")
-	put3285(t, target, okAccounts3285, 0o600)
+	put3285(t, target, okAccounts3285)
 	p := filepath.Join(root, "hadron", "accounts.yaml")
 	if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
 		t.Fatal(err)
@@ -95,7 +87,7 @@ func TestANonRegularFileIsRefused3285(t *testing.T) {
 func TestAGroupWritableConfigDirectoryIsRefused3285(t *testing.T) {
 	dir := filepath.Join(trustedRoot3285(t), "hadron")
 	p := filepath.Join(dir, "accounts.yaml")
-	put3285(t, p, okAccounts3285, 0o600)
+	put3285(t, p, okAccounts3285)
 	if err := os.Chmod(dir, 0o770); err != nil {
 		t.Fatal(err)
 	}
@@ -106,7 +98,7 @@ func TestAWorldWritableAncestorIsRefused3285(t *testing.T) {
 	root := trustedRoot3285(t)
 	up := filepath.Join(root, "config")
 	p := filepath.Join(up, "hadron", "accounts.yaml")
-	put3285(t, p, okAccounts3285, 0o600)
+	put3285(t, p, okAccounts3285)
 	if err := os.Chmod(up, 0o777); err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +109,7 @@ func TestAStickyAncestorIsAccepted3285(t *testing.T) {
 	root := trustedRoot3285(t)
 	up := filepath.Join(root, "shared")
 	p := filepath.Join(up, "hadron", "accounts.yaml")
-	put3285(t, p, okAccounts3285, 0o600)
+	put3285(t, p, okAccounts3285)
 	if err := os.Chmod(up, 0o777|os.ModeSticky); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +133,7 @@ func owner3285(t *testing.T, pick func(path string) bool) {
 
 func TestAFileAnotherUserOwnsIsRefused3285(t *testing.T) {
 	p := filepath.Join(trustedRoot3285(t), "hadron", "accounts.yaml")
-	put3285(t, p, okAccounts3285, 0o600)
+	put3285(t, p, okAccounts3285)
 	owner3285(t, func(path string) bool { return path == p })
 	wantRefused3285(t, p, "uid 4242")
 }
@@ -149,7 +141,7 @@ func TestAFileAnotherUserOwnsIsRefused3285(t *testing.T) {
 func TestAConfigDirectoryAnotherUserOwnsIsRefused3285(t *testing.T) {
 	dir := filepath.Join(trustedRoot3285(t), "hadron")
 	p := filepath.Join(dir, "accounts.yaml")
-	put3285(t, p, okAccounts3285, 0o600)
+	put3285(t, p, okAccounts3285)
 	owner3285(t, func(path string) bool { return path == dir })
 	wantRefused3285(t, p, dir, "uid 4242")
 }
@@ -157,7 +149,7 @@ func TestAConfigDirectoryAnotherUserOwnsIsRefused3285(t *testing.T) {
 func TestASymlinkedConfigDirectoryIsJudgedWhereItLeads3285(t *testing.T) {
 	root := trustedRoot3285(t)
 	real := filepath.Join(root, "real-hadron")
-	put3285(t, filepath.Join(real, "accounts.yaml"), okAccounts3285, 0o600)
+	put3285(t, filepath.Join(real, "accounts.yaml"), okAccounts3285)
 	link := filepath.Join(root, "hadron")
 	if err := os.Symlink(real, link); err != nil {
 		t.Fatal(err)
@@ -174,7 +166,7 @@ func TestASymlinkedConfigDirectoryIsJudgedWhereItLeads3285(t *testing.T) {
 func TestASymlinkAnotherUserOwnsOnTheWayIsRefused3285(t *testing.T) {
 	root := trustedRoot3285(t)
 	real := filepath.Join(root, "real-hadron")
-	put3285(t, filepath.Join(real, "accounts.yaml"), okAccounts3285, 0o600)
+	put3285(t, filepath.Join(real, "accounts.yaml"), okAccounts3285)
 	link := filepath.Join(root, "hadron")
 	if err := os.Symlink(real, link); err != nil {
 		t.Fatal(err)
@@ -186,7 +178,7 @@ func TestASymlinkAnotherUserOwnsOnTheWayIsRefused3285(t *testing.T) {
 // The owner seam must be the real owner by default: the file a test wrote is the test's own.
 func TestTheDefaultOwnerIsTheFilesOwner3285(t *testing.T) {
 	p := filepath.Join(trustedRoot3285(t), "f")
-	put3285(t, p, "x", 0o600)
+	put3285(t, p, "x")
 	fi, err := os.Lstat(p)
 	if err != nil {
 		t.Fatal(err)
