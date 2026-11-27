@@ -499,9 +499,22 @@ empty assignment list leaves every worker unstarted. --json prints
 }
 
 func runHostSetupRead(cmd *cobra.Command, f *cmdutil.Factory, hostID string) error {
-	scope, client, err := hostSetupScope(cmd, f)
+	d, scope, err := fetchHostSetup(cmd, f, hostID)
 	if err != nil {
 		return err
+	}
+	label := lazyAppLabel(cmd.Context(), f, scope)
+	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
+		return renderHostSetup(w, d, label())
+	})
+}
+
+// fetchHostSetup is the assignments read `team host setup` and `team host doctor` share: the signed-in person's
+// read (or the worktree binding's), never a host file's key. It returns the DTO and the App scope it read.
+func fetchHostSetup(cmd *cobra.Command, f *cmdutil.Factory, hostID string) (hostSetupDTO, appScope, error) {
+	scope, client, err := hostSetupScope(cmd, f)
+	if err != nil {
+		return hostSetupDTO{}, scope, err
 	}
 	// A read never carries the worker session: api.WithSession is opt-in.
 	// The profile-bearing document first; a server that predates S1b refuses it
@@ -509,7 +522,7 @@ func runHostSetupRead(cmd *cobra.Command, f *cmdutil.Factory, hostID string) err
 	var d hostSetupDTO
 	if presp, perr := gen.TeamHostSetupWithProfile(cmd.Context(), client, scope.Ref, optStr(hostID)); perr == nil {
 		if presp == nil || presp.HostSetup == nil {
-			return exitcode.Newf(exitcode.Error, "server returned no host setup")
+			return hostSetupDTO{}, scope, exitcode.Newf(exitcode.Error, "server returned no host setup")
 		}
 		d = hostSetupDTO{AppRef: scope.Ref, Source: string(presp.HostSetup.Source), Profile: hostProfileAvailable, Assignments: []hostAssignmentDTO{}}
 		for _, a := range presp.HostSetup.Assignments {
@@ -523,10 +536,10 @@ func runHostSetupRead(cmd *cobra.Command, f *cmdutil.Factory, hostID string) err
 	} else if serverLacksProfile(perr) {
 		resp, err := gen.TeamHostSetup(cmd.Context(), client, scope.Ref, optStr(hostID))
 		if err != nil {
-			return api.MapErrorKeepingCode(err)
+			return hostSetupDTO{}, scope, api.MapErrorKeepingCode(err)
 		}
 		if resp == nil || resp.HostSetup == nil {
-			return exitcode.Newf(exitcode.Error, "server returned no host setup")
+			return hostSetupDTO{}, scope, exitcode.Newf(exitcode.Error, "server returned no host setup")
 		}
 		d = hostSetupDTO{AppRef: scope.Ref, Source: string(resp.HostSetup.Source), Profile: hostProfileUnavailable, Assignments: []hostAssignmentDTO{}}
 		for _, a := range resp.HostSetup.Assignments {
@@ -543,38 +556,40 @@ func runHostSetupRead(cmd *cobra.Command, f *cmdutil.Factory, hostID string) err
 			}
 		}
 	} else {
-		return api.MapErrorKeepingCode(perr)
+		return hostSetupDTO{}, scope, api.MapErrorKeepingCode(perr)
 	}
 	if hostID != "" {
 		d.HostID = &hostID
 	}
-	label := lazyAppLabel(cmd.Context(), f, scope)
-	return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
-		if _, err := fmt.Fprintf(w, "app: %s\nsource: %s\n", label(), output.SafeCell(d.Source)); err != nil {
+	return d, scope, nil
+}
+
+// renderHostSetup is `team host setup`'s text form of a read.
+func renderHostSetup(w io.Writer, d hostSetupDTO, label string) error {
+	if _, err := fmt.Fprintf(w, "app: %s\nsource: %s\n", label, output.SafeCell(d.Source)); err != nil {
+		return err
+	}
+	if d.Profile == hostProfileUnavailable {
+		if _, err := fmt.Fprintln(w, "launcher profile: unavailable (this server predates S1b, hadron-server#4230); effort and account profile are unknown, not unset"); err != nil {
 			return err
 		}
-		if d.Profile == hostProfileUnavailable {
-			if _, err := fmt.Fprintln(w, "launcher profile: unavailable (this server predates S1b, hadron-server#4230); effort and account profile are unknown, not unset"); err != nil {
-				return err
-			}
-		}
-		if len(d.Assignments) == 0 {
-			_, err := fmt.Fprintln(w, "no assignments")
-			return err
-		}
-		if d.Profile == hostProfileUnavailable {
-			t := output.NewTable(w, "HOST", "WORKER", "WORKDIR", "FAMILY", "MODEL")
-			for _, a := range d.Assignments {
-				t.Row(output.SafeCell(a.HostID), assignmentWho(a), output.SafeCell(a.Workdir), output.SafeCell(a.Family), output.SafeCell(stopValue(a.Model)))
-			}
-			return t.Flush()
-		}
-		t := output.NewTable(w, "HOST", "WORKER", "WORKDIR", "FAMILY", "MODEL", "EFFORT", "ACCOUNT")
+	}
+	if len(d.Assignments) == 0 {
+		_, err := fmt.Fprintln(w, "no assignments")
+		return err
+	}
+	if d.Profile == hostProfileUnavailable {
+		t := output.NewTable(w, "HOST", "WORKER", "WORKDIR", "FAMILY", "MODEL")
 		for _, a := range d.Assignments {
-			t.Row(output.SafeCell(a.HostID), assignmentWho(a), output.SafeCell(a.Workdir), output.SafeCell(a.Family), output.SafeCell(stopValue(a.Model)), output.SafeCell(stopValue(a.Effort)), output.SafeCell(stopValue(a.AccountProfile)))
+			t.Row(output.SafeCell(a.HostID), assignmentWho(a), output.SafeCell(a.Workdir), output.SafeCell(a.Family), output.SafeCell(stopValue(a.Model)))
 		}
 		return t.Flush()
-	})
+	}
+	t := output.NewTable(w, "HOST", "WORKER", "WORKDIR", "FAMILY", "MODEL", "EFFORT", "ACCOUNT")
+	for _, a := range d.Assignments {
+		t.Row(output.SafeCell(a.HostID), assignmentWho(a), output.SafeCell(a.Workdir), output.SafeCell(a.Family), output.SafeCell(stopValue(a.Model)), output.SafeCell(stopValue(a.Effort)), output.SafeCell(stopValue(a.AccountProfile)))
+	}
+	return t.Flush()
 }
 
 func hostSetupScope(cmd *cobra.Command, f *cmdutil.Factory) (appScope, graphql.Client, error) {
