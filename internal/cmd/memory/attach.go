@@ -16,24 +16,34 @@ func newCmdAttach(f *cmdutil.Factory) *cobra.Command {
 	var app string
 	var agent string
 	cmd := &cobra.Command{
-		Use:   "attach <memoryRef> --app <app-id-or-urn> --agent <agent-id-or-urn>",
-		Short: "Attach a free-standing personal/private memory to an App",
-		Long: `Attach a personal or private memory you already own to an App, so it
-becomes your memory in that App for that Agent, as if you had created it there
-with memory set --app --agent. Use it for notes you kept before you joined the
-App, instead of copying them into a new memory.
+		Use:   "attach <memoryRef> --app <app-id-or-urn> [--agent <agent-id-or-urn>]",
+		Short: "Link a memory you can read into an App",
+		Long: `Link any memory you can read into an App, so the App's key and its runs can
+read it (a personal or private memory only when you also own the App; see below). Use it for notes or a knowledge memory you want an App to see, instead
+of copying them into a new memory.
 
-The memory must belong to you, be in the App's organization (created with
-memory set --org, not --owner-me) and not belong to an App yet; the Agent must
-be installed in the App, and you must be a member of the App. The memory keeps its
-URN, class and owner, so links to it keep working. Memory, App and Agent
-references accept an ID or a URN, with or without the hrn: prefix.`,
-		Example: `  hadron memory attach hrn:mem:acme.com:my-notes --app hrn:app:acme.com:coach --agent hrn:agent:acme.com:agent
-  hadron memory attach hrn:mem:acme.com:private-notes --app acme.com:coach --agent agent-id --json`,
+The memory itself is unchanged: it keeps its name, URN, class, owner and App.
+It may be linked into more than one App, and an attached memory does not count
+toward the one-per-class limit on memories you create in an App. Any class
+except system can be attached. The link is read-only: the App's key and runs
+can read the memory but not write it, App members gain nothing from it, and
+the key never reads more than you can read yourself. A personal or private
+memory reaches the App's key only when the memory's owner is the App's owner
+(an App you own yourself); in an organization's App the link is made but does
+nothing for the key. The link stops working
+when you stop reading the memory, and starts again if you read it again. Only
+a person can attach, and only to an App you are a member of. Attaching the
+same memory again changes nothing. There is no command to remove a link yet.
+
+Memory and App references accept an ID or a URN, with or without the hrn:
+prefix. --agent is ignored by current servers, which link the memory to the
+App as a whole; an older server still needs it.`,
+		Example: `  hadron memory attach hrn:mem:acme.com:handbook --app hrn:app:acme.com:coach
+  hadron memory attach hrn:mem:acme.com:team-wiki --app acme.com:coach --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if app == "" || agent == "" {
-				return exitcode.Newf(exitcode.Usage, "memory attach requires --app and --agent")
+			if app == "" {
+				return exitcode.Newf(exitcode.Usage, "memory attach requires --app")
 			}
 			appRef, err := cmdutil.CanonicalAppRef("--app", app)
 			if err != nil {
@@ -44,9 +54,21 @@ references accept an ID or a URN, with or without the hrn: prefix.`,
 				return err
 			}
 			memoryRef := cmdutil.CanonicalMemoryRef(args[0])
-			resp, err := gen.AttachMemoryToApp(cmd.Context(), client, memoryRef, appRef, agent)
+			// No client-side rule decides what may be attached (cor:api:240:01): the
+			// server judges the class, the read and the membership.
+			var agentRef *string
+			if agent != "" {
+				agentRef = &agent
+			}
+			resp, err := gen.AttachMemoryToApp(cmd.Context(), client, memoryRef, appRef, agentRef)
 			if err != nil {
-				return api.MapError(err)
+				// A server that predates the link needs --agent: say so when the
+				// schema-skew line is what came back and none was given.
+				if agent == "" && api.IsSchemaSkew(err) {
+					return api.WithCause(exitcode.Newf(exitcode.Usage, "%v; if the server predates attach-as-link, pass --agent <agent>", api.MapError(err)), api.MapError(err))
+				}
+				// Keeps the server's code for the --json error's serverCode.
+				return api.MapErrorKeepingCode(err)
 			}
 			if resp == nil || resp.AttachMemoryToApp == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no memory")
@@ -54,12 +76,12 @@ references accept an ID or a URN, with or without the hrn: prefix.`,
 			m := dtoFromMemory(resp.AttachMemoryToApp)
 			return output.Write(f.IOStreams, f.JSON, m, func(w io.Writer) error {
 				t := output.NewTable(w)
-				t.Row("✓ attached", output.SafeCell(m.URN), "to", appRef, "via", agent)
+				t.Row("✓ attached", output.SafeCell(m.URN), "to", appRef)
 				return t.Flush()
 			})
 		},
 	}
 	cmd.Flags().StringVar(&app, "app", "", "App ID or URN (required)")
-	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID or URN installed in the App (required)")
+	cmd.Flags().StringVar(&agent, "agent", "", "Agent ID or URN: ignored by current servers, needed only by an older one")
 	return cmd
 }

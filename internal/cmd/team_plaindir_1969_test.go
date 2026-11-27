@@ -85,8 +85,8 @@ func TestPlainDir1969ResumeSendsTheDirectorysWorker(t *testing.T) {
 	if code := exitCodeFor(err); code != exitcode.Conflict {
 		t.Fatalf("exit %d, want the Conflict a worker mismatch maps to: %v", code, err)
 	}
-	if got := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerId"]; got != "wkr1" {
-		t.Errorf("expectedWorkerId = %v, want the directory's wkr1", got)
+	if got := resumeInput(t, captured["ResumeTeamSession"])["expectedWorkerRef"]; got != "wkr1" {
+		t.Errorf("expectedWorkerRef = %v, want the directory's wkr1", got)
 	}
 	if raw, _ := os.ReadFile(cache); string(raw) != bindingWithTeamFixture {
 		t.Error("a refused resume must leave the directory's binding byte-identical")

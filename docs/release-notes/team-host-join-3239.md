@@ -20,4 +20,4 @@ file until C3 (cli#3237).
 These five commands need **hadron-server 0.47.0** or later (the first release
 carrying V1, `b8fba75a`); on an older server each is refused by name, exit 1.
 Their documents are in their own file, so no other command changes its floor.
-The schema snapshot was exported at `b8fba75a6971e51369eb041d342931ee4bb58102`.
+This branch first exported the snapshot at `b8fba75a6971e51369eb041d342931ee4bb58102`; the snapshot that ships is main's, exported at `da351eda5b49a00edef8383925c173df52374f62` (hadron-cli#3273), which carries V1 unchanged.

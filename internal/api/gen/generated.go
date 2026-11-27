@@ -92224,15 +92224,21 @@ type ResumeSessionInput struct {
 	// #4291: recorded on a session the redemption starts, and refreshed on an open session it resumes. Omitted or null never clears.
 	Effort *EffortLevel `json:"effort,omitempty"`
 	// #3822 (hrn:node:hadronmemory.com:specs:cor:agt:020:03) — the worker the caller expects to recover, e.g. the
-	// worker a CLI worktree was last bound to. Narrows the resume to that worker: its claim or live session binds
-	// even when another worker's waits too, and a CHOOSE lists only its candidates. When nothing of that worker's
-	// waits but a claim or live session of another worker of the caller's does, the call refuses RESUME_REFUSED
-	// with extensions reason WORKER_MISMATCH, picked (true when `session` chose that other worker's item),
-	// expectedWorkerId, expectedWorkerName (null unless the caller may read that worker), foundWorkerId,
-	// foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any write: no claim is consumed and no
-	// session is started, ended or touched. With nothing of the caller's waiting the answer stays
-	// NOTHING_TO_RESUME. Omitted or null: unchanged. Blank or not an id (a URN or a name): BAD_USER_INPUT, before any read. That id-only refusal is built behaviour (#3822), not a rule of hrn:node:hadronmemory.com:specs:cor:agt:020:03, which says only that the caller may name the worker it expects and that a blank one is refused; the field is a known gap against hrn:node:hadronmemory.com:specs:cor:api:140:01, deferred to hadron-server#5163.
-	ExpectedWorkerId *string `json:"expectedWorkerId,omitempty"`
+	// worker a CLI worktree was last bound to. #5163: a worker reference, its id or its fully qualified worker URN,
+	// resolved through the shared worker resolver (hrn:node:hadronmemory.com:specs:cor:api:140:00,
+	// hrn:node:hadronmemory.com:specs:cor:api:140:01); it replaces expectedWorkerId, which is gone with no alias.
+	// Narrows the resume to that worker: its claim or live session binds even when another worker's waits too, and a
+	// CHOOSE lists only its candidates. When nothing of that worker's waits but a claim or live session of another
+	// worker of the caller's does, the call refuses RESUME_REFUSED with extensions reason WORKER_MISMATCH, picked
+	// (true when `session` chose that other worker's item), expectedWorkerId, expectedWorkerName (null unless the
+	// caller may read that worker), foundWorkerId, foundWorkerName and foundSource (CLAIM or LIVE_SESSION), before any
+	// write: no claim is consumed and no session is started, ended or touched. expectedWorkerId is the id the caller
+	// sent; for a URN it is the resolved id when the caller may read the worker and null otherwise. A URN naming no
+	// worker and one naming a worker the caller may not read get the same answer (no existence oracle). With nothing
+	// of the caller's waiting the answer stays NOTHING_TO_RESUME. Omitted or null: unchanged. Blank: BAD_USER_INPUT,
+	// before any read (hrn:node:hadronmemory.com:specs:cor:agt:020:03). Neither an id nor a fully qualified worker
+	// URN (a name, a relative URN, another type): URN_NOT_QUALIFIED, before any read.
+	ExpectedWorkerRef *string `json:"expectedWorkerRef,omitempty"`
 	// Recorded on a session the redemption starts, and refreshed on an open session it resumes (#2086). Wins over the family a model implies; an invalid token is refused before any claim is spent.
 	Family *string `json:"family,omitempty"`
 	// Recorded on a session the redemption starts only.
@@ -92253,8 +92259,8 @@ func (v *ResumeSessionInput) GetDescription() *string { return v.Description }
 // GetEffort returns ResumeSessionInput.Effort, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetEffort() *EffortLevel { return v.Effort }
 
-// GetExpectedWorkerId returns ResumeSessionInput.ExpectedWorkerId, and is useful for accessing the field via an interface.
-func (v *ResumeSessionInput) GetExpectedWorkerId() *string { return v.ExpectedWorkerId }
+// GetExpectedWorkerRef returns ResumeSessionInput.ExpectedWorkerRef, and is useful for accessing the field via an interface.
+func (v *ResumeSessionInput) GetExpectedWorkerRef() *string { return v.ExpectedWorkerRef }
 
 // GetFamily returns ResumeSessionInput.Family, and is useful for accessing the field via an interface.
 func (v *ResumeSessionInput) GetFamily() *string { return v.Family }
@@ -139387,9 +139393,9 @@ func (v *__AssetDownloadUrlInput) GetTtlSeconds() *int { return v.TtlSeconds }
 
 // __AttachMemoryToAppInput is used internally by genqlient
 type __AttachMemoryToAppInput struct {
-	MemoryRef string `json:"memoryRef"`
-	AppRef    string `json:"appRef"`
-	AgentRef  string `json:"agentRef"`
+	MemoryRef string  `json:"memoryRef"`
+	AppRef    string  `json:"appRef"`
+	AgentRef  *string `json:"agentRef,omitempty"`
 }
 
 // GetMemoryRef returns __AttachMemoryToAppInput.MemoryRef, and is useful for accessing the field via an interface.
@@ -139399,7 +139405,7 @@ func (v *__AttachMemoryToAppInput) GetMemoryRef() string { return v.MemoryRef }
 func (v *__AttachMemoryToAppInput) GetAppRef() string { return v.AppRef }
 
 // GetAgentRef returns __AttachMemoryToAppInput.AgentRef, and is useful for accessing the field via an interface.
-func (v *__AttachMemoryToAppInput) GetAgentRef() string { return v.AgentRef }
+func (v *__AttachMemoryToAppInput) GetAgentRef() *string { return v.AgentRef }
 
 // __AutomationApprovalDepthInput is used internally by genqlient
 type __AutomationApprovalDepthInput struct {
@@ -162586,7 +162592,7 @@ func AssetDownloadUrl(
 
 // The mutation executed by AttachMemoryToApp.
 const AttachMemoryToApp_Operation = `
-mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
+mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID) {
 	attachMemoryToApp(memoryRef: $memoryRef, appRef: $appRef, agentRef: $agentRef) {
 		id
 		urn
@@ -162602,14 +162608,16 @@ mutation AttachMemoryToApp ($memoryRef: ID!, $appRef: ID!, $agentRef: ID!) {
 }
 `
 
-// Bind an existing free-standing personal/private memory to an App. All refs
-// accept either IDs or URNs and are resolved by the server.
+// Link a memory the caller can read (any class but system) into an App; the
+// memory itself is unchanged (hadron-server#5185). All refs accept either IDs or
+// URNs and are resolved by the server. agentRef is optional and ignored by a
+// server with the link; an older one still needs it, so it is sent when given.
 func AttachMemoryToApp(
 	ctx_ context.Context,
 	client_ graphql.Client,
 	memoryRef string,
 	appRef string,
-	agentRef string,
+	agentRef *string,
 ) (data_ *AttachMemoryToAppResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "AttachMemoryToApp",

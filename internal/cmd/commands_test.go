@@ -2073,13 +2073,13 @@ func TestMemoryAttach(t *testing.T) {
 	}
 }
 
-func TestMemoryAttachRequiresAppAndAgent(t *testing.T) {
+func TestMemoryAttachRequiresApp(t *testing.T) {
 	f, _ := testFactory(t)
 	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "attach", "m1", "--app", "capp100000000000000000000", "--server", "http://127.0.0.1:1"})
+	root.SetArgs([]string{"memory", "attach", "m1", "--server", "http://127.0.0.1:1"})
 	err := root.Execute()
-	if err == nil || !strings.Contains(err.Error(), "requires --app and --agent") {
-		t.Fatalf("expected required-ref usage error, got %v", err)
+	if err == nil || !strings.Contains(err.Error(), "requires --app") || strings.Contains(err.Error(), "--agent") {
+		t.Fatalf("expected required --app usage error, got %v", err)
 	}
 }
 
