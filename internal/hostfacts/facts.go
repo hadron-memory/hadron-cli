@@ -298,8 +298,9 @@ func (f *Facts) AgentProgram(family string) (string, *Missing) {
 	name := DefaultProgramName(fam)
 	fact := "agent program (" + fam + ")"
 	if name == "" {
-		return "", &Missing{Fact: fact, Reason: "there is no default program for the family " + fam,
-			Fix: "name its `program` in an entry of the accounts file"}
+		// The accounts file cannot help: its loader refuses a family outside the four this hadron knows.
+		return "", &Missing{Fact: fact, Reason: "this hadron does not know the family " + fam + " (it knows claude, codex, glm and kimi)",
+			Fix: "upgrade hadron to a version that knows " + fam}
 	}
 	if p, err := f.LookPath(name); err == nil && p != "" {
 		return p, nil

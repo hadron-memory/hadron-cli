@@ -549,7 +549,7 @@ section between the markers.
 | `team host` |  |  | n | #1054 | 335c3f17adab |  | unread |  |
 | `team host assign` |  |  | y | #1054 | 0f2be7359e16 |  | unread |  |
 | `team host availability` |  |  | y | #1054 | 1ac6c8626087 |  | unread |  |
-| `team host doctor` |  |  | y | #1054 | 157271bdead9 |  | unread |  |
+| `team host doctor` |  |  | y | #1054 | 8b9e43caacfa |  | unread |  |
 | `team host hosts` |  |  | y | #1054 | 75e3a60a14c9 |  | unread |  |
 | `team host import` |  |  | y | #1054 | dec913560d72 |  | unread |  |
 | `team host issue` |  |  | y | #1054 | 76d1ecad5fd3 |  | unread |  |
