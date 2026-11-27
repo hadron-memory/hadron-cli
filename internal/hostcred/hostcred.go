@@ -28,6 +28,7 @@ package hostcred
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -121,8 +122,11 @@ func Keys(entries []Entry) []string {
 	return out
 }
 
-// lockWait bounds how long Lock waits for a lock another process holds (hadron-cli#3288 F11).
+// lockWait bounds how long Lock waits for a lock another process holds (hadron-cli#3288 F11); lockRetry is the
+// interval between attempts.
 var lockWait = 30 * time.Second
+
+const lockRetry = 100 * time.Millisecond
 
 // Store is the store held under its lock. Unlock releases it.
 type Store struct {
@@ -143,9 +147,25 @@ func Lock() (*Store, error) {
 		return nil, err
 	}
 	path := filepath.Join(dir, FileName)
-	lock := flock.New(filepath.Join(dir, LockName), flock.SetFlag(os.O_CREATE|os.O_RDWR), flock.SetPermissions(0o600))
-	if err := lock.Lock(); err != nil {
-		return nil, &Error{Path: filepath.Join(dir, LockName), Reason: "cannot take the store's lock"}
+	lockPath := filepath.Join(dir, LockName)
+	// The lock file is opened without following a symlink at its path, as the store file is (#3288 F13).
+	lock := flock.New(lockPath, flock.SetFlag(os.O_CREATE|os.O_RDWR|lockNoFollow), flock.SetPermissions(0o600))
+	if err := refuseSymlinkedLock(lockPath); err != nil {
+		return nil, err
+	}
+	// A bounded wait (#3288 F11): join and leave hold the lock across a server call, so a stuck one must not
+	// hold every later one forever.
+	ctx, cancel := context.WithTimeout(context.Background(), lockWait)
+	defer cancel()
+	ok, err := lock.TryLockContext(ctx, lockRetry)
+	if err != nil && !errors.Is(err, context.DeadlineExceeded) {
+		if isSymlinkErr(err) {
+			return nil, &Error{Path: lockPath, Reason: "is a symlink; refusing to lock through it"}
+		}
+		return nil, &Error{Path: lockPath, Reason: "cannot take the store's lock"}
+	}
+	if !ok {
+		return nil, &Error{Path: lockPath, Reason: fmt.Sprintf("another hadron process has held the store's lock for over %s (a `team host join` or `leave` waiting on its server); let it finish, then run again", lockWait)}
 	}
 	entries, err := read(path)
 	if err != nil {

@@ -274,10 +274,30 @@ func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDep
 	}
 	h, p, err := startLockedHost(ctx, h, deps, facts, orcaBin, e, stored, keys, emit)
 	if err != nil {
-		_ = lk.Unlock()
+		releaseFailedStart(lk)
 		return h, nil, nil, err
 	}
 	return h, p, lk, nil
+}
+
+// releaseFailedStart releases a failed start's run lock. A state directory holding nothing but the lock, as a
+// start refused after taking it leaves one, is removed, so the next host of that id does not adopt an empty,
+// unclaimed directory (hadron-cli#3288 S-2); one with a claim or any state is kept. The lock file is deleted while
+// still held where the OS allows it (not Windows), so no other run takes the lock and then loses its file.
+func releaseFailedStart(lk *flock.Flock) {
+	dir := filepath.Dir(lk.Path())
+	entries, err := os.ReadDir(dir)
+	if err != nil || len(entries) != 1 || entries[0].Name() != hostRunLockFile {
+		_ = lk.Unlock()
+		return
+	}
+	removed := os.Remove(lk.Path()) == nil
+	_ = lk.Unlock()
+	if !removed {
+		_ = os.Remove(lk.Path())
+	}
+	// os.Remove refuses a non-empty directory, so a file written here in between keeps it.
+	_ = os.Remove(dir)
 }
 
 // startLockedHost is startPlatformHost's part under the run lock: the platform read, the claim and the poller.
@@ -520,9 +540,11 @@ func createHostIdentity(dir, path string, id hostIdentity) (bool, error) {
 }
 
 // noHardLinks reports a link error that means the file system makes no hard links: unsupported (ENOTSUP,
-// EOPNOTSUPP, ENOSYS, and Windows' ERROR_NOT_SUPPORTED), EPERM (Linux's answer on vfat and similar) or EMLINK.
+// EOPNOTSUPP, ENOSYS, and Windows' ERROR_NOT_SUPPORTED), EPERM (Linux's answer on vfat and similar), EMLINK, or
+// a platform's own codes for it (platformNoHardLinks; Windows' ERROR_INVALID_FUNCTION, hadron-cli#3288 S-1).
 func noHardLinks(err error) bool {
-	return errors.Is(err, errors.ErrUnsupported) || errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EMLINK)
+	return errors.Is(err, errors.ErrUnsupported) || errors.Is(err, syscall.EPERM) || errors.Is(err, syscall.EMLINK) ||
+		platformNoHardLinks(err)
 }
 
 // linkFile is os.Link; a test makes it fail as a file system without hard links does.

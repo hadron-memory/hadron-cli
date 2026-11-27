@@ -86,6 +86,14 @@ jobs:
       # internal/hostcred/dacl_windows_test.go (TestPutWritesAnOwnerOnlyDACL).
       - name: Test the host credential store
         run: go test -v ./internal/hostcred/...
+      # cli#3288 M1: the DACL pin by name, and its PASS line required, so a
+      # rename or a build tag that drops it fails here instead of passing as
+      # "no tests to run".
+      - name: Test the host credential store's DACL (TestPutWritesAnOwnerOnlyDACL)
+        shell: bash
+        run: |
+          go test -v -count=1 -run '^TestPutWritesAnOwnerOnlyDACL$' ./internal/hostcred/ | tee dacl.log
+          grep -q -- '--- PASS: TestPutWritesAnOwnerOnlyDACL' dacl.log
       - name: Build all packages
         run: go build ./...
 

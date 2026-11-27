@@ -15,9 +15,9 @@ func TestNoHardLinksWindowsCodes3288(t *testing.T) {
 		errno syscall.Errno
 		want  bool
 	}{
-		{1, true},   // ERROR_INVALID_FUNCTION
-		{50, true},  // ERROR_NOT_SUPPORTED
-		{5, false},  // ERROR_ACCESS_DENIED
+		{1, true},    // ERROR_INVALID_FUNCTION
+		{50, true},   // ERROR_NOT_SUPPORTED
+		{5, false},   // ERROR_ACCESS_DENIED
 		{112, false}, // ERROR_DISK_FULL
 	} {
 		if got := noHardLinks(&os.LinkError{Op: "link", Err: c.errno}); got != c.want {
