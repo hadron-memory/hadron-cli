@@ -385,6 +385,14 @@ func (d *Deliverer) deliverLocked(ctx context.Context, b Batch, r Recipient, sti
 	return d.emit(b, r, Outcome{Kind: Delivered, Terminal: handle})
 }
 
+// refusalCodes are the codes of a server that ANSWERED the partial ack with a
+// refusal of it (cli#3300): the only failures after which the batch is typed
+// once more. BAD_USER_INPUT is the input the server will not take; server-
+// refused is any other GraphQL error. A transport class, an auth failure, a
+// stale proof (a fresh one comes next pass) or no code at all is retried, not
+// retyped.
+var refusalCodes = map[string]bool{"BAD_USER_INPUT": true, "server-refused": true}
+
 // ackCode acknowledges a batch, bounded: true when it landed (or had already). On failure it names why: the error's declared
 // DeliveryCode when it is in the known vocabulary, else empty. Never the
 // error's text (cli#3300).
@@ -444,7 +452,13 @@ func (d *Deliverer) reconcile(ctx context.Context, b Batch, r Recipient) (o Outc
 		// seen twice, a stated one-time exception to cor:agt:080:12. Only one
 		// retype: once typed, a full record exists, and the next pass takes
 		// the full-cover branch (ack only) however the full ack fares.
-		d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code})
+		o = d.emit(b, r, Outcome{Kind: Failed, Reason: "reconcile-ack-failed", Code: code})
+		if !refusalCodes[code] {
+			// Not an answer from the server (a timeout, an outage, no code, an
+			// auth or stale-proof failure): nothing says the partial ack is
+			// unworkable, so nothing is typed again. The next pass retries.
+			return o, true, nil
+		}
 		return Outcome{}, false, cover.Matched
 	}
 	return Outcome{}, false, nil

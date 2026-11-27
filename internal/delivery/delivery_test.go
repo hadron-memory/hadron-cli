@@ -857,7 +857,7 @@ func TestCoveredPrefixRecovery(t *testing.T) {
 	t.Run("a refused through: the batch is typed once more and full-acked (cli#3300, Holger)", func(t *testing.T) {
 		h := newHarness(t)
 		seedRecord(t, h, rng("ch-team", 1, 5, 6))
-		h.server.ackErrs = []error{errors.New("BAD_USER_INPUT")}
+		h.server.ackErrs = []error{codedErr{"BAD_USER_INPUT"}}
 		if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Delivered || o.AckPending {
 			t.Fatalf("outcome %+v", o)
 		}
@@ -1397,4 +1397,48 @@ func TestARefusedCoveredPrefixAckRetypesOnceThenFullAcks(t *testing.T) {
 			t.Fatalf("later acks must be full, got %+v", last.through)
 		}
 	})
+}
+
+// Riana's and Jorge's P2 on #3306: only a server refusal of the partial ack
+// is retyped. A transport blip, an outage, an auth or stale-proof failure, or
+// no code at all is reported and retried next pass, typing nothing.
+func TestOnlyARefusedPartialAckIsRetyped(t *testing.T) {
+	for _, code := range []string{"transport-error", "unavailable", "unauthenticated", "forbidden", "WAKE_PROOF_STALE", "WAKE_PROOF_INVALID", "APP_NOT_FOUND"} {
+		t.Run(code, func(t *testing.T) {
+			h := newHarness(t)
+			seedRecord(t, h, rng("ch-team", 1, 5, 6))
+			h.server.ackErrs = []error{codedErr{code}}
+			if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Failed || o.Code != code {
+				t.Fatalf("outcome %+v", o)
+			}
+			h.wantNoSend()
+			if len(h.server.acks) != 1 || len(h.ack(0).through) != 1 || len(h.records()) != 1 {
+				t.Fatalf("acks %+v records %d", h.server.acks, len(h.records()))
+			}
+			// The next pass retries the same partial ack, which lands.
+			again := h.batch(5, 6, 7)
+			again.ID = "proof-2"
+			if o := h.deliver(again); o.Kind != Reconciled || o.Reason != "covered-prefix" {
+				t.Fatalf("retry %+v", o)
+			}
+			h.wantNoSend()
+		})
+	}
+	t.Run("an uncoded error", func(t *testing.T) {
+		h := newHarness(t)
+		seedRecord(t, h, rng("ch-team", 1, 5, 6))
+		h.server.ackErrs = []error{errors.New("connection reset")}
+		h.deliver(h.batch(5, 6, 7))
+		h.wantNoSend()
+	})
+	for _, code := range []string{"BAD_USER_INPUT", "server-refused"} {
+		t.Run("a refusal retypes: "+code, func(t *testing.T) {
+			h := newHarness(t)
+			seedRecord(t, h, rng("ch-team", 1, 5, 6))
+			h.server.ackErrs = []error{codedErr{code}}
+			if o := h.deliver(h.batch(5, 6, 7)); o.Kind != Delivered || len(h.orca.sends) != 1 {
+				t.Fatalf("outcome %+v sends %d", o, len(h.orca.sends))
+			}
+		})
+	}
 }
