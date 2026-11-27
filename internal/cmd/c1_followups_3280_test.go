@@ -68,6 +68,10 @@ func TestMemorySetHelpAndUsageAgreeOnExit5AndAttach3280(t *testing.T) {
 			t.Errorf("memory set --help must say %q:\n%s", want, help)
 		}
 	}
+	// cli#3305: the code name AND its exit-2 association (the slug of an App memory is fixed).
+	if !strings.Contains(help, "exit 2 (APP_MEMORY_SLUG_FIXED)") {
+		t.Errorf("memory set --help must tie APP_MEMORY_SLUG_FIXED to exit 2:\n%s", help)
+	}
 	if strings.Contains(help, "To attach a personal or private memory you already have") {
 		t.Errorf("the old attach sentence is stale against the attach contract:\n%s", help)
 	}
