@@ -1955,6 +1955,11 @@ func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetOrganizationId() *strin
 	return v.CreditLedgerEntryFields.OrganizationId
 }
 
+// GetOwnerUserId returns AdjustCreditsAdjustCreditsCreditLedgerEntry.OwnerUserId, and is useful for accessing the field via an interface.
+func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetOwnerUserId() *string {
+	return v.CreditLedgerEntryFields.OwnerUserId
+}
+
 // GetKind returns AdjustCreditsAdjustCreditsCreditLedgerEntry.Kind, and is useful for accessing the field via an interface.
 func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) GetKind() string {
 	return v.CreditLedgerEntryFields.Kind
@@ -2025,6 +2030,8 @@ type __premarshalAdjustCreditsAdjustCreditsCreditLedgerEntry struct {
 
 	OrganizationId *string `json:"organizationId"`
 
+	OwnerUserId *string `json:"ownerUserId"`
+
 	Kind string `json:"kind"`
 
 	AmountMicroCents string `json:"amountMicroCents"`
@@ -2055,6 +2062,7 @@ func (v *AdjustCreditsAdjustCreditsCreditLedgerEntry) __premarshalJSON() (*__pre
 
 	retval.Id = v.CreditLedgerEntryFields.Id
 	retval.OrganizationId = v.CreditLedgerEntryFields.OrganizationId
+	retval.OwnerUserId = v.CreditLedgerEntryFields.OwnerUserId
 	retval.Kind = v.CreditLedgerEntryFields.Kind
 	retval.AmountMicroCents = v.CreditLedgerEntryFields.AmountMicroCents
 	retval.ExpiresAt = v.CreditLedgerEntryFields.ExpiresAt
@@ -2079,7 +2087,7 @@ type AdjustCreditsInput struct {
 	Note string `json:"note"`
 	// Exactly one of orgRef and userRef (BAD_USER_INPUT for both or neither).
 	// The organization whose ledger is corrected.
-	OrgRef *string `json:"orgRef"`
+	OrgRef *string `json:"orgRef,omitempty"`
 	// The id within sourceType; must not be blank.
 	SourceId string `json:"sourceId"`
 	// Idempotency + provenance pair, e.g. ('refund', <refund id>); neither
@@ -37834,6 +37842,77 @@ type ClearNodeHistoryResponse struct {
 // GetClearNodeHistory returns ClearNodeHistoryResponse.ClearNodeHistory, and is useful for accessing the field via an interface.
 func (v *ClearNodeHistoryResponse) GetClearNodeHistory() int { return v.ClearNodeHistory }
 
+// ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage includes the requested fields of the GraphQL type OwnerLimitUsage.
+// The GraphQL type's documentation follows.
+//
+// One owner limit of an organization or a person (hadron-server issue 5009): what may be held and how much of it is held now.
+type ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage struct {
+	// Which measure this is.
+	Key string `json:"key"`
+	// The limit in force, a base-10 integer string: the owner's own limit, else the deployment default for that kind of owner. Null means unlimited.
+	Limit *string `json:"limit"`
+	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only.
+	Used string `json:"used"`
+}
+
+// GetKey returns ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage.Key, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage) GetKey() string { return v.Key }
+
+// GetLimit returns ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage.Limit, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage) GetLimit() *string { return v.Limit }
+
+// GetUsed returns ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage.Used, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage) GetUsed() string { return v.Used }
+
+type ClearOwnerLimitsInput struct {
+	// The keys to clear. Omit for every key; an empty list is refused.
+	Keys []string `json:"keys,omitempty"`
+	// Why. Not stored, since the row is deleted. Must not hold personal data.
+	Note string `json:"note"`
+	// Clear only limits written with this source type.
+	OnlySourceType *string `json:"onlySourceType,omitempty"`
+	// The organization, an id or a URN. Exactly one of orgRef and userRef.
+	OrgRef *string `json:"orgRef,omitempty"`
+	// Which one. Must not hold personal data: it is logged.
+	SourceId string `json:"sourceId"`
+	// What cleared these limits. Must not hold personal data: it is logged.
+	SourceType string `json:"sourceType"`
+	// The person, an id or a URN. Exactly one of orgRef and userRef.
+	UserRef *string `json:"userRef,omitempty"`
+}
+
+// GetKeys returns ClearOwnerLimitsInput.Keys, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsInput) GetKeys() []string { return v.Keys }
+
+// GetNote returns ClearOwnerLimitsInput.Note, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsInput) GetNote() string { return v.Note }
+
+// GetOnlySourceType returns ClearOwnerLimitsInput.OnlySourceType, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsInput) GetOnlySourceType() *string { return v.OnlySourceType }
+
+// GetOrgRef returns ClearOwnerLimitsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetSourceId returns ClearOwnerLimitsInput.SourceId, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsInput) GetSourceId() string { return v.SourceId }
+
+// GetSourceType returns ClearOwnerLimitsInput.SourceType, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsInput) GetSourceType() string { return v.SourceType }
+
+// GetUserRef returns ClearOwnerLimitsInput.UserRef, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsInput) GetUserRef() *string { return v.UserRef }
+
+// ClearOwnerLimitsResponse is returned by ClearOwnerLimits on success.
+type ClearOwnerLimitsResponse struct {
+	// Delete an owner's limits, so the deployment default applies again (hadron-server issue 5009). PLATFORM ADMIN ONLY. Returns the owner's limits after the change.
+	ClearOwnerLimits []*ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage `json:"clearOwnerLimits"`
+}
+
+// GetClearOwnerLimits returns ClearOwnerLimitsResponse.ClearOwnerLimits, and is useful for accessing the field via an interface.
+func (v *ClearOwnerLimitsResponse) GetClearOwnerLimits() []*ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage {
+	return v.ClearOwnerLimits
+}
+
 // CloneAgentCloneAgent includes the requested fields of the GraphQL type Agent.
 // The GraphQL type's documentation follows.
 //
@@ -49850,6 +49929,8 @@ var AllCreateUserPermission = []CreateUserPermission{
 type CreditBalanceCreditBalance struct {
 	// The organization the balance is of, or null for a person's.
 	OrganizationId *string `json:"organizationId"`
+	// The person the balance is of, or null for an organization's.
+	OwnerUserId *string `json:"ownerUserId"`
 	// The balance in micro-cents. Never includes credit whose expiry has passed.
 	BalanceMicroCents string `json:"balanceMicroCents"`
 	// What is left of each unexpired grant that expires, soonest first, worked out by the server from the ledger (a
@@ -49860,6 +49941,9 @@ type CreditBalanceCreditBalance struct {
 
 // GetOrganizationId returns CreditBalanceCreditBalance.OrganizationId, and is useful for accessing the field via an interface.
 func (v *CreditBalanceCreditBalance) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetOwnerUserId returns CreditBalanceCreditBalance.OwnerUserId, and is useful for accessing the field via an interface.
+func (v *CreditBalanceCreditBalance) GetOwnerUserId() *string { return v.OwnerUserId }
 
 // GetBalanceMicroCents returns CreditBalanceCreditBalance.BalanceMicroCents, and is useful for accessing the field via an interface.
 func (v *CreditBalanceCreditBalance) GetBalanceMicroCents() string { return v.BalanceMicroCents }
@@ -49942,6 +50026,11 @@ func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditL
 	return v.CreditLedgerEntryFields.OrganizationId
 }
 
+// GetOwnerUserId returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.OwnerUserId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetOwnerUserId() *string {
+	return v.CreditLedgerEntryFields.OwnerUserId
+}
+
 // GetKind returns CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry.Kind, and is useful for accessing the field via an interface.
 func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditLedgerEntry) GetKind() string {
 	return v.CreditLedgerEntryFields.Kind
@@ -50012,6 +50101,8 @@ type __premarshalCreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItem
 
 	OrganizationId *string `json:"organizationId"`
 
+	OwnerUserId *string `json:"ownerUserId"`
+
 	Kind string `json:"kind"`
 
 	AmountMicroCents string `json:"amountMicroCents"`
@@ -50042,6 +50133,7 @@ func (v *CreditLedgerEntriesCreditLedgerEntriesCreditLedgerEntryListItemsCreditL
 
 	retval.Id = v.CreditLedgerEntryFields.Id
 	retval.OrganizationId = v.CreditLedgerEntryFields.OrganizationId
+	retval.OwnerUserId = v.CreditLedgerEntryFields.OwnerUserId
 	retval.Kind = v.CreditLedgerEntryFields.Kind
 	retval.AmountMicroCents = v.CreditLedgerEntryFields.AmountMicroCents
 	retval.ExpiresAt = v.CreditLedgerEntryFields.ExpiresAt
@@ -50073,7 +50165,9 @@ func (v *CreditLedgerEntriesResponse) GetCreditLedgerEntries() *CreditLedgerEntr
 type CreditLedgerEntryFields struct {
 	Id string `json:"id"`
 	// The owning organization, or null when the entry belongs to a person.
-	OrganizationId   *string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
+	// The owning person, or null when the entry belongs to an organization. An account merge moves a merged-away person's entries to the survivor.
+	OwnerUserId      *string `json:"ownerUserId"`
 	Kind             string  `json:"kind"`
 	AmountMicroCents string  `json:"amountMicroCents"`
 	ExpiresAt        *string `json:"expiresAt"`
@@ -50089,6 +50183,9 @@ func (v *CreditLedgerEntryFields) GetId() string { return v.Id }
 
 // GetOrganizationId returns CreditLedgerEntryFields.OrganizationId, and is useful for accessing the field via an interface.
 func (v *CreditLedgerEntryFields) GetOrganizationId() *string { return v.OrganizationId }
+
+// GetOwnerUserId returns CreditLedgerEntryFields.OwnerUserId, and is useful for accessing the field via an interface.
+func (v *CreditLedgerEntryFields) GetOwnerUserId() *string { return v.OwnerUserId }
 
 // GetKind returns CreditLedgerEntryFields.Kind, and is useful for accessing the field via an interface.
 func (v *CreditLedgerEntryFields) GetKind() string { return v.Kind }
@@ -62177,6 +62274,11 @@ func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetOrganizationId() *string 
 	return v.CreditLedgerEntryFields.OrganizationId
 }
 
+// GetOwnerUserId returns GrantCreditsGrantCreditsCreditLedgerEntry.OwnerUserId, and is useful for accessing the field via an interface.
+func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetOwnerUserId() *string {
+	return v.CreditLedgerEntryFields.OwnerUserId
+}
+
 // GetKind returns GrantCreditsGrantCreditsCreditLedgerEntry.Kind, and is useful for accessing the field via an interface.
 func (v *GrantCreditsGrantCreditsCreditLedgerEntry) GetKind() string {
 	return v.CreditLedgerEntryFields.Kind
@@ -62247,6 +62349,8 @@ type __premarshalGrantCreditsGrantCreditsCreditLedgerEntry struct {
 
 	OrganizationId *string `json:"organizationId"`
 
+	OwnerUserId *string `json:"ownerUserId"`
+
 	Kind string `json:"kind"`
 
 	AmountMicroCents string `json:"amountMicroCents"`
@@ -62277,6 +62381,7 @@ func (v *GrantCreditsGrantCreditsCreditLedgerEntry) __premarshalJSON() (*__prema
 
 	retval.Id = v.CreditLedgerEntryFields.Id
 	retval.OrganizationId = v.CreditLedgerEntryFields.OrganizationId
+	retval.OwnerUserId = v.CreditLedgerEntryFields.OwnerUserId
 	retval.Kind = v.CreditLedgerEntryFields.Kind
 	retval.AmountMicroCents = v.CreditLedgerEntryFields.AmountMicroCents
 	retval.ExpiresAt = v.CreditLedgerEntryFields.ExpiresAt
@@ -62301,7 +62406,7 @@ type GrantCreditsInput struct {
 	Note      *string `json:"note,omitempty"`
 	// Exactly one of orgRef and userRef (BAD_USER_INPUT for both or neither).
 	// The organization to credit.
-	OrgRef *string `json:"orgRef"`
+	OrgRef *string `json:"orgRef,omitempty"`
 	// The id within sourceType; required with it when the mutation runs.
 	SourceId *string `json:"sourceId,omitempty"`
 	// Idempotency + provenance pair, e.g. ('stripe-checkout', <session id>).
@@ -81101,6 +81206,51 @@ type OrganizationsResponse struct {
 // GetOrganizations returns OrganizationsResponse.Organizations, and is useful for accessing the field via an interface.
 func (v *OrganizationsResponse) GetOrganizations() *OrganizationsOrganizationsOrganizationsPage {
 	return v.Organizations
+}
+
+type OwnerLimitInput struct {
+	Key string `json:"key"`
+	// A non-negative base-10 integer string. Null or omitted means unlimited, which lifts the deployment default.
+	Limit *string `json:"limit"`
+}
+
+// GetKey returns OwnerLimitInput.Key, and is useful for accessing the field via an interface.
+func (v *OwnerLimitInput) GetKey() string { return v.Key }
+
+// GetLimit returns OwnerLimitInput.Limit, and is useful for accessing the field via an interface.
+func (v *OwnerLimitInput) GetLimit() *string { return v.Limit }
+
+// OwnerLimitsOwnerLimitsOwnerLimitUsage includes the requested fields of the GraphQL type OwnerLimitUsage.
+// The GraphQL type's documentation follows.
+//
+// One owner limit of an organization or a person (hadron-server issue 5009): what may be held and how much of it is held now.
+type OwnerLimitsOwnerLimitsOwnerLimitUsage struct {
+	// Which measure this is.
+	Key string `json:"key"`
+	// The limit in force, a base-10 integer string: the owner's own limit, else the deployment default for that kind of owner. Null means unlimited.
+	Limit *string `json:"limit"`
+	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only.
+	Used string `json:"used"`
+}
+
+// GetKey returns OwnerLimitsOwnerLimitsOwnerLimitUsage.Key, and is useful for accessing the field via an interface.
+func (v *OwnerLimitsOwnerLimitsOwnerLimitUsage) GetKey() string { return v.Key }
+
+// GetLimit returns OwnerLimitsOwnerLimitsOwnerLimitUsage.Limit, and is useful for accessing the field via an interface.
+func (v *OwnerLimitsOwnerLimitsOwnerLimitUsage) GetLimit() *string { return v.Limit }
+
+// GetUsed returns OwnerLimitsOwnerLimitsOwnerLimitUsage.Used, and is useful for accessing the field via an interface.
+func (v *OwnerLimitsOwnerLimitsOwnerLimitUsage) GetUsed() string { return v.Used }
+
+// OwnerLimitsResponse is returned by OwnerLimits on success.
+type OwnerLimitsResponse struct {
+	// The owner limits of an organization or a person, one row per measure (hadron-server issue 5009). Give exactly one ref. An organization's: its ADMIN or OWNER. A person's: that person in their own session. A platform admin reads any.
+	OwnerLimits []*OwnerLimitsOwnerLimitsOwnerLimitUsage `json:"ownerLimits"`
+}
+
+// GetOwnerLimits returns OwnerLimitsResponse.OwnerLimits, and is useful for accessing the field via an interface.
+func (v *OwnerLimitsResponse) GetOwnerLimits() []*OwnerLimitsOwnerLimitsOwnerLimitUsage {
+	return v.OwnerLimits
 }
 
 // PRFreezeFreezePullRequestHeadPrProtocolResult includes the requested fields of the GraphQL type PrProtocolResult.
@@ -101781,6 +101931,82 @@ func (v *SetOrgBootPromptSigningSetOrgBootPromptSigning) GetEnforced() bool { re
 func (v *SetOrgBootPromptSigningSetOrgBootPromptSigning) GetDeploymentSigns() bool {
 	return v.DeploymentSigns
 }
+
+type SetOwnerLimitsInput struct {
+	// The limits to write. Each key at most once.
+	Limits []*OwnerLimitInput `json:"limits,omitempty"`
+	// Why. Must not hold personal data.
+	Note string `json:"note"`
+	// Narrows the deletion of replace to limits written with this source type. Refused without replace.
+	OnlySourceType *string `json:"onlySourceType,omitempty"`
+	// The organization, an id or a URN. Exactly one of orgRef and userRef.
+	OrgRef *string `json:"orgRef,omitempty"`
+	// When true, also delete the owner's limits for keys not named here.
+	Replace *bool `json:"replace,omitempty"`
+	// Which one. Must not hold personal data: it is logged.
+	SourceId string `json:"sourceId"`
+	// What set these limits, for example manual. Must not hold personal data: it is logged.
+	SourceType string `json:"sourceType"`
+	// The person, an id or a URN. Exactly one of orgRef and userRef.
+	UserRef *string `json:"userRef,omitempty"`
+}
+
+// GetLimits returns SetOwnerLimitsInput.Limits, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsInput) GetLimits() []*OwnerLimitInput { return v.Limits }
+
+// GetNote returns SetOwnerLimitsInput.Note, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsInput) GetNote() string { return v.Note }
+
+// GetOnlySourceType returns SetOwnerLimitsInput.OnlySourceType, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsInput) GetOnlySourceType() *string { return v.OnlySourceType }
+
+// GetOrgRef returns SetOwnerLimitsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetReplace returns SetOwnerLimitsInput.Replace, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsInput) GetReplace() *bool { return v.Replace }
+
+// GetSourceId returns SetOwnerLimitsInput.SourceId, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsInput) GetSourceId() string { return v.SourceId }
+
+// GetSourceType returns SetOwnerLimitsInput.SourceType, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsInput) GetSourceType() string { return v.SourceType }
+
+// GetUserRef returns SetOwnerLimitsInput.UserRef, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsInput) GetUserRef() *string { return v.UserRef }
+
+// SetOwnerLimitsResponse is returned by SetOwnerLimits on success.
+type SetOwnerLimitsResponse struct {
+	// Set an owner's limits (hadron-server issue 5009). PLATFORM ADMIN ONLY. Returns the owner's limits after the change.
+	SetOwnerLimits []*SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage `json:"setOwnerLimits"`
+}
+
+// GetSetOwnerLimits returns SetOwnerLimitsResponse.SetOwnerLimits, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsResponse) GetSetOwnerLimits() []*SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage {
+	return v.SetOwnerLimits
+}
+
+// SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage includes the requested fields of the GraphQL type OwnerLimitUsage.
+// The GraphQL type's documentation follows.
+//
+// One owner limit of an organization or a person (hadron-server issue 5009): what may be held and how much of it is held now.
+type SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage struct {
+	// Which measure this is.
+	Key string `json:"key"`
+	// The limit in force, a base-10 integer string: the owner's own limit, else the deployment default for that kind of owner. Null means unlimited.
+	Limit *string `json:"limit"`
+	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only.
+	Used string `json:"used"`
+}
+
+// GetKey returns SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage.Key, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage) GetKey() string { return v.Key }
+
+// GetLimit returns SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage.Limit, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage) GetLimit() *string { return v.Limit }
+
+// GetUsed returns SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage.Used, and is useful for accessing the field via an interface.
+func (v *SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage) GetUsed() string { return v.Used }
 
 // SetQuestionLogDecidersResponse is returned by SetQuestionLogDeciders on success.
 type SetQuestionLogDecidersResponse struct {
@@ -139548,14 +139774,18 @@ func (v *__AiServiceConfigsMaskedWithUrnInput) GetOffset() *int { return v.Offse
 
 // __AiSpendInput is used internally by genqlient
 type __AiSpendInput struct {
-	OrgRef  string       `json:"orgRef"`
+	OrgRef  *string      `json:"orgRef,omitempty"`
+	UserRef *string      `json:"userRef,omitempty"`
 	From    string       `json:"from"`
 	To      string       `json:"to"`
 	GroupBy AiSpendGroup `json:"groupBy"`
 }
 
 // GetOrgRef returns __AiSpendInput.OrgRef, and is useful for accessing the field via an interface.
-func (v *__AiSpendInput) GetOrgRef() string { return v.OrgRef }
+func (v *__AiSpendInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetUserRef returns __AiSpendInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__AiSpendInput) GetUserRef() *string { return v.UserRef }
 
 // GetFrom returns __AiSpendInput.From, and is useful for accessing the field via an interface.
 func (v *__AiSpendInput) GetFrom() string { return v.From }
@@ -141207,6 +141437,14 @@ type __ClearNodeHistoryInput struct {
 
 // GetNodeRef returns __ClearNodeHistoryInput.NodeRef, and is useful for accessing the field via an interface.
 func (v *__ClearNodeHistoryInput) GetNodeRef() string { return v.NodeRef }
+
+// __ClearOwnerLimitsInput is used internally by genqlient
+type __ClearOwnerLimitsInput struct {
+	Input *ClearOwnerLimitsInput `json:"input,omitempty"`
+}
+
+// GetInput returns __ClearOwnerLimitsInput.Input, and is useful for accessing the field via an interface.
+func (v *__ClearOwnerLimitsInput) GetInput() *ClearOwnerLimitsInput { return v.Input }
 
 // __CloneAgentInput is used internally by genqlient
 type __CloneAgentInput struct {
@@ -142978,21 +143216,29 @@ func (v *__CreateUserInvitationInput) GetMaxActivations() *int { return v.MaxAct
 
 // __CreditBalanceInput is used internally by genqlient
 type __CreditBalanceInput struct {
-	OrgRef string `json:"orgRef"`
+	OrgRef  *string `json:"orgRef,omitempty"`
+	UserRef *string `json:"userRef,omitempty"`
 }
 
 // GetOrgRef returns __CreditBalanceInput.OrgRef, and is useful for accessing the field via an interface.
-func (v *__CreditBalanceInput) GetOrgRef() string { return v.OrgRef }
+func (v *__CreditBalanceInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetUserRef returns __CreditBalanceInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__CreditBalanceInput) GetUserRef() *string { return v.UserRef }
 
 // __CreditLedgerEntriesInput is used internally by genqlient
 type __CreditLedgerEntriesInput struct {
-	OrgRef string `json:"orgRef"`
-	Limit  *int   `json:"limit,omitempty"`
-	Offset *int   `json:"offset,omitempty"`
+	OrgRef  *string `json:"orgRef,omitempty"`
+	UserRef *string `json:"userRef,omitempty"`
+	Limit   *int    `json:"limit,omitempty"`
+	Offset  *int    `json:"offset,omitempty"`
 }
 
 // GetOrgRef returns __CreditLedgerEntriesInput.OrgRef, and is useful for accessing the field via an interface.
-func (v *__CreditLedgerEntriesInput) GetOrgRef() string { return v.OrgRef }
+func (v *__CreditLedgerEntriesInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetUserRef returns __CreditLedgerEntriesInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__CreditLedgerEntriesInput) GetUserRef() *string { return v.UserRef }
 
 // GetLimit returns __CreditLedgerEntriesInput.Limit, and is useful for accessing the field via an interface.
 func (v *__CreditLedgerEntriesInput) GetLimit() *int { return v.Limit }
@@ -146132,6 +146378,18 @@ func (v *__OrganizationsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __OrganizationsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__OrganizationsInput) GetOffset() *int { return v.Offset }
 
+// __OwnerLimitsInput is used internally by genqlient
+type __OwnerLimitsInput struct {
+	OrgRef  *string `json:"orgRef,omitempty"`
+	UserRef *string `json:"userRef,omitempty"`
+}
+
+// GetOrgRef returns __OwnerLimitsInput.OrgRef, and is useful for accessing the field via an interface.
+func (v *__OwnerLimitsInput) GetOrgRef() *string { return v.OrgRef }
+
+// GetUserRef returns __OwnerLimitsInput.UserRef, and is useful for accessing the field via an interface.
+func (v *__OwnerLimitsInput) GetUserRef() *string { return v.UserRef }
+
 // __PRFreezeInput is used internally by genqlient
 type __PRFreezeInput struct {
 	TaskRef string `json:"taskRef"`
@@ -148175,6 +148433,14 @@ func (v *__SetOrgBootPromptSigningInput) GetRequired() bool { return v.Required 
 
 // GetPreviewToken returns __SetOrgBootPromptSigningInput.PreviewToken, and is useful for accessing the field via an interface.
 func (v *__SetOrgBootPromptSigningInput) GetPreviewToken() *string { return v.PreviewToken }
+
+// __SetOwnerLimitsInput is used internally by genqlient
+type __SetOwnerLimitsInput struct {
+	Input *SetOwnerLimitsInput `json:"input,omitempty"`
+}
+
+// GetInput returns __SetOwnerLimitsInput.Input, and is useful for accessing the field via an interface.
+func (v *__SetOwnerLimitsInput) GetInput() *SetOwnerLimitsInput { return v.Input }
 
 // __SetQuestionLogDecidersInput is used internally by genqlient
 type __SetQuestionLogDecidersInput struct {
@@ -153381,6 +153647,7 @@ mutation AdjustCredits ($input: AdjustCreditsInput!) {
 fragment CreditLedgerEntryFields on CreditLedgerEntry {
 	id
 	organizationId
+	ownerUserId
 	kind
 	amountMicroCents
 	expiresAt
@@ -153394,7 +153661,7 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 
 // Platform-ADMIN or the BILLING role. Appends a signed adjustment; idempotent on
 // (sourceType, sourceId), a mismatched replay is IDEMPOTENCY_CONFLICT.
-// cli#3184: userRef is omitted, as for GrantCredits (cli#3072 adds the person form).
+// As for GrantCredits, exactly one owner is sent and the other omitted (cli#3072).
 func AdjustCredits(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -160620,8 +160887,8 @@ func AiServiceConfigsMaskedWithUrn(
 
 // The query executed by AiSpend.
 const AiSpend_Operation = `
-query AiSpend ($orgRef: String!, $from: String!, $to: String!, $groupBy: AiSpendGroup!) {
-	aiSpend(orgRef: $orgRef, from: $from, to: $to, groupBy: $groupBy) {
+query AiSpend ($orgRef: String, $userRef: ID, $from: String!, $to: String!, $groupBy: AiSpendGroup!) {
+	aiSpend(orgRef: $orgRef, userRef: $userRef, from: $from, to: $to, groupBy: $groupBy) {
 		from
 		to
 		truncated
@@ -160644,7 +160911,8 @@ query AiSpend ($orgRef: String!, $from: String!, $to: String!, $groupBy: AiSpend
 func AiSpend(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgRef string,
+	orgRef *string,
+	userRef *string,
 	from string,
 	to string,
 	groupBy AiSpendGroup,
@@ -160654,6 +160922,7 @@ func AiSpend(
 		Query:  AiSpend_Operation,
 		Variables: &__AiSpendInput{
 			OrgRef:  orgRef,
+			UserRef: userRef,
 			From:    from,
 			To:      to,
 			GroupBy: groupBy,
@@ -166541,6 +166810,43 @@ func ClearNodeHistory(
 	return data_, err_
 }
 
+// The mutation executed by ClearOwnerLimits.
+const ClearOwnerLimits_Operation = `
+mutation ClearOwnerLimits ($input: ClearOwnerLimitsInput!) {
+	clearOwnerLimits(input: $input) {
+		key
+		limit
+		used
+	}
+}
+`
+
+// Platform-ADMIN or the BILLING role. Clears owner limits; omitted keys clear every key.
+func ClearOwnerLimits(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *ClearOwnerLimitsInput,
+) (data_ *ClearOwnerLimitsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "ClearOwnerLimits",
+		Query:  ClearOwnerLimits_Operation,
+		Variables: &__ClearOwnerLimitsInput{
+			Input: input,
+		},
+	}
+
+	data_ = &ClearOwnerLimitsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
 // The mutation executed by CloneAgent.
 const CloneAgent_Operation = `
 mutation CloneAgent ($source: ID!, $target: ID!, $name: String, $slug: String) {
@@ -170928,9 +171234,10 @@ func CreateUserInvitation(
 
 // The query executed by CreditBalance.
 const CreditBalance_Operation = `
-query CreditBalance ($orgRef: String!) {
-	creditBalance(orgRef: $orgRef) {
+query CreditBalance ($orgRef: String, $userRef: ID) {
+	creditBalance(orgRef: $orgRef, userRef: $userRef) {
 		organizationId
+		ownerUserId
 		balanceMicroCents
 		expiring {
 			amountMicroCents
@@ -170940,18 +171247,21 @@ query CreditBalance ($orgRef: String!) {
 }
 `
 
-// One org's balance and what is left of each expiring grant, soonest first.
-// Org-ADMIN. The read may settle expired grants (hadron-server#5011).
+// One owner's balance (an organization, or a person) and what is left of each
+// expiring grant, soonest first. Exactly one of orgRef and userRef is sent, the other
+// omitted, never null (cli#3072). The read may settle expired grants (hadron-server#5011).
 func CreditBalance(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgRef string,
+	orgRef *string,
+	userRef *string,
 ) (data_ *CreditBalanceResponse, err_ error) {
 	req_ := &graphql.Request{
 		OpName: "CreditBalance",
 		Query:  CreditBalance_Operation,
 		Variables: &__CreditBalanceInput{
-			OrgRef: orgRef,
+			OrgRef:  orgRef,
+			UserRef: userRef,
 		},
 	}
 
@@ -170969,8 +171279,8 @@ func CreditBalance(
 
 // The query executed by CreditLedgerEntries.
 const CreditLedgerEntries_Operation = `
-query CreditLedgerEntries ($orgRef: String!, $limit: Int, $offset: Int) {
-	creditLedgerEntries(orgRef: $orgRef, limit: $limit, offset: $offset) {
+query CreditLedgerEntries ($orgRef: String, $userRef: ID, $limit: Int, $offset: Int) {
+	creditLedgerEntries(orgRef: $orgRef, userRef: $userRef, limit: $limit, offset: $offset) {
 		total
 		items {
 			... CreditLedgerEntryFields
@@ -170980,6 +171290,7 @@ query CreditLedgerEntries ($orgRef: String!, $limit: Int, $offset: Int) {
 fragment CreditLedgerEntryFields on CreditLedgerEntry {
 	id
 	organizationId
+	ownerUserId
 	kind
 	amountMicroCents
 	expiresAt
@@ -170995,7 +171306,8 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 func CreditLedgerEntries(
 	ctx_ context.Context,
 	client_ graphql.Client,
-	orgRef string,
+	orgRef *string,
+	userRef *string,
 	limit *int,
 	offset *int,
 ) (data_ *CreditLedgerEntriesResponse, err_ error) {
@@ -171003,9 +171315,10 @@ func CreditLedgerEntries(
 		OpName: "CreditLedgerEntries",
 		Query:  CreditLedgerEntries_Operation,
 		Variables: &__CreditLedgerEntriesInput{
-			OrgRef: orgRef,
-			Limit:  limit,
-			Offset: offset,
+			OrgRef:  orgRef,
+			UserRef: userRef,
+			Limit:   limit,
+			Offset:  offset,
 		},
 	}
 
@@ -177483,6 +177796,7 @@ mutation GrantCredits ($input: GrantCreditsInput!) {
 fragment CreditLedgerEntryFields on CreditLedgerEntry {
 	id
 	organizationId
+	ownerUserId
 	kind
 	amountMicroCents
 	expiresAt
@@ -177497,9 +177811,8 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 // Platform-ADMIN or the BILLING role. Appends a positive grant to an org's ledger. The response
 // has no created/reused flag, so a replay of (sourceType, sourceId) is
 // indistinguishable from a first grant. An omitted optional is not sent.
-// cli#3184: orgRef became optional beside userRef when a person got a ledger (server#5014). These
-// commands name an organization, so userRef is never sent: omitted, not an explicit null, which
-// an older server would reject as an unknown input field. The person forms are cli#3072.
+// cli#3184, cli#3072: exactly one of orgRef and userRef names the ledger (server#5014); the
+// other is omitted, never an explicit null, which an older server rejects as an unknown field.
 func GrantCredits(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -183970,6 +184283,46 @@ func Organizations(
 	}
 
 	data_ = &OrganizationsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by OwnerLimits.
+const OwnerLimits_Operation = `
+query OwnerLimits ($orgRef: String, $userRef: ID) {
+	ownerLimits(orgRef: $orgRef, userRef: $userRef) {
+		key
+		limit
+		used
+	}
+}
+`
+
+// One owner's limits and how much of each is held now (hadron-server#5009). One
+// row per key the server returns; null limit means unlimited. The CLI keeps no key list.
+func OwnerLimits(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	orgRef *string,
+	userRef *string,
+) (data_ *OwnerLimitsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "OwnerLimits",
+		Query:  OwnerLimits_Operation,
+		Variables: &__OwnerLimitsInput{
+			OrgRef:  orgRef,
+			UserRef: userRef,
+		},
+	}
+
+	data_ = &OwnerLimitsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -191861,6 +192214,45 @@ func SetOrgBootPromptSigning(
 	}
 
 	data_ = &SetOrgBootPromptSigningResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by SetOwnerLimits.
+const SetOwnerLimits_Operation = `
+mutation SetOwnerLimits ($input: SetOwnerLimitsInput!) {
+	setOwnerLimits(input: $input) {
+		key
+		limit
+		used
+	}
+}
+`
+
+// Platform-ADMIN or the BILLING role. Writes owner limits. A nil limit inside an
+// OwnerLimitInput is sent as null, which means unlimited and lifts the deployment
+// default, so that field carries no omitempty; every other optional is omitted when unset.
+func SetOwnerLimits(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	input *SetOwnerLimitsInput,
+) (data_ *SetOwnerLimitsResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SetOwnerLimits",
+		Query:  SetOwnerLimits_Operation,
+		Variables: &__SetOwnerLimitsInput{
+			Input: input,
+		},
+	}
+
+	data_ = &SetOwnerLimitsResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

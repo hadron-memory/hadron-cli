@@ -1428,6 +1428,13 @@ func codeForExtension(code string) int {
 	// would sweep in codes that don't belong.
 	case code == "MODEL_GROUP_LIMIT_REACHED" || code == "AGENT_OWNERSHIP_CHANGED":
 		return exitcode.Conflict
+	// An owner's limit on what it may hold (hadron-server#5009, A7a; the nodes,
+	// memories, Agents, Apps and asset-bytes doors, #5015, #5017): the owner's state,
+	// not the argument, so a same-call retry cannot succeed until it frees room or
+	// the limit is raised (hadron-cli#3072). A literal row, for the same reason as
+	// above: there is no _LIMIT_REACHED suffix rule.
+	case code == "OWNER_LIMIT_REACHED":
+		return exitcode.Conflict
 	// App member writes (cli#956, cor:dmo:050:04): a role the primary Agent's
 	// policy does not list is an argument the caller fixes; the member cap and
 	// the last-owner guard hold until the App's membership changes.
