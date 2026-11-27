@@ -80,15 +80,33 @@ the host is not running), nothing is started early and the host's ordinary relau
 brings the worker back. A failed checkpoint writes no stamp and ends nothing.
 
 --json prints {"status":"written|failed","node","claim":"written|failed|none",
-"relaunch":"pending|failed|none","exit":"signal-pending|exit-now|none","reason"}.
+"relaunch":"pending|failed|none","exit":"signal-pending|helper-pending|exit-now|none","reason"}.
 "signal-pending" is NOT success: it means the CLI signals next, and the
 outcome is not in this receipt. The agent's pid is proven and pinned, and
 SIGTERM goes to it right after this receipt is written. A receipt that
 cannot be written signals nothing. A signal that still fails says so on
 stderr ("exit it now").
+"helper-pending" is NOT success either: this host names an exit helper (below),
+it was validated, and it is run right after this receipt. Then end your turn now
+and run nothing more: the helper ends this AGENT once it is idle, never the
+session: the binding and the session stay, and the host relaunches the agent.
+A receipt that cannot be written runs no helper (stderr says so), and a helper
+that fails or times out after the receipt is said on stderr: exit your agent
+yourself.
 "exit-now": nothing will be signalled, because this agent was not launched
-through Orca by the host or its pid could not be proven. Exit your agent
-yourself within two minutes.
+through Orca by the host or its pid could not be proven, and no exit helper
+ran (none is configured, or "reason" says why the configured one was refused).
+Exit your agent yourself within two minutes.
+
+Exit helper (host configuration, only on the "exit-now" branch, after the
+checkpoint and the relaunch stamp are written): the file ` + exitHelperFile + ` in the
+Hadron config directory holds one absolute path. It is never read from a
+repository, a binding or the server. The file and the helper must be regular
+files you own that group and others cannot write; a symlink is refused. The
+helper is run without a shell as "<helper> --checkpoint <node URN>" with a
+bounded timeout, its output discarded and never echoed. It must return
+promptly and end the agent only after this command has returned and the agent
+is idle. A refused helper is not run: "exit-now" with the reason.
 Exit 0 unless the command line is wrong.`,
 		Example: `  # reset with your own narrative carried into the checkpoint
   hadron team session reset-context --note-file reset-notes.md --json`,
@@ -138,6 +156,17 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 		d.Exit = agentExitNow
 		if a, ok := pinOwnAgent(os.Getenv(AgentPIDEnv)); ok {
 			agent, d.Exit = a, agentSignalPending
+		} else if path, refusal, configured := lookupExitHelper(); configured {
+			// cli#3299: only on this branch, only after the checkpoint and the stamp are written. A refused
+			// helper is not run and the receipt says exit-now with the reason; a validated one is run after
+			// the receipt, as the signal is.
+			if refusal != "" {
+				reason := exitHelperRefusal(refusal)
+				d.Reason = &reason
+			} else {
+				reason := helperPendingReason
+				agent, d.Exit, d.Reason = exitHelper{path: path, checkpoint: *out.Node}, agentHelperPending, &reason
+			}
 		}
 	}
 	finishResetContext(f.IOStreams.ErrOut, agent, func() error {
@@ -152,6 +181,12 @@ func runResetContext(ctx context.Context, f *cmdutil.Factory, o shedOptions) err
 			_, e := fmt.Fprintf(w, "✓ context reset %s: %s (claim: %s, relaunch: %s)\n", d.Status, node, d.Claim, d.Relaunch)
 			if e == nil && d.Exit == agentExitNow {
 				_, e = fmt.Fprintln(w, "This agent could not be ended by its own pid (not launched by the host through Orca, or its pid could not be proven): exit it now; the host relaunches the worker.")
+				if e == nil && d.Reason != nil {
+					_, e = fmt.Fprintln(w, *d.Reason)
+				}
+			}
+			if e == nil && d.Exit == agentHelperPending {
+				_, e = fmt.Fprintln(w, "End your turn now and run nothing more: "+*d.Reason)
 			}
 			return e
 		})
@@ -177,12 +212,20 @@ func finishResetContext(errOut io.Writer, agent ownAgent, receipt func() error) 
 		return
 	}
 	defer agent.close()
+	receiptFailed := "hadron: team session reset-context: the receipt could not be written, so nothing was signalled: exit your agent yourself; the host relaunches the worker."
+	signalFailed := "hadron: team session reset-context: the signal to this agent failed after the receipt: exit it now; the host relaunches the worker."
+	if n, ok := agent.(interface{ receiptFailed() string }); ok {
+		receiptFailed = n.receiptFailed()
+	}
+	if n, ok := agent.(interface{ signalFailed() string }); ok {
+		signalFailed = n.signalFailed()
+	}
 	if err != nil {
-		_, _ = fmt.Fprintln(errOut, "hadron: team session reset-context: the receipt could not be written, so nothing was signalled: exit your agent yourself; the host relaunches the worker.")
+		_, _ = fmt.Fprintln(errOut, receiptFailed)
 		return
 	}
 	if agent.signal() != nil {
-		_, _ = fmt.Fprintln(errOut, "hadron: team session reset-context: the signal to this agent failed after the receipt: exit it now; the host relaunches the worker.")
+		_, _ = fmt.Fprintln(errOut, signalFailed)
 	}
 }
 
