@@ -481,7 +481,9 @@ Apps:
 
 // appMemoryRefused are the flags createAppMemory does not take. Accepting one
 // and dropping it would be the defect, so each is a usage error naming it,
-// before any request (cli#1176).
+// before any request (cli#1176). The one deliberate exception is the hidden
+// no-op --draft-corpus: it asks for nothing the server would do, so there is
+// nothing to drop (cli#3292).
 var appMemoryRefused = []string{"max-rev-count", "visibility", "slug", "org", "owner-me", "schema", "schema-file", "listed-on-marketplace"}
 
 func refuseAppMemoryFlags(cmd *cobra.Command) error {

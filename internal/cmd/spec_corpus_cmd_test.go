@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"net/http"
 	"net/http/httptest"
 	"sort"
@@ -564,6 +565,14 @@ func TestMemorySetDraftCorpusIsInertOnCreate3292(t *testing.T) {
 			if err := root.Execute(); err != nil {
 				t.Fatalf("create: %v", err)
 			}
+			// The surviving create documents stay free of draftCorpus: GraphQL validates
+			// the whole document, so a draftCorpus argument in it would make a pre-#1447
+			// server refuse every create.
+			for name, doc := range map[string]string{"CreateMemory": gen.CreateMemory_Operation, "CreateMemoryWithSlug": gen.CreateMemoryWithSlug_Operation} {
+				if strings.Contains(doc, "draftCorpus") {
+					t.Errorf("%s must not carry a draftCorpus argument", name)
+				}
+			}
 			raw, ok := captured[c.op]
 			if !ok {
 				t.Fatalf("the ordinary %s must be sent; got %v", c.op, captured)
@@ -616,7 +625,7 @@ func TestMemorySetDraftCorpusIsNoLongerRefused3292(t *testing.T) {
 	for name, c := range map[string]struct{ with, without []string }{
 		"update with a field, =false": {[]string{"memory", "set", "acme.com:kb", "--draft-corpus=false", "--name", "KB"}, []string{"memory", "set", "acme.com:kb", "--name", "KB"}},
 		"update, the flag alone":      {[]string{"memory", "set", "acme.com:kb", "--draft-corpus"}, []string{"memory", "set", "acme.com:kb"}},
-		"App-scoped free-standing":    {[]string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--class", "app", "--name", "Runbook", "--draft-corpus"}, []string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--class", "app", "--name", "Runbook"}},
+		"App-scoped, no agent":        {[]string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--class", "app", "--name", "Runbook", "--draft-corpus"}, []string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--class", "app", "--name", "Runbook"}},
 		"App-scoped with an Agent":    {[]string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--agent", "hrn:agent:acme.com:a", "--class", "app", "--name", "Runbook", "--draft-corpus"}, []string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--agent", "hrn:agent:acme.com:a", "--class", "app", "--name", "Runbook"}},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -625,8 +634,12 @@ func TestMemorySetDraftCorpusIsNoLongerRefused3292(t *testing.T) {
 			if gotWith != gotWithout || opNames(opsWith) != opNames(opsWithout) {
 				t.Errorf("the flag must change nothing: exit %d ops [%s] with it, exit %d ops [%s] without", gotWith, opNames(opsWith), gotWithout, opNames(opsWithout))
 			}
-			if gotWith == exitcode.Usage && name != "update, the flag alone" {
-				t.Errorf("must not be a usage refusal (exit 2): %v", c.with)
+			// The three cases that carry a real request must succeed outright: the
+			// equivalence check alone would pass if both runs failed the same way.
+			// "update, the flag alone" is exempt: with no field to change, an update
+			// has nothing to send and exits 2 with or without the flag.
+			if name != "update, the flag alone" && gotWith != exitcode.OK {
+				t.Errorf("%v: exit %d, want 0", c.with, gotWith)
 			}
 			for op, raw := range opsWith {
 				if strings.Contains(string(raw), "draftCorpus") {
@@ -662,7 +675,16 @@ func TestDraftCorpusFlagIsNotDocumentedAsLive3292(t *testing.T) {
 			t.Errorf("agentic-usage still describes the retired behaviour: %q", retired)
 		}
 	}
-	for _, args := range [][]string{{"memory", "set", "--help"}, {"spec", "--help"}, {"spec", "mint", "--help"}} {
+	helps := [][]string{{"memory", "set", "--help"}, {"spec", "--help"}}
+	f, _ := testFactory(t)
+	for _, c := range NewRootCmd(f).Commands() {
+		if c.Name() == "spec" {
+			for _, sub := range c.Commands() {
+				helps = append(helps, []string{"spec", sub.Name(), "--help"})
+			}
+		}
+	}
+	for _, args := range helps {
 		if h := read(args...); strings.Contains(h, "--draft-corpus") {
 			t.Errorf("%v help mentions the hidden flag: %s", args, h)
 		}
