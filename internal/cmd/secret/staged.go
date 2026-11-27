@@ -120,7 +120,10 @@ func (w *withheld) Unwrap() error { return w.err }
 // message can repeat a value the caller submitted (LOCAL review of cli#2738), and
 // the answer may be a limit refusal, a mixed envelope, an error below the
 // mutation or an HTTP 5xx, so the message is replaced by a fixed sentence while
-// the exit class and the server code are kept. Any other error maps as before.
+// the exit class and the server code are kept. Any other error maps as before:
+// that includes SECRET_CHANGE_REQUESTER_LIMIT (cli#3305), which shares their exit
+// class but whose server text is a constant that cannot repeat a submitted value,
+// so it shows as the server wrote it.
 func withholdServerText(err error, what string) error {
 	mapped := api.MapErrorKeepingCode(err)
 	switch {
