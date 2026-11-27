@@ -1312,6 +1312,12 @@ func codeForExtension(code string) int {
 	// 5. The caller is never shown a URN the server did not send.
 	case code == "MEMORY_URN_CONFLICT":
 		return exitcode.Conflict
+	// cli#3280 (hadron-server#5184): updateMemory with a `urn` on an App personal or private
+	// memory answers APP_MEMORY_SLUG_FIXED (extension memoryClass) and applies nothing. The
+	// slug of such a memory is fixed and there is no rename (hadron-cli#3186 was closed not
+	// planned), so it is a request the server will not honour, whatever the caller does: 2.
+	case code == "APP_MEMORY_SLUG_FIXED":
+		return exitcode.Usage
 	case code == "GITHUB_UNAVAILABLE":
 		return exitcode.Unavailable
 	// S12b defect links (hadron-cli#2189, hadron-server#4280): a caller who may
@@ -1993,7 +1999,11 @@ func codeForExtension(code string) int {
 	// protected secret is STAGED for a person's passkey instead of applied, and
 	// too many open requests on one secret is refused. Both are the secret's
 	// state, which no retry changes: 5. Unmapped they would fall to exit 1.
-	case code == "SECRET_PROTECTED_NEEDS_PASSKEY" || code == "SECRET_CHANGE_REQUEST_LIMIT":
+	//
+	// cli#3280: so is the App's own cap on open staged changes (at most 100,
+	// SECRET_CHANGE_APP_LIMIT): the App's state, which no retry changes until some
+	// are completed or expire.
+	case code == "SECRET_PROTECTED_NEEDS_PASSKEY" || code == "SECRET_CHANGE_REQUEST_LIMIT" || code == "SECRET_CHANGE_APP_LIMIT":
 		return exitcode.Conflict
 	// cli#2664 (revealing a value): a known client that is not live now (spent,
 	// pending, not started, expired, revoked, its issuer gone) or whose secret was

@@ -94,15 +94,19 @@ Settings:
 Apps:
   --app <app> --agent <agent> --class app --name <name>
   creates an app memory for an Agent installed in the App. There is no --slug:
-  the server names it. To attach a personal or private memory you already have,
-  use memory attach.
+  the server names it. To make a memory you can already read visible to an
+  App without creating a new one, use memory attach: a read-only link, any class
+  except system.
 
   --app <app> --agent <agent> --class personal|private
   creates your own personal or private memory in the App. Give no --name: the
   server names the memory from the App and your handle (your URN and name are
   printed), a current server ignores a --name here, and you may hold one memory
   of each class per App. A second create for the same class is refused with
-  exit 5 (APP_USER_MEMORY_ALREADY_EXISTS) and the server's message. An older
+  exit 5 (APP_USER_MEMORY_ALREADY_EXISTS), and a create whose derived name kept
+  colliding (MEMORY_URN_CONFLICT, no URN shown) also exits 5, each with the
+  server's message. Changing the slug of such a memory later (memory set <ref>
+  --slug) is refused with exit 2 (APP_MEMORY_SLUG_FIXED): its slug is fixed. An older
   server still uses --name and refuses a create without one as a version
   mismatch (exit 2).
 
