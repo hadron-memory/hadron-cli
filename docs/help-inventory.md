@@ -266,7 +266,7 @@ section between the markers.
 | `secret change withdraw` |  |  | y | #1052 | ef6db9541a93 |  | unread |  |
 | `secret client` |  |  | n | #1052 | 79a8437f4a50 |  | unread |  |
 | `secret client issue` |  |  | y | #1052 | 9be27bc1aea6 |  | unread |  |
-| `secret client list` | ls |  | y | #1052 | ba1baa933224 |  | unread |  |
+| `secret client list` | ls |  | y | #1052 | 21d2a01605f0 |  | unread |  |
 | `secret client revoke` |  |  | y | #1052 | 10241b746d74 |  | unread |  |
 | `secret create` |  |  | y | #1052 | 700f54785ae1 |  | unread |  |
 | `secret events` |  |  | y | #1052 | 30602f6775f9 | Charles | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/2566#issuecomment-7000739200) |
