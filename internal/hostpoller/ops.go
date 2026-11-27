@@ -665,6 +665,9 @@ func (p *Poller) workerEnd(ctx context.Context, op Operation) {
 // which clears it: the tree is then the worker's by this host's own
 // configuration, where a worktree belongs to one worker.
 func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string, w WorkerConfig, session string, agent Agent) string {
+	// One Config for the whole stop: a platform poll can swap it in between, and a tree's path must not turn ""
+	// between the check that allows the stop and the scan that signals (#3301 BLIND N2).
+	c := p.config()
 	// allowed answers whether the tree's session binding still leaves its
 	// processes to this end: not another worker's, not another session of
 	// this worker than the one being ended, readable. It is asked before any
@@ -673,7 +676,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 	// session's end (the window cannot be closed against a separate process
 	// writing the binding, only made as short as the signal itself).
 	allowed := func(t string) (bool, string) {
-		dir := p.config().WorktreePath(t)
+		dir := c.WorktreePath(t)
 		if dir == "" {
 			return false, fmt.Sprintf("worktree %s did not resolve to a directory on this host at this poll, so its processes were not touched", t)
 		}
@@ -722,7 +725,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 				}
 				return true, ""
 			}
-			b := p.bound(p.config().WorktreePath(t))
+			b := p.bound(c.WorktreePath(t))
 			if b.Unusable || b.WorkerID != op.WorkerID || b.SessionID == "" || b.SessionID != session {
 				return false, "the session of the launched agent is not recorded and the worktree's binding does not name this session, so the agent could not be identified and was not touched"
 			}
@@ -789,7 +792,7 @@ func (p *Poller) stopWorkerProcess(ctx context.Context, op Operation, ref string
 			say("stop-skipped", why)
 			continue
 		}
-		stops, err := p.host.StopAgents(ctx, p.config().WorktreePath(t), p.authorizeStop(t, func() bool { ok, _ := allowed(t); return ok }, op))
+		stops, err := p.host.StopAgents(ctx, c.WorktreePath(t), p.authorizeStop(t, func() bool { ok, _ := allowed(t); return ok }, op))
 		if err != nil {
 			say("stop-skipped", fmt.Sprintf("this host could not look for agent processes in worktree %s, so none was touched: %v", t, err))
 			continue

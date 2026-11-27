@@ -108,6 +108,9 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
   `SetFromPlatform` (a created tree is not registered), the assignment `hostId` filter, scrub-all in the end
   prompt's env, the archived-worktree skip, the poll interval bounds, the `relaunch_exit` empty path (a stamp in
   the test's cwd), `ScrubbedEnv` on the create runner (a fake `orca` printing its env).
+- **BLIND N2 (from the delta at 8bc735a4).** `stopWorkerProcess` read the live Config's path per call, so a
+  platform poll landing between the check that allows a stop and the scan could send the scan to "". It now takes
+  one Config for the whole stop (pin: `bound` swaps the Config mid-stop; the scan still gets the allowed path).
 - **N7** is stated in the release note's Limits: a platform worker has no end prompt and no `stop_on_end`
   until C4, so `worker.end` waits the 15-minute default, reports FAILED and stops nothing.
 

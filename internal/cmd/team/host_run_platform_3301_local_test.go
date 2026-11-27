@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -212,6 +213,9 @@ func TestHostRunPlatformRegistersOnlyThisHostsAssignments3301(t *testing.T) {
 // F6: the runner a platform worktree.create goes through gets the scrubbed environment: no person's token, no
 // host key, nothing but the short allowlist.
 func TestTheWorktreeCreateRunnerHasAScrubbedEnv3301(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake orca is a shell script; host run with no --config is Linux-only")
+	}
 	bin := filepath.Join(t.TempDir(), "orca")
 	if err := os.WriteFile(bin, []byte("#!/bin/sh\nenv\n"), 0o700); err != nil {
 		t.Fatal(err)

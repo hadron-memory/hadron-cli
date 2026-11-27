@@ -339,6 +339,14 @@ func TestAnEndPromptScrubsEveryStoredKey3301(t *testing.T) {
 	}
 }
 
+// exitedAgent3301 is an agent the poller tracks; portable (loopAgent2060 is Linux-only).
+type exitedAgent3301 struct{ done chan struct{} }
+
+func (a *exitedAgent3301) Done() <-chan struct{}     { return a.done }
+func (a *exitedAgent3301) ExitDetail() string        { return "" }
+func (a *exitedAgent3301) PID() int                  { return 0 }
+func (a *exitedAgent3301) Terminate() (bool, string) { return true, "" }
+
 type countingSource3301 struct{ worker atomic.Int32 }
 
 func (s *countingSource3301) RelaunchSnapshot(context.Context, string) (RelaunchSnapshot, error) {
@@ -367,7 +375,7 @@ func TestAnExitInAnUnresolvedTreeReadsNoStamp3301(t *testing.T) {
 	step(t, fx.p)
 	src := &countingSource3301{}
 	fx.p.relaunch = &RelaunchDependencies{Source: src}
-	old := &loopAgent2060{done: make(chan struct{})}
+	old := &exitedAgent3301{done: make(chan struct{})}
 	fx.p.mu.Lock()
 	fx.p.workerRefs["id-w-iris"] = "w-iris"
 	fx.p.mu.Unlock()
@@ -379,3 +387,36 @@ func TestAnExitInAnUnresolvedTreeReadsNoStamp3301(t *testing.T) {
 }
 
 var _ RelaunchSource = (*countingSource3301)(nil)
+
+// BLIND N2: a stop reads one Config: a poll that swaps in a Config where the tree no longer resolves, between the
+// check that allows the stop and the scan, never sends the scan to "" (the poller's own directory).
+func TestAStopUsesOneConfigForItsPath3301(t *testing.T) {
+	fx := newPlatform3237(t, iris3237())
+	fx.tree("r1", "/home/u/orca/workspaces/hadron-cli/iris")
+	step(t, fx.p)
+	fx.p.mu.Lock()
+	fx.p.workerRefs["id-w-iris"] = "w-iris"
+	fx.p.mu.Unlock()
+	gone := BuildPlatformConfig("hrn:app:acme.com:team", fx.set, fx.assign, PlatformFacts{HostDir: fx.facts.HostDir, Repos: fx.facts.Repos})
+	if gone.WorktreePath("hadron-cli/iris") != "" {
+		t.Fatal("the swapped-in Config must leave the tree unresolved")
+	}
+	fx.p.bound = func(string) delivery.Binding {
+		fx.p.live.Store(gone) // a platform poll lands mid-stop
+		return delivery.Binding{WorkerID: "id-w-iris", SessionID: "sess1"}
+	}
+	w, _ := fx.p.config().Worker("w-iris")
+	op := Operation{ID: "e1", Type: OpWorkerEnd, WorkerID: "id-w-iris", Args: map[string]any{"sessionId": "sess1"}}
+	_ = fx.p.stopWorkerProcess(context.Background(), op, "w-iris", w, "sess1", nil)
+	fx.host.mu.Lock()
+	stopped := append([]string{}, fx.host.stopped...)
+	fx.host.mu.Unlock()
+	for _, d := range stopped {
+		if d == "" {
+			t.Fatalf("the scan went to \"\" after a mid-stop Config swap: %q", stopped)
+		}
+	}
+	if len(stopped) != 1 || stopped[0] != "/home/u/orca/workspaces/hadron-cli/iris" {
+		t.Errorf("the scan used the path the stop was allowed on: %q", stopped)
+	}
+}
