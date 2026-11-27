@@ -201,7 +201,7 @@ func TestDoctorPerWorkerWorkdirVerdicts(t *testing.T) {
 			t.Errorf("doctor must say %q:\n%s", want, out)
 		}
 	}
-	if row := factLine3236(strings.ReplaceAll(out, "  worker", "worker"), "worker Iris hadron-server/antonio"); !strings.Contains(row, "OK") {
+	if row := factLine3236(out, "  worker Iris hadron-server/antonio"); !strings.Contains(row, "OK") {
 		t.Errorf("a workdir Orca knows is an OK row:\n%s", out)
 	}
 }
