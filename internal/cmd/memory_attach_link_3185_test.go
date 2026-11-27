@@ -48,7 +48,7 @@ func TestMemoryAttachHelpStatesTheLinkLaw3185(t *testing.T) {
 				t.Errorf("%v still carries the retired bind wording %q:\n%s", args, banned, flat)
 			}
 		}
-		for _, want := range []string{"any memory you can read", "system", "unchanged", "more than one App", "read-only", "stop reading", "owner is the App's owner", "no command to remove a link"} {
+		for _, want := range []string{"any memory you can read", "system", "unchanged", "more than one App", "read-only", "stop reading", "owner is the App's owner", "memory detach"} {
 			if !strings.Contains(flat, want) {
 				t.Errorf("%v missing %q:\n%s", args, want, flat)
 			}
