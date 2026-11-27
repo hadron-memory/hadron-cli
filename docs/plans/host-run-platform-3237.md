@@ -27,15 +27,29 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
    - `AccountProfile.ClaudeConfigDir` (`yaml:"-"`) → `CLAUDE_CONFIG_DIR` in the launch env; Codex → `CODEX_HOME`.
    - `SetScrubKeys` / `agentEnvKeys`: every stored key scrubbed and redacted.
 
+4. **Stage B (WIP, 33fe6f5b)** `internal/cmd/team/host_run_platform.go` + `internal/api/queries/host_run_platform.graphql`:
+   `runPlatformHosts` (no `--config` → this path; `cmd.Flags().Changed("config")`), seams in `platformDepsFor`
+   (goos, credentials, facts, wire, delivery); `narrowEntries` (--app = App id, --server); `startPlatformHost`
+   (myApp id check exit 3, source HOST exit 5, `platformNeedsV1` names server 0.47.0, `EnsureHostStateDir`,
+   `SetScrubKeys`, `SetPlatformRefresh`, `wirePlatformOrca` in host_orca_launch.go, delivery wired once and
+   gated in `deliverStep`); `runPollers` (Q4 a). `TestTeamHostRunRefusesABadConfig` updated (no --config → exit 3).
+
 ## Still to build
 
-- Stage B, `internal/cmd/team/host_run.go`: no `--config` → platform mode (Linux only); `hostcred.Load`, no entry →
-  exit 3 naming `team host join`; `--app` narrows; one poller per entry (R6 recommended), each `SetScrubKeys` of
-  all keys; query `HostRunPlatform` (agentTeamHost + hostSetup + myApp); start checks (myApp id == entry AppID,
-  agentTeamHost answers, source SERVER else exit 5 naming SERVER); skew → refuse naming the V1 release; Q4 (a)
-  one fatal stops that poller only; `EnsureHostStateDir`; delivery wired once, gated per step.
-- Stage C: `worktree.create` through `orca worktree create --repo name:<displayName>` with a closed guard.
-- Stage D: help text, agentic-usage, help-inventory, coverage matrix, release note.
+- Command pins for stage B (`internal/cmd/team_host_run_platform_3237_test.go`, override `platformDepsFor`):
+  two assigned workers registered; no request carries an entry's program/configDir/any path; host-key-only,
+  no session header; myApp mismatch / HOST_NOT_FOUND refused with no key in stdout/stderr/--json; HOST source
+  exit 5 naming SERVER with no RegisterHost; two entries → two pollers each scrubbing both keys; skew answer
+  names 0.47.0; --config golden: same RegisterHost input as before and no HostRunPlatform request.
+  Then mutants for: myApp check, source check, scrub-all, narrowEntries.
+- Stage C: `worktree.create` through `orca worktree create --repo name:<displayName> --name <label> --branch
+  <b> --base-branch <base> --setup skip --json` with a new closed `orcaterm.WorktreeCreateGuard`; unknown repo
+  fails naming `orca repo add`; `--config` keeps `git worktree add`. Currently ops.go worktreeCreate in platform
+  mode would call WorktreePath("") — guard it first.
+- Stage D: help text (`Use: run [--config <host.yaml>] [--once]`, Long), agentic-usage.md (team host run),
+  `make help-inventory`, `make coverage-matrix-check` (agentTeamHost/hostSetup/myApp gain `host run`),
+  release note `docs/release-notes/host-run-platform-3237.md` (server 0.47.0), finish this doc, review flow,
+  PR body "Closes #3237", "Closes #3285", "Refs #3288 (F8 only; leaves it open)".
 
 ## Schema
 
