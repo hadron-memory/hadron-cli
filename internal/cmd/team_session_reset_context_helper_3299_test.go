@@ -209,6 +209,10 @@ func TestResetContextRefusesAnUnsafeHelperAndSaysExitNow3299(t *testing.T) {
 			if err != nil {
 				t.Skip("no env executable")
 			}
+			// The path itself must not be a link (a symlink is refused first), so name the file it resolves to.
+			if env, err = filepath.EvalSymlinks(env); err != nil {
+				t.Skip("cannot resolve env")
+			}
 			if fi, err := os.Stat(env); err != nil || fi.Sys().(*syscall.Stat_t).Uid == uint32(os.Geteuid()) {
 				t.Skip("env is owned by the test user")
 			}
