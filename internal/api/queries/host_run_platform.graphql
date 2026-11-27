@@ -1,0 +1,31 @@
+# hadron-cli#3237 (slice C3 of hadron-server#5209): `host run` with no --config reads, every poll and with the
+# host key only (no session), this host's platform row and its placements, and checks at start that the key is
+# the stored App's. In its own file, shared with no other command, so a server without V1 (hadron-server#5259,
+# first carried by hadron-server 0.47.0) fails only this read, as schema skew. Only names come back and only
+# ids go out: nothing here carries a program, a directory or any path.
+query HostRunPlatform($appRef: String!, $hostId: String!) {
+  myApp {
+    id
+  }
+  agentTeamHost(appRef: $appRef, hostId: $hostId) {
+    hostId
+    label
+    pollIntervalSeconds
+    deliveryEnabled
+  }
+  hostSetup(appRef: $appRef) {
+    source
+    assignments {
+      hostId
+      workerId
+      worker {
+        name
+      }
+      workdir
+      family
+      model
+      effort
+      accountProfile
+    }
+  }
+}

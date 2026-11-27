@@ -86,11 +86,23 @@ var scrubbedEnv = []string{HostKeyEnv, "HADRON_TOKEN", "HADRON_LAUNCH_GRANT", St
 // variable but the scrubbed ones and any whose value carries the host key,
 // plus the given additions.
 func agentEnv(parent []string, hostKey string, add ...string) []string {
+	return agentEnvKeys(parent, []string{hostKey}, add...)
+}
+
+// agentEnvKeys is agentEnv for a process that holds several host keys (hadron-cli#3237: one poller per stored
+// credential, in one process): a value carrying ANY of them is dropped, not only the poller's own.
+func agentEnvKeys(parent []string, hostKeys []string, add ...string) []string {
 	out := make([]string, 0, len(parent)+len(add))
+next:
 	for _, kv := range parent {
 		name, value, _ := strings.Cut(kv, "=")
-		if isScrubbed(name) || (hostKey != "" && strings.Contains(value, hostKey)) {
+		if isScrubbed(name) {
 			continue
+		}
+		for _, k := range hostKeys {
+			if k != "" && strings.Contains(value, k) {
+				continue next
+			}
 		}
 		out = append(out, kv)
 	}

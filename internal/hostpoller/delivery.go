@@ -155,6 +155,11 @@ func (p *Poller) deliverStep(ctx context.Context) {
 	if ctx.Err() != nil {
 		return
 	}
+	if c := p.config(); c.platform && !c.Delivery.Enabled {
+		// A host that runs from the platform wires delivery once; its platform row's deliveryEnabled turns
+		// it off and on at the next step (hadron-cli#3237). A file's delivery is wired only when enabled.
+		return
+	}
 	probing, ok := p.deliveryDue()
 	if !ok {
 		return

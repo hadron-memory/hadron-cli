@@ -3,6 +3,7 @@ package hostfacts
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -84,19 +85,31 @@ func AccountsPath() (string, error) {
 // LoadAccounts reads the file now. An absent file is no accounts and no error.
 func LoadAccounts(path string) (Accounts, error) {
 	out := Accounts{Path: path, Entries: map[string]Entry{}, Names: []string{}}
-	st, err := os.Stat(path)
+	// cli#3285: Lstat, not Stat — a symlink is refused, never followed, so its target's mode cannot pass for
+	// the file's (blind review N2 of cli#3283); the file and the directories above it are judged before C3 runs
+	// a program the file names.
+	st, err := os.Lstat(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return out, nil
 	}
 	if err != nil {
 		return out, &AccountsError{Path: path, Msg: "cannot read the accounts file: " + err.Error()}
 	}
+	if st.Mode()&os.ModeSymlink != 0 {
+		return out, &AccountsError{Path: path, Msg: "the accounts file is a symlink; hadron does not read it through one, so replace the link with the file itself"}
+	}
+	if !st.Mode().IsRegular() {
+		return out, &AccountsError{Path: path, Msg: "the accounts file is not a regular file; replace it with one (mode 0600)"}
+	}
 	if runtime.GOOS != "windows" && st.Mode().Perm()&0o077 != 0 {
 		return out, &AccountsError{Path: path, Msg: fmt.Sprintf("the accounts file is readable by group or others (mode %04o); run chmod 600 %s", st.Mode().Perm(), path)}
 	}
-	data, err := os.ReadFile(path)
+	if err := checkAccountsTrust(path, st); err != nil {
+		return out, err
+	}
+	data, err := readSameFile(path, st)
 	if err != nil {
-		return out, &AccountsError{Path: path, Msg: "cannot read the accounts file: " + err.Error()}
+		return out, err
 	}
 	out.Present = true
 	var doc yaml.Node
@@ -130,6 +143,33 @@ func LoadAccounts(path string) (Accounts, error) {
 	sort.Strings(out.Names)
 	return out, nil
 }
+
+// readSameFile reads the file without following a symlink and only if it is still the file judged above.
+func readSameFile(path string, judged os.FileInfo) ([]byte, error) {
+	f, err := openAccountsNoFollow(path)
+	if err != nil {
+		return nil, &AccountsError{Path: path, Msg: "cannot read the accounts file: " + err.Error()}
+	}
+	defer func() { _ = f.Close() }()
+	fi, err := f.Stat()
+	if err != nil {
+		return nil, &AccountsError{Path: path, Msg: "cannot read the accounts file: " + err.Error()}
+	}
+	if !os.SameFile(judged, fi) {
+		return nil, &AccountsError{Path: path, Msg: "the accounts file changed while it was read; try again"}
+	}
+	data, err := io.ReadAll(io.LimitReader(f, maxAccountsBytes+1))
+	if err != nil {
+		return nil, &AccountsError{Path: path, Msg: "cannot read the accounts file: " + err.Error()}
+	}
+	if len(data) > maxAccountsBytes {
+		return nil, &AccountsError{Path: path, Msg: fmt.Sprintf("the accounts file is larger than %d bytes", maxAccountsBytes)}
+	}
+	return data, nil
+}
+
+// maxAccountsBytes bounds the read: an accounts file is a few named entries.
+const maxAccountsBytes = 1 << 20
 
 func newer(path, entry, key string) *AccountsError {
 	where := fmt.Sprintf("the key %q", key)

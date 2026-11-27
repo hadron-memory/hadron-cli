@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -14,7 +15,7 @@ import (
 
 func writeAccounts(t *testing.T, body string, mode os.FileMode) string {
 	t.Helper()
-	p := filepath.Join(t.TempDir(), "accounts.yaml")
+	p := filepath.Join(accountsTestDir(t), "accounts.yaml")
 	if err := os.WriteFile(p, []byte(body), mode); err != nil {
 		t.Fatal(err)
 	}
@@ -22,6 +23,22 @@ func writeAccounts(t *testing.T, body string, mode os.FileMode) string {
 		t.Fatal(err)
 	}
 	return p
+}
+
+// accountsTestDir is a fresh directory whose ancestors pass the loader's ancestor walk (cli#3285): a shared
+// host's TMPDIR can be group-writable, which the walk rightly refuses, so on Unix it is made under /tmp
+// (sticky). Windows does not judge ancestors.
+func accountsTestDir(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		return t.TempDir()
+	}
+	dir, err := os.MkdirTemp("/tmp", "accounts-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	return dir
 }
 
 func TestAccountsPathIsInTheCLIConfigDir(t *testing.T) {

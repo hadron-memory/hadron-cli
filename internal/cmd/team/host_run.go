@@ -279,9 +279,39 @@ func newCmdTeamHostRun(f *cmdutil.Factory) *cobra.Command {
 	var configPath string
 	var once bool
 	cmd := &cobra.Command{
-		Use:   "run --config <host.yaml> [--once]",
+		Use:   "run [--config <host.yaml>] [--once]",
 		Short: "Run this host's poller: register, collect, carry out, report",
-		Long: `QUICKSTART — the smallest working setup is four steps:
+		Long: `WITH NO --config (hadron-server 0.47.0 or later): the host takes its workers
+from the platform. Make the machine a host once with
+` + "`hadron team host join`" + `, which stores the host's key; then
+` + "`hadron team host run`" + ` runs one poller for each host this machine
+joined (narrow with --app <App id> and --server <url>). Each poll reads the
+host's settings (label, poll interval, delivery) and the workers the App
+placed on it, using only the host's key, and finds each worker's workdir
+among Orca's worktrees (` + "`hadron team host doctor`" + ` shows what this
+machine has). An account a worker names is looked up in the accounts file
+when the worker starts. worktree.create goes through ` + "`orca worktree create`" + `.
+No account program or account directory is sent, and workers register
+with workdir names, not paths (a start refused because a workdir matches
+several worktrees names their paths, so they can be told apart).
+Refused at start: no joined host (exit 3, join first); a key that no longer
+answers for its App or is refused (exit 3), a host that was removed (exit 4)
+or a key no longer permitted for it (exit 8), each naming
+` + "`team host join --replace`" + `; no Orca on this machine (exit 10); an App
+whose host setup source is HOST (exit 5, ` + "`team host setup --source SERVER`" + `);
+a host whose id another joined host already uses here (exit 5, naming
+` + "`team host leave`" + `), or whose state directory a host no longer
+joined here claimed (exit 5, naming the directory to remove); a host
+another ` + "`team host run`" + ` on this machine is running (exit 5); an
+older server (names 0.47.0). With several hosts, one that cannot start
+is reported and the others run; its code still counts toward the exit
+(--once: the worst code; otherwise the first host's, in join order). A
+platform read that fails without being refused (a network error, a 5xx)
+is retried with backoff, except under --once.
+
+WITH --config: the host file, as below (until the file is retired).
+
+QUICKSTART — the smallest working setup is four steps:
 
 1. Mint the host's key (writes a 0600 file; that file is key_file below):
    hadron app key create <app-ref> --out /etc/hadron/host.key
@@ -319,7 +349,9 @@ operations issued to it, carries out only the closed set of five, and
 reports every outcome. One poller per host or container.
 
   worktree.create  git worktree add from a configured repo, as
-                   <repo>/<label> under worktrees_root
+                   <repo>/<label> under worktrees_root (with no --config:
+                   orca worktree create in the Orca repository of that
+                   name; a taken branch name fails)
   worker.start     launch the worker's agent through an Orca terminal in a
                    registered worktree with HADRON_LAUNCH_GRANT, then report
                    once the agent's session binds (team session start reads
@@ -582,6 +614,10 @@ per line; --json prints each as a JSON object.`,
   hadron team host run --config /etc/hadron/host.yaml`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !cmd.Flags().Changed("config") {
+				// No --config: run from the platform (hadron-cli#3237). With it, the path below is unchanged.
+				return runPlatformHosts(cmd, f, once)
+			}
 			cfg, key, srv, err := loadHostPoller(f, configPath)
 			if err != nil {
 				return err
@@ -639,7 +675,7 @@ per line; --json prints each as a JSON object.`,
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&configPath, "config", "", "host configuration file (YAML)")
+	cmd.Flags().StringVar(&configPath, "config", "", "host configuration file (YAML); leave it out to run the hosts this machine joined, from the platform")
 	cmd.Flags().BoolVar(&once, "once", false, "poll once, wait for what it collected, and exit")
 	return cmd
 }
@@ -664,12 +700,14 @@ type hostEventDTO struct {
 	Attempt           int    `json:"attempt,omitempty"`
 	CheckedAt         string `json:"checkedAt,omitempty"`
 	NoticeFailed      bool   `json:"noticeFailed,omitempty"`
-	Time              string `json:"time"`
-	Kind              string `json:"kind"`
-	Operation         string `json:"operation"`
-	Type              string `json:"type"`
-	Outcome           string `json:"outcome"`
-	Detail            string `json:"detail"`
+	// HostID is set only by `host run` with no --config, which may run several hosts in one stream (#3237).
+	HostID    string `json:"hostId,omitempty"`
+	Time      string `json:"time"`
+	Kind      string `json:"kind"`
+	Operation string `json:"operation"`
+	Type      string `json:"type"`
+	Outcome   string `json:"outcome"`
+	Detail    string `json:"detail"`
 }
 
 // hostEventPrinter writes events one per line. Operations run concurrently,
@@ -685,7 +723,7 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 				checkedAt = e.CheckedAt.Format(time.RFC3339Nano)
 			}
 			b, _ := json.Marshal(hostEventDTO{
-				ForeignUIDSkipped: e.ForeignUIDSkipped, LocalCause: e.LocalCause, NoticeCause: e.NoticeCause, FailureReason: e.FailureReason, WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed,
+				ForeignUIDSkipped: e.ForeignUIDSkipped, LocalCause: e.LocalCause, NoticeCause: e.NoticeCause, FailureReason: e.FailureReason, WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed, HostID: e.HostID,
 				Time: e.Time.Format(time.RFC3339), Kind: e.Kind, Operation: e.Operation,
 				Type: e.Type, Outcome: e.Outcome, Detail: e.Detail,
 			})
@@ -693,6 +731,9 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 			return
 		}
 		parts := []string{e.Time.Format("15:04:05"), e.Kind}
+		if e.HostID != "" {
+			parts = []string{e.Time.Format("15:04:05"), "[" + e.HostID + "]", e.Kind}
+		}
 		for _, s := range []string{e.Type, e.Operation, e.WorkerID, e.Outcome} {
 			if s != "" {
 				parts = append(parts, s)

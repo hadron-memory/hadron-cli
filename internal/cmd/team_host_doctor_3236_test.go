@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -108,6 +109,7 @@ func doctor3236(t *testing.T, responses map[string]string, args ...string) (stri
 	srv, calls := attnServer(t, responses)
 	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
+	trustedConfigHome3285(t)
 	doctorStderr3236 = &strings.Builder{}
 	f.IOStreams.ErrOut = doctorStderr3236
 	for _, place := range doctorPending3236 {
@@ -124,6 +126,22 @@ func doctor3236(t *testing.T, responses map[string]string, args ...string) (stri
 		code = exitOf(err)
 	}
 	return out.String(), code, calls
+}
+
+// trustedConfigHome3285 points XDG_CONFIG_HOME (fresh and empty from testFactory) at a directory under /tmp:
+// the accounts loader refuses a group-writable directory above the file (cli#3285), and a shared host's TMPDIR
+// can be one. Only the config home moves; the state dir stays where it was (a tmpfs one reads differently).
+func trustedConfigHome3285(t *testing.T) {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		return
+	}
+	dir, err := os.MkdirTemp("/tmp", "hadron-config-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	t.Setenv("XDG_CONFIG_HOME", dir)
 }
 
 func doctorJSON3236(t *testing.T, out string) map[string]any {

@@ -64996,6 +64996,169 @@ func (v *HostRelaunchWorkerResponse) GetHostDesiredState() *HostRelaunchWorkerHo
 	return v.HostDesiredState
 }
 
+// HostRunPlatformAgentTeamHost includes the requested fields of the GraphQL type AgentTeamHost.
+// The GraphQL type's documentation follows.
+//
+// #5259 — a host of a team App and its settings (hrn:node:hadronmemory.com:specs:cor:agt:070:01, Proposed). A null setting is the product default. It holds no path, program, credential or account detail, and never a key.
+type HostRunPlatformAgentTeamHost struct {
+	// The host's id within the App: the one its key's host:operate scope, its registration and its assignments name.
+	HostId string `json:"hostId"`
+	Label  string `json:"label"`
+	// Seconds between the host's check-ins, 1 to 86400. Null: the host's own default.
+	PollIntervalSeconds *int `json:"pollIntervalSeconds"`
+	// Whether the host delivers wakes to its workers. Null: the default, on.
+	DeliveryEnabled *bool `json:"deliveryEnabled"`
+}
+
+// GetHostId returns HostRunPlatformAgentTeamHost.HostId, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformAgentTeamHost) GetHostId() string { return v.HostId }
+
+// GetLabel returns HostRunPlatformAgentTeamHost.Label, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformAgentTeamHost) GetLabel() string { return v.Label }
+
+// GetPollIntervalSeconds returns HostRunPlatformAgentTeamHost.PollIntervalSeconds, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformAgentTeamHost) GetPollIntervalSeconds() *int { return v.PollIntervalSeconds }
+
+// GetDeliveryEnabled returns HostRunPlatformAgentTeamHost.DeliveryEnabled, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformAgentTeamHost) GetDeliveryEnabled() *bool { return v.DeliveryEnabled }
+
+// HostRunPlatformHostSetup includes the requested fields of the GraphQL type HostSetup.
+// The GraphQL type's documentation follows.
+//
+// #4222 — what the platform says an App's hosts run: the switch, and the assignments in effect (a retired worker's are left out), by host then worker.
+type HostRunPlatformHostSetup struct {
+	Source      HostSetupSource                                            `json:"source"`
+	Assignments []*HostRunPlatformHostSetupAssignmentsHostWorkerAssignment `json:"assignments"`
+}
+
+// GetSource returns HostRunPlatformHostSetup.Source, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetup) GetSource() HostSetupSource { return v.Source }
+
+// GetAssignments returns HostRunPlatformHostSetup.Assignments, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetup) GetAssignments() []*HostRunPlatformHostSetupAssignmentsHostWorkerAssignment {
+	return v.Assignments
+}
+
+// HostRunPlatformHostSetupAssignmentsHostWorkerAssignment includes the requested fields of the GraphQL type HostWorkerAssignment.
+// The GraphQL type's documentation follows.
+//
+// #4222 — one worker the platform says a host runs (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed).
+// workdir is the name the host knows the worker's working directory by (an Orca worktree name, or a plain directory
+// name for a worker without Git); like every argument a host acts on it is a name token, never a path, a command or a
+// credential (hrn:node:hadronmemory.com:specs:cor:agt:070:03). #4230: family, model, effort and accountProfile are its
+// typed launcher profile, never a command (decision G1); while the App's hostSetupSource is SERVER a worker.start
+// carries the set ones, and the host builds the command from a fixed template for the family.
+type HostRunPlatformHostSetupAssignmentsHostWorkerAssignment struct {
+	HostId   string                                                         `json:"hostId"`
+	WorkerId string                                                         `json:"workerId"`
+	Worker   *HostRunPlatformHostSetupAssignmentsHostWorkerAssignmentWorker `json:"worker"`
+	Workdir  string                                                         `json:"workdir"`
+	Family   string                                                         `json:"family"`
+	Model    *string                                                        `json:"model"`
+	// #4230 — the effort the launcher runs the model at, a profile token. Null when unset.
+	Effort *string `json:"effort"`
+	// #4230 — the host-local account the launcher runs under, a profile token the host maps to its launcher; never a path or a credential. Null when unset.
+	AccountProfile *string `json:"accountProfile"`
+}
+
+// GetHostId returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignment.HostId, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignment) GetHostId() string { return v.HostId }
+
+// GetWorkerId returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignment.WorkerId, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignment) GetWorkerId() string {
+	return v.WorkerId
+}
+
+// GetWorker returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignment.Worker, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignment) GetWorker() *HostRunPlatformHostSetupAssignmentsHostWorkerAssignmentWorker {
+	return v.Worker
+}
+
+// GetWorkdir returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignment.Workdir, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignment) GetWorkdir() string {
+	return v.Workdir
+}
+
+// GetFamily returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignment.Family, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignment) GetFamily() string { return v.Family }
+
+// GetModel returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignment.Model, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignment) GetModel() *string { return v.Model }
+
+// GetEffort returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignment.Effort, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignment) GetEffort() *string {
+	return v.Effort
+}
+
+// GetAccountProfile returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignment.AccountProfile, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignment) GetAccountProfile() *string {
+	return v.AccountProfile
+}
+
+// HostRunPlatformHostSetupAssignmentsHostWorkerAssignmentWorker includes the requested fields of the GraphQL type Worker.
+// The GraphQL type's documentation follows.
+//
+// A Worker (#974, cor:dmo:050:11) — the named casting of an installed Agent
+// into an App: 'Iris', the backend-engineer agent cast into the eng-team App.
+// The Agent carries the reusable persona dressing; the Worker is the local
+// named identity that does attributable work. Names are unique per App,
+// case-insensitively, forever (retirement and uninstall never free them —
+// cor:agt:020:02); rows survive the agent's uninstall. A Worker is addressable
+// by its id or by the computed `urn` below (#991).
+type HostRunPlatformHostSetupAssignmentsHostWorkerAssignmentWorker struct {
+	// The worker's name ('Iris') — the identity every surface renders.
+	Name string `json:"name"`
+}
+
+// GetName returns HostRunPlatformHostSetupAssignmentsHostWorkerAssignmentWorker.Name, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformHostSetupAssignmentsHostWorkerAssignmentWorker) GetName() string {
+	return v.Name
+}
+
+// HostRunPlatformMyApp includes the requested fields of the GraphQL type App.
+// The GraphQL type's documentation follows.
+//
+// A runtime caller identity owned by exactly one Organization or User. It owns
+// long-lived App Keys and installs Agents through the AppAgent N:M join: one
+// App may install many Agents, and one Agent may be installed in many Apps.
+// The singular agentId / agent fields below are soft-deprecated convenience
+// reads of the first install, not a direct foreign key.
+type HostRunPlatformMyApp struct {
+	Id string `json:"id"`
+}
+
+// GetId returns HostRunPlatformMyApp.Id, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformMyApp) GetId() string { return v.Id }
+
+// HostRunPlatformResponse is returned by HostRunPlatform on success.
+type HostRunPlatformResponse struct {
+	// The App authenticated by the current AppKey (null for JWT users without an App)
+	MyApp *HostRunPlatformMyApp `json:"myApp"`
+	// #5259 — one live host of the App and its settings. HOST_NOT_FOUND for a host the App does not have or has removed. A
+	// host key reads only its own host: another host's id answers exactly as an unknown one, decided before any lookup
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:04). Each host-key read is recorded, a refused one too
+	// (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+	AgentTeamHost *HostRunPlatformAgentTeamHost `json:"agentTeamHost"`
+	// #4222 — what the platform says the App's hosts run (hrn:node:hadronmemory.com:specs:cor:agt:070:01, the change Proposed):
+	// the hostSetupSource switch and the assignments in effect, of one host when hostId is given. Whoever reads the
+	// App's tasks and events, the App's own key included. A host key (an App key holding host:operate) reads only its
+	// own host's rows: without hostId it gets them, and a hostId naming another host answers exactly like a host with
+	// no assignments (hrn:node:hadronmemory.com:specs:cor:agt:070:04). A key whose host:operate was revoked is refused
+	// FORBIDDEN whatever it passes. Each host-key read is recorded (hrn:node:hadronmemory.com:specs:cor:agt:070:07).
+	HostSetup *HostRunPlatformHostSetup `json:"hostSetup"`
+}
+
+// GetMyApp returns HostRunPlatformResponse.MyApp, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformResponse) GetMyApp() *HostRunPlatformMyApp { return v.MyApp }
+
+// GetAgentTeamHost returns HostRunPlatformResponse.AgentTeamHost, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformResponse) GetAgentTeamHost() *HostRunPlatformAgentTeamHost {
+	return v.AgentTeamHost
+}
+
+// GetHostSetup returns HostRunPlatformResponse.HostSetup, and is useful for accessing the field via an interface.
+func (v *HostRunPlatformResponse) GetHostSetup() *HostRunPlatformHostSetup { return v.HostSetup }
+
 // HostSetupAssignmentFields includes the GraphQL fields of HostWorkerAssignment requested by the fragment HostSetupAssignmentFields.
 // The GraphQL type's documentation follows.
 //
@@ -145154,6 +145317,18 @@ func (v *__HostRelaunchWorkerInput) GetHostId() string { return v.HostId }
 // GetWorker returns __HostRelaunchWorkerInput.Worker, and is useful for accessing the field via an interface.
 func (v *__HostRelaunchWorkerInput) GetWorker() string { return v.Worker }
 
+// __HostRunPlatformInput is used internally by genqlient
+type __HostRunPlatformInput struct {
+	AppRef string `json:"appRef"`
+	HostId string `json:"hostId"`
+}
+
+// GetAppRef returns __HostRunPlatformInput.AppRef, and is useful for accessing the field via an interface.
+func (v *__HostRunPlatformInput) GetAppRef() string { return v.AppRef }
+
+// GetHostId returns __HostRunPlatformInput.HostId, and is useful for accessing the field via an interface.
+func (v *__HostRunPlatformInput) GetHostId() string { return v.HostId }
+
 // __HostSweepIdentityInput is used internally by genqlient
 type __HostSweepIdentityInput struct {
 	AppRef string `json:"appRef"`
@@ -178722,6 +178897,68 @@ func HostRelaunchWorker(
 	}
 
 	data_ = &HostRelaunchWorkerResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by HostRunPlatform.
+const HostRunPlatform_Operation = `
+query HostRunPlatform ($appRef: String!, $hostId: String!) {
+	myApp {
+		id
+	}
+	agentTeamHost(appRef: $appRef, hostId: $hostId) {
+		hostId
+		label
+		pollIntervalSeconds
+		deliveryEnabled
+	}
+	hostSetup(appRef: $appRef) {
+		source
+		assignments {
+			hostId
+			workerId
+			worker {
+				name
+			}
+			workdir
+			family
+			model
+			effort
+			accountProfile
+		}
+	}
+}
+`
+
+// hadron-cli#3237 (slice C3 of hadron-server#5209): `host run` with no --config reads, every poll and with the
+// host key only (no session), this host's platform row and its placements, and checks at start that the key is
+// the stored App's. In its own file, shared with no other command, so a server without V1 (hadron-server#5259,
+// first carried by hadron-server 0.47.0) fails only this read, as schema skew. Only names come back and only
+// ids go out: nothing here carries a program, a directory or any path.
+func HostRunPlatform(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	appRef string,
+	hostId string,
+) (data_ *HostRunPlatformResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "HostRunPlatform",
+		Query:  HostRunPlatform_Operation,
+		Variables: &__HostRunPlatformInput{
+			AppRef: appRef,
+			HostId: hostId,
+		},
+	}
+
+	data_ = &HostRunPlatformResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

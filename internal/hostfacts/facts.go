@@ -31,6 +31,8 @@ const (
 	CodeWorkdirAmbiguousOnHost = "WORKDIR_AMBIGUOUS_ON_HOST"
 	CodeAccountNotOnHost       = "ACCOUNT_NOT_ON_HOST"
 	CodeProgramNotOnHost       = "PROGRAM_NOT_ON_HOST"
+	// Two of this host's assignments name one workdir: a worktree belongs to one worker (hadron-cli#3301 F5).
+	CodeWorkdirAssignedTwice = "WORKDIR_ASSIGNED_TWICE"
 	// An accounts-file ENTRY whose own program or configDir is missing. A worker that uses such an entry gets
 	// CodeAccountNotOnHost naming this cause, so the two layers read as one story.
 	CodeAccountProgramNotFound   = "ACCOUNT_PROGRAM_NOT_FOUND"
@@ -73,7 +75,9 @@ type Worktree struct {
 	Archived                 bool
 }
 
-// Facts is the detector. All fields are seams; New fills the production values.
+// Facts is the detector. All fields are seams; New fills the production values. Its methods only read the
+// fields and keep nothing between calls, so one Facts, once built, serves several pollers concurrently
+// (hadron-cli#3237 runs one poller per host credential over one Facts).
 type Facts struct {
 	Run          Runner
 	LookPath     func(string) (string, error)
@@ -83,6 +87,15 @@ type Facts struct {
 	GOOS         string
 	// FSType names the filesystem kind under path ("tmpfs", "ramfs", another name, or "" when unknown).
 	FSType func(path string) (string, error)
+}
+
+// Clone returns a copy of f for one poller (hadron-cli#3301 BLIND P2-5). Every field is a function value or a
+// string and none of the production functions keeps state, so a field-by-field copy shares nothing mutable; a
+// test pins that every field stays a func or a string, so a field that could share state (a map, a slice, a
+// pointer, a mutex) fails it until Clone copies that field deeply.
+func (f *Facts) Clone() *Facts {
+	c := *f
+	return &c
 }
 
 // New returns a Facts over run, with the production lookups. run may be nil until Orca is found.
