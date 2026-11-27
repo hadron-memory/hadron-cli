@@ -396,10 +396,10 @@ func storedKeyRevoked(ctx context.Context, f *cmdutil.Factory, e hostcred.Entry)
 	return resp.AuthenticationStatus == gen.AuthenticationStatusRefused
 }
 
-// openSessionList reads, with an error, the host's workers with an open session,
+// openSessionWorkers reads, with an error, the host's workers with an open session,
 // sorted, as the names to show. `team host remove --force` needs the read to have
 // succeeded; `leave` only wants a best-effort suffix (openSessionNames).
-func openSessionList(ctx context.Context, client graphql.Client, appRef, hostID string) ([]string, error) {
+func openSessionWorkers(ctx context.Context, client graphql.Client, appRef, hostID string) ([]string, error) {
 	resp, err := gen.HostDesiredState(ctx, client, appRef, hostID)
 	if err != nil {
 		return nil, err
@@ -420,7 +420,7 @@ func openSessionList(ctx context.Context, client graphql.Client, appRef, hostID 
 // openSessionNames names, best effort, the host's workers with an open
 // session (ruling RC4: the refusal itself carries no names).
 func openSessionNames(ctx context.Context, client graphql.Client, appRef, hostID string) string {
-	names, err := openSessionList(ctx, client, appRef, hostID)
+	names, err := openSessionWorkers(ctx, client, appRef, hostID)
 	if err != nil || len(names) == 0 {
 		return ""
 	}

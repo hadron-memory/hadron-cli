@@ -244,3 +244,57 @@ func TestHostRemove3282HelpStatesItsPurposeAndEffects(t *testing.T) {
 		}
 	}
 }
+
+// Error arms: not permitted (8) and a lost answer (7) keep the stored key and the
+// right exit; a confirmed forced removal of this machine's own host reports
+// removedLocally; a server that predates team App hosts is named.
+func TestHostRemove3282ErrorArms(t *testing.T) {
+	for name, c := range map[string]struct {
+		reply string
+		want  int
+		down  bool
+		text  string
+	}{
+		"forbidden":     {refusal3239("FORBIDDEN"), exitcode.Forbidden, false, ""},
+		"unreachable":   {"", exitcode.Unavailable, true, "could not list"},
+		"not confirmed": {`{"data":{"removeAgentTeamHost":false}}`, exitcode.Error, false, "did not confirm"},
+		"older server":  {`{"errors":[{"message":"Cannot query field \"removeAgentTeamHost\" on type \"Mutation\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`, exitcode.Error, false, "0.47.0"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := srv3282(t, desiredNone3282, c.reply)
+			s.down = c.down
+			var before []byte
+			r := exec3239(t, s, func(dir string) {
+				holdBox1(t, s)(dir)
+				before, _ = os.ReadFile(filepath.Join(dir, "host-credentials.json"))
+			}, "team", "host", "remove", "box1", "--force", "--app", "acme.com:eng", "--yes")
+			if r.code != c.want {
+				t.Fatalf("exit %d (%v), want %d", r.code, r.err, c.want)
+			}
+			if c.text != "" && !strings.Contains(r.err.Error(), c.text) {
+				t.Errorf("message %q lacks %q", r.err.Error(), c.text)
+			}
+			if after, _ := os.ReadFile(storePath3239()); !bytes.Equal(before, after) {
+				t.Error("the stored key changed without a confirmed removal")
+			}
+			r.assertNoKey(t)
+		})
+	}
+}
+
+// A forced removal of this machine's own host reports removedLocally, and a non-forced
+// run whose listing cannot be read says so on stderr instead of presenting [] as known.
+func TestHostRemove3282ReportsLocalDeletionAndAnUnreadableListing(t *testing.T) {
+	s := srv3282(t, refusal3239("INTERNAL_SERVER_ERROR"), "")
+	r := exec3239(t, s, holdBox1(t, s), "team", "host", "remove", "box1", "--app", "acme.com:eng", "--yes", "--json")
+	if r.err != nil {
+		t.Fatalf("%v\n%s", r.err, r.errOut)
+	}
+	dto := jsonObject3072(t, r.out)
+	if dto["removedLocally"] != true || dto["removedOnServer"] != true {
+		t.Errorf("DTO: %v", dto)
+	}
+	if !strings.Contains(r.errOut, "could not list") {
+		t.Errorf("an unreadable listing must be said on stderr:\n%s", r.errOut)
+	}
+}

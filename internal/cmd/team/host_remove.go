@@ -22,10 +22,13 @@ import (
 const forceEffects = "Removing a host ends its registration, fails its pending operations,\n  revokes its keys and removes its assignments. It does NOT end any open\n  session: the sessions stay open."
 
 type hostRemoveDTO struct {
-	Server          string   `json:"server"`
-	AppID           string   `json:"appId"`
-	HostID          string   `json:"hostId"`
-	Forced          bool     `json:"forced"`
+	Server string `json:"server"`
+	AppID  string `json:"appId"`
+	HostID string `json:"hostId"`
+	Forced bool   `json:"forced"`
+	// OpenSessions names the WORKERS of the host that had an open session when the
+	// command listed them (names, not session ids). [] with a note on stderr when the
+	// list could not be read without --force.
 	OpenSessions    []string `json:"openSessions"`
 	RemovedOnServer bool     `json:"removedOnServer"`
 	RemovedLocally  bool     `json:"removedLocally"`
@@ -57,7 +60,9 @@ WHO: whoever manages the App, signed in as themselves; the request never carries
 a worker session or a stored key. --json prints {server, appId, hostId, forced,
 openSessions, removedOnServer, removedLocally}. Exit codes: 2 no --yes off a
 terminal, 3 not signed in, 4 no such host, 5 open sessions (without --force), 7
-server unreachable or answer lost, 8 not permitted.`,
+server unreachable or answer lost, 8 not permitted, 1 anything else (the server
+did not confirm the removal, its stored key could not be deleted, or the server
+predates team App hosts: they need hadron-server 0.47.0, which has force too).`,
 		Example: `  hadron team host remove old-laptop --app acme.com:eng-team --force --yes
   hadron team host remove old-laptop --app acme.com:eng-team`,
 		Args: cobra.ExactArgs(1),
@@ -73,13 +78,14 @@ server unreachable or answer lost, 8 not permitted.`,
 			ctx := personCtx(cmd.Context())
 			// The listing runs before the confirmation and before any mutation. With
 			// --force it must succeed: a person never forces blind.
-			sessions, lerr := openSessionList(ctx, client, scope.Ref, hostID)
+			sessions, lerr := openSessionWorkers(ctx, client, scope.Ref, hostID)
 			if lerr != nil {
 				if force {
 					code := exitcode.FromError(api.MapError(lerr))
 					return exitcode.Newf(code, "could not list the host's open sessions (%s), so nothing was removed (the host given is not shown)", failureClassHost(code))
 				}
 				sessions = []string{}
+				fmt.Fprintf(f.IOStreams.ErrOut, "note: could not list the host's open sessions (%s); the server still refuses a host with an open session unless you pass --force\n", failureClassHost(exitcode.FromError(api.MapError(lerr))))
 			}
 			w := f.IOStreams.ErrOut
 			if len(sessions) > 0 {
@@ -103,7 +109,7 @@ server unreachable or answer lost, 8 not permitted.`,
 			resp, err := gen.RemoveAgentTeamHost(ctx, client, scope.Ref, hostID, forceArg)
 			switch {
 			case err != nil && api.HasErrorCode(err, "HOST_NOT_FOUND"):
-				return exitcode.Newf(exitcode.NotFound, "the server has no such host for this App; nothing was removed (the host given is not shown)")
+				return exitcode.Newf(exitcode.NotFound, "the server has no such host for this App (or it was already removed, for instance by an earlier attempt whose answer was lost); nothing was removed by this call (the host given is not shown)")
 			case err != nil && api.HasErrorCode(err, "AGENT_TEAM_HOST_HAS_OPEN_SESSIONS"):
 				names := ""
 				if len(sessions) > 0 {

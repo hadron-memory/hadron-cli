@@ -557,7 +557,7 @@ section between the markers.
 | `team host leave` |  |  | y | #1054 | db0d3fc77c9e |  | unread |  |
 | `team host list` | ls |  | y | #1054 | f76136bcd459 |  | unread |  |
 | `team host ops` |  |  | y | #1054 | a435002b8aa7 |  | unread |  |
-| `team host remove` |  |  | y | #1054 | bee23e7a3296 |  | unread |  |
+| `team host remove` |  |  | y | #1054 | 6525d7a84314 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host run` |  |  | y | #1054 | b6e84c347235 |  | unread |  |
 | `team host set` |  |  | y | #1054 | 82ac123115a2 |  | unread |  |
