@@ -123,7 +123,49 @@ func TestAppUserMemoryOmittedNameAgainstAnOlderServer3184(t *testing.T) {
 	if !called || code != exitcode.Usage {
 		t.Fatalf("exit %d, want 2 through the schema-skew mapping (sent %v)\n%s%s", code, called, out, errOut)
 	}
-	if !strings.Contains(strings.ToLower(out+errOut), "older") && !strings.Contains(strings.ToLower(out+errOut), "version") {
-		t.Errorf("the skew advice must name the version mismatch:\n%s%s", out, errOut)
+	all := out + errOut
+	for _, want := range []string{"the CLI and server schema versions are out of sync", "Update whichever is behind", "`hadron version` shows the CLI build", `argument "name"`} {
+		if !strings.Contains(all, want) {
+			t.Errorf("the skew advice (cli#3280) must say %q:\n%s", want, all)
+		}
+	}
+}
+
+// cli#3280 item 2: the create sends what it was given and nothing it was not.
+
+// --class app with --name still sends the name variable (the optional(name) change touched this path too).
+func TestAppClassCreateWithNameStillSendsTheName3280(t *testing.T) {
+	resp := map[string]string{"CreateMemoryInApp": `{"data":{"createMemoryInApp":` + derivedMemory3184 + `}}`}
+	vars, called, _, _, code := runSet3184(t, resp, "--class", "app", "--name", "Runbook")
+	if code != 0 || !called {
+		t.Fatalf("exit %d, sent %v", code, called)
+	}
+	if string(vars["name"]) != `"Runbook"` || string(vars["memoryClass"]) != `"app"` {
+		t.Errorf("--class app sends its name and class: %v", vars)
+	}
+}
+
+// memoryClass travels for the classes the server derives names for, as typed.
+func TestMemoryClassIsForwardedForPersonalAndPrivate3280(t *testing.T) {
+	resp := map[string]string{"CreateMemoryInApp": `{"data":{"createMemoryInApp":` + derivedMemory3184 + `}}`}
+	for _, class := range []string{"personal", "private"} {
+		vars, called, _, _, code := runSet3184(t, resp, "--class", class)
+		if code != 0 || !called || string(vars["memoryClass"]) != `"`+class+`"` {
+			t.Errorf("%s: exit %d, sent %v, memoryClass %s", class, code, called, vars["memoryClass"])
+		}
+	}
+}
+
+// --slug is refused for an App-scoped create whatever the class, before any request: the server names it.
+func TestSlugIsRefusedForAnAppScopedCreate3280(t *testing.T) {
+	for _, class := range []string{"app", "personal", "private"} {
+		args := []string{"--class", class, "--slug", "mine"}
+		if class == "app" {
+			args = append(args, "--name", "Runbook")
+		}
+		_, called, out, errOut, code := runSet3184(t, map[string]string{}, args...)
+		if code != exitcode.Usage || called || !strings.Contains(out+errOut, "--slug cannot be used with App-scoped creation") {
+			t.Errorf("%s: exit %d (want 2), sent %v:\n%s%s", class, code, called, out, errOut)
+		}
 	}
 }

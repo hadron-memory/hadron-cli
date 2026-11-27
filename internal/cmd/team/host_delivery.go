@@ -295,6 +295,9 @@ func deliveryEvent(e delivery.Event) hostpoller.Event {
 	if e.Unreported {
 		detail += ", unreported: no server hold, alarm or escalation"
 	}
+	if delivery.KnownCode(e.Code) {
+		detail += ", server code " + e.Code
+	}
 	return hostpoller.Event{Time: e.Time, Kind: "delivery-" + string(e.Kind), Outcome: e.Reason, Detail: detail}
 }
 
