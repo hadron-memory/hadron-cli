@@ -497,16 +497,13 @@ func renderHostDoctor(w io.Writer, d doctorDTO) error {
 		for _, wk := range d.Workers {
 			acct := "account " + output.SafeCell(d.accountLabel(wk))
 			// A workdir is judged only when Orca answered both reads; otherwise the row must not read as if it had been.
-			unchecked := ""
+			const uncheckedNote = "workdir not checked: Orca did not answer"
+			okNote, missingNote := "", ""
 			if wk.WorkdirPath == nil && !wk.hasWorkdirProblem() {
-				unchecked = "; workdir not checked: Orca did not answer"
-			}
-			missingNote := ""
-			if unchecked != "" {
-				missingNote = " (workdir not checked: Orca did not answer)"
+				okNote, missingNote = "; "+uncheckedNote, " ("+uncheckedNote+")"
 			}
 			if len(wk.Problems) == 0 {
-				p("  worker %s %s (%s): OK (%s%s)", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family), acct, unchecked)
+				p("  worker %s %s (%s): OK (%s%s)", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family), acct, okNote)
 				continue
 			}
 			p("  worker %s %s (%s): MISSING%s", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family), missingNote)

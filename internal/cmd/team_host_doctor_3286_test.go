@@ -280,3 +280,19 @@ func TestDoctorWithHostIgnoresAHostFile3286(t *testing.T) {
 		t.Errorf("the report never mentions a host file:\n%s", out)
 	}
 }
+
+// A MISSING row (another problem) still carries the unchecked-workdir note.
+func TestDoctorAMissingWorkerRowKeepsTheUncheckedWorkdirNote3286(t *testing.T) {
+	h := newDoctorHost3236(t, true) // no claude on PATH: the worker's program is missing
+	writeOrca3286(t, h, "exit 3")
+	out, _, _ := doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), hostArgs3286()...)
+	row := ""
+	for _, l := range strings.Split(out, "\n") {
+		if strings.Contains(l, "worker Iris hadron-server/antonio") {
+			row = l
+		}
+	}
+	if !strings.Contains(row, "MISSING (workdir not checked: Orca did not answer)") {
+		t.Errorf("a MISSING row keeps the note: %q\n%s", row, out)
+	}
+}
