@@ -357,9 +357,13 @@ func newCmdTeamHost(f *cmdutil.Factory) *cobra.Command {
 running this CLI as a poller: it registers which workers it can run, as
 which model family and in which worktree, collects the operations queued
 for it, carries them out and reports the outcome. A host has an id (shown
-by ` + "`list`" + `) and a configuration file, host.yaml, kept on that machine.
+by ` + "`list`" + `) and, until the host commands read the credential store, a
+configuration file, host.yaml, kept on that machine.
 
-By goal: see which hosts exist (` + "`list`" + `) and who runs what (` + "`setup`" + `); check
+By goal: make this machine a host and store its key, or give it up
+(` + "`join`" + `, ` + "`leave`" + `); read or change the platform's record of the hosts and
+their settings (` + "`hosts`" + `, ` + "`show`" + `, ` + "`set`" + `); see which hosts registered
+(` + "`list`" + `) and who runs what (` + "`setup`" + `); check
 one host's configuration and registration (` + "`status`" + `); check that its workers'
 idle compaction is off (` + "`settings-check`" + `); check what this machine has for hosting
 workers, and whether it can run the ones assigned to a host (` + "`doctor`" + `); read or issue queued
@@ -396,6 +400,11 @@ with ` + "`hadron app key scope grant <key-id> host:operate --host-id <host>`" +
 	cmd.AddCommand(newCmdTeamHostUnassign(f))
 	cmd.AddCommand(newCmdTeamHostSetup(f))
 	cmd.AddCommand(newCmdTeamHostImport(f))
+	cmd.AddCommand(newCmdTeamHostJoin(f))
+	cmd.AddCommand(newCmdTeamHostLeave(f))
+	cmd.AddCommand(newCmdTeamHostSet(f))
+	cmd.AddCommand(newCmdTeamHostHosts(f))
+	cmd.AddCommand(newCmdTeamHostShow(f))
 	cmd.AddCommand(newCmdTeamHostDoctor(f))
 	return cmd
 }

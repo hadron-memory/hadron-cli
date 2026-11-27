@@ -384,7 +384,7 @@ section between the markers.
 | `app key rotate` |  |  | y | #1053 | 3dd0492515f9 |  | unread |  |
 | `app key scope` |  |  | n | #1053 | 1560c1960003 |  | unread |  |
 | `app key scope catalogue` |  |  | y | #1053 | 34dd986e92f3 |  | unread |  |
-| `app key scope grant` |  |  | y | #1053 | 34016274e9b8 |  | unread |  |
+| `app key scope grant` |  |  | y | #1053 | 6a1eed5b733c |  | unread |  |
 | `app key scope revoke` |  |  | y | #1053 | dd5130e280df |  | unread |  |
 | `app leave` |  |  | y | #1053 | d91df8018ec3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app list` | ls |  | y | #1053 | 3cc11a01f7b2 | Celine | pass | [round 1](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6978684734) |
@@ -544,18 +544,23 @@ section between the markers.
 | `team health status` |  |  | y | #1054 | f1bdb3714169 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
 | `team health sweep` |  |  | y | #1054 | f7b10eca095b |  | unread |  |
 | `team health uninstall` |  |  | y | #1054 | 0abf43af1049 | Gemma | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7001935271) |
-| `team host` |  |  | n | #1054 | fe23255228fe |  | unread |  |
-| `team host assign` |  |  | y | #1054 | 4a7f3430748b |  | unread |  |
+| `team host` |  |  | n | #1054 | 335c3f17adab |  | unread |  |
+| `team host assign` |  |  | y | #1054 | 0f2be7359e16 |  | unread |  |
 | `team host availability` |  |  | y | #1054 | 1ac6c8626087 |  | unread |  |
 | `team host doctor` |  |  | y | #1054 | 157271bdead9 |  | unread |  |
+| `team host hosts` |  |  | y | #1054 | 75e3a60a14c9 |  | unread |  |
 | `team host import` |  |  | y | #1054 | dec913560d72 |  | unread |  |
 | `team host issue` |  |  | y | #1054 | 76d1ecad5fd3 |  | unread |  |
+| `team host join` |  |  | y | #1054 | 90d46c30c71f |  | unread |  |
+| `team host leave` |  |  | y | #1054 | db0d3fc77c9e |  | unread |  |
 | `team host list` | ls |  | y | #1054 | f76136bcd459 |  | unread |  |
 | `team host ops` |  |  | y | #1054 | a435002b8aa7 |  | unread |  |
 | `team host report-stops` |  |  | y | #1054 | 0c5db1f2f9f3 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1054#issuecomment-7013649393) |
 | `team host run` |  |  | y | #1054 | b6e84c347235 |  | unread |  |
+| `team host set` |  |  | y | #1054 | 82ac123115a2 |  | unread |  |
 | `team host settings-check` |  |  | y | #1054 | c97a82cc9f78 |  | unread |  |
 | `team host setup` |  |  | y | #1054 | ced4dce47e88 |  | unread |  |
+| `team host show` |  |  | y | #1054 | d16273fbb8d4 |  | unread |  |
 | `team host status` |  |  | y | #1054 | 3fa54104f682 |  | unread |  |
 | `team host sweep` |  |  | y | #1054 | d5bf0fc70bdd |  | unread |  |
 | `team host sweep install` |  |  | y | #1054 | 847cc4b45005 |  | unread |  |

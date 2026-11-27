@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/orcaterm"
 )
 
@@ -308,11 +309,10 @@ func (f *Facts) AgentProgram(family string) (string, *Missing) {
 }
 
 // StateDir is where a host keeps its own durable state: $XDG_STATE_HOME/hadron, else ~/.local/state/hadron.
+// The rule is config.StateDirFrom, the one the host credential store uses (hadron-cli#3239), read through
+// this package's Getenv and Home seams.
 func (f *Facts) StateDir() string {
-	if base := f.Getenv("XDG_STATE_HOME"); base != "" {
-		return filepath.Join(base, "hadron")
-	}
-	return filepath.Join(f.Home, ".local", "state", "hadron")
+	return config.StateDirFrom(f.Getenv, f.Home)
 }
 
 // StateDirOnDisk reports the state directory, and a Missing when it sits on tmpfs or ramfs: such a directory
