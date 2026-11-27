@@ -179,7 +179,9 @@ label containing @. A snapshot that does not exist yet means no data: that
 account is recorded with its windows absent.
 
 Reads only <configDir>/hadron-usage/rate-limits.json and the named ccusage
-file (a symlink is refused); runs no subprocess; writes only to the server.
+file (a glm account: only hadron-usage/glm-quota.json; a codex account: its
+rollout) (a symlink is refused); runs no subprocess, holds no key and makes no
+network call to a provider; writes only to the server.
 Nothing from a file is echoed in an error.
 
 Exit 0 after recording, 2 for refused input, otherwise as any server write.`,
