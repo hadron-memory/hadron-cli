@@ -582,6 +582,10 @@ per line; --json prints each as a JSON object.`,
   hadron team host run --config /etc/hadron/host.yaml`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !cmd.Flags().Changed("config") {
+				// No --config: run from the platform (hadron-cli#3237). With it, the path below is unchanged.
+				return runPlatformHosts(cmd, f, once)
+			}
 			cfg, key, srv, err := loadHostPoller(f, configPath)
 			if err != nil {
 				return err

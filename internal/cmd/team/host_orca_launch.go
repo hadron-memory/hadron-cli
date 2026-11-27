@@ -40,6 +40,12 @@ func wireOrcaLaunchFor(goos string, p *hostpoller.Poller, cfg *hostpoller.Config
 	if err := OrcaLaunchPlatformError(goos); err != nil {
 		return err
 	}
+	p.EnableOrcaLaunch(orcaLaunchFunc(cfg), hostpoller.ConfigProfiles{Cfg: cfg, Get: p.Current})
+	return nil
+}
+
+// orcaLaunchFunc is the Orca launcher over cfg's orca binary, its runs directory beside the state file.
+func orcaLaunchFunc(cfg *hostpoller.Config) hostpoller.OrcaLaunchFunc {
 	run := orcaterm.LaunchGuard(orcaterm.Exec(cfg.OrcaLaunch.OrcaBin, orcaLaunchCallTimeout))
 	l := hostpoller.OrcaLauncher{
 		Run: func(ctx context.Context, argv []string) (int, string, string) {
@@ -49,6 +55,19 @@ func wireOrcaLaunchFor(goos string, p *hostpoller.Poller, cfg *hostpoller.Config
 		StateDir: filepath.Join(filepath.Dir(cfg.StateFile), "runs"),
 		Proc:     hostpoller.LinuxProcessControl{},
 	}
-	p.EnableOrcaLaunch(l.LaunchFunc(), hostpoller.ConfigProfiles{Cfg: cfg, Get: p.Current})
-	return nil
+	return l.LaunchFunc()
+}
+
+// wirePlatformOrca wires a host that runs from the platform (hadron-cli#3237): every worker launches through
+// Orca from the assignments' profiles, so the launch and the relaunch are wired whatever the first poll found
+// (a worker assigned later launches without a restart). The caller has checked the platform is Linux.
+func wirePlatformOrca(p *hostpoller.Poller, cfg *hostpoller.Config, srv *hostServer, profiles hostpoller.ProfileSource) error {
+	p.EnableOrcaLaunch(orcaLaunchFunc(cfg), profiles)
+	return p.EnableRelaunch(hostpoller.RelaunchDependencies{
+		Source:       srv,
+		ReportSweep:  srv.RecordRecoverySweep,
+		Ready:        managedDaemonProbe(cfg),
+		Notice:       srv.ReportRelaunch,
+		EndAgentless: srv.EndAgentless,
+	})
 }
