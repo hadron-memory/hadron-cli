@@ -90,11 +90,13 @@ var localOnlySliceA = []string{
 // #2578, Wolfgang's stop, hadron-cli
 // findings:host-command-help-harness-must-sandbox).
 var expectedRefusalsSliceA = map[string]string{
-	"hadron team host settings-check --config /etc/hadron/host.yaml":                                                                                    "reports drift on a machine with no Claude Code settings; the page documents it in its exit codes (5 drift)",
-	"hadron team host settings-check --config host.yaml --json":                                                                                         "reports drift on a machine with no Claude Code settings; the page documents it in its exit codes (5 drift)",
-	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees":                                                         "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
-	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --apply":                                                 "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
-	"hadron team host sweep --config /etc/hadron/host.yaml":                                                                                             "refuses before any request when the host has no saved registration; the page documents it in its exit codes (5: no saved registration, start the host poller first)",
+	"hadron team host settings-check --config /etc/hadron/host.yaml":                                    "reports drift on a machine with no Claude Code settings; the page documents it in its exit codes (5 drift)",
+	"hadron team host settings-check --config host.yaml --json":                                         "reports drift on a machine with no Claude Code settings; the page documents it in its exit codes (5 drift)",
+	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees":         "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
+	"hadron team host doctor":                               "without --host it makes no request, and the sandbox's stub orca refuses on every host, so it exits 10 as the page documents (\"Exit 10: Orca is not on this machine or did not answer\"); cli#3236",
+	"hadron team host doctor --json":                        "the same exit 10 with the whole report on stdout, as the page documents (--json prints the report at exit 0, 5 and 10); cli#3236",
+	"hadron team host sweep --config /etc/hadron/host.yaml": "refuses before any request when the host has no saved registration; the page documents it in its exit codes (5: no saved registration, start the host poller first)",
 	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json":                       "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
 	"hadron team host up --app acme.com:eng --host orca1 --worktrees-root /home/orca/worktrees --desired-state-file desired.json --worker Iris --apply": "Orca-hosted workers only (exit 2 before any request), documented in the page's exit-code list: 'Orca is not reachable here'",
 }
