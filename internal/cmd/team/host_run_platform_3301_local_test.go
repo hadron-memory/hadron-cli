@@ -158,23 +158,64 @@ func TestHostRunPlatformOnceDoesNotRetryAStartRead3301(t *testing.T) {
 	}
 }
 
-// F4: a fixed refusal is never retried, with or without --once.
+// F4 and LOCAL delta P3-2 (a): every fixed refusal is never retried, with or without --once (not only a removed
+// host: a revoked key, a lost permission, a refused input and a conflict end the start too).
 func TestHostRunPlatformDoesNotRetryAFixedRefusal3301(t *testing.T) {
+	fastBackoff3301(t)
+	for _, c := range []struct {
+		code string
+		want int
+	}{
+		{"HOST_NOT_FOUND", exitcode.NotFound},
+		{"UNAUTHENTICATED", exitcode.AuthRequired},
+		{"FORBIDDEN", exitcode.Forbidden},
+		{"BAD_USER_INPUT", exitcode.Usage},
+		{"CONFLICT", exitcode.Conflict},
+	} {
+		t.Run(c.code, func(t *testing.T) {
+			var reads atomic.Int32
+			srv, _ := fakeServer3237(t, func(op string, _ json.RawMessage) string {
+				if op == "HostRunPlatform" {
+					reads.Add(1)
+					return `{"errors":[{"message":"refused","extensions":{"code":"` + c.code + `"}}]}`
+				}
+				return ""
+			})
+			withDeps3237(t, []hostcred.Entry{{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1}})
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			_, err := runCtx3301(t, ctx)
+			if exitcode.FromError(err) != c.want || reads.Load() != 1 {
+				t.Fatalf("%s ends the start at once: exit %d (want %d), %d read(s)", c.code, exitcode.FromError(err), c.want, reads.Load())
+			}
+		})
+	}
+}
+
+// LOCAL delta P3-2 (b): a start that failed transiently and is then refused on a retry stops retrying; with a
+// second host keeping the run alive, the refused one makes no further reads.
+func TestHostRunPlatformARetryEndsOnARefusal3301(t *testing.T) {
 	fastBackoff3301(t)
 	var reads atomic.Int32
 	srv, _ := fakeServer3237(t, func(op string, _ json.RawMessage) string {
 		if op == "HostRunPlatform" {
-			reads.Add(1)
+			if reads.Add(1) == 1 {
+				return `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+			}
 			return hostNotFound3301
 		}
 		return ""
 	})
-	withDeps3237(t, []hostcred.Entry{{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1}})
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	srv2, _ := goodServer3237(t, "app-2", "host-2")
+	withDeps3237(t, []hostcred.Entry{
+		{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1},
+		{Server: srv2.URL, AppID: "app-2", HostID: "host-2", Key: key2},
+	})
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	_, err := runCtx3301(t, ctx)
-	if exitcode.FromError(err) != exitcode.NotFound || reads.Load() != 1 {
-		t.Fatalf("HOST_NOT_FOUND ends the start at once: exit %d, %d read(s)", exitcode.FromError(err), reads.Load())
+	_, _ = runCtx3301(t, ctx)
+	if n := reads.Load(); n != 2 {
+		t.Fatalf("one transient read, one refused retry, then no more: %d read(s)", n)
 	}
 }
 

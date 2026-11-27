@@ -51,7 +51,8 @@ without `--once`, said once as `host-start-retrying`, then `host-started`; a ref
 A host's state is kept under `<state dir>/hosts/<hostId>`, claimed by its server and App on first run
 (`host-identity.json`). A host id is unique only on its server, so two stored hosts of one id (two servers)
 never both run on one machine: the second is a `host-not-started` event, and in a later process it is refused
-as above. If
+as above. `team host leave` deletes the left host's state directory, so a later host of the same id starts
+clean; a claim left by a host this machine no longer holds is refused naming the directory to remove. If
 the setup source flips to `HOST` mid-run, the poller registers nothing and waits, and says so once.
 
 ## Limits
@@ -62,8 +63,9 @@ the setup source flips to `HOST` mid-run, the poller registers nothing and waits
 - **Two workers assigned one workdir** register it for neither: a start for it fails `WORKDIR_ASSIGNED_TWICE`,
   naming both workers. A worktree belongs to one worker.
 - **`worktree.remove`** of a tree no assignment names (one the worker created through `worktree.create`) is
-  found on Orca's live worktree list at the removal, and every safety check still applies. A tree the worker
-  is neither assigned nor created here is refused, naming why.
+  found on Orca's live worktree list at the removal, archived trees included, and every safety check still
+  applies. It is reported already removed only when Orca lists its repository and no tree of that name; a tree
+  the worker is neither assigned nor created here, or a workdir assigned to two workers, is refused, naming why.
 
 ## Also in this release
 

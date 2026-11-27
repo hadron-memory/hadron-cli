@@ -9,6 +9,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -20,6 +21,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/hadron-memory/hadron-cli/internal/auth"
+	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -697,4 +700,41 @@ func TestHostHostsAndShow3239(t *testing.T) {
 		t.Fatalf("show of an unknown host: exit %d, want 4", r.code)
 	}
 	r.assertNoKey(t)
+}
+
+// hadron-cli#3301 LOCAL delta D2: leave deletes the left host's state directory when its claim names that host,
+// so a later host of the same id is not refused for good; a directory another host claims is kept.
+func TestHostLeave3301ReleasesOnlyItsOwnStateDirectory(t *testing.T) {
+	for _, c := range []struct {
+		name, claimApp string
+		removed        bool
+	}{{"own claim", app3239, true}, {"another App's claim", "capp-other", false}} {
+		t.Run(c.name, func(t *testing.T) {
+			s := newSrv3239(t, nil)
+			var dir string
+			r := exec3239(t, s, func(cfg string) {
+				writeStore3239(t, cfg, 0o600, [4]string{s.url, app3239, "box1", key3239})
+				var err error
+				if dir, err = config.EnsureHostStateDir("box1"); err != nil {
+					t.Fatal(err)
+				}
+				claim, _ := json.Marshal(map[string]string{"server": strings.ToLower(auth.Host(s.url)), "appId": c.claimApp})
+				for name, body := range map[string][]byte{"host-identity.json": claim, "hadron-host-state.json": []byte("{}")} {
+					if err := os.WriteFile(filepath.Join(dir, name), body, 0o600); err != nil {
+						t.Fatal(err)
+					}
+				}
+			}, "team", "host", "leave", "--app", "acme.com:eng", "--yes")
+			if r.err != nil {
+				t.Fatalf("leave: %v\n%s", r.err, r.errOut)
+			}
+			_, err := os.Stat(dir)
+			if gone := errors.Is(err, os.ErrNotExist); gone != c.removed {
+				t.Fatalf("state directory removed=%v, want %v (%v)", gone, c.removed, err)
+			}
+			if strings.Contains(r.errOut, "warning") {
+				t.Errorf("no warning for a directory released or kept on purpose:\n%s", r.errOut)
+			}
+		})
+	}
 }

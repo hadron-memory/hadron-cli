@@ -104,6 +104,8 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 	}
 	// Every stored key is scrubbed from every agent, including the keys of hosts this run does not serve.
 	keys := hostcred.Keys(entries)
+	// Every stored host, not only those this run serves: a state-directory claim held by one of them is live.
+	stored := entries
 	entries, err = narrowEntries(f, entries)
 	if err != nil {
 		return err
@@ -124,7 +126,7 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 			// A host's state lives under <state>/hosts/<hostId>, so two pollers of one id would share it.
 			s.err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as host %s (App %s) on %s, and this machine keeps a host's state by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, auth.Host(e.Server), first.HostID, first.AppID, auth.Host(first.Server))
 		} else {
-			s.host, s.poller, s.err = startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, s.emit)
+			s.host, s.poller, s.err = startPlatformHost(ctx, f, deps, facts, orcaBin, e, stored, keys, s.emit)
 			s.host.entry = e
 			// Only a host that started, or that will retry its start, holds the id: one refused for good (another
 			// host's claim on the state directory, a revoked key) leaves it to a later entry of that id, which may
@@ -139,7 +141,7 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 		slots = append(slots, s)
 	}
 	restart := func(ctx context.Context, s *hostSlot) (platformHost, *hostpoller.Poller, error) {
-		return startPlatformHost(ctx, f, deps, facts, orcaBin, s.entry, keys, s.emit)
+		return startPlatformHost(ctx, f, deps, facts, orcaBin, s.entry, stored, keys, s.emit)
 	}
 	return runPollers(ctx, slots, once, restart)
 }
@@ -226,7 +228,7 @@ func narrowEntries(f *cmdutil.Factory, entries []hostcred.Entry) ([]hostcred.Ent
 
 // startPlatformHost checks one credential against the platform and builds its poller. Every refusal is fixed
 // text naming the host and the fix; none quotes the server's own message or carries the key.
-func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDeps, facts *hostfacts.Facts, orcaBin string, e hostcred.Entry, keys []string, emit func(hostpoller.Event)) (platformHost, *hostpoller.Poller, error) {
+func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDeps, facts *hostfacts.Facts, orcaBin string, e hostcred.Entry, stored []hostcred.Entry, keys []string, emit func(hostpoller.Event)) (platformHost, *hostpoller.Poller, error) {
 	client, err := api.NewClient(e.Server, e.Key, f.HTTPClient, api.WithCredentialSent(f.Credentials(), api.CredentialHostKey))
 	if err != nil {
 		return platformHost{}, nil, err
@@ -247,7 +249,7 @@ func startPlatformHost(ctx context.Context, f *cmdutil.Factory, deps platformDep
 	if err != nil {
 		return h, nil, exitcode.Newf(exitcode.Error, "%s: the host's state directory: %v", h.who(), err)
 	}
-	if err := claimHostState(dir, e); err != nil {
+	if err := claimHostState(dir, e, stored); err != nil {
 		return h, nil, err
 	}
 	last := &lastFacts{}
@@ -302,8 +304,8 @@ type hostIdentity struct {
 // stamp is written whole to a temporary file and linked into place, which fails if the file exists, so of two
 // processes claiming one directory at once exactly one wins and the other reads its claim (BLIND delta N-B and
 // SECOND P3 on #3301); a reader never sees a half-written stamp.
-func claimHostState(dir string, e hostcred.Entry) error {
-	want := hostIdentity{Server: strings.ToLower(auth.Host(e.Server)), AppID: e.AppID}
+func claimHostState(dir string, e hostcred.Entry, stored []hostcred.Entry) error {
+	want := identityOf(e)
 	path := filepath.Join(dir, hostIdentityFile)
 	raw, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -323,10 +325,57 @@ func claimHostState(dir string, e hostcred.Entry) error {
 	if err := json.Unmarshal(raw, &got); err != nil || got.Server == "" || got.AppID == "" {
 		return exitcode.Newf(exitcode.Error, "host %s (App %s): %s does not say which host owns this state directory; remove it if no other host of this id runs here", e.HostID, e.AppID, path)
 	}
-	if got != want {
-		return exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s): this machine's state directory for host id %s belongs to the host of App %s on %s, and a host's state is kept by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, want.Server, e.HostID, got.AppID, got.Server)
+	if got == want {
+		return nil
 	}
-	return nil
+	for _, o := range stored {
+		if identityOf(o) == got {
+			return exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s): this machine's state directory for host id %s belongs to the host of App %s on %s, and a host's state is kept by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, want.Server, e.HostID, got.AppID, got.Server)
+		}
+	}
+	// The claim's host is no longer stored here (left with an older CLI, or its credential removed by hand):
+	// its state is not this host's to inherit, so the directory is named for removal (LOCAL delta D2 on #3301).
+	return exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s): this machine's state directory %s was claimed by the host of App %s on %s, which this machine no longer holds; its state is not this host's, so remove that directory and run again", e.HostID, e.AppID, want.Server, dir, got.AppID, got.Server)
+}
+
+// identityOf is the claim a stored host makes on its state directory.
+func identityOf(e hostcred.Entry) hostIdentity {
+	return hostIdentity{Server: strings.ToLower(auth.Host(e.Server)), AppID: e.AppID}
+}
+
+// releaseHostState removes a host's state directory once the host is left, when the directory's claim names
+// that host: its registration, assignments and operations ended with it, and a later host of the same id must
+// start clean rather than be refused for good (LOCAL delta D2 on #3301). A directory another host claims, or
+// one with no claim, is kept. released reports whether it was removed.
+func releaseHostState(e hostcred.Entry) (released bool, err error) {
+	dir, err := config.HostStateDir(e.HostID)
+	if err != nil {
+		return false, err
+	}
+	if fi, err := os.Lstat(dir); err != nil || !fi.IsDir() {
+		if errors.Is(err, os.ErrNotExist) {
+			return false, nil
+		}
+		if err == nil {
+			return false, fmt.Errorf("%s is not a directory", dir)
+		}
+		return false, err
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, hostIdentityFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var got hostIdentity
+	if json.Unmarshal(raw, &got) != nil || got != identityOf(e) {
+		return false, nil
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // createHostIdentity writes the stamp only if none exists: false, nil when another process stamped it first.

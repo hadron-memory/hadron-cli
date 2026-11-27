@@ -420,3 +420,70 @@ func TestAStopUsesOneConfigForItsPath3301(t *testing.T) {
 		t.Errorf("the scan used the path the stop was allowed on: %q", stopped)
 	}
 }
+
+// LOCAL delta D1: an archived tree may still be on disk, so a remove finds it on Orca's list and runs every
+// check on it; a dirty archived tree is refused and stays recorded as the worker's.
+func TestPlatformRemoveFindsAnArchivedTreeAndKeepsItsChecks3301(t *testing.T) {
+	fx, o := removeFixture3301(t)
+	path := "/home/u/orca/workspaces/hadron-cli/x"
+	o.trees = append(o.trees, hostfacts.Worktree{ID: "x", RepoID: "r1", Path: path, Branch: "refs/heads/iris/x", Archived: true})
+	_ = fx.p.state.addCreated("w-iris", "hadron-cli/x")
+	fx.host.mu.Lock()
+	fx.host.trees[path] = WorktreeState{Exists: true, IsWorktree: true, Dirty: true, Branch: "iris/x", Upstream: "origin/iris/x"}
+	fx.host.mu.Unlock()
+	if r := fx.remove("hadron-cli/x"); r.outcome != Failed || !strings.Contains(r.reason, "uncommitted") {
+		t.Fatalf("a dirty archived tree is refused, not reported removed: %+v", r)
+	}
+	if got := fx.removedPaths(); len(got) != 0 {
+		t.Fatalf("nothing is removed: %v", got)
+	}
+	if !fx.p.state.createdBy("w-iris", "hadron-cli/x") {
+		t.Error("a tree still on disk stays recorded as the worker's")
+	}
+	// Clean, it is removed like any created tree.
+	fx.host.mu.Lock()
+	fx.host.trees[path] = WorktreeState{Exists: true, IsWorktree: true, Branch: "iris/x", Upstream: "origin/iris/x"}
+	fx.host.mu.Unlock()
+	if r := fx.remove("hadron-cli/x"); r.outcome != Succeeded {
+		t.Fatalf("a clean archived tree is removed: %+v", r)
+	}
+	if got := fx.removedPaths(); len(got) != 1 || got[0] != path {
+		t.Fatalf("removed %v, want [%s]", got, path)
+	}
+}
+
+// LOCAL delta D1: a repository Orca does not list cannot prove its tree absent: FAILED, nothing removed, the
+// record kept.
+func TestPlatformRemoveOfAnUnlistedRepositoryFails3301(t *testing.T) {
+	fx, o := removeFixture3301(t)
+	o.repos = nil
+	_ = fx.p.state.addCreated("w-iris", "hadron-cli/x")
+	r := fx.remove("hadron-cli/x")
+	if r.outcome != Failed || !strings.Contains(r.reason, "no repository") || !strings.Contains(r.reason, "nothing was removed") {
+		t.Fatalf("an unlisted repository refuses: %+v", r)
+	}
+	if !fx.p.state.createdBy("w-iris", "hadron-cli/x") {
+		t.Error("the record is kept when absence is not established")
+	}
+}
+
+// LOCAL delta P3-1: a workdir assigned to two workers is no one's to remove, not even the worker that created it.
+func TestPlatformRemoveOfAWorkdirAssignedTwiceFails3301(t *testing.T) {
+	fx, o := newOrcaCreate3237(t)
+	fx.assign = append(fx.assign, Assignment{WorkerID: "w-bob", WorkerName: "Bob", Workdir: "hadron-cli/iris", Family: "claude"})
+	path := "/home/u/orca/workspaces/hadron-cli/iris"
+	fx.tree("r1", path)
+	o.trees = append(o.trees, fx.facts.Worktrees...)
+	step(t, fx.p)
+	_ = fx.p.state.addCreated("w-iris", "hadron-cli/iris")
+	fx.host.mu.Lock()
+	fx.host.trees[path] = WorktreeState{Exists: true, IsWorktree: true, Branch: "iris/x", Upstream: "origin/iris/x"}
+	fx.host.mu.Unlock()
+	r := fx.remove("hadron-cli/iris")
+	if r.outcome != Failed || !strings.Contains(r.reason, hostfacts.CodeWorkdirAssignedTwice) || !strings.Contains(r.reason, "nothing was removed") {
+		t.Fatalf("a workdir assigned twice is refused: %+v", r)
+	}
+	if got := fx.removedPaths(); len(got) != 0 {
+		t.Fatalf("nothing is removed: %v", got)
+	}
+}

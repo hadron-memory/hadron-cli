@@ -309,7 +309,9 @@ not lose its only credential. A host with an open session is refused with
 the sessions' workers named; end those sessions first (there is no force).
 When the server no longer has the host, the stored key is presented once to
 ask whether it still authenticates: only a key the server refuses is deleted
-(exit 0); otherwise the entry is kept (exit 4).
+(exit 0); otherwise the entry is kept (exit 4). With the key, the host's
+local state directory is deleted, so a later host of the same id starts
+clean.
 
 WHO: whoever manages the App, signed in as themselves; the request never
 carries a worker session or the stored key. --json prints {server, appId,
@@ -363,6 +365,11 @@ sessions, 7 server unreachable or answer lost, 8 not permitted.`,
 				return exitcode.Newf(exitcode.Error, "host %s is off the server but its stored key, now revoked, could not be deleted (%s); run `hadron team host leave` again", output.SafeCell(entry.HostID), storeErr(err).Error())
 			}
 			d.RemovedLocally = true
+			// The host's state directory goes with it, so a later host of this id is not refused by its claim.
+			// The leave has already happened; a directory that cannot be removed is said, not an exit.
+			if _, err := releaseHostState(entry); err != nil {
+				_, _ = fmt.Fprintf(f.IOStreams.ErrOut, "warning: host %s is left, but its state directory could not be removed (%v); remove it before another host of this id runs here\n", output.SafeCell(entry.HostID), err)
+			}
 			appLabel := lazyAppLabel(cmd.Context(), f, scope)
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				if _, err := fmt.Fprintf(w, "app: %s\n", appLabel()); err != nil {

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/hostfacts"
@@ -131,14 +133,44 @@ func orcaOK(stdout string) bool {
 }
 
 // platformRemoveTree finds token on Orca's live list for a platform worktree.remove whose token no assignment
-// resolved at this poll: its path, "" when Orca lists no such tree, or the reason it cannot be told.
+// resolved at this poll: its path, "" only when absence is established (the token's repository is listed and
+// no worktree of it, archived or not, has that name), or the reason it cannot be told. An archived tree may
+// still be on disk, so it is found here and every check of the remove runs on it; a repository Orca does not
+// list cannot prove a tree absent (hadron-cli#3301 LOCAL delta D1).
 func (p *Poller) platformRemoveTree(ctx context.Context, token string) (string, string) {
 	if p.orcaFacts == nil {
 		return "", fmt.Sprintf("%s: worktree %q is not an assigned workdir on this host and Orca is not wired to look it up", hostfacts.CodeWorkdirNotOnHost, token)
 	}
-	tree, why := p.orcaTree(ctx, nil, token)
-	if why != "" || tree == nil {
-		return "", why
+	repos, miss := p.orcaFacts.Repos(ctx)
+	if miss != nil {
+		return "", "Orca's repositories could not be read (" + miss.Reason + ")"
 	}
-	return tree.Path, ""
+	trees, miss := p.orcaFacts.Worktrees(ctx)
+	if miss != nil {
+		return "", "Orca's worktrees could not be read (" + miss.Reason + ")"
+	}
+	repoName, base, _ := strings.Cut(token, "/")
+	ids := map[string]bool{}
+	for _, r := range repos {
+		if r.DisplayName == repoName {
+			ids[r.ID] = true
+		}
+	}
+	if len(ids) == 0 {
+		return "", fmt.Sprintf("%s: Orca lists no repository %q, so whether worktree %q is still on disk cannot be told", hostfacts.CodeWorkdirNotOnHost, repoName, token)
+	}
+	var cands []string
+	for _, w := range trees {
+		if ids[w.RepoID] && filepath.Base(w.Path) == base {
+			cands = append(cands, w.Path)
+		}
+	}
+	sort.Strings(cands)
+	switch len(cands) {
+	case 0:
+		return "", ""
+	case 1:
+		return cands[0], ""
+	}
+	return "", fmt.Sprintf("%s: %s matches %d Orca worktrees on this host, archived ones included (%s)", hostfacts.CodeWorkdirAmbiguousOnHost, token, len(cands), strings.Join(cands, ", "))
 }

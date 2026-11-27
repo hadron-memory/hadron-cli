@@ -114,6 +114,27 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
 - **N7** is stated in the release note's Limits: a platform worker has no end prompt and no `stop_on_end`
   until C4, so `worker.end` waits the 15-minute default, reports FAILED and stops nothing.
 
+## Deltas at f69e3655 (BLIND N-A/N-B, LOCAL D1/D2, SECOND P3) and what they changed
+
+- **N-A one id, first entry refused.** `started[hostId]` is recorded only when a start succeeds or will retry
+  (`transientStart`), so an entry refused for good (another host's claim, a revoked key) leaves the id to a later
+  entry of it, which may be the claim's holder.
+- **N-B / SECOND P3 the claim race.** `claimHostState` writes the stamp to a temp file in the directory and
+  `os.Link`s it into place: the link fails on an existing file, so of two processes exactly one wins and the
+  other reads the winner's claim; a reader never sees a half-written stamp.
+- **D2 the claim outlived `leave`.** `team host leave`, once the key is deleted, removes `hosts/<id>` when its
+  claim names the host it left (`releaseHostState`); another host's directory, or one with no claim, is kept, and
+  a failed removal is a warning (the leave has happened). At run, a claim whose (server, App) no stored
+  credential holds is refused naming the directory to remove (its state is not the new host's to inherit), not
+  `team host leave`, which could not clear it.
+- **D1 remove of an archived tree.** `platformRemoveTree` matches archived trees too (an archived tree may still
+  be on disk; every check then runs on it) and reports a token absent only when its repository is listed and no
+  tree of it has the name; an unlisted repository fails, nothing removed, the created record kept.
+- **LOCAL P3-1.** A workdir assigned twice is refused for `worktree.remove` too (`WORKDIR_ASSIGNED_TWICE`),
+  before the Orca lookup, so not even its creator removes it.
+- **LOCAL P3-2 pins.** Every refused code of the start read (2/3/4/5/8) is pinned as not retried; a retry
+  refused ends the retry; the claim compares server as well as App.
+
 ## Left for later (out of scope here)
 
 - The rest of #3288 (F8 only here; the task AT0.11114.1 builds the rest after this merges).

@@ -204,13 +204,22 @@ func TestHostRunPlatformRefusesAStateDirectoryAnotherHostClaimed3301(t *testing.
 	if _, _, err := run3237(t, false, "--once"); err != nil {
 		t.Fatalf("the same host runs again on its own claim: %v", err)
 	}
+	// LOCAL delta P3-2 (c): the claim is by server and App; this App's id on another server is not this host.
+	if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), []byte(`{"server":"other.example","appId":"app-1"}`+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := run3237(t, false, "--once"); exitcode.FromError(err) != exitcode.Conflict {
+		t.Fatalf("a claim of this App's id on another server is refused, exit 5: %v", err)
+	}
 	if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), []byte(`{"server":"other.example","appId":"app-9"}`+"\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	before := len(calls())
 	_, errOut, err := run3237(t, false, "--once")
-	if exitcode.FromError(err) != exitcode.Conflict || !strings.Contains(err.Error(), "app-9") || !strings.Contains(err.Error(), "team host leave") {
-		t.Fatalf("another host's claim is refused, exit 5, naming it and the fix: %v\n%s", err, errOut)
+	// app-9 is not stored here, so `team host leave` cannot clear its claim: the refusal names the directory
+	// to remove instead (LOCAL delta D2).
+	if exitcode.FromError(err) != exitcode.Conflict || !strings.Contains(err.Error(), "app-9") || !strings.Contains(err.Error(), "no longer holds") || !strings.Contains(err.Error(), dir) || strings.Contains(err.Error(), "team host leave") {
+		t.Fatalf("a claim of a host no longer stored is refused, exit 5, naming the directory to remove: %v\n%s", err, errOut)
 	}
 	for _, c := range calls()[before:] {
 		if c.op != "HostRunPlatform" {
@@ -271,6 +280,9 @@ func TestHostRunPlatformAFirstHostRefusedForGoodLeavesItsIDToTheClaimHolder3301(
 	if exitcode.FromError(err) != exitcode.Conflict {
 		t.Fatalf("the first host's claim refusal is the --once exit (5): %v\n%s\n%s", err, out, errOut)
 	}
+	if !strings.Contains(out+errOut+err.Error(), "team host leave") {
+		t.Errorf("a claim held by a stored host names `team host leave`:\n%s\n%s\n%v", out, errOut, err)
+	}
 	if len(w.pollers) != 1 {
 		t.Fatalf("the claim holder runs; got %d pollers\n%s\n%s", len(w.pollers), out, errOut)
 	}
@@ -294,7 +306,7 @@ func TestClaimHostStateHasOneWinnerUnderARace3301(t *testing.T) {
 		for _, e := range []hostcred.Entry{a, b} {
 			go func() {
 				<-start
-				err := claimHostState(dir, e)
+				err := claimHostState(dir, e, []hostcred.Entry{a, b})
 				if err == nil {
 					wins.Add(1)
 				}

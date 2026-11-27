@@ -8,6 +8,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/hadron-memory/hadron-cli/internal/hostfacts"
 )
 
 // worktree.create: a new worktree for a worker, from a configured repo. Its
@@ -101,6 +103,12 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		// A host that runs from the platform, and no assignment resolved the token at this poll: a tree this
 		// worker created here, or one an assignment named before, is found on Orca's live list (hadron-cli#3301
 		// LOCAL F2). Not there is already removed; unreadable or ambiguous refuses, and nothing is inspected.
+		if strings.HasPrefix(c.unresolved[token], hostfacts.CodeWorkdirAssignedTwice) {
+			// Assigned to several workers, it is no one's: not even the worker that created it removes it
+			// (LOCAL delta P3-1 on #3301).
+			p.finish(ctx, op, Failed, "", fmt.Sprintf("%s: workdir %q is assigned to more than one worker on this host, so it is no one's to remove; nothing was removed", hostfacts.CodeWorkdirAssignedTwice, token))
+			return
+		}
 		tree, why := p.platformRemoveTree(ctx, token)
 		switch {
 		case why != "":
