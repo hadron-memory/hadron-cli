@@ -30,6 +30,10 @@ const (
 	CodeWorkdirAmbiguousOnHost = "WORKDIR_AMBIGUOUS_ON_HOST"
 	CodeAccountNotOnHost       = "ACCOUNT_NOT_ON_HOST"
 	CodeProgramNotOnHost       = "PROGRAM_NOT_ON_HOST"
+	// An accounts-file ENTRY whose own program or configDir is missing. A worker that uses such an entry gets
+	// CodeAccountNotOnHost naming this cause, so the two layers read as one story.
+	CodeAccountProgramNotFound   = "ACCOUNT_PROGRAM_NOT_FOUND"
+	CodeAccountConfigDirNotFound = "ACCOUNT_CONFIGDIR_NOT_FOUND"
 )
 
 // worktreeLimit is the row cap asked of `orca worktree list`: Orca returns 200 rows by default and
@@ -108,7 +112,8 @@ func (f *Facts) OrcaBin() (string, *Missing) {
 	var fallback string
 	if f.GOOS == "darwin" {
 		fallback = macOrcaBundle
-	} else if f.Home != "" {
+	} else if f.Home != "" && f.GOOS != "windows" {
+		// Orca's own CLI directory on Linux; its Windows path is not known, so no fallback is guessed there.
 		fallback = filepath.Join(f.Home, ".config", "orca", "cli", "bin", "orca")
 	}
 	if fallback != "" && f.IsExecutable(fallback) {

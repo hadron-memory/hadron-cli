@@ -2,6 +2,7 @@ package team
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -43,10 +44,11 @@ var newHostDoctorEnv = func(cmd *cobra.Command, f *cmdutil.Factory) hostDoctorEn
 }
 
 const (
-	codeAccountProgram   = "ACCOUNT_PROGRAM_NOT_FOUND"
-	codeAccountConfigDir = "ACCOUNT_CONFIGDIR_NOT_FOUND"
-	notPlatformSetup     = "App does not take its setup from the platform: its workers come from the host file, so doctor checks no assignments."
-	defaultAccountsNote  = "no account named: claude, glm and kimi use ~/.claude; codex uses Orca's active managed Codex account"
+	// doctorExitMissing is exit 5: something this host needs is missing. It is exitcode.Conflict, the code
+	// `team host settings-check` also returns for a finding.
+	doctorExitMissing   = exitcode.Conflict
+	notPlatformSetup    = "App does not take its setup from the platform: its workers come from the host file, so doctor checks no assignments."
+	defaultAccountsNote = "claude, glm and kimi use ~/.claude; codex uses Orca's active managed Codex account"
 )
 
 type doctorProblem struct {
@@ -64,12 +66,15 @@ type doctorOrca struct {
 }
 
 type doctorFact struct {
-	Fact   string  `json:"fact"`
-	Status string  `json:"status"` // FOUND, MISSING or UNKNOWN (Orca could not be asked)
+	Fact string `json:"fact"`
+	// FOUND; MISSING (something needs it: counts toward exit 5); NOT_FOUND (a program no assigned worker relies
+	// on, or that no worker was read to need: informational); UNKNOWN (Orca could not be asked).
+	Status string  `json:"status"`
 	Value  *string `json:"value"`
 	Reason *string `json:"reason"`
 	Fix    *string `json:"fix"`
-	// Needed is false for a missing program no assigned worker uses: informational, never exit 5.
+	// Needed is true when something relies on the fact. A program is needed only by an assigned worker that
+	// runs the family's default program; without --host nothing was read, so it is false.
 	Needed bool `json:"needed"`
 }
 
@@ -118,7 +123,10 @@ type doctorDTO struct {
 	Accounts     []doctorAccount    `json:"accounts"`
 	Setup        *doctorSetup       `json:"setup"`
 	Workers      []doctorWorker     `json:"workers"`
-	OK           bool               `json:"ok"`
+	// WorkersChecked is true only when the assigned workers were read and checked. Exit 0 and ok:true without
+	// it mean only that the machine's own facts passed.
+	WorkersChecked bool `json:"workersChecked"`
+	OK             bool `json:"ok"`
 }
 
 func doctorStr(s string) *string { return &s }
@@ -196,21 +204,30 @@ func buildHostDoctor(ctx context.Context, env hostDoctorEnv, hostID string, with
 	}
 	d.AccountsFile = doctorAccountsFile{Path: apath, Present: acc.Present}
 	if accErr != nil {
-		d.AccountsFile.Error = doctorStr(accErr.Error())
+		msg := accErr.Error()
+		var ae *hostfacts.AccountsError
+		if errors.As(accErr, &ae) {
+			msg = ae.Msg // the path is already in accountsFile.path
+		}
+		d.AccountsFile.Error = doctorStr(msg)
 		problems++
 	}
 	progOf := func(family string) (string, *hostfacts.Missing) { return env.Facts.AgentProgram(family) }
-	for _, name := range acc.Names {
+	names := acc.Names
+	if accErr != nil {
+		names = nil // a refused file lists no entry as if it counted
+	}
+	for _, name := range names {
 		e := acc.Entries[name]
 		a := doctorAccount{Name: name, Family: e.Family, Tool: e.Tool(), Problems: []doctorProblem{}}
 		if e.Program != "" {
 			a.Program = doctorStr(e.Program)
 			a.ProgramFound = env.Facts.IsExecutable(e.Program)
 			if !a.ProgramFound {
-				a.Problems = append(a.Problems, doctorProblem{Code: codeAccountProgram, Message: fmt.Sprintf("program %s is not an executable file", e.Program), Fix: "correct `program` in the accounts file, or install it"})
+				a.Problems = append(a.Problems, doctorProblem{Code: hostfacts.CodeAccountProgramNotFound, Message: fmt.Sprintf("program %s is not an executable file", e.Program), Fix: "correct `program` in the accounts file, or install it"})
 			}
 		} else if p, m := progOf(e.Family); m != nil {
-			a.Problems = append(a.Problems, doctorProblem{Code: codeAccountProgram, Message: m.Reason, Fix: m.Fix})
+			a.Problems = append(a.Problems, doctorProblem{Code: hostfacts.CodeAccountProgramNotFound, Message: m.Reason, Fix: m.Fix})
 		} else {
 			a.Program, a.ProgramFound = doctorStr(p), true
 		}
@@ -219,7 +236,7 @@ func buildHostDoctor(ctx context.Context, env hostDoctorEnv, hostID string, with
 			found := env.IsDir(e.ConfigDir)
 			a.ConfigDirFound = &found
 			if !found {
-				a.Problems = append(a.Problems, doctorProblem{Code: codeAccountConfigDir, Message: fmt.Sprintf("configDir %s is not a directory", e.ConfigDir), Fix: "create the directory, or correct `configDir` in the accounts file"})
+				a.Problems = append(a.Problems, doctorProblem{Code: hostfacts.CodeAccountConfigDirNotFound, Message: fmt.Sprintf("configDir %s is not a directory", e.ConfigDir), Fix: "create the directory, or correct `configDir` in the accounts file"})
 			}
 		}
 		problems += len(a.Problems)
@@ -247,11 +264,14 @@ func buildHostDoctor(ctx context.Context, env hostDoctorEnv, hostID string, with
 			prof := sd.Profile
 			d.Setup.Profile = &prof
 			for _, a := range sd.Assignments {
-				w := evalWorker(env, a, sd.Profile, acc, accErr, apath, repos, worktrees, reposOK && worktreesOK, orcaUp)
-				needFamily[hostfacts.CanonicalFamily(a.Family)] = true
+				w, usesDefault := evalWorker(env, a, sd.Profile, acc, accErr, apath, repos, worktrees, reposOK && worktreesOK, orcaUp)
+				if usesDefault {
+					needFamily[hostfacts.CanonicalFamily(a.Family)] = true
+				}
 				problems += len(w.Problems)
 				d.Workers = append(d.Workers, w)
 			}
+			d.WorkersChecked = true
 		}
 	}
 
@@ -259,7 +279,10 @@ func buildHostDoctor(ctx context.Context, env hostDoctorEnv, hostID string, with
 	for _, fam := range []string{"claude", "codex", "glm", "kimi"} {
 		f := doctorFact{Fact: "agent program (" + fam + ")", Needed: needFamily[fam]}
 		if p, m := progOf(fam); m != nil {
-			f.Status = "MISSING"
+			f.Status = "NOT_FOUND"
+			if f.Needed {
+				f.Status = "MISSING"
+			}
 			f.Reason, f.Fix = missingFields(m)
 		} else {
 			f.Status, f.Value = "FOUND", doctorStr(p)
@@ -279,22 +302,20 @@ func buildHostDoctor(ctx context.Context, env hostDoctorEnv, hostID string, with
 	}
 	d.Facts = append(d.Facts, sf)
 
-	_ = reposOK
-	_ = worktreesOK
 	code := 0
 	switch {
 	case unreachable:
 		code = exitcode.OrcaUnreachable
 	case problems > 0:
-		code = exitcode.Conflict
+		code = doctorExitMissing
 	}
-	d.OK = code == 0
+	d.OK = code == 0 && setupErr == nil
 	return d, code, setupErr
 }
 
 // evalWorker checks one assignment: its workdir, its account, its program.
 func evalWorker(env hostDoctorEnv, a hostAssignmentDTO, profile string, acc hostfacts.Accounts, accErr error, apath string,
-	repos []hostfacts.Repo, worktrees []hostfacts.Worktree, orcaKnown, orcaUp bool) doctorWorker {
+	repos []hostfacts.Repo, worktrees []hostfacts.Worktree, orcaKnown, orcaUp bool) (doctorWorker, bool) {
 	name := a.WorkerID
 	if a.WorkerName != nil && *a.WorkerName != "" {
 		name = *a.WorkerName
@@ -388,18 +409,25 @@ func evalWorker(env hostDoctorEnv, a hostAssignmentDTO, profile string, acc host
 	if len(w.Problems) > 0 {
 		w.Status = "MISSING"
 	}
-	return w
+	// usesDefault: the worker runs the family's default program, so that program is needed on this host.
+	return w, !progFromEntry
 }
 
 func renderHostDoctor(w io.Writer, d doctorDTO) error {
-	p := func(format string, a ...any) { _, _ = fmt.Fprintf(w, format+"\n", a...) }
+	var werr error
+	p := func(format string, a ...any) {
+		if werr == nil {
+			_, werr = fmt.Fprintf(w, format+"\n", a...)
+		}
+	}
+	fix := func(indent, text string) { p("%sfix: %s", indent, output.SafeCell(text)) }
 	p("host doctor: what this machine has, detected now (nothing is read from a host file or kept)")
 	switch d.Orca.Status {
 	case "FOUND":
 		p("orca: found %s (version %s)", output.SafeCell(*d.Orca.Bin), output.SafeCell(*d.Orca.Version))
 	default:
 		p("orca: %s: %s", d.Orca.Status, output.SafeCell(*d.Orca.Reason))
-		p("  fix: %s", output.SafeCell(*d.Orca.Fix))
+		fix("  ", *d.Orca.Fix)
 	}
 	for _, f := range d.Facts {
 		switch f.Status {
@@ -407,16 +435,19 @@ func renderHostDoctor(w io.Writer, d doctorDTO) error {
 			p("%s: found, %s", f.Fact, output.SafeCell(*f.Value))
 		case "UNKNOWN":
 			p("%s: unknown (%s)", f.Fact, output.SafeCell(*f.Reason))
-		default:
-			note := ""
-			if !f.Needed {
-				note = " (informational: no assigned worker needs it)"
+		case "NOT_FOUND":
+			why := "only needed if a worker runs this family; pass --host to check"
+			if d.WorkersChecked {
+				why = "no assigned worker runs it by default"
 			}
-			p("%s: MISSING: %s%s", f.Fact, output.SafeCell(*f.Reason), note)
-			p("  fix: %s", output.SafeCell(*f.Fix))
+			p("%s: not found: %s (%s)", f.Fact, output.SafeCell(*f.Reason), why)
+			fix("  ", *f.Fix)
+		default:
+			p("%s: MISSING: %s", f.Fact, output.SafeCell(*f.Reason))
+			fix("  ", *f.Fix)
 		}
 	}
-	p("default accounts: %s", defaultAccountsNote)
+	p("default accounts (when a worker names none): %s", defaultAccountsNote)
 	switch {
 	case d.AccountsFile.Error != nil:
 		p("accounts file %s: REFUSED: %s", output.SafeCell(d.AccountsFile.Path), output.SafeCell(*d.AccountsFile.Error))
@@ -432,7 +463,8 @@ func renderHostDoctor(w io.Writer, d doctorDTO) error {
 		}
 		p("  account %s (%s): MISSING", output.SafeCell(a.Name), a.Family)
 		for _, pr := range a.Problems {
-			p("    %s: %s; fix: %s", pr.Code, output.SafeCell(pr.Message), output.SafeCell(pr.Fix))
+			p("    %s: %s", pr.Code, output.SafeCell(pr.Message))
+			fix("      ", pr.Fix)
 		}
 	}
 	if d.Setup != nil {
@@ -445,23 +477,39 @@ func renderHostDoctor(w io.Writer, d doctorDTO) error {
 			p("assignments: %d worker(s) assigned (profile %s)", len(d.Workers), *d.Setup.Profile)
 		}
 		for _, wk := range d.Workers {
-			acct := "account " + d.accountLabel(wk)
+			acct := "account " + output.SafeCell(d.accountLabel(wk))
 			if len(wk.Problems) == 0 {
 				p("  worker %s %s (%s): OK (%s)", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family), acct)
 				continue
 			}
 			p("  worker %s %s (%s): MISSING", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family))
 			for _, pr := range wk.Problems {
-				p("    %s: %s; fix: %s", pr.Code, output.SafeCell(pr.Message), output.SafeCell(pr.Fix))
+				p("    %s: %s", pr.Code, output.SafeCell(pr.Message))
+				fix("      ", pr.Fix)
 			}
 		}
 	}
-	if d.OK {
-		p("result: ok")
-	} else {
+	switch {
+	case d.Orca.Status != "FOUND" || orcaFactMissing(d):
+		p("result: Orca is missing or did not answer (exit 10)")
+	case !d.OK:
 		p("result: something is missing (see above)")
+	case !d.WorkersChecked:
+		p("result: ok for this machine; no workers were checked (pass --host <id> to check the workers assigned to a host)")
+	default:
+		p("result: ok")
 	}
-	return nil
+	return werr
+}
+
+// orcaFactMissing is true when Orca was found but a read of it failed, the other way exit 10 happens.
+func orcaFactMissing(d doctorDTO) bool {
+	for _, f := range d.Facts {
+		if (f.Fact == "orca repos" || f.Fact == "orca worktrees") && f.Status == "MISSING" {
+			return true
+		}
+	}
+	return false
 }
 
 func (d doctorDTO) accountLabel(w doctorWorker) string {
@@ -481,13 +529,19 @@ func newCmdTeamHostDoctor(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor [--host <host-id>] [--json]",
 		Short: "Check what this machine has for hosting workers",
-		Long: `Check what this machine has, one line per fact, found or missing with the step that fixes it. Every fact
+		Long: `Check what this machine has, one line per fact: found, or missing with the step that fixes it. Every fact
 is detected when you run this; nothing is read from a host file and nothing is kept.
 
-It reports: Orca (where it is and its version, the repositories and worktrees it knows), the program each
-family runs (claude, codex, claude-glm, claude-kimi), whether the state directory is on disk and not tmpfs, and the
-accounts file if there is one. The accounts file is optional: ` + "`~/.config/hadron/accounts.yaml`" + ` (in the Hadron
-config directory on Linux and macOS, mode 0600) names extra accounts a worker can run under:
+It reports:
+  Orca                where its command is, its version, and the repositories and worktrees it lists.
+  agent programs      the program each family runs, found on PATH: claude runs claude, codex runs codex,
+                      glm runs claude-glm, kimi runs claude-kimi.
+  state directory     where hadron keeps this host's own state: $XDG_STATE_HOME/hadron, else ~/.local/state/hadron.
+                      It must be on disk; on tmpfs (memory that is emptied at reboot) it is reported missing.
+  accounts file       optional, below.
+
+The accounts file is ` + "`~/.config/hadron/accounts.yaml`" + ` (in the Hadron config directory on Linux and macOS, mode 0600). It
+names extra accounts a worker can run under:
 
   accounts:
     work:
@@ -501,16 +555,19 @@ glm and kimi use ~/.claude and codex uses Orca's active managed Codex account. O
 
 --host <host-id> also reads the workers assigned to that host (as you, or through the worktree's binding: the
 same read as ` + "`team host setup`" + `) and checks each one: its workdir (<repository name>/<directory name>) is one worktree
-Orca knows (WORKDIR_NOT_ON_HOST or WORKDIR_AMBIGUOUS_ON_HOST, which names the candidates), its account is in the
-accounts file with the worker's family (ACCOUNT_NOT_ON_HOST), and its program is on PATH (PROGRAM_NOT_ON_HOST). Without
---host the command makes no request. When the App does not take its setup from the platform it says so and checks no
-worker.
+Orca knows (WORKDIR_NOT_ON_HOST, or WORKDIR_AMBIGUOUS_ON_HOST, which names the candidates), its account is in the
+accounts file with the worker's family (ACCOUNT_NOT_ON_HOST, naming the cause), and its program is on PATH
+(PROGRAM_NOT_ON_HOST). An accounts-file entry whose own program or configDir is missing is reported on the entry as
+ACCOUNT_PROGRAM_NOT_FOUND or ACCOUNT_CONFIGDIR_NOT_FOUND. Without --host the command makes no request and checks
+no worker: a program not found is only informational, because nothing says a worker needs it. When the App does
+not take its setup from the platform it says so and checks no worker.
 
-Exit 0: the host can run every assigned worker. Exit 5: something is missing (a worker's workdir, account or
-program, a broken accounts-file entry or a refused file, a state directory on tmpfs); a program no assigned worker
-needs is informational. Exit 10: Orca is not on this machine or did not answer, which dominates exit 5. --json prints
-the whole report at exit 0, 5 and 10. If the assignments read fails, the local lines are printed and the command
-exits with that read's own code (3, 7 or 8).`,
+Exit 0: everything checked is fine; without --host that is the machine's own facts only, and the last line says no
+workers were checked. Exit 5: something is missing (a worker's workdir, account or program, a broken accounts-file
+entry or a refused file, a state directory on tmpfs); a program no assigned worker runs by default is informational.
+Exit 10: Orca is not on this machine or did not answer, which dominates exit 5. --json prints the whole report at
+exit 0, 5 and 10, with workersChecked saying whether any worker was checked. If the assignments read fails, the local
+lines are printed and the command exits with that read's own code (3, 7 or 8); the report's ok is then false.`,
 		Example: "  hadron team host doctor\n  hadron team host doctor --host orca1 --app acme.com:eng-team\n  hadron team host doctor --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -525,7 +582,7 @@ exits with that read's own code (3, 7 or 8).`,
 			}
 			if setupErr != nil {
 				_, _ = fmt.Fprintln(f.IOStreams.ErrOut, setupErr.Error())
-				if code == 0 || code == exitcode.Conflict {
+				if code == 0 || code == doctorExitMissing {
 					code = exitcode.FromError(setupErr)
 				}
 			}

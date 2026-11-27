@@ -146,3 +146,17 @@ func TestAnEntryWithoutToolStaysValidAndMeansTheFamilysTool(t *testing.T) {
 		t.Fatalf("%+v, %v", a, err)
 	}
 }
+
+// An optional key left empty is an absent key; an empty required key is still refused.
+func TestAnEmptyOptionalKeyIsAbsentAndAnEmptyFamilyIsRefused(t *testing.T) {
+	a, err := LoadAccounts(writeAccounts(t, "accounts:\n  w:\n    family: claude\n    program:\n    configDir:\n", 0o600))
+	if err != nil || a.Entries["w"].Program != "" || a.Entries["w"].ConfigDir != "" {
+		t.Fatalf("empty optional keys are absent: %+v, %v", a, err)
+	}
+	if _, err := LoadAccounts(writeAccounts(t, "accounts:\n  w:\n    family:\n", 0o600)); err == nil || !strings.Contains(err.Error(), "family") {
+		t.Errorf("an empty family is refused naming family: %v", err)
+	}
+	if _, err := LoadAccounts(writeAccounts(t, "accounts:\n  w:\n    family: claude\n    program:\n    program: /x\n", 0o600)); err == nil || !strings.Contains(err.Error(), "twice") {
+		t.Errorf("a duplicate of an empty key is still refused: %v", err)
+	}
+}

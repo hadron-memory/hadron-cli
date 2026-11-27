@@ -81,3 +81,22 @@ func TestDoctorExit10DominatesExit5(t *testing.T) {
 		}
 	}
 }
+
+type failingWriter3236 struct{ n int }
+
+func (w *failingWriter3236) Write(p []byte) (int, error) {
+	w.n++
+	return 0, os.ErrClosed
+}
+
+// A closed stdout must not read as a clean exit with a truncated report: the first write error is returned.
+func TestDoctorRenderReturnsTheFirstWriteError(t *testing.T) {
+	d, _, _ := buildHostDoctor(context.Background(), doctorEnv3236(true, "ext4"), "", false)
+	w := &failingWriter3236{}
+	if err := renderHostDoctor(w, d); err == nil {
+		t.Fatal("a failed write is an error")
+	}
+	if w.n != 1 {
+		t.Errorf("after the first failed write nothing more is written, got %d writes", w.n)
+	}
+}

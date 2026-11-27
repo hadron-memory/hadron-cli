@@ -361,7 +361,8 @@ by ` + "`list`" + `) and a configuration file, host.yaml, kept on that machine.
 
 By goal: see which hosts exist (` + "`list`" + `) and who runs what (` + "`setup`" + `); check
 one host's configuration and registration (` + "`status`" + `); check that its workers'
-idle compaction is off (` + "`settings-check`" + `); read or issue queued
+idle compaction is off (` + "`settings-check`" + `); check what this machine has for hosting
+workers, and whether it can run the ones assigned to a host (` + "`doctor`" + `); read or issue queued
 operations (` + "`ops`" + `, ` + "`issue`" + `); record who runs what
 (` + "`assign`" + `, ` + "`unassign`" + `, ` + "`setup`" + `, ` + "`import`" + `); reconcile workers to that
 record (` + "`up`" + `, ` + "`sweep`" + `, and the recorded outcomes in ` + "`sweep-runs`" + `); keep one

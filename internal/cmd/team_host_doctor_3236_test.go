@@ -107,6 +107,7 @@ func doctor3236(t *testing.T, responses map[string]string, args ...string) (stri
 	for _, place := range doctorPending3236 {
 		place(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron"))
 	}
+	doctorPending3236 = nil // a file belongs to one run
 	root := NewRootCmd(f)
 	root.SetArgs(append([]string{"--server", srv.URL, "team", "host", "doctor"}, args...))
 	code := 0
@@ -200,8 +201,8 @@ func TestDoctorPerWorkerWorkdirVerdicts(t *testing.T) {
 			t.Errorf("doctor must say %q:\n%s", want, out)
 		}
 	}
-	if strings.Contains(out, "hadron-server/antonio") && strings.Contains(out, "WORKDIR_NOT_ON_HOST: hadron-server/antonio") {
-		t.Errorf("a workdir Orca knows is no problem:\n%s", out)
+	if row := factLine3236(strings.ReplaceAll(out, "  worker", "worker"), "worker Iris hadron-server/antonio"); !strings.Contains(row, "OK") {
+		t.Errorf("a workdir Orca knows is an OK row:\n%s", out)
 	}
 }
 
@@ -366,22 +367,135 @@ func TestDoctorAFailedAssignmentsReadPrintsTheLocalSectionsThenExitsWithTheMappe
 	}
 }
 
-func TestDoctorAnUnassignedFamilysMissingProgramIsInformational(t *testing.T) {
+func TestDoctorAProgramNoWorkerRunsIsNotFoundNeverMissing(t *testing.T) {
 	newDoctorHost3236(t, true, "claude")
 	out, code, _ := doctor3236(t, nil)
 	if code != 0 {
-		t.Fatalf("a missing codex nobody is assigned is no problem: exit %d\n%s", code, out)
+		t.Fatalf("a program nobody is known to need is no problem: exit %d\n%s", code, out)
 	}
-	if line := factLine3236(out, "agent program (codex)"); !strings.Contains(line, "MISSING") || !strings.Contains(line, "informational") {
-		t.Errorf("the fact is shown, as informational:\n%s", out)
+	line := factLine3236(out, "agent program (codex)")
+	if !strings.Contains(line, "not found") || strings.Contains(line, "MISSING") || !strings.Contains(line, "pass --host to check") || strings.Contains(line, "no assigned worker") {
+		t.Errorf("without --host nothing says a worker needs it, and the line must not claim to have checked:\n%s", out)
 	}
+	// With --host and a claude worker, codex is still not needed, and now that was checked.
+	newDoctorHost3236(t, true, "claude")
+	out, code, _ = doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), "--host", "orca1", "--app", "hrn:app:acme.com:ops")
+	if line := factLine3236(out, "agent program (codex)"); code != 0 || !strings.Contains(line, "no assigned worker runs it by default") || strings.Contains(line, "MISSING") {
+		t.Errorf("exit %d: a program no assigned worker runs is informational once workers were read:\n%s", code, out)
+	}
+	// A codex worker with no codex on PATH: MISSING, exit 5.
 	newDoctorHost3236(t, true, "claude")
 	out, code, _ = doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "codex", "")), "--host", "orca1", "--app", "hrn:app:acme.com:ops")
 	if code != exitcode.Conflict {
 		t.Errorf("a missing program an assigned worker needs is exit 5, got %d", code)
 	}
-	if line := factLine3236(out, "agent program (codex)"); !strings.Contains(line, "MISSING") || strings.Contains(line, "informational") || !strings.Contains(out, "PROGRAM_NOT_ON_HOST") {
-		t.Errorf("a program an assigned worker needs is not informational:\n%s", out)
+	if line := factLine3236(out, "agent program (codex)"); !strings.Contains(line, "MISSING") || !strings.Contains(out, "PROGRAM_NOT_ON_HOST") {
+		t.Errorf("a program an assigned worker runs is MISSING:\n%s", out)
+	}
+}
+
+// A worker whose program comes from its account entry does not need the family's default: a claude that is not
+// on PATH is then no contradiction.
+func TestDoctorAnEntrySuppliedProgramDoesNotMakeTheFamilyDefaultNeeded(t *testing.T) {
+	h := newDoctorHost3236(t, true)
+	prog := filepath.Join(h.bin, "claude-work")
+	if err := os.WriteFile(prog, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	h.accounts(t, "accounts:\n  work:\n    family: claude\n    program: "+prog+"\n", 0o600)
+	out, code, _ := doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "work")), "--host", "orca1", "--app", "hrn:app:acme.com:ops")
+	if line := factLine3236(out, "agent program (claude)"); code != 0 || strings.Contains(line, "MISSING") || !strings.Contains(line, "not found") {
+		t.Fatalf("exit %d: the worker runs its entry's program, so claude on PATH is not needed:\n%s", code, out)
+	}
+}
+
+func TestDoctorTheResultLineSaysWhatWasChecked(t *testing.T) {
+	newDoctorHost3236(t, true, "claude")
+	out, _, _ := doctor3236(t, nil)
+	if !strings.Contains(out, "result: ok for this machine; no workers were checked") {
+		t.Errorf("without --host the result says no workers were checked:\n%s", out)
+	}
+	newDoctorHost3236(t, true, "claude")
+	out, _, _ = doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), "--host", "orca1", "--app", "hrn:app:acme.com:ops")
+	if !strings.Contains(out, "result: ok\n") || strings.Contains(out, "no workers were checked") {
+		t.Errorf("with --host and every worker fine the result is plain ok:\n%s", out)
+	}
+	newDoctorHost3236(t, false, "claude")
+	out, _, _ = doctor3236(t, nil)
+	if !strings.Contains(out, "result: Orca is missing or did not answer (exit 10)") {
+		t.Errorf("exit 10 has its own result line:\n%s", out)
+	}
+	newDoctorHost3236(t, true, "claude")
+	jout, _, _ := doctor3236(t, nil, "--json")
+	if d := doctorJSON3236(t, jout); d["workersChecked"] != false || d["ok"] != true {
+		t.Errorf("--json: workersChecked false without --host, ok true (the machine is fine): %v", d)
+	}
+	newDoctorHost3236(t, true, "claude")
+	jout, _, _ = doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), "--host", "orca1", "--app", "hrn:app:acme.com:ops", "--json")
+	if d := doctorJSON3236(t, jout); d["workersChecked"] != true {
+		t.Errorf("--json: workersChecked true once workers were read: %v", d["workersChecked"])
+	}
+}
+
+// A refused accounts file lists no entry as if it counted, and prints its path once.
+func TestDoctorARefusedAccountsFileListsNoEntryAndNamesThePathOnce(t *testing.T) {
+	h := newDoctorHost3236(t, true, "claude")
+	h.accounts(t, "accounts:\n  work:\n    family: claude\n  zed:\n    family: llama\n", 0o600)
+	out, code, _ := doctor3236(t, nil)
+	if code != exitcode.Conflict || strings.Contains(out, "account work") {
+		t.Fatalf("exit %d, a refused file lists no entry:\n%s", code, out)
+	}
+	line := factLine3236(out, "accounts file")
+	if strings.Count(line, "accounts.yaml") != 1 || !strings.Contains(line, "REFUSED") || !strings.Contains(line, "zed") {
+		t.Errorf("the refusal names the path once and the entry: %q", line)
+	}
+	h2 := newDoctorHost3236(t, true, "claude")
+	h2.accounts(t, "accounts:\n  work:\n    family: claude\n  zed:\n    family: llama\n", 0o600)
+	jout, _, _ := doctor3236(t, nil, "--json")
+	if d := doctorJSON3236(t, jout); len(d["accounts"].([]any)) != 0 {
+		t.Errorf("accounts is [] beside a refusal: %v", d["accounts"])
+	}
+}
+
+// A valid file with a broken entry nobody uses is exit 5 (the user declared it), with no --host.
+func TestDoctorABrokenEntryNobodyUsesIsExit5(t *testing.T) {
+	h := newDoctorHost3236(t, true, "claude")
+	h.accounts(t, "accounts:\n  work:\n    family: claude\n    program: /nonexistent/prog-3236\n    configDir: /nonexistent/dir-3236\n", 0o600)
+	out, code, _ := doctor3236(t, nil)
+	if code != exitcode.Conflict {
+		t.Fatalf("exit %d, want 5\n%s", code, out)
+	}
+	for _, want := range []string{"ACCOUNT_PROGRAM_NOT_FOUND", "ACCOUNT_CONFIGDIR_NOT_FOUND", "result: something is missing"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("must say %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "result: ok") {
+		t.Errorf("a broken entry is never ok:\n%s", out)
+	}
+}
+
+// A failed assignments read: the report is not ok, in text and in JSON, and the exit is the read's own.
+func TestDoctorAFailedReadIsNotOkInTextOrJSON(t *testing.T) {
+	for name, tc := range map[string]struct {
+		code string
+		exit int
+	}{"unauthenticated": {"UNAUTHENTICATED", exitcode.AuthRequired}, "forbidden": {"FORBIDDEN", exitcode.Forbidden}} {
+		t.Run(name, func(t *testing.T) {
+			newDoctorHost3236(t, true, "claude")
+			r := map[string]string{"TeamHostSetupWithProfile": gqlErrorJSON(tc.code)}
+			out, code, _ := doctor3236(t, r, "--host", "orca1", "--app", "hrn:app:acme.com:ops")
+			if code != tc.exit || strings.Contains(out, "result: ok") {
+				t.Fatalf("exit %d (want %d); a failed read is not ok:\n%s", code, tc.exit, out)
+			}
+			newDoctorHost3236(t, true, "claude")
+			jout, jcode, _ := doctor3236(t, r, "--host", "orca1", "--app", "hrn:app:acme.com:ops", "--json")
+			d := doctorJSON3236(t, jout)
+			setup := d["setup"].(map[string]any)
+			if jcode != tc.exit || d["ok"] != false || setup["read"] != "FAILED" || setup["error"] == nil || d["workersChecked"] != false {
+				t.Errorf("--json: exit %d, ok %v, setup %v", jcode, d["ok"], setup)
+			}
+		})
 	}
 }
 

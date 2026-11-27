@@ -181,6 +181,10 @@ func loadEntry(path, name string, n *yaml.Node) (Entry, error) {
 		if _, dup := vals[key]; dup {
 			return Entry{}, &AccountsError{Path: path, Entry: name, Key: key, Msg: fmt.Sprintf("entry %q: the key %q appears twice", name, key)}
 		}
+		if v.Kind == yaml.ScalarNode && v.Tag == "!!null" && (key == "program" || key == "configDir") {
+			vals[key] = "" // an optional key left empty is an absent key
+			continue
+		}
 		if v.Kind != yaml.ScalarNode || v.Tag != "!!str" {
 			return Entry{}, &AccountsError{Path: path, Entry: name, Key: key, Msg: fmt.Sprintf("entry %q: %s must be a string", name, key)}
 		}

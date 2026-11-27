@@ -61,6 +61,7 @@ func TestOrcaBinSearchOrder(t *testing.T) {
 		{"PATH wins over the cli dir", "linux", map[string]string{"orca": "/opt/orca"}, map[string]bool{"/home/u/.config/orca/cli/bin/orca": true}, "/opt/orca", true},
 		{"macOS app bundle", "darwin", nil, map[string]bool{"/Applications/Orca.app/Contents/Resources/bin/orca": true}, "/Applications/Orca.app/Contents/Resources/bin/orca", true},
 		{"nowhere", "linux", nil, nil, "", false},
+		{"no Linux-layout fallback is guessed on Windows", "windows", nil, map[string]bool{"/home/u/.config/orca/cli/bin/orca": true}, "", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			f := newFacts(nil)

@@ -72,9 +72,15 @@ then with `--host` each assigned worker: its workdir, account and program.
   account: #5210) and never a complaint; a server that predates the S1b profile leaves the account "unknown", never absent. A named
   account must be in the file, with the worker's family and a present program and `configDir`; an entry with no `configDir` has
   nothing to check.
-- **Exit:** 0 the host can run every assigned worker; 5 something is missing; 10 Orca is not on this machine or did not answer, and 10
-  dominates 5. A missing program no assigned worker needs is informational; a broken accounts-file entry nobody uses is 5 (the user
-  declared it); a tmpfs state directory is 5 (gate Q5).
+- **Exit:** 0 everything checked is fine; 5 something is missing; 10 Orca is not on this machine or did not answer, and 10 dominates 5.
+  Without `--host` no worker is read, so exit 0 means the machine's own facts only and the last line says so (`workersChecked` is false in
+  `--json`). A family program not found is `NOT_FOUND` (informational: without `--host` nothing says a worker needs it; with `--host`
+  no assigned worker runs it by default) and `MISSING` only when an assigned worker runs that family's default program (a worker whose
+  program comes from its account entry does not make the default needed). A broken accounts-file entry nobody uses is 5 (the user
+  declared it); a refused file is 5 and lists no entry as if it counted; a tmpfs state directory is 5 (gate Q5).
+- **Codes:** a worker gets `WORKDIR_NOT_ON_HOST`, `WORKDIR_AMBIGUOUS_ON_HOST`, `ACCOUNT_NOT_ON_HOST` (naming the cause) and
+  `PROGRAM_NOT_ON_HOST`; an accounts-file entry gets `ACCOUNT_PROGRAM_NOT_FOUND` or `ACCOUNT_CONFIGDIR_NOT_FOUND` (exported from
+  `hostfacts` with the others, so C3 shares them).
 - **`--json`** prints the whole DTO at exit 0, 5 and 10 (gate Q7): `{orca, facts, accountsFile, accounts, setup, workers, ok}`; empty
   lists are `[]`, absent values `null`.
 - **A failed assignments read** (gate Q6) prints the local lines, writes the error to stderr, and exits with that read's own code (3,
