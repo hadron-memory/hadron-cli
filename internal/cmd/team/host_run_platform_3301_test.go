@@ -641,3 +641,59 @@ func TestClaimHostStateFallbackFailedWriteLeavesNoClaim3301(t *testing.T) {
 		t.Fatalf("a later claim succeeds: %v", err)
 	}
 }
+
+// LOCAL delta J1 at d210fc01: the run lock is held while the host runs, after a first start and after a retried
+// one; a lock released at once, or not taken on the retry, fails here. The probe runs inside the poller's first
+// collect, so the host has started and is running.
+func TestHostRunPlatformHoldsTheLockWhileRunning3301(t *testing.T) {
+	fastBackoff3301(t)
+	for _, failFirst := range []int32{0, 2} {
+		var reads atomic.Int32
+		probed := make(chan error, 1)
+		var e hostcred.Entry
+		srv, _ := fakeServer3237(t, func(op string, _ json.RawMessage) string {
+			switch op {
+			case "HostRunPlatform":
+				if reads.Add(1) <= failFirst {
+					return `{"errors":[{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`
+				}
+				return platformAnswer3237("app-1", "host-1", "SERVER")
+			case "RegisterHost", "RegisterHostWithRefused":
+				return registerAnswer3237("host-1")
+			case "CollectHostOperations":
+				lk, err := lockHostRun(e)
+				if err == nil {
+					_ = lk.Unlock()
+				}
+				select {
+				case probed <- err:
+				default:
+				}
+				return `{"data":{"collectHostOperations":[]}}`
+			}
+			return ""
+		})
+		e = hostcred.Entry{Server: srv.URL, AppID: "app-1", HostID: "host-1", Key: key1}
+		withDeps3237(t, []hostcred.Entry{e})
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		done := make(chan error, 1)
+		go func() {
+			_, err := runCtx3301(t, ctx, []string{}...)
+			done <- err
+		}()
+		var err error
+		select {
+		case err = <-probed:
+		case <-ctx.Done():
+			t.Fatalf("failFirst %d: the host never collected", failFirst)
+		}
+		cancel()
+		<-done
+		if exitcode.FromError(err) != exitcode.Conflict {
+			t.Errorf("failFirst %d: the running host holds its run lock; another lock got %v", failFirst, err)
+		}
+		if failFirst > 0 && reads.Load() <= failFirst {
+			t.Errorf("failFirst %d: the start was retried: %d read(s)", failFirst, reads.Load())
+		}
+	}
+}
