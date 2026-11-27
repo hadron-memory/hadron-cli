@@ -100,12 +100,16 @@ func setup3236(source string, assignments ...string) map[string]string {
 
 func doctor3236(t *testing.T, responses map[string]string, args ...string) (string, int, *[]attnCall) {
 	t.Helper()
+	t.Cleanup(func() { doctorPending3236 = nil }) // the pending list is package state: no test leaks into the next
 	writeTeamBinding(t)
 	srv, calls := attnServer(t, responses)
 	setTeamBindingServer(t, srv.URL)
 	f, out := testFactory(t)
 	for _, place := range doctorPending3236 {
 		place(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron"))
+	}
+	if os.Getenv("XDG_CONFIG_HOME") == "" {
+		t.Fatal("testFactory must have set XDG_CONFIG_HOME: the files are placed where the command looks")
 	}
 	doctorPending3236 = nil // a file belongs to one run
 	root := NewRootCmd(f)
@@ -320,22 +324,21 @@ func TestDoctorNeverReadsAHostFile(t *testing.T) {
 		_ = os.MkdirAll(dir, 0o755)
 		_ = os.WriteFile(filepath.Join(dir, "host.yaml"), bad, 0o600)
 	})
-	for _, p := range []string{filepath.Join(h.home, "host.yaml"), "host.yaml"} {
-		_ = os.WriteFile(p, bad, 0o600)
-		t.Cleanup(func() { _ = os.Remove(p) })
+	// A host file where a host would keep one: the home directory and the working directory (a scratch directory,
+	// never the package's own).
+	scratch := t.TempDir()
+	t.Chdir(scratch)
+	for _, p := range []string{filepath.Join(h.home, "host.yaml"), filepath.Join(scratch, "host.yaml")} {
+		if err := os.WriteFile(p, bad, 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
-	out, code, _ := doctor3236(t, nil)
+	out, code, calls := doctor3236(t, nil)
 	if code != 0 {
 		t.Fatalf("a malformed host.yaml must not affect doctor: exit %d\n%s", code, out)
 	}
-	src, err := os.ReadFile(filepath.Join("team", "host_doctor.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, banned := range []string{"hostpoller", "key_file", "LoadConfig"} {
-		if strings.Contains(string(src), banned) {
-			t.Errorf("host_doctor.go must not touch the host file: it mentions %q", banned)
-		}
+	if len(*calls) != 0 {
+		t.Errorf("without --host doctor makes no request, so no host file's key was used: %v", *calls)
 	}
 }
 

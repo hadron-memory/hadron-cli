@@ -213,8 +213,8 @@ func TestAgentProgramPerFamily(t *testing.T) {
 	}
 	// An unknown family has no default program.
 	_, miss = f.AgentProgram("llama")
-	if miss == nil || !strings.Contains(miss.Reason, "llama") || !strings.Contains(miss.Fix, "program") {
-		t.Errorf("an unknown family is refused naming it: %+v", miss)
+	if miss == nil || !strings.Contains(miss.Reason, "does not know the family llama") || strings.Contains(miss.Fix, "program") {
+		t.Errorf("an unknown family is refused naming it, and the accounts file (which refuses it too) is not the advice (cli#3286): %+v", miss)
 	}
 	if DefaultProgramName("glm") != "claude-glm" || DefaultProgramName("kimi") != "claude-kimi" || DefaultProgramName("claude") != "claude" || DefaultProgramName("codex") != "codex" || DefaultProgramName("llama") != "" {
 		t.Error("the default program names are claude, codex, claude-glm and claude-kimi (hadron-server#5210)")

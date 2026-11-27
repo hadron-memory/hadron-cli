@@ -81,10 +81,14 @@ then with `--host` each assigned worker: its workdir, account and program.
 - **Codes:** a worker gets `WORKDIR_NOT_ON_HOST`, `WORKDIR_AMBIGUOUS_ON_HOST`, `ACCOUNT_NOT_ON_HOST` (naming the cause) and
   `PROGRAM_NOT_ON_HOST`; an accounts-file entry gets `ACCOUNT_PROGRAM_NOT_FOUND` or `ACCOUNT_CONFIGDIR_NOT_FOUND` (exported from
   `hostfacts` with the others, so C3 shares them).
-- **`--json`** prints the whole DTO at exit 0, 5 and 10 (gate Q7): `{orca, facts, accountsFile, accounts, setup, workers, ok}`; empty
+- **`--json`** prints the whole DTO at exit 0, 5 and 10 (gate Q7): `{orca, facts, accountsFile, accounts, setup, workers, workersChecked, workersNotChecked, ok}`; empty
   lists are `[]`, absent values `null`.
 - **A failed assignments read** (gate Q6) prints the local lines, writes the error to stderr, and exits with that read's own code (3,
-  7 or 8): `setup.read` is `FAILED` in the JSON.
+  7 or 8): `setup.read` is `FAILED` in the JSON. Exit 10 wins over a failed assignments read (cli#3286, ruling): when Orca is also
+  missing or did not answer, the exit is 10 and the read's error is still printed on stderr.
+- **Why no worker was checked** (cli#3286): `workersNotChecked` is `"no --host"`, `"host-sourced setup"` or `"read failed"` (null once
+  workers were read), and only the first gets the "pass --host" advice. `workersChecked` is true after a successful read of zero
+  assignments. A worker row says "workdir not checked" when Orca did not answer the reads that judge it.
 
 ## Not in this slice
 

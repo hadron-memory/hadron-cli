@@ -12,9 +12,8 @@ import (
 // cli#3286: follow-ups from the blind reviews of the host doctor (#3284, #3283). Wording, tests, and one
 // --json field (workersNotChecked); no exit code and no request changes.
 
-
-func hostArgs3286(extra ...string) []string {
-	return append([]string{"--host", "orca1", "--app", "hrn:app:acme.com:ops"}, extra...)
+func hostArgs3286() []string {
+	return []string{"--host", "orca1", "--app", "hrn:app:acme.com:ops"}
 }
 
 // writeOrca3286 replaces the fake orca with one whose worktree list answers as given.

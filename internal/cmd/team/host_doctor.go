@@ -43,6 +43,13 @@ var newHostDoctorEnv = func(cmd *cobra.Command, f *cmdutil.Factory) hostDoctorEn
 	}
 }
 
+// The reasons a doctor run checked no worker (doctorDTO.WorkersNotChecked).
+const (
+	notCheckedNoHost    = "no --host"
+	notCheckedHostSetup = "host-sourced setup"
+	notCheckedReadFail  = "read failed"
+)
+
 const (
 	// doctorExitMissing is exit 5: something this host needs is missing. It is exitcode.Conflict, the code
 	// `team host settings-check` also returns for a finding.
@@ -85,12 +92,14 @@ type doctorAccountsFile struct {
 }
 
 type doctorAccount struct {
-	Name           string          `json:"name"`
-	Family         string          `json:"family"`
-	Tool           string          `json:"tool"`
-	Program        *string         `json:"program"`
-	ProgramFound   bool            `json:"programFound"`
-	ConfigDir      *string         `json:"configDir"`
+	Name         string  `json:"name"`
+	Family       string  `json:"family"`
+	Tool         string  `json:"tool"`
+	Program      *string `json:"program"`
+	ProgramFound bool    `json:"programFound"`
+	ConfigDir    *string `json:"configDir"`
+	// ConfigDirFound is a pointer on purpose: null means no configDir is named, so there is nothing to find
+	// (programFound has no such case: an entry always resolves a program). Do not flatten it to false.
 	ConfigDirFound *bool           `json:"configDirFound"`
 	Problems       []doctorProblem `json:"problems"`
 }
@@ -123,10 +132,15 @@ type doctorDTO struct {
 	Accounts     []doctorAccount    `json:"accounts"`
 	Setup        *doctorSetup       `json:"setup"`
 	Workers      []doctorWorker     `json:"workers"`
-	// WorkersChecked is true only when the assigned workers were read and checked. Exit 0 and ok:true without
-	// it mean only that the machine's own facts passed.
+	// WorkersChecked is true once the assignments were read and judged, including a read of zero assignments (then
+	// there was nothing to check, and nothing was left unchecked). Exit 0 and ok:true without it mean only that the
+	// machine's own facts passed.
 	WorkersChecked bool `json:"workersChecked"`
-	OK             bool `json:"ok"`
+	// WorkersNotChecked says why no worker was checked: "no --host", "host-sourced setup" (the App takes its setup
+	// from the host file, so there are no platform assignments) or "read failed". null when WorkersChecked. Only
+	// the first is something the caller can fix by passing a flag.
+	WorkersNotChecked *string `json:"workersNotChecked"`
+	OK                bool    `json:"ok"`
 }
 
 func doctorStr(s string) *string { return &s }
@@ -246,6 +260,7 @@ func buildHostDoctor(ctx context.Context, env hostDoctorEnv, hostID string, with
 	// 4. The assignments (--host), which decide which family programs are needed.
 	var setupErr error
 	needFamily := map[string]bool{}
+	d.WorkersNotChecked = doctorStr(notCheckedNoHost)
 	if withHost {
 		sd, err := env.Setup(hostID)
 		d.Setup = &doctorSetup{Read: "OK"}
@@ -256,8 +271,10 @@ func buildHostDoctor(ctx context.Context, env hostDoctorEnv, hostID string, with
 		case err != nil:
 			d.Setup.Read, d.Setup.Error = "FAILED", doctorStr(err.Error())
 			setupErr = err
+			d.WorkersNotChecked = doctorStr(notCheckedReadFail)
 		case sd.Source != "SERVER":
 			d.Setup.Source = doctorStr(sd.Source)
+			d.WorkersNotChecked = doctorStr(notCheckedHostSetup)
 			d.Setup.Note = doctorStr(notPlatformSetup)
 		default:
 			d.Setup.Source = doctorStr(sd.Source)
@@ -272,6 +289,7 @@ func buildHostDoctor(ctx context.Context, env hostDoctorEnv, hostID string, with
 				d.Workers = append(d.Workers, w)
 			}
 			d.WorkersChecked = true
+			d.WorkersNotChecked = nil
 		}
 	}
 
@@ -436,9 +454,9 @@ func renderHostDoctor(w io.Writer, d doctorDTO) error {
 		case "UNKNOWN":
 			p("%s: unknown (%s)", f.Fact, output.SafeCell(*f.Reason))
 		case "NOT_FOUND":
-			why := "only needed if a worker runs this family; pass --host to check"
-			if d.WorkersChecked {
-				why = "no assigned worker runs it by default"
+			why := "no assigned worker runs it by default"
+			if !d.WorkersChecked {
+				why = "only needed if a worker runs this family; " + d.notCheckedWhy(true)
 			}
 			p("%s: not found: %s (%s)", f.Fact, output.SafeCell(*f.Reason), why)
 			fix("  ", *f.Fix)
@@ -478,11 +496,20 @@ func renderHostDoctor(w io.Writer, d doctorDTO) error {
 		}
 		for _, wk := range d.Workers {
 			acct := "account " + output.SafeCell(d.accountLabel(wk))
+			// A workdir is judged only when Orca answered both reads; otherwise the row must not read as if it had been.
+			unchecked := ""
+			if wk.WorkdirPath == nil && !wk.hasWorkdirProblem() {
+				unchecked = "; workdir not checked: Orca did not answer"
+			}
+			missingNote := ""
+			if unchecked != "" {
+				missingNote = " (workdir not checked: Orca did not answer)"
+			}
 			if len(wk.Problems) == 0 {
-				p("  worker %s %s (%s): OK (%s)", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family), acct)
+				p("  worker %s %s (%s): OK (%s%s)", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family), acct, unchecked)
 				continue
 			}
-			p("  worker %s %s (%s): MISSING", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family))
+			p("  worker %s %s (%s): MISSING%s", output.SafeCell(wk.Worker), output.SafeCell(wk.Workdir), output.SafeCell(wk.Family), missingNote)
 			for _, pr := range wk.Problems {
 				p("    %s: %s", pr.Code, output.SafeCell(pr.Message))
 				fix("      ", pr.Fix)
@@ -495,17 +522,45 @@ func renderHostDoctor(w io.Writer, d doctorDTO) error {
 	case !d.OK:
 		p("result: something is missing (see above)")
 	case !d.WorkersChecked:
-		p("result: ok for this machine; no workers were checked (pass --host <id> to check the workers assigned to a host)")
+		p("result: ok for this machine; no workers were checked (%s)", d.notCheckedWhy(false))
 	default:
 		p("result: ok")
 	}
 	return werr
 }
 
+// notCheckedWhy says why no worker was read, with the advice only when --host was not given. short is the
+// clause that follows "only needed if a worker runs this family".
+func (d doctorDTO) notCheckedWhy(short bool) string {
+	reason := ""
+	if d.WorkersNotChecked != nil {
+		reason = *d.WorkersNotChecked
+	}
+	switch reason {
+	case notCheckedHostSetup:
+		return "the App takes its setup from the host file, so no assignments were read"
+	case notCheckedReadFail:
+		return "the assignments could not be read"
+	}
+	if short {
+		return "pass --host to check"
+	}
+	return "pass --host <id> to check the workers assigned to a host"
+}
+
 // orcaFactMissing is true when Orca was found but a read of it failed, the other way exit 10 happens.
 func orcaFactMissing(d doctorDTO) bool {
 	for _, f := range d.Facts {
 		if (f.Fact == "orca repos" || f.Fact == "orca worktrees") && f.Status == "MISSING" {
+			return true
+		}
+	}
+	return false
+}
+
+func (w doctorWorker) hasWorkdirProblem() bool {
+	for _, pr := range w.Problems {
+		if pr.Code == hostfacts.CodeWorkdirNotOnHost || pr.Code == hostfacts.CodeWorkdirAmbiguousOnHost {
 			return true
 		}
 	}
@@ -566,8 +621,11 @@ Exit 0: everything checked is fine; without --host that is the machine's own fac
 workers were checked. Exit 5: something is missing (a worker's workdir, account or program, a broken accounts-file
 entry or a refused file, a state directory on tmpfs); a program no assigned worker runs by default is informational.
 Exit 10: Orca is not on this machine or did not answer, which dominates exit 5. --json prints the whole report at
-exit 0, 5 and 10, with workersChecked saying whether any worker was checked. If the assignments read fails, the local
-lines are printed and the command exits with that read's own code (3, 7 or 8); the report's ok is then false.`,
+exit 0, 5 and 10, with workersChecked saying whether any worker was checked and, when none was, workersNotChecked
+saying why ("no --host", "host-sourced setup" or "read failed"). If the assignments read fails, the local lines are
+printed and the command exits with that read's own code (3, 7 or 8); the report's ok is then false. Exit 10 wins over
+a failed assignments read: when Orca is also missing or did not answer, the exit is 10 and the read's error is still
+printed on stderr.`,
 		Example: "  hadron team host doctor\n  hadron team host doctor --host orca1 --app acme.com:eng-team\n  hadron team host doctor --json",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
