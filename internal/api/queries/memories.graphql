@@ -550,6 +550,13 @@ mutation AttachMemoryToApp(
   }
 }
 
+# Detach a memory from an App: removes the attachment only, never the memory
+# (hadron-server#5185). The server judges who may detach and answers true when
+# the attachment is gone or was never there.
+mutation DetachMemoryFromApp($memoryRef: ID!, $appRef: ID!) {
+  detachMemoryFromApp(memoryRef: $memoryRef, appRef: $appRef)
+}
+
 # Omitted = preserve; flags the user didn't pass must not reach the wire.
 mutation UpdateMemory(
   $ref: ID!

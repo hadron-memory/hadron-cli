@@ -70,9 +70,9 @@ section between the markers.
 | `edge rm` | delete |  | y | #1051 | 4bb66f0b250d | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `edge update` |  |  | y | #1051 | 5004beafa2aa | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508430204), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1221#issuecomment-6508892415) |
 | `find` |  |  | y | #1051 | 2c1d315bed5e |  | unread |  |
-| `memory` | memories |  | y | #1051 | b58c7dc20ac7 |  | unread |  |
+| `memory` | memories |  | y | #1051 | fb37d696b07c |  | unread |  |
 | `memory approve-all` |  |  | y | #1051 | ce275ffbf884 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
-| `memory attach` |  |  | y | #1051 | 4369fcec2401 |  | unread |  |
+| `memory attach` |  |  | y | #1051 | 9557b9acd481 |  | unread |  |
 | `memory clone` | cp |  | y | #1051 | 2b0667cf898c | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory config` |  |  | y | #1051 | 880303ce9999 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory config get` |  |  | y | #1051 | 2d8bef37e68c | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
@@ -88,6 +88,7 @@ section between the markers.
 | `memory config template list` | ls |  | y | #1051 | e7425af69612 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory config template rm` | remove |  | y | #1051 | e4b17c0a8755 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory config template update` |  |  | y | #1051 | 6ae446c910a9 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
+| `memory detach` |  |  | y | #1051 | b1dc2bb7c806 |  | unread |  |
 | `memory encrypt` |  |  | y | #1051 | 96fc8b04009c |  | unread |  |
 | `memory export` |  |  | y | #1051 | 3991ee178481 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |
 | `memory extract` |  |  | y | #1051 | 30d9fa57b900 | Taylor | pass | [step 1](https://github.com/hadron-memory/hadron-cli/issues/1051#issuecomment-6508546551), [step 3](https://github.com/hadron-memory/hadron-cli/pull/1242#issuecomment-6511911370) |

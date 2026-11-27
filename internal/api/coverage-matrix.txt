@@ -281,7 +281,7 @@ worker  command team worker get
 workerWakeSettings  command team wake-settings get
 workers  command team worker get
 
-[Mutation] 379: 349 command, 13 gap, 17 excluded
+[Mutation] 379: 350 command, 12 gap, 17 excluded
 acceptInvitation  command org invite accept
 acknowledgeAlarm  command team alarm ack
 acknowledgeDeliveryBatches  command team chat inbox
@@ -423,7 +423,7 @@ deleteTicker  command ticker delete
 deleteUser  command user delete
 deleteUserApiKey  command auth token delete
 deleteWorker  command team worker rm
-detachMemoryFromApp  gap #3277
+detachMemoryFromApp  command memory detach
 disposeAgentTaskFinding  command team task dispose-finding
 editComment  command comment edit
 emailCategorizeMessage  command email categorize
