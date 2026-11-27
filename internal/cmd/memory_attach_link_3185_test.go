@@ -48,7 +48,7 @@ func TestMemoryAttachHelpStatesTheLinkLaw3185(t *testing.T) {
 				t.Errorf("%v still carries the retired bind wording %q:\n%s", args, banned, flat)
 			}
 		}
-		for _, want := range []string{"any memory you can read", "system", "unchanged", "more than one App", "read-only", "stop reading"} {
+		for _, want := range []string{"any memory you can read", "system", "unchanged", "more than one App", "read-only", "stop reading", "owner is the App's owner", "no command to remove a link"} {
 			if !strings.Contains(flat, want) {
 				t.Errorf("%v missing %q:\n%s", args, want, flat)
 			}
@@ -146,6 +146,16 @@ func TestMemoryAttachOlderServerSkew3185(t *testing.T) {
 	err := root.Execute()
 	if err == nil || !strings.Contains(err.Error(), "out of sync") || exitCodeFor(err) != exitcode.Usage {
 		t.Fatalf("want the schema-skew line (exit 2), got %v", err)
+	}
+	if !strings.Contains(err.Error(), "pass --agent") {
+		t.Errorf("without --agent the skew line must say to pass it: %v", err)
+	}
+	// With --agent given the plain skew line stands: the hint would be noise.
+	f2, _ := testFactory(t)
+	root2 := NewRootCmd(f2)
+	root2.SetArgs(append(attachArgs3185("--agent", "agent1"), "--server", gql.URL))
+	if err2 := root2.Execute(); err2 == nil || strings.Contains(err2.Error(), "pass --agent") {
+		t.Errorf("no hint when --agent was given: %v", err2)
 	}
 }
 

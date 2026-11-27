@@ -1222,8 +1222,12 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   The memory is unchanged (name, URN, class, owner, App) and may be linked into
   more than one App; it does not count toward the one-per-class limit. The link
   is read-only for the App's key and runs, gives members nothing, never widens
-  what you can read, and stops working when you stop reading the memory. Person
-  only, and only an App you are a member of; a repeat attach changes nothing.
+  what you can read, and stops working when you stop reading the memory. A
+  personal or private memory reaches the key only when its owner is the App's
+  owner (an App you own); in an organization's App the link is made but inert
+  for the key. Person
+  only, and only an App you are a member of; a repeat attach changes nothing. There is no
+  command to remove a link yet (#3277).
   `--agent` is optional, sent only when given, and ignored by current servers.
   The CLI checks no class, owner or organization: the server judges it. Refusals
   keep the server's sentence and code (`--json` `serverCode`): UNAUTHENTICATED 3,

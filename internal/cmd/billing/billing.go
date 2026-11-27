@@ -419,9 +419,10 @@ hrn:org:acme.com).`,
 	return cmd
 }
 
-// stringOrEmpty reads a field the server made nullable when a ledger can belong
-// to a person: an organization's ledger always has a value, so its output is
-// unchanged (hadron-server#5258 snapshot).
+// stringOrEmpty reads an organization id the server now makes nullable because a
+// ledger can belong to a person. These commands only drive organization ledgers,
+// which always carry a value, so their output is unchanged; a null (a person's
+// ledger, not reachable from here) prints as empty.
 func stringOrEmpty(s *string) string {
 	if s == nil {
 		return ""

@@ -19,7 +19,7 @@ func newCmdAttach(f *cmdutil.Factory) *cobra.Command {
 		Use:   "attach <memoryRef> --app <app-id-or-urn> [--agent <agent-id-or-urn>]",
 		Short: "Link a memory you can read into an App",
 		Long: `Link any memory you can read into an App, so the App's key and its runs can
-read it. Use it for notes or a knowledge memory you want an App to see, instead
+read it (a personal or private memory only when you also own the App; see below). Use it for notes or a knowledge memory you want an App to see, instead
 of copying them into a new memory.
 
 The memory itself is unchanged: it keeps its name, URN, class, owner and App.
@@ -27,16 +27,19 @@ It may be linked into more than one App, and an attached memory does not count
 toward the one-per-class limit on memories you create in an App. Any class
 except system can be attached. The link is read-only: the App's key and runs
 can read the memory but not write it, App members gain nothing from it, and
-the key never reads more than you can read yourself. The link stops working
+the key never reads more than you can read yourself. A personal or private
+memory reaches the App's key only when the memory's owner is the App's owner
+(an App you own yourself); in an organization's App the link is made but does
+nothing for the key. The link stops working
 when you stop reading the memory, and starts again if you read it again. Only
 a person can attach, and only to an App you are a member of. Attaching the
-same memory again changes nothing.
+same memory again changes nothing. There is no command to remove a link yet.
 
 Memory and App references accept an ID or a URN, with or without the hrn:
 prefix. --agent is ignored by current servers, which link the memory to the
 App as a whole; an older server still needs it.`,
 		Example: `  hadron memory attach hrn:mem:acme.com:handbook --app hrn:app:acme.com:coach
-  hadron memory attach hrn:mem:acme.com:private-notes --app acme.com:coach --json`,
+  hadron memory attach hrn:mem:acme.com:team-wiki --app acme.com:coach --json`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if app == "" {
@@ -59,6 +62,11 @@ App as a whole; an older server still needs it.`,
 			}
 			resp, err := gen.AttachMemoryToApp(cmd.Context(), client, memoryRef, appRef, agentRef)
 			if err != nil {
+				// A server that predates the link needs --agent: say so when the
+				// schema-skew line is what came back and none was given.
+				if agent == "" && api.IsSchemaSkew(err) {
+					return api.WithCause(exitcode.Newf(exitcode.Usage, "%v; if the server predates attach-as-link, pass --agent <agent>", api.MapError(err)), api.MapError(err))
+				}
 				// Keeps the server's code for the --json error's serverCode.
 				return api.MapErrorKeepingCode(err)
 			}
