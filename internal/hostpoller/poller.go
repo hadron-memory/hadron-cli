@@ -178,6 +178,8 @@ type Event struct {
 	Detail                                      string
 	WorkerID, SessionID, TerminalHandle, Reason string
 	Attempt                                     int
+	// HostID names the host an event is about when one process runs several (hadron-cli#3237); "" otherwise.
+	HostID string
 }
 
 // Poller is one host's loop.

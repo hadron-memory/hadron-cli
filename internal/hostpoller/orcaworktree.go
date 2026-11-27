@@ -35,7 +35,8 @@ func (p *Poller) SetOrcaWorktrees(facts OrcaWorktreeFacts, run orcaterm.Runner) 
 }
 
 // orcaWorktreeCreate decides a platform worktree.create. It returns the token on success, or the failure
-// reason. Nothing it reports carries a path, Orca's output or anything but names.
+// reason. Nothing it reports carries Orca's own output; the one path it names is an ambiguous token's
+// candidates, as a start's ambiguity refusal does (#3237: the refusal names the candidates and the fix).
 func (p *Poller) orcaWorktreeCreate(ctx context.Context, repo, label, branch, base string) (string, string) {
 	if p.orcaCreate == nil {
 		return "", "this host cannot create a worktree: Orca is not wired for worktree.create; nothing was created"
@@ -63,7 +64,7 @@ func (p *Poller) orcaWorktreeCreate(ctx context.Context, repo, label, branch, ba
 	// A re-delivered create whose tree is already there on the branch succeeds, as under --config.
 	switch tree, why := p.orcaTree(ctx, repos, token); {
 	case why != "":
-		return "", why
+		return "", why + "; nothing was created"
 	case tree != nil:
 		if tree.Branch != "refs/heads/"+branch {
 			return "", fmt.Sprintf("%s already exists and is not a worktree on %s", token, branch)
@@ -79,12 +80,13 @@ func (p *Poller) orcaWorktreeCreate(ctx context.Context, repo, label, branch, ba
 	argv = append(argv, "--no-parent", "--setup", "skip", "--json")
 	res := p.orcaCreate(ctx, argv)
 	if res.Code != 0 || !orcaOK(res.Stdout) {
-		return "", fmt.Sprintf("Orca did not create %s (`orca worktree create` exit %d); nothing is recorded", token, res.Code)
+		// A bound or a lost answer reads the same as a refusal, so whether the tree exists is not known here.
+		return "", fmt.Sprintf("Orca did not confirm creating %s (`orca worktree create` exit %d); nothing is recorded, and whether the tree exists is unknown: check `orca worktree list`", token, res.Code)
 	}
 	tree, why := p.orcaTree(ctx, nil, token)
 	switch {
 	case why != "":
-		return "", "Orca's create answered, but " + why
+		return "", "Orca's create answered, but " + why + "; the tree may exist: check `orca worktree list`"
 	case tree == nil:
 		return "", fmt.Sprintf("Orca's create answered, but %s is not in its worktree list (the name may have been taken); check `orca worktree list`", token)
 	case tree.Branch != "refs/heads/"+branch:
@@ -104,12 +106,12 @@ func (p *Poller) orcaTree(ctx context.Context, repos []hostfacts.Repo, token str
 	}
 	trees, miss := p.orcaFacts.Worktrees(ctx)
 	if miss != nil {
-		return nil, "Orca's worktrees could not be read (" + miss.Reason + "); nothing was created"
+		return nil, "Orca's worktrees could not be read (" + miss.Reason + ")"
 	}
 	path, cands, res := hostfacts.ResolveWorkdir(token, repos, trees)
 	switch res {
 	case hostfacts.Ambiguous:
-		return nil, fmt.Sprintf("%s: %s matches %d Orca worktrees on this host; archive or rename all but one; nothing was created", hostfacts.CodeWorkdirAmbiguousOnHost, token, len(cands))
+		return nil, fmt.Sprintf("%s: %s matches %d Orca worktrees on this host (%s); archive or rename all but one", hostfacts.CodeWorkdirAmbiguousOnHost, token, len(cands), strings.Join(cands, ", "))
 	case hostfacts.Found:
 		for i := range trees {
 			if trees[i].Path == path && !trees[i].Archived {

@@ -19,7 +19,9 @@ type orcaTrees3237 struct {
 	repos []hostfacts.Repo
 	trees []hostfacts.Worktree
 	down  bool
-	calls [][]string
+	// listDown makes the worktree list fail once a create has run.
+	listDown bool
+	calls    [][]string
 	// onCreate is what Orca does for a create: by default it adds the tree on the asked branch.
 	onCreate func(argv []string) orcaterm.Result
 }
@@ -36,6 +38,9 @@ func (o *orcaTrees3237) Repos(context.Context) ([]hostfacts.Repo, *hostfacts.Mis
 func (o *orcaTrees3237) Worktrees(context.Context) ([]hostfacts.Worktree, *hostfacts.Missing) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	if o.listDown && len(o.calls) > 0 {
+		return nil, &hostfacts.Missing{Fact: "orca worktrees", Reason: "Orca did not answer"}
+	}
 	return append([]hostfacts.Worktree{}, o.trees...), nil
 }
 
@@ -168,13 +173,14 @@ func TestPlatformWorktreeCreateRefusals3237(t *testing.T) {
 		}, nil, hostfacts.CodeWorkdirAmbiguousOnHost, 0},
 		{"create refused", func(o *orcaTrees3237) {
 			o.onCreate = func([]string) orcaterm.Result { return orcaterm.Result{Code: 1, Stderr: "secret /home/u path"} }
-		}, nil, "Orca did not create hadron-cli/x", 1},
+		}, nil, "whether the tree exists is unknown", 1},
 		{"create not ok", func(o *orcaTrees3237) {
 			o.onCreate = func([]string) orcaterm.Result { return orcaterm.Result{Stdout: `{"ok":false}`} }
-		}, nil, "Orca did not create hadron-cli/x", 1},
+		}, nil, "whether the tree exists is unknown", 1},
 		{"created tree not listed", func(o *orcaTrees3237) {
 			o.onCreate = func([]string) orcaterm.Result { return orcaterm.Result{Stdout: `{"ok":true,"result":{}}`} }
 		}, nil, "is not in its worktree list", 1},
+		{"list unreadable after the create", func(o *orcaTrees3237) { o.listDown = true }, nil, "the tree may exist", 1},
 		{"branch name taken, Orca suffixed it", func(o *orcaTrees3237) {
 			o.onCreate = func(argv []string) orcaterm.Result { return o.add(argv, "iris/x-2") }
 		}, nil, "on iris/x-2, not on iris/x", 1},
@@ -218,6 +224,9 @@ func TestPlatformWorktreeCreateRefusals3237(t *testing.T) {
 			}
 			if r.worktree != "" {
 				t.Errorf("a failed create reports no worktree: %+v", r)
+			}
+			if tc.calls > 0 && strings.Contains(r.reason, "nothing was created") {
+				t.Errorf("once Orca was asked to create, the report must not claim nothing was: %q", r.reason)
 			}
 			if len(o.calls) != tc.calls {
 				t.Errorf("Orca creates: %q, want %d", o.calls, tc.calls)

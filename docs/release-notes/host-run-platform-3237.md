@@ -20,14 +20,20 @@ server is refused at start with a message that names 0.47.0. The platform read i
 - **`worktree.create` goes through Orca** (`orca worktree create --repo name:<displayName> … --no-parent
   --setup skip`). A repo Orca does not know fails and names `orca repo add`. Orca gives a taken branch name a
   numeric suffix, and a create that lands on such a branch is reported FAILED.
-- **Nothing local leaves the machine:** no request carries a path, a program or an account directory.
-  Every stored host key is removed from an agent's environment and redacted from what the host reports.
+- **What leaves the machine:** no request carries an account's program or directory, and workers
+  register with workdir names, never paths. The one path reported is an ambiguous workdir's refusal, which
+  names its candidate worktrees so they can be told apart. Every stored host key is removed from an agent's
+  environment and redacted from what the host reports.
+- **Events name their host:** with no `--config`, each `--json` event carries `hostId`, and text lines show
+  `[<hostId>]` after the time. New kinds: `host-not-started`, `facts-unavailable`, `setup-source-host`,
+  `setup-source-server`, `assignments-changed`, `launch-refused`.
 
 ## Refusals at start
 
 | Situation | Exit | Fix named |
 |---|---|---|
-| No joined host, or none matches `--app`/`--server` | 3 | `hadron team host join` |
+| No joined host, or none matches `--app`/`--server` (the server is matched by host name) | 3 | `hadron team host join` |
+| `--app` given as a URN or `<root>:<slug>` (the store keeps App ids only) | 2 | the App id `team host show` prints |
 | The stored key does not answer for its App, or the host was removed or its key revoked | 3 | `hadron team host join --replace` |
 | The App's host setup source is `HOST` | 5 | `hadron team host setup --source SERVER` |
 | Server older than 0.47.0 | 1 | upgrade the server, or use `--config` |

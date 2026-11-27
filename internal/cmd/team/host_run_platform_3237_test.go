@@ -395,6 +395,41 @@ func TestHostRunPlatformOneHostFailingLeavesTheOtherRunning3237(t *testing.T) {
 	}
 }
 
+// With several hosts in one stream, every --json event names its host and carries a real time.
+func TestHostRunPlatformEventsNameTheirHost3237(t *testing.T) {
+	srv1, _ := goodServer3237(t, "app-1", "host-1")
+	srv2, _ := fakeServer3237(t, func(op string, _ json.RawMessage) string {
+		if op == "HostRunPlatform" {
+			return platformAnswer3237("app-2", "host-2", "HOST")
+		}
+		return ""
+	})
+	withDeps3237(t, []hostcred.Entry{
+		{Server: srv1.URL, AppID: "app-1", HostID: "host-1", Key: key1},
+		{Server: srv2.URL, AppID: "app-2", HostID: "host-2", Key: key2},
+	})
+	out, errOut, err := run3237(t, true, "--once")
+	if err != nil {
+		t.Fatalf("run --once: %v\n%s\n%s", err, out, errOut)
+	}
+	hosts := map[string]bool{}
+	lines := 0
+	for _, line := range strings.Split(strings.TrimSpace(out), "\n") {
+		var ev struct{ HostID, Time, Kind string }
+		if err := json.Unmarshal([]byte(line), &ev); err != nil {
+			t.Fatalf("not one JSON event per line: %q", line)
+		}
+		lines++
+		if ev.HostID == "" || strings.HasPrefix(ev.Time, "0001-") {
+			t.Errorf("event %s: hostId %q, time %q", ev.Kind, ev.HostID, ev.Time)
+		}
+		hosts[ev.HostID+" "+ev.Kind] = true
+	}
+	if lines == 0 || !hosts["host-2 host-not-started"] {
+		t.Errorf("host-2's refusal is a host-not-started event naming it: %v", hosts)
+	}
+}
+
 func TestHostRunPlatformNarrowsByAppAndServer3237(t *testing.T) {
 	entries := []hostcred.Entry{
 		{Server: "http://a.example/", AppID: "app-1", HostID: "h1", Key: key1},
@@ -410,6 +445,8 @@ func TestHostRunPlatformNarrowsByAppAndServer3237(t *testing.T) {
 		{"", "http://a.example", []string{"h1"}, false},
 		{"app-1", "http://b.example", nil, true},
 		{"app-9", "", nil, true},
+		{"", "HTTP://A.example", []string{"h1"}, false},
+		{"", "https://a.example/graphql", []string{"h1"}, false},
 	}
 	for _, tc := range cases {
 		f := &cmdutil.Factory{AppFlag: tc.app, ServerFlag: tc.server}
@@ -431,6 +468,11 @@ func TestHostRunPlatformNarrowsByAppAndServer3237(t *testing.T) {
 		}
 		if strings.Join(ids, ",") != strings.Join(tc.want, ",") || err != nil {
 			t.Errorf("app=%q server=%q: got %v (%v), want %v", tc.app, tc.server, ids, err, tc.want)
+		}
+	}
+	for _, app := range []string{"hrn:app:acme.com:eng", "acme.com:eng"} {
+		if _, err := narrowEntries(&cmdutil.Factory{AppFlag: app}, entries); exitcode.FromError(err) != exitcode.Usage || !strings.Contains(err.Error(), "App id") {
+			t.Errorf("--app %s: a form the store cannot match is a usage error naming the App id, got %v", app, err)
 		}
 	}
 	if _, err := narrowEntries(&cmdutil.Factory{}, nil); exitcode.FromError(err) != exitcode.AuthRequired || !strings.Contains(err.Error(), "hadron team host join") {

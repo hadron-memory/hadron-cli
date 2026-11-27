@@ -291,7 +291,9 @@ placed on it, using only the host's key, and finds each worker's workdir
 among Orca's worktrees (` + "`hadron team host doctor`" + ` shows what this
 machine has). An account a worker names is looked up in the accounts file
 when the worker starts. worktree.create goes through ` + "`orca worktree create`" + `.
-Nothing local is sent: no path, program or account directory.
+No account program or account directory is sent, and workers register
+with workdir names, not paths (a start refused because a workdir matches
+several worktrees names their paths, so they can be told apart).
 Refused at start: no joined host (exit 3, join first), a key that no longer
 answers for its App (exit 3, ` + "`team host join --replace`" + `), an App whose
 host setup source is HOST (exit 5, ` + "`team host setup --source SERVER`" + `),
@@ -689,12 +691,14 @@ type hostEventDTO struct {
 	Attempt           int    `json:"attempt,omitempty"`
 	CheckedAt         string `json:"checkedAt,omitempty"`
 	NoticeFailed      bool   `json:"noticeFailed,omitempty"`
-	Time              string `json:"time"`
-	Kind              string `json:"kind"`
-	Operation         string `json:"operation"`
-	Type              string `json:"type"`
-	Outcome           string `json:"outcome"`
-	Detail            string `json:"detail"`
+	// HostID is set only by `host run` with no --config, which may run several hosts in one stream (#3237).
+	HostID    string `json:"hostId,omitempty"`
+	Time      string `json:"time"`
+	Kind      string `json:"kind"`
+	Operation string `json:"operation"`
+	Type      string `json:"type"`
+	Outcome   string `json:"outcome"`
+	Detail    string `json:"detail"`
 }
 
 // hostEventPrinter writes events one per line. Operations run concurrently,
@@ -710,7 +714,7 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 				checkedAt = e.CheckedAt.Format(time.RFC3339Nano)
 			}
 			b, _ := json.Marshal(hostEventDTO{
-				ForeignUIDSkipped: e.ForeignUIDSkipped, LocalCause: e.LocalCause, NoticeCause: e.NoticeCause, FailureReason: e.FailureReason, WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed,
+				ForeignUIDSkipped: e.ForeignUIDSkipped, LocalCause: e.LocalCause, NoticeCause: e.NoticeCause, FailureReason: e.FailureReason, WorkerID: e.WorkerID, SessionID: e.SessionID, TerminalHandle: e.TerminalHandle, Reason: e.Reason, Attempt: e.Attempt, CheckedAt: checkedAt, NoticeFailed: e.NoticeFailed, HostID: e.HostID,
 				Time: e.Time.Format(time.RFC3339), Kind: e.Kind, Operation: e.Operation,
 				Type: e.Type, Outcome: e.Outcome, Detail: e.Detail,
 			})
@@ -718,6 +722,9 @@ func hostEventPrinter(f *cmdutil.Factory) func(hostpoller.Event) {
 			return
 		}
 		parts := []string{e.Time.Format("15:04:05"), e.Kind}
+		if e.HostID != "" {
+			parts = []string{e.Time.Format("15:04:05"), "[" + e.HostID + "]", e.Kind}
+		}
 		for _, s := range []string{e.Type, e.Operation, e.WorkerID, e.Outcome} {
 			if s != "" {
 				parts = append(parts, s)

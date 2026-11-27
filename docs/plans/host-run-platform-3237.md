@@ -52,7 +52,9 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
    --name <label> --branch <b> [--base-branch <base>] --no-parent --setup skip --json` through the closed guard,
    then the list is read again and the outcome judged on it, not on the create's answer: `--branch` takes a
    numeric suffix when the name is taken, so a tree on another branch is FAILED naming both. `--no-parent`
-   because Orca otherwise parents the tree to the caller's inferred context. Failures carry names only.
+   because Orca otherwise parents the tree to the caller's inferred context. Failures carry no Orca output; an
+   ambiguous token names its candidates (as a start's refusal does). Once the create was asked, a failure never
+   says "nothing was created": an unconfirmed create or an unreadable list after it says the tree may exist.
    `SetOrcaWorktrees(facts, run)` wires it (a nil half leaves it unwired: FAILED, nothing created);
    `platformDeps.worktreeRun` builds the runner on the found Orca binary (scrubbed env, 5 min bound). In platform
    mode the created token is recorded but a worker's trees stay its resolved assignment (`configuredOnly`).
@@ -64,6 +66,16 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
    command), `make help-inventory`, release note `docs/release-notes/host-run-platform-3237.md` (server 0.47.0).
    `coverage-matrix-check` is in sync unchanged: the matrix names one command per field and `agentTeamHost`,
    `hostSetup` and `myApp` already have theirs.
+
+## Review pass (hadron-cli review-changes, all 48 nodes) and what it changed
+
+- A create Orca was asked for no longer reports "nothing was created" (pinned: list unreadable after the create).
+- `narrowEntries`: `--server` matches by host name, ignoring case, as `hostcred.Entry.Matches` does; `--app` as
+  a URN or `<root>:<slug>` is exit 2 naming the App id (the store keeps ids only).
+- Events of several hosts carry `hostId` (`--json`; `[<hostId>]` in text) and a time when the emitter set none.
+- "Nothing local is sent" was too broad: an ambiguous workdir's refusal names its candidate paths, which #3237's
+  amendment asks for ("naming the candidates and the fix"). The help, agentic-usage and release note now say
+  exactly what does not leave the machine (an account's program and directory; paths in registration).
 
 ## Left for later (out of scope here)
 

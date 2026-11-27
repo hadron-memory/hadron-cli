@@ -23,6 +23,7 @@ import (
 
 	"github.com/hadron-memory/hadron-cli/internal/api"
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -114,13 +115,14 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 	var pollers []*hostpoller.Poller
 	var hosts []platformHost
 	for _, e := range entries {
-		h, p, err := startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, emit)
+		hostEmit := hostEmitter(emit, e.HostID)
+		h, p, err := startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, hostEmit)
 		if err != nil {
 			if len(entries) == 1 {
 				return err
 			}
 			// Ruling Q4 (a): one host that cannot start is reported; the others run.
-			emit(hostpoller.Event{Kind: "host-not-started", Outcome: "FAILED", Detail: err.Error()})
+			hostEmit(hostpoller.Event{Kind: "host-not-started", Outcome: "FAILED", Detail: err.Error()})
 			continue
 		}
 		hosts, pollers = append(hosts, h), append(pollers, p)
@@ -131,6 +133,18 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 	return runPollers(ctx, hosts, pollers, once)
 }
 
+// hostEmitter stamps each event with its host, so the events of several hosts in one stream can be told
+// apart, and with the time when the emitter left it unset.
+func hostEmitter(emit func(hostpoller.Event), hostID string) func(hostpoller.Event) {
+	return func(e hostpoller.Event) {
+		if e.Time.IsZero() {
+			e.Time = time.Now()
+		}
+		e.HostID = hostID
+		emit(e)
+	}
+}
+
 // narrowEntries keeps the credentials this run serves: every one, or --server's and --app's (an App id, as
 // `team host show` prints it). None left is exit 3 naming `team host join`.
 func narrowEntries(f *cmdutil.Factory, entries []hostcred.Entry) ([]hostcred.Entry, error) {
@@ -138,13 +152,19 @@ func narrowEntries(f *cmdutil.Factory, entries []hostcred.Entry) ([]hostcred.Ent
 		return nil, exitcode.Newf(exitcode.AuthRequired, "%s", platformJoinFirst)
 	}
 	app := strings.TrimSpace(f.AppFlag)
-	server := strings.TrimRight(strings.TrimSpace(f.ServerFlag), "/")
+	if strings.Contains(app, ":") {
+		// The store keeps an App's id only, so a URN or <root>:<slug> cannot be matched here.
+		return nil, exitcode.Newf(exitcode.Usage, "--app takes the App id that `hadron team host show` prints here, not %q (the store keeps App ids only)", app)
+	}
+	server := strings.TrimSpace(f.ServerFlag)
 	out := []hostcred.Entry{}
 	for _, e := range entries {
 		if app != "" && e.AppID != app {
 			continue
 		}
-		if server != "" && strings.TrimRight(e.Server, "/") != server {
+		// As the store matches it (hostcred.Entry.Matches): by host (hostnames ignore case), so a scheme, a path or a
+		// trailing slash does not decide it.
+		if server != "" && !strings.EqualFold(auth.Host(e.Server), auth.Host(server)) {
 			continue
 		}
 		out = append(out, e)
@@ -294,7 +314,8 @@ func platformConfig(ctx context.Context, r *gen.HostRunPlatformResponse, e hostc
 }
 
 // runPollers runs every host's poller. Ruling Q4 (a): a fatal stops only that poller; the process ends when none
-// remain, with the first fatal's code (--once: the worst code of the pass).
+// remain, with the code of the first host (in credential order) that ended in error (--once: the worst code of
+// the pass).
 func runPollers(ctx context.Context, hosts []platformHost, pollers []*hostpoller.Poller, once bool) error {
 	errs := make([]error, len(pollers))
 	var wg sync.WaitGroup
