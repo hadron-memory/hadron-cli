@@ -116,35 +116,60 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 	ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	emit := hostEventPrinter(f)
-	var pollers []*hostpoller.Poller
-	var hosts []platformHost
-	started := map[string]platformHost{}
+	slots := make([]*hostSlot, 0, len(entries))
+	started := map[string]hostcred.Entry{}
 	for _, e := range entries {
-		hostEmit := hostEmitter(emit, e.HostID)
-		var h platformHost
-		var p *hostpoller.Poller
-		var err error
+		s := &hostSlot{entry: e, emit: hostEmitter(emit, e.HostID)}
 		if first, dup := started[e.HostID]; dup {
 			// A host's state lives under <state>/hosts/<hostId>, so two pollers of one id would share it.
-			err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as %s on %s, and this machine keeps a host's state by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, auth.Host(e.Server), first.who(), auth.Host(first.entry.Server))
+			s.err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as host %s (App %s) on %s, and this machine keeps a host's state by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, auth.Host(e.Server), first.HostID, first.AppID, auth.Host(first.Server))
 		} else {
-			h, p, err = startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, hostEmit)
+			started[e.HostID] = e
+			s.host, s.poller, s.err = startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, s.emit)
+			s.host.entry = e
 		}
-		if err != nil {
-			if len(entries) == 1 {
-				return err
-			}
-			// Ruling Q4 (a): one host that cannot start is reported; the others run.
-			hostEmit(hostpoller.Event{Kind: "host-not-started", Outcome: "FAILED", Detail: err.Error()})
-			continue
+		if s.err != nil && len(entries) == 1 && (once || !transientStart(s.err)) {
+			return s.err
 		}
-		started[e.HostID] = h
-		hosts, pollers = append(hosts, h), append(pollers, p)
+		slots = append(slots, s)
 	}
-	if len(pollers) == 0 {
-		return exitcode.Newf(exitcode.Error, "no host could start")
+	restart := func(ctx context.Context, s *hostSlot) (platformHost, *hostpoller.Poller, error) {
+		return startPlatformHost(ctx, f, deps, facts, orcaBin, s.entry, keys, s.emit)
 	}
-	return runPollers(ctx, hosts, pollers, once)
+	return runPollers(ctx, slots, once, restart)
+}
+
+// hostSlot is one stored credential of this run: the host and its poller once started, or the error its start
+// ended with (a transient one is retried in the slot's own goroutine, without --once: #3301 LOCAL F4).
+type hostSlot struct {
+	entry  hostcred.Entry
+	emit   func(hostpoller.Event)
+	host   platformHost
+	poller *hostpoller.Poller
+	err    error
+}
+
+// errTransientStart marks a start that ended on a platform read the server did not refuse (a transport failure,
+// a gateway 5xx, an internal fault): the same failure mid-run is retried by Run, so at start it is too. Every
+// other start failure is fixed (a refusal naming its fix, a local refusal) and ends that host.
+type errTransientStart struct{ err error }
+
+func (e errTransientStart) Error() string { return e.err.Error() }
+func (e errTransientStart) Unwrap() error { return e.err }
+
+func transientStart(err error) bool {
+	var t errTransientStart
+	return errors.As(err, &t)
+}
+
+// platformStartBackoff is the wait before retry n (1-based) of a host whose start read failed transiently:
+// 5s doubling to 5m. A test shortens it.
+var platformStartBackoff = func(n int) time.Duration {
+	d := 5 * time.Second
+	for i := 1; i < n && d < 5*time.Minute; i++ {
+		d *= 2
+	}
+	return min(d, 5*time.Minute)
 }
 
 // hostEmitter stamps each event with its host, so the events of several hosts in one stream can be told
@@ -302,7 +327,13 @@ func readPlatform(ctx context.Context, h platformHost) (*gen.HostRunPlatformResp
 			return nil, exitcode.Newf(exitcode.Error, "%s", platformNeedsV1)
 		}
 		code := exitcode.FromError(api.MapError(err))
-		return nil, exitcode.Newf(code, "%s: reading the host's platform settings was refused: %s", h.who(), failureClassPlatform(code))
+		switch code {
+		case exitcode.AuthRequired, exitcode.Forbidden, exitcode.NotFound, exitcode.Usage, exitcode.Conflict:
+			return nil, exitcode.Newf(code, "%s: reading the host's platform settings was refused: %s", h.who(), failureClassPlatform(code))
+		}
+		out := exitcode.Newf(code, "%s: reading the host's platform settings failed: %s", h.who(), failureClassPlatform(code))
+		// Not refused by the server for good (#3301 LOCAL F4): a start retries it, as Run retries it mid-run.
+		return nil, errTransientStart{out}
 	}
 	if resp == nil || resp.HostSetup == nil {
 		return nil, exitcode.Newf(exitcode.Error, "%s: the server returned no host setup", h.who())
@@ -397,30 +428,45 @@ func namedHostError(h platformHost, err error) error {
 	return fmt.Errorf("%s: %w", h.who(), err)
 }
 
-// runPollers runs every host's poller. Ruling Q4 (a): a fatal stops only that poller; the process ends when none
-// remain, with the code of the first host (in credential order) that ended in error (--once: the worst code of
-// the pass).
-func runPollers(ctx context.Context, hosts []platformHost, pollers []*hostpoller.Poller, once bool) error {
-	errs := make([]error, len(pollers))
+// runPollers runs every host's poller. Ruling Q4 (a): a fatal stops only that poller, and a host that could not
+// start is reported and joins the same selection; the process ends when none remain, with the code of the first
+// host (in credential order) that ended in error (--once: the worst code of the pass). Without --once, a host
+// whose start failed transiently retries its start with backoff in its own goroutine, then runs.
+func runPollers(ctx context.Context, slots []*hostSlot, once bool, restart func(context.Context, *hostSlot) (platformHost, *hostpoller.Poller, error)) error {
+	errs := make([]error, len(slots))
 	var wg sync.WaitGroup
-	for i, p := range pollers {
+	for i, s := range slots {
 		wg.Add(1)
-		go func(i int, p *hostpoller.Poller) {
+		go func(i int, s *hostSlot) {
 			defer wg.Done()
+			if s.err != nil && !once && transientStart(s.err) {
+				s.host, s.poller, s.err = retryStart(ctx, s, restart)
+				if s.err == nil && s.poller == nil {
+					return // cancelled while retrying: a stop, not a failure
+				}
+			}
+			if s.err != nil {
+				if len(slots) > 1 {
+					s.emit(hostpoller.Event{Kind: "host-not-started", Outcome: "FAILED", Detail: s.err.Error()})
+				}
+				errs[i] = s.err
+				return
+			}
+			p := s.poller
 			if once {
 				err := p.Step(ctx)
 				p.Wait()
 				if err != nil {
-					errs[i] = hostStepError(namedHostError(hosts[i], err))
+					errs[i] = hostStepError(namedHostError(s.host, err))
 				} else if n := p.ReportFailures(); n > 0 {
-					errs[i] = exitcode.Newf(exitcode.Unavailable, "%s: %d report(s) did not reach the server; those operations are re-delivered at the next collect", hosts[i].who(), n)
+					errs[i] = exitcode.Newf(exitcode.Unavailable, "%s: %d report(s) did not reach the server; those operations are re-delivered at the next collect", s.host.who(), n)
 				}
 				return
 			}
 			if err := p.Run(ctx); err != nil {
-				errs[i] = hostStepError(namedHostError(hosts[i], err))
+				errs[i] = hostStepError(namedHostError(s.host, err))
 			}
-		}(i, p)
+		}(i, s)
 	}
 	wg.Wait()
 	var worst error
@@ -433,4 +479,29 @@ func runPollers(ctx context.Context, hosts []platformHost, pollers []*hostpoller
 		}
 	}
 	return worst
+}
+
+// retryStart retries a host's start while it fails transiently: one host-start-retrying event for the episode,
+// one host-started when it starts. A fixed failure ends it with that failure; a cancelled context ends it with
+// neither a poller nor an error.
+func retryStart(ctx context.Context, s *hostSlot, restart func(context.Context, *hostSlot) (platformHost, *hostpoller.Poller, error)) (platformHost, *hostpoller.Poller, error) {
+	s.emit(hostpoller.Event{Kind: "host-start-retrying", Outcome: "", Detail: s.err.Error() + "; retrying the start with backoff"})
+	for n := 1; ; n++ {
+		select {
+		case <-ctx.Done():
+			return s.host, nil, nil
+		case <-time.After(platformStartBackoff(n)):
+		}
+		h, p, err := restart(ctx, s)
+		h.entry = s.entry
+		switch {
+		case err == nil:
+			s.emit(hostpoller.Event{Kind: "host-started", Detail: fmt.Sprintf("%s started after %d retry(ies)", h.who(), n)})
+			return h, p, nil
+		case ctx.Err() != nil:
+			return h, nil, nil
+		case !transientStart(err):
+			return h, nil, err
+		}
+	}
 }

@@ -151,6 +151,7 @@ func run3237(t *testing.T, json bool, args ...string) (string, string, error) {
 	io.Out, io.ErrOut = output.Tracked(out), errOut
 	f := &cmdutil.Factory{IOStreams: io, JSON: json}
 	c := newCmdTeamHostRun(f)
+	c.SilenceUsage = true // as the root command does: --json stdout is one event per line
 	c.SetArgs(args)
 	c.SetOut(out)
 	c.SetErr(errOut)
@@ -362,7 +363,7 @@ func TestHostRunPlatformRunsOnePollerPerCredential3237(t *testing.T) {
 }
 
 func TestHostRunPlatformOneHostFailingLeavesTheOtherRunning3237(t *testing.T) {
-	srv1, _ := goodServer3237(t, "app-1", "host-1")
+	srv1, calls1 := goodServer3237(t, "app-1", "host-1")
 	srv2, calls2 := fakeServer3237(t, func(op string, _ json.RawMessage) string {
 		if op == "HostRunPlatform" {
 			return platformAnswer3237("app-2", "host-2", "HOST")
@@ -374,8 +375,17 @@ func TestHostRunPlatformOneHostFailingLeavesTheOtherRunning3237(t *testing.T) {
 		{Server: srv2.URL, AppID: "app-2", HostID: "host-2", Key: key2},
 	})
 	out, errOut, err := run3237(t, false, "--once")
-	if err != nil {
-		t.Fatalf("ruling Q4 (a): one host that cannot start is reported and the other runs: %v\n%s\n%s", err, out, errOut)
+	// Ruling Q4 (a): the host that cannot start is reported and the other runs; under --once the exit is the
+	// worst code of the pass, the refused host's included (#3301 LOCAL F3).
+	if exitcode.FromError(err) != exitcode.Conflict {
+		t.Fatalf("one of two hosts refused (setup source HOST) under --once exits 5, got %d (%v)\n%s\n%s", exitcode.FromError(err), err, out, errOut)
+	}
+	registered := false
+	for _, c := range calls1() {
+		registered = registered || strings.HasPrefix(c.op, "RegisterHost")
+	}
+	if !registered {
+		t.Error("the host that could start did not run")
 	}
 	if !strings.Contains(out+errOut, "host-not-started") || !strings.Contains(out+errOut, "host-2") {
 		t.Errorf("the host that could not start is reported:\n%s\n%s", out, errOut)
@@ -401,8 +411,8 @@ func TestHostRunPlatformEventsNameTheirHost3237(t *testing.T) {
 		{Server: srv2.URL, AppID: "app-2", HostID: "host-2", Key: key2},
 	})
 	out, errOut, err := run3237(t, true, "--once")
-	if err != nil {
-		t.Fatalf("run --once: %v\n%s\n%s", err, out, errOut)
+	if exitcode.FromError(err) != exitcode.Conflict {
+		t.Fatalf("run --once: want exit 5 for host-2's refusal, got %v\n%s\n%s", err, out, errOut)
 	}
 	hosts := map[string]bool{}
 	lines := 0

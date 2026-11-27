@@ -25,7 +25,7 @@ server is refused at start with a message that names 0.47.0. The platform read i
   names its candidate worktrees so they can be told apart. Every stored host key is removed from an agent's
   environment and redacted from what the host reports.
 - **Events name their host:** with no `--config`, each `--json` event carries `hostId`, and text lines show
-  `[<hostId>]` after the time. New kinds: `host-not-started`, `facts-unavailable` (once per Orca outage; the
+  `[<hostId>]` after the time. New kinds: `host-not-started`, `host-start-retrying` and `host-started`, `facts-unavailable` (once per Orca outage; the
   worktrees Orca last answered are kept) and `facts-available`, `setup-source-host`, `setup-source-server`,
   `assignments-changed`, `launch-refused` (the local detail of an account or program refusal).
 
@@ -43,12 +43,27 @@ server is refused at start with a message that names 0.47.0. The platform read i
 | The host's state directory is claimed by another host of the same id (another App or server) | 5 | `hadron team host leave` on the other |
 | Server older than 0.47.0 | 1 | upgrade the server, or use `--config` |
 
-If one of several hosts cannot start, a `host-not-started` event reports it and the others keep running.
+If one of several hosts cannot start, a `host-not-started` event reports it and the others keep running. Its
+code still counts toward the exit: with `--once` the run exits with the worst code of the pass, otherwise with
+the code of the first host (in join order) that ended in error. A platform read at start that the server did not
+refuse (a network error, a gateway 5xx, an internal fault) is retried with backoff (5 s doubling to 5 min)
+without `--once`, said once as `host-start-retrying`, then `host-started`; a refusal is never retried.
 A host's state is kept under `<state dir>/hosts/<hostId>`, claimed by its server and App on first run
 (`host-identity.json`). A host id is unique only on its server, so two stored hosts of one id (two servers)
 never both run on one machine: the second is a `host-not-started` event, and in a later process it is refused
 as above. If
 the setup source flips to `HOST` mid-run, the poller registers nothing and waits, and says so once.
+
+## Limits
+
+- **No end prompt and no `stop_on_end` for a platform worker.** The platform has no per-worker setting for
+  them yet (C4 of hadron-server#5209), so `worker.end` on a host with no `--config` waits the 15-minute
+  default, reports FAILED and stops nothing. Run the host with `--config` for a worker that needs either.
+- **Two workers assigned one workdir** register it for neither: a start for it fails `WORKDIR_ASSIGNED_TWICE`,
+  naming both workers. A worktree belongs to one worker.
+- **`worktree.remove`** of a tree no assignment names (one the worker created through `worktree.create`) is
+  found on Orca's live worktree list at the removal, and every safety check still applies. A tree the worker
+  is neither assigned nor created here is refused, naming why.
 
 ## Also in this release
 

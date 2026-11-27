@@ -31,6 +31,8 @@ const (
 	CodeWorkdirAmbiguousOnHost = "WORKDIR_AMBIGUOUS_ON_HOST"
 	CodeAccountNotOnHost       = "ACCOUNT_NOT_ON_HOST"
 	CodeProgramNotOnHost       = "PROGRAM_NOT_ON_HOST"
+	// Two of this host's assignments name one workdir: a worktree belongs to one worker (hadron-cli#3301 F5).
+	CodeWorkdirAssignedTwice = "WORKDIR_ASSIGNED_TWICE"
 	// An accounts-file ENTRY whose own program or configDir is missing. A worker that uses such an entry gets
 	// CodeAccountNotOnHost naming this cause, so the two layers read as one story.
 	CodeAccountProgramNotFound   = "ACCOUNT_PROGRAM_NOT_FOUND"

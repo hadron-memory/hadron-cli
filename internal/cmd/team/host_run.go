@@ -300,7 +300,10 @@ or a key no longer permitted for it (exit 8), each naming
 ` + "`team host join --replace`" + `; no Orca on this machine (exit 10); an App
 whose host setup source is HOST (exit 5, ` + "`team host setup --source SERVER`" + `);
 an older server (names 0.47.0). With several hosts, one that cannot start
-is reported and the others run.
+is reported and the others run; its code still counts toward the exit
+(--once: the worst code; otherwise the first host's, in join order). A
+platform read that fails without being refused (a network error, a 5xx)
+is retried with backoff, except under --once.
 
 WITH --config: the host file, as below (until the file is retired).
 

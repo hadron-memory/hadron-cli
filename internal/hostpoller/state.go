@@ -129,6 +129,13 @@ func (s *State) worktreesFor(ref string, configured []string) []string {
 	return out
 }
 
+// createdBy reports a tree this poller recorded as created for ref, whatever configuredOnly says.
+func (s *State) createdBy(ref, token string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return contains(s.Created[ref], token)
+}
+
 func (s *State) addCreated(ref, token string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

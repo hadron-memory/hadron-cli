@@ -129,3 +129,16 @@ func orcaOK(stdout string) bool {
 	}
 	return json.Unmarshal([]byte(strings.TrimSpace(stdout)), &env) == nil && env.OK
 }
+
+// platformRemoveTree finds token on Orca's live list for a platform worktree.remove whose token no assignment
+// resolved at this poll: its path, "" when Orca lists no such tree, or the reason it cannot be told.
+func (p *Poller) platformRemoveTree(ctx context.Context, token string) (string, string) {
+	if p.orcaFacts == nil {
+		return "", fmt.Sprintf("%s: worktree %q is not an assigned workdir on this host and Orca is not wired to look it up", hostfacts.CodeWorkdirNotOnHost, token)
+	}
+	tree, why := p.orcaTree(ctx, nil, token)
+	if why != "" || tree == nil {
+		return "", why
+	}
+	return tree.Path, ""
+}

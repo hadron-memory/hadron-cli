@@ -33,8 +33,8 @@ func TestHostRunPlatformRefusesASecondHostWithTheSameHostID3301(t *testing.T) {
 		{Server: srv2.URL, AppID: "app-2", HostID: "host-1", Key: key2},
 	})
 	out, errOut, err := run3237(t, false, "--once")
-	if err != nil {
-		t.Fatalf("the first host runs: %v\n%s\n%s", err, out, errOut)
+	if exitcode.FromError(err) != exitcode.Conflict {
+		t.Fatalf("the first host runs and the second's refusal is the --once exit (5): %v\n%s\n%s", err, out, errOut)
 	}
 	if len(w.pollers) != 1 {
 		t.Fatalf("one poller per host id; got %d", len(w.pollers))

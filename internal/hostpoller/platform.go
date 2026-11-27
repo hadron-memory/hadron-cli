@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/hadron-memory/hadron-cli/internal/hostfacts"
@@ -83,6 +84,13 @@ func BuildPlatformConfig(app string, set PlatformSettings, assignments []Assignm
 			}
 		}
 	}
+	// A worktree belongs to one worker (Config validation and CheckWorktreeAliases hold it under --config; owner
+	// checks and the stop scan rely on it). The server keys an assignment by worker and host, so two workers can
+	// be placed on one workdir: then neither registers it, and a start for it fails naming both (#3301 F5).
+	claims := map[string][]string{}
+	for _, a := range assignments {
+		claims[a.Workdir] = append(claims[a.Workdir], a.WorkerID)
+	}
 	for _, a := range assignments {
 		w := WorkerConfig{
 			Family:    a.Family,
@@ -92,11 +100,16 @@ func BuildPlatformConfig(app string, set PlatformSettings, assignments []Assignm
 			Worktrees: []string{},
 		}
 		path, cands, res := hostfacts.ResolveWorkdir(a.Workdir, f.Repos, f.Worktrees)
-		switch res {
-		case hostfacts.Found:
+		switch {
+		case len(claims[a.Workdir]) > 1:
+			who := append([]string{}, claims[a.Workdir]...)
+			sort.Strings(who)
+			c.unresolved[a.Workdir] = fmt.Sprintf("%s: workdir %q is assigned to %d workers on this host (%s), and a worktree belongs to one worker; assign each a workdir of its own; nothing was launched",
+				hostfacts.CodeWorkdirAssignedTwice, a.Workdir, len(who), strings.Join(who, ", "))
+		case res == hostfacts.Found:
 			w.Worktrees = append(w.Worktrees, a.Workdir)
 			c.paths[a.Workdir] = path
-		case hostfacts.Ambiguous:
+		case res == hostfacts.Ambiguous:
 			c.unresolved[a.Workdir] = fmt.Sprintf("%s: workdir %q matches %d Orca worktrees on this host (%s); archive or rename all but one so the token names one tree; nothing was launched",
 				hostfacts.CodeWorkdirAmbiguousOnHost, a.Workdir, len(cands), strings.Join(cands, ", "))
 		default:

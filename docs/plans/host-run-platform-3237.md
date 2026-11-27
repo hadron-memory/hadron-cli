@@ -77,6 +77,40 @@ the stamped precondition) and hadron-cli#3288 F8 (`EnsureHostStateDir`), both as
   amendment asks for ("naming the candidates and the fix"). The help, agentic-usage and release note now say
   exactly what does not leave the machine (an account's program and directory; paths in registration).
 
+## LOCAL review at 8bc735a4 (Joran, 6 P2 + 1 P3) and what it changed
+
+- **F1 relaunch containment.** `relaunchTarget` required the tree inside `EvalSymlinks(WorktreesRoot)`, which a
+  platform Config does not have, so no platform worker could relaunch (and the agentless-end sweep, which uses
+  it, never ran). `containedWorktree(c, token)`: under `--config` the old rule; on a platform host the token's
+  resolved Orca path with symlinks resolved, and none for a token that did not resolve. Pinned through
+  `relaunchTarget`.
+- **F2 worktree.remove of a tree no assignment resolves.** A tree the worker made with `worktree.create` is never
+  an assignment's, so `WorktreePath` is "" for it. The remove now finds the token on Orca's live list
+  (`platformRemoveTree`, the create's `orcaTree`): not listed is already removed (SUCCEEDED, as an absent tree
+  under `--config`); unreadable or ambiguous refuses, saying nothing was removed. Ownership on a platform host is
+  the worker's assigned workdir or a tree recorded as created for it (`State.createdBy`; `configuredOnly` keeps a
+  created tree out of starts and registration only); a tree another worker is assigned, or one the worker neither
+  is assigned nor created, is refused with a removal message. A worker the platform no longer places here is
+  refused as not configured, as before: the host has no record that the tree was ever its own.
+- **F3 Q4 (a) exit codes.** A host that fails to start now joins `runPollers`' selection (`hostSlot`): `--once`
+  takes the worst code of the pass, otherwise the first host in credential order that ended in error. "no host
+  could start" (exit 1) is gone: with every host refused the exit is that selection. The test that pinned exit 0
+  for one refused host of two now pins 5.
+- **F4 transient start reads.** `readPlatform` marks a failure the server did not refuse (`errTransientStart`:
+  any code but 2/3/4/5/8 and not schema skew). Without `--once` that host retries its start in its own goroutine
+  (`retryStart`, `platformStartBackoff` 5 s doubling to 5 min), says `host-start-retrying` once per episode and
+  `host-started` when it starts, then runs; a fixed refusal on a retry ends it. With one host and no `--once` the
+  process no longer exits on such a read. `--once` never retries.
+- **F5 a workdir assigned twice.** The server keys an assignment by (App, worker, host), so two workers can be
+  placed on one workdir. `BuildPlatformConfig` leaves such a token unresolved for both, with
+  `WORKDIR_ASSIGNED_TWICE` naming the workers (new in `hostfacts`), so `CheckWorktreeAliases`' rule holds.
+- **F6 pins**, each with a killed mutant: the remove's empty-path guard (a stub `Inspect("")` that would pass),
+  `SetFromPlatform` (a created tree is not registered), the assignment `hostId` filter, scrub-all in the end
+  prompt's env, the archived-worktree skip, the poll interval bounds, the `relaunch_exit` empty path (a stamp in
+  the test's cwd), `ScrubbedEnv` on the create runner (a fake `orca` printing its env).
+- **N7** is stated in the release note's Limits: a platform worker has no end prompt and no `stop_on_end`
+  until C4, so `worker.end` waits the 15-minute default, reports FAILED and stops nothing.
+
 ## Left for later (out of scope here)
 
 - The rest of #3288 (F8 only here; the task AT0.11114.1 builds the rest after this merges).

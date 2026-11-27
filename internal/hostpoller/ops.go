@@ -95,12 +95,23 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not a valid name token", token))
 		return
 	}
-	dir := p.config().WorktreePath(token)
-	if dir == "" {
-		// A host that runs from the platform, and the token names no single Orca worktree here: nothing is
-		// inspected or removed (hadron-cli#3237).
-		p.finish(ctx, op, Failed, "", p.config().WorkdirRefusal(token))
-		return
+	c := p.config()
+	dir := c.WorktreePath(token)
+	if c.FromPlatform() && dir == "" {
+		// A host that runs from the platform, and no assignment resolved the token at this poll: a tree this
+		// worker created here, or one an assignment named before, is found on Orca's live list (hadron-cli#3301
+		// LOCAL F2). Not there is already removed; unreadable or ambiguous refuses, and nothing is inspected.
+		tree, why := p.platformRemoveTree(ctx, token)
+		switch {
+		case why != "":
+			p.finish(ctx, op, Failed, "", why+"; nothing was removed")
+			return
+		case tree == "":
+			_ = p.state.removeCreated(token)
+			p.finish(ctx, op, Succeeded, "", "")
+			return
+		}
+		dir = tree
 	}
 	st, err := p.host.Inspect(ctx, dir)
 	if err != nil {
@@ -123,7 +134,19 @@ func (p *Poller) worktreeRemove(ctx context.Context, op Operation) {
 		p.finish(ctx, op, Failed, "", "the worker is not configured on this host")
 		return
 	}
-	if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
+	if c.FromPlatform() {
+		// A worker's trees on a platform host are its assignment's workdir and the trees it created here
+		// (state.Created survives; configuredOnly only keeps a created tree out of starts). Never a tree another
+		// worker is assigned, and never one this worker neither is assigned nor created.
+		if owner, held := p.state.ownerOf(token, c); held && owner != ref {
+			p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is assigned to another worker on this host; nothing was removed", token))
+			return
+		}
+		if !contains(w.Worktrees, token) && !p.state.createdBy(ref, token) {
+			p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is neither this worker's assigned workdir on this host nor a tree it created here, so it is not this worker's to remove; nothing was removed", token))
+			return
+		}
+	} else if !contains(p.state.worktreesFor(ref, w.Worktrees), token) {
 		p.finish(ctx, op, Failed, "", fmt.Sprintf("worktree %q is not registered for this worker here", token))
 		return
 	}
