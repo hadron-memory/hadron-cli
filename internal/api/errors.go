@@ -2000,8 +2000,8 @@ func codeForExtension(code string) int {
 	// too many open requests on one secret is refused. Both are the secret's
 	// state, which no retry changes: 5. Unmapped they would fall to exit 1.
 	//
-	// cli#3280: so is the App's own cap on open staged changes (at most 100,
-	// SECRET_CHANGE_APP_LIMIT): the App's state, which no retry changes until some
+	// cli#3280: so is the App's own cap on open staged changes (SECRET_CHANGE_APP_LIMIT; the number is the server's):
+	// the App's state, which no retry changes until some
 	// are completed or expire.
 	case code == "SECRET_PROTECTED_NEEDS_PASSKEY" || code == "SECRET_CHANGE_REQUEST_LIMIT" || code == "SECRET_CHANGE_APP_LIMIT":
 		return exitcode.Conflict

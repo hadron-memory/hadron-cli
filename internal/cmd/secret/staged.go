@@ -96,6 +96,11 @@ func stagedText(what, id, url string) string {
 // secret (hadron-server#3999 S4): too many are already waiting for a person.
 const codeChangeLimit = "SECRET_CHANGE_REQUEST_LIMIT"
 
+// codeAppChangeLimit is the App-wide cap on open staged changes (at most 100,
+// hadron-server#5184 family; cli#3280). Its message is withheld like the per-secret
+// limit's: a server message on a staging door can repeat a submitted value.
+const codeAppChangeLimit = "SECRET_CHANGE_APP_LIMIT"
+
 // withheld is an error whose text is fixed here, not the server's: Error() is the
 // fixed sentence, while Unwrap() keeps the mapped error underneath so the exit
 // code, the server code and an internal fault's request id still reach the root
@@ -117,9 +122,11 @@ func (w *withheld) Unwrap() error { return w.err }
 func withholdServerText(err error, what string) error {
 	mapped := api.MapErrorKeepingCode(err)
 	switch {
+	case api.HasErrorCode(err, codeAppChangeLimit) && !api.HasErrorCode(err, codeNeedsPasskey):
+		return &withheld{"too many change requests are already open in this App, so " + what + " was not staged; withdraw one (hadron secret change withdraw <request-id>) or wait for a person to sign or decline them", mapped}
 	case api.HasErrorCode(err, codeChangeLimit) && !api.HasErrorCode(err, codeNeedsPasskey):
 		return &withheld{"too many change requests are already open on this secret, so " + what + " was not staged; withdraw one (hadron secret change withdraw <request-id>) or wait for a person to sign or decline them", mapped}
-	case api.HasErrorCode(err, codeNeedsPasskey) || api.HasErrorCode(err, codeChangeLimit):
+	case api.HasErrorCode(err, codeNeedsPasskey) || api.HasErrorCode(err, codeChangeLimit) || api.HasErrorCode(err, codeAppChangeLimit):
 		return &withheld{what + ": the server answered with a protected-secret refusal inside an answer that does not prove what was staged (several errors, an error below the mutation, or an HTTP 5xx), so a change request may or may not have been opened. The server's message is withheld because it can repeat a submitted value; read --json for the server code, and check any request id you were given with hadron secret change get", mapped}
 	}
 	return mapped

@@ -51,8 +51,11 @@ func TestSecretChangeAppLimitIsExit53280(t *testing.T) {
 	reply := `{"errors":[{"message":"too many open secret changes in this App","extensions":{"code":"SECRET_CHANGE_APP_LIMIT"}}],"data":null}`
 	seen, code := renderedNoEcho3029(t, map[string]string{"CreateSecretProtected": reply},
 		"secret", "create", "--name", "k", "--scope", "app", "--owner", "hrn:app:acme.com:ops", "--kind", "generic", "--value-file", valueFile3280(t), "--protected")
-	if code != exitcode.Conflict || !strings.Contains(seen, "too many open secret changes in this App") {
-		t.Errorf("exit %d (want 5), the server's message reaches the caller:\n%s", code, seen)
+	// The server's text is withheld (it can repeat a submitted value), as for SECRET_CHANGE_REQUEST_LIMIT:
+	// a fixed sentence names the App-wide limit, and the exit class stays 5.
+	if code != exitcode.Conflict || strings.Contains(seen, "too many open secret changes in this App") ||
+		!strings.Contains(seen, "too many change requests are already open in this App") {
+		t.Errorf("exit %d (want 5), the server's message must be withheld for the fixed sentence:\n%s", code, seen)
 	}
 }
 
@@ -60,7 +63,7 @@ func TestSecretChangeAppLimitIsExit53280(t *testing.T) {
 // is the attach contract (cli#3185: any readable class but system, a read-only link), not the old "attach a memory you own".
 func TestMemorySetHelpAndUsageAgreeOnExit5AndAttach3280(t *testing.T) {
 	help := strings.Join(strings.Fields(cmdHelpOut(t, "memory", "set")), " ")
-	for _, want := range []string{"APP_USER_MEMORY_ALREADY_EXISTS", "MEMORY_URN_CONFLICT", "read-only link", "any class except system"} {
+	for _, want := range []string{"APP_USER_MEMORY_ALREADY_EXISTS", "MEMORY_URN_CONFLICT", "APP_MEMORY_SLUG_FIXED", "read-only link", "any class except system"} {
 		if !strings.Contains(help, want) {
 			t.Errorf("memory set --help must say %q:\n%s", want, help)
 		}
