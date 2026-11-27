@@ -378,9 +378,7 @@ Apps:
 					} else if resp == nil || resp.UpdateMemory == nil {
 						postCreateErr = exitcode.Newf(exitcode.Error, "server returned no memory on the post-create update")
 					} else {
-						state := m.CorpusState
 						m = dtoFromMemory(resp.UpdateMemory)
-						m.CorpusState = state
 					}
 				}
 			} else {
@@ -428,14 +426,8 @@ Apps:
 					if m.Visibility != nil && *m.Visibility != "" {
 						vis = *m.Visibility
 					}
-					if _, err := fmt.Fprintf(w, "  class: %s   visibility: %s\n", m.Class, vis); err != nil {
-						return err
-					}
-					if m.CorpusState != nil && *m.CorpusState == string(gen.CorpusStateDraft) {
-						_, err := fmt.Fprintln(w, "  corpus: draft — citations stay changeable until `hadron spec mint`")
-						return err
-					}
-					return nil
+					_, err := fmt.Fprintf(w, "  class: %s   visibility: %s\n", m.Class, vis)
+					return err
 				}
 				return nil
 			}); err != nil {
