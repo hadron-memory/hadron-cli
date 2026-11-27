@@ -39,6 +39,8 @@ const (
 	AccessSourceMemoryPrincipal AccessSource = "MEMORY_PRINCIPAL"
 	// personal-class cross-user grant (MemoryShare).
 	AccessSourceMemoryShare AccessSource = "MEMORY_SHARE"
+	// cross-org MemorySubscription (#329): the subscribing org's live subscription — read at any membership role, write only for knowledge at CONTRIBUTOR+ membership AND subscription. role is the EFFECTIVE level conferred (READER, or CONTRIBUTOR where write holds), never the subscription row's own role. via is the subscribing org's URN.
+	AccessSourceMemorySubscription AccessSource = "MEMORY_SUBSCRIPTION"
 	// node inherits its memory's access.
 	AccessSourceNodeInherited AccessSource = "NODE_INHERITED"
 	// ADMIN/OWNER (or, for org-readable knowledge, any Role) of the owning org.
@@ -58,6 +60,7 @@ var AllAccessSource = []AccessSource{
 	AccessSourceMemoryMember,
 	AccessSourceMemoryPrincipal,
 	AccessSourceMemoryShare,
+	AccessSourceMemorySubscription,
 	AccessSourceNodeInherited,
 	AccessSourceOrgRole,
 	AccessSourcePlatformRole,
@@ -45469,8 +45472,10 @@ type CreateMemoryDraftResponse struct {
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
 	// caller owns (free-standing, no app/agent). An org-anchored personal/private
-	// memory requires actual membership of that org container; the org-less
-	// owner-only path requires no org membership. system- and app-class
+	// memory requires actual membership of that org container, and reusing the
+	// name of a deleted organization-owned memory there also requires the org's
+	// memory.create grant; the org-less owner-only path requires no org
+	// membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryDraftCreateMemory `json:"createMemory"`
@@ -45561,8 +45566,10 @@ type CreateMemoryDraftWithSlugResponse struct {
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
 	// caller owns (free-standing, no app/agent). An org-anchored personal/private
-	// memory requires actual membership of that org container; the org-less
-	// owner-only path requires no org membership. system- and app-class
+	// memory requires actual membership of that org container, and reusing the
+	// name of a deleted organization-owned memory there also requires the org's
+	// memory.create grant; the org-less owner-only path requires no org
+	// membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryDraftWithSlugCreateMemory `json:"createMemory"`
@@ -45693,8 +45700,10 @@ type CreateMemoryResponse struct {
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
 	// caller owns (free-standing, no app/agent). An org-anchored personal/private
-	// memory requires actual membership of that org container; the org-less
-	// owner-only path requires no org membership. system- and app-class
+	// memory requires actual membership of that org container, and reusing the
+	// name of a deleted organization-owned memory there also requires the org's
+	// memory.create grant; the org-less owner-only path requires no org
+	// membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryCreateMemory `json:"createMemory"`
@@ -45996,8 +46005,10 @@ type CreateMemoryWithSlugResponse struct {
 	// (023-app-shape US4; the caller is auto-added as the first owner),
 	// or memoryClass: personal | private for an owner-only memory the
 	// caller owns (free-standing, no app/agent). An org-anchored personal/private
-	// memory requires actual membership of that org container; the org-less
-	// owner-only path requires no org membership. system- and app-class
+	// memory requires actual membership of that org container, and reusing the
+	// name of a deleted organization-owned memory there also requires the org's
+	// memory.create grant; the org-less owner-only path requires no org
+	// membership. system- and app-class
 	// memories are NOT created here — they auto-provision via
 	// Agent.systemMemoryId / the App install path.
 	CreateMemory *CreateMemoryWithSlugCreateMemory `json:"createMemory"`
@@ -49419,6 +49430,9 @@ type CreditBalanceResponse struct {
 	// passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles the account's grants
 	// that expired more than a minute ago: it may write those settlement entries, once per grant,
 	// and never does for an impersonated session, which gets the same figure worked out and stored nowhere.
+	// Where the deployment sets a default monthly grant (hrn:node:hadronmemory.com:specs:cor:dmo:170:12), the read also
+	// writes the account's grant for the current UTC month if it has none yet, once per account and month; an impersonated
+	// session writes none, and its figure includes the grant still due. A failed grant write never fails the read.
 	CreditBalance *CreditBalanceCreditBalance `json:"creditBalance"`
 }
 
@@ -141053,7 +141067,7 @@ type __CreateMemoryInAppInput struct {
 	AppRef             string           `json:"appRef"`
 	AgentRef           string           `json:"agentRef"`
 	MemoryClass        MemoryClass      `json:"memoryClass"`
-	Name               string           `json:"name"`
+	Name               *string          `json:"name,omitempty"`
 	ShortDescription   *string          `json:"shortDescription,omitempty"`
 	Description        *string          `json:"description,omitempty"`
 	Tags               *[]string        `json:"tags,omitempty"`
@@ -141073,7 +141087,7 @@ func (v *__CreateMemoryInAppInput) GetAgentRef() string { return v.AgentRef }
 func (v *__CreateMemoryInAppInput) GetMemoryClass() MemoryClass { return v.MemoryClass }
 
 // GetName returns __CreateMemoryInAppInput.Name, and is useful for accessing the field via an interface.
-func (v *__CreateMemoryInAppInput) GetName() string { return v.Name }
+func (v *__CreateMemoryInAppInput) GetName() *string { return v.Name }
 
 // GetShortDescription returns __CreateMemoryInAppInput.ShortDescription, and is useful for accessing the field via an interface.
 func (v *__CreateMemoryInAppInput) GetShortDescription() *string { return v.ShortDescription }
@@ -152010,7 +152024,7 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 
 // Platform-ADMIN or the BILLING role. Appends a signed adjustment; idempotent on
 // (sourceType, sourceId), a mismatched replay is IDEMPOTENCY_CONFLICT.
-// The person ledger is not driven by this command: never send userRef.
+// cli#3184: userRef is omitted, as for GrantCredits (cli#3072 adds the person form).
 func AdjustCredits(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -167933,7 +167947,7 @@ func CreateMemoryDraftWithSlug(
 
 // The mutation executed by CreateMemoryInApp.
 const CreateMemoryInApp_Operation = `
-mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String!, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean) {
+mutation CreateMemoryInApp ($appRef: ID!, $agentRef: ID!, $memoryClass: MemoryClass!, $name: String, $shortDescription: String, $description: String, $tags: [String!], $maxRevCount: Int, $data: JSON, $embeddingSource: EmbeddingSource, $vectorIndexEnabled: Boolean) {
 	createMemoryInApp(appRef: $appRef, agentRef: $agentRef, memoryClass: $memoryClass, name: $name, shortDescription: $shortDescription, description: $description, tags: $tags, maxRevCount: $maxRevCount, data: $data, embeddingSource: $embeddingSource, vectorIndexEnabled: $vectorIndexEnabled) {
 		id
 		urn
@@ -167958,7 +167972,7 @@ func CreateMemoryInApp(
 	appRef string,
 	agentRef string,
 	memoryClass MemoryClass,
-	name string,
+	name *string,
 	shortDescription *string,
 	description *string,
 	tags *[]string,
@@ -176080,7 +176094,9 @@ fragment CreditLedgerEntryFields on CreditLedgerEntry {
 // Platform-ADMIN or the BILLING role. Appends a positive grant to an org's ledger. The response
 // has no created/reused flag, so a replay of (sourceType, sourceId) is
 // indistinguishable from a first grant. An omitted optional is not sent.
-// The person ledger (hadron-server#5258 snapshot) is not driven by this command: never send userRef.
+// cli#3184: orgRef became optional beside userRef when a person got a ledger (server#5014). These
+// commands name an organization, so userRef is never sent: omitted, not an explicit null, which
+// an older server would reject as an unknown input field. The person forms are cli#3072.
 func GrantCredits(
 	ctx_ context.Context,
 	client_ graphql.Client,

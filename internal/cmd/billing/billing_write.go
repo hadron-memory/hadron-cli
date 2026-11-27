@@ -328,7 +328,7 @@ It asks before sending (or pass --yes; without a terminal --yes is required).`,
 func ledgerEntryFrom(e *gen.CreditLedgerEntryFields) ledgerEntryDTO {
 	return ledgerEntryDTO{
 		ID:               e.Id,
-		OrganizationID:   stringOrEmpty(e.OrganizationId),
+		OrganizationID:   orgIDOrEmpty(e.OrganizationId),
 		Kind:             e.Kind,
 		AmountMicroCents: e.AmountMicroCents,
 		ExpiresAt:        e.ExpiresAt,

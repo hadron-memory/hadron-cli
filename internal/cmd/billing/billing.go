@@ -336,7 +336,7 @@ grants which have already expired.`,
 				return exitcode.Newf(exitcode.Error, "the server returned no balance for the organization (the org given is not shown)")
 			}
 			dto := balanceDTO{
-				OrganizationID:    stringOrEmpty(resp.CreditBalance.OrganizationId),
+				OrganizationID:    orgIDOrEmpty(resp.CreditBalance.OrganizationId),
 				BalanceMicroCents: resp.CreditBalance.BalanceMicroCents,
 				Expiring:          []expiringDTO{},
 			}
@@ -419,13 +419,13 @@ hrn:org:acme.com).`,
 	return cmd
 }
 
-// stringOrEmpty reads an organization id the server now makes nullable because a
-// ledger can belong to a person. These commands only drive organization ledgers,
-// which always carry a value, so their output is unchanged; a null (a person's
-// ledger, not reachable from here) prints as empty.
-func stringOrEmpty(s *string) string {
-	if s == nil {
+// orgIDOrEmpty reads a ledger or balance organization id. The server made it nullable when a
+// person got a credit ledger (hadron-server#5014); every command here asks about an
+// organization, so the id is always set, and an unset one prints as "" rather than
+// being invented. The person forms are cli#3072.
+func orgIDOrEmpty(id *string) string {
+	if id == nil {
 		return ""
 	}
-	return *s
+	return *id
 }

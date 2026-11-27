@@ -36,6 +36,11 @@ enum AccessSource {
   """personal-class cross-user grant (MemoryShare)."""
   MEMORY_SHARE
 
+  """
+  cross-org MemorySubscription (#329): the subscribing org's live subscription — read at any membership role, write only for knowledge at CONTRIBUTOR+ membership AND subscription. role is the EFFECTIVE level conferred (READER, or CONTRIBUTOR where write holds), never the subscription row's own role. via is the subscribing org's URN.
+  """
+  MEMORY_SUBSCRIPTION
+
   """node inherits its memory's access."""
   NODE_INHERITED
 
@@ -2593,6 +2598,18 @@ type App {
   trainingMode: Boolean!
   updatedAt: DateTime
   urn: String!
+
+  """
+  #5218 (hrn:node:hadronmemory.com:specs:cor:dmo:060:20) — the classes, personal and private, that the signed-in viewer
+  may still create in this App through createMemoryInApp: a class is listed when that mutation's checks on the caller, the
+  App and the one-per-class limit would admit it through at least one installed Agent. Read from the viewer's own rows
+  only, so nothing another user holds changes it. Empty for a caller who is not a member of the App, a request with no user, an App key, an impersonated
+  session, an AppRun and a request bound to a worker session; for an uninstalled App, an App with no usable installed
+  Agent, and a user-owned App while createMemoryInApp refuses those classes there. It reserves nothing: a later create
+  is judged again, and two refusals about the memory's name are not predicted (the caller's own deleted memory at that
+  name that cannot be removed, and no free name left).
+  """
+  viewerAppUserMemoryClasses: [MemoryClass!]!
 
   """
   #2109 — whether the current caller manages this App: its owner, an owner-role
@@ -10032,8 +10049,10 @@ type Mutation {
   (023-app-shape US4; the caller is auto-added as the first owner),
   or memoryClass: personal | private for an owner-only memory the
   caller owns (free-standing, no app/agent). An org-anchored personal/private
-  memory requires actual membership of that org container; the org-less
-  owner-only path requires no org membership. system- and app-class
+  memory requires actual membership of that org container, and reusing the
+  name of a deleted organization-owned memory there also requires the org's
+  memory.create grant; the org-less owner-only path requires no org
+  membership. system- and app-class
   memories are NOT created here — they auto-provision via
   Agent.systemMemoryId / the App install path.
   """
@@ -16530,6 +16549,9 @@ type Query {
   passed (hrn:node:hadronmemory.com:specs:cor:dmo:170:10). Before summing, the read settles the account's grants
   that expired more than a minute ago: it may write those settlement entries, once per grant,
   and never does for an impersonated session, which gets the same figure worked out and stored nowhere.
+  Where the deployment sets a default monthly grant (hrn:node:hadronmemory.com:specs:cor:dmo:170:12), the read also
+  writes the account's grant for the current UTC month if it has none yet, once per account and month; an impersonated
+  session writes none, and its figure includes the grant still due. A failed grant write never fails the read.
   """
   creditBalance(orgRef: String, userRef: ID): CreditBalance!
 
