@@ -411,7 +411,8 @@ sessions, 7 server unreachable or answer lost, 8 not permitted.`,
 // probeTransport refuses to present a stored key over a transport other than the session's (hadron-cli#3288
 // F10): the entry is matched by host, so an entry stored on http:// would otherwise send its key in plaintext
 // while the session is https://, and the reverse is a change nobody chose either. Plain http is allowed only to
-// this machine itself (a local server), where the key never leaves it.
+// this machine itself (a local server), where the key never leaves it. The host and port are compared here as
+// well (#3320 blind F1), so the guard holds on its own rather than resting on how the entry was selected.
 func probeTransport(entryServer, sessionServer string) error {
 	eu, err := url.Parse(entryServer)
 	if err != nil {
@@ -420,6 +421,9 @@ func probeTransport(entryServer, sessionServer string) error {
 	su, err := url.Parse(sessionServer)
 	if err != nil {
 		return fmt.Errorf("the session's server URL does not parse")
+	}
+	if !strings.EqualFold(eu.Host, su.Host) {
+		return fmt.Errorf("it was stored for %s and the session is %s, and a stored key is presented only to the server it was stored for", output.SafeCell(eu.Host), output.SafeCell(su.Host))
 	}
 	es, ss := strings.ToLower(eu.Scheme), strings.ToLower(su.Scheme)
 	if es != ss {
