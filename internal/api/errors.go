@@ -1792,6 +1792,19 @@ func codeForExtension(code string) int {
 		return exitcode.Conflict
 	case code == "APP_KEY_SCOPE_HOST_CONFLICT":
 		return exitcode.Conflict
+	// A team App's hosts (hadron-cli#3239 over hadron-server#5259, V1). A host
+	// that is joined (or a live key that operates as it) needs --replace, and a
+	// host whose worker has an open session cannot be removed (no force in C1,
+	// ruling RC4): both are the host's state. Who may change a host's settings
+	// is a permission; a malformed host id, label or interval is an input the
+	// caller changes. join and remove refuse a caller who may not as FORBIDDEN,
+	// createAppKey's gate; HOST_NOT_FOUND rides the _NOT_FOUND rule (4).
+	case code == "AGENT_TEAM_HOST_EXISTS" || code == "AGENT_TEAM_HOST_HAS_OPEN_SESSIONS":
+		return exitcode.Conflict
+	case code == "AGENT_TEAM_HOST_NOT_PERMITTED":
+		return exitcode.Forbidden
+	case code == "BAD_AGENT_TEAM_HOST_ARGS":
+		return exitcode.Usage
 	// The poller's half (hadron-cli#831, #1709 slices 1-3). A malformed
 	// registration and a session sent on a host call are inputs the caller
 	// changes. A report the operation's state refuses (not collected yet,

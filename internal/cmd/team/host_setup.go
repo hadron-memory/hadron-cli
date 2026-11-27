@@ -25,6 +25,7 @@ import (
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
+	"github.com/hadron-memory/hadron-cli/internal/hostid"
 	"github.com/hadron-memory/hadron-cli/internal/output"
 )
 
@@ -33,7 +34,7 @@ import (
 // The server's refusal is still mapped when it disagrees.
 var (
 	hostSetupTokenRe  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/@+-]{0,255}$`)
-	hostSetupHostIDRe = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`)
+	hostSetupHostIDRe = hostid.Pattern
 	hostSetupFamilyRe = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 )
 
