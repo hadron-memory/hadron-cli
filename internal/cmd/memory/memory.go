@@ -123,7 +123,8 @@ Health and maintenance
   config          rules for which tasks write and check nodes of a role
 Encryption and Apps
   encrypt       encrypt a private memory (cannot be undone)
-  attach        attach your personal or private memory to an App
+  attach        attach a memory you can read to an App
+  detach        remove that attachment (the memory is unchanged)
   link-user     move an anonymous App memory to a registered user`,
 		Example: `  hadron memory set --org acme.com --name "Project KB"
   hadron memory set-active hrn:mem:acme.com:project-kb
@@ -135,6 +136,7 @@ Encryption and Apps
 	cmd.AddCommand(newCmdSync(f))
 	cmd.AddCommand(newCmdSet(f))
 	cmd.AddCommand(newCmdAttach(f))
+	cmd.AddCommand(newCmdDetach(f))
 	cmd.AddCommand(newCmdSetActive(f))
 	cmd.AddCommand(newCmdRm(f))
 	cmd.AddCommand(newCmdClone(f))

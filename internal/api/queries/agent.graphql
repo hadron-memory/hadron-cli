@@ -237,19 +237,20 @@ query AgentTaskIndexList($ref: ID!) {
   }
 }
 
-# #2421 experiment: the symptom search is its OWN document on the same server
+# #2421, #5284: the phrase search is its OWN document on the same server
 # field, so the plain list above stays valid against a server that predates
-# symptom/limit/matchedBy (the document, not just the variables, is unchanged).
-# limit is omitempty: nil is omitted so the server's default applies; the server
-# owns the limit rules (default 3, clamp, BAD_USER_INPUT) and the CLI sends it
-# as given.
-query AgentTaskSymptomSearch(
+# phrase/limit/matchedBy/score (the document, not just the variables, is
+# unchanged). limit is omitempty: nil is omitted so the server's default
+# applies; the server owns the limit rules (default 3, cap 10, BAD_USER_INPUT
+# outside 1 to 10) and the CLI sends it as given. score is null under the
+# keyword fallback and is never read as 0.
+query AgentTaskPhraseSearch(
   $ref: ID!
-  $symptom: String!
+  $phrase: String!
   # @genqlient(pointer: true, omitempty: true)
   $limit: Int
 ) {
-  agentTaskList(ref: $ref, symptom: $symptom, limit: $limit) {
+  agentTaskList(ref: $ref, phrase: $phrase, limit: $limit) {
     node {
       id
       urn
@@ -261,7 +262,66 @@ query AgentTaskSymptomSearch(
     }
     trigger
     matchedBy
+    score
   }
+}
+
+# #5284 (cor:dmo:050:24): the role task to follow, with its body, or no task
+# fits. Every argument is omitempty: an omitted agentRef means "my own Agent"
+# (the server takes it from the worker's session) and an omitted appRef keeps
+# the call App-less. The command sends appRef only from --app, or from the
+# configured App when --event-code is given (the register needs one); a
+# phrase-only call sends none. It never looks an Agent up for agentRef.
+query AgentInstructions(
+  # @genqlient(pointer: true, omitempty: true)
+  $agentRef: ID
+  # @genqlient(pointer: true, omitempty: true)
+  $appRef: ID
+  # @genqlient(pointer: true, omitempty: true)
+  $eventCode: String
+  # @genqlient(pointer: true, omitempty: true)
+  $phrase: String
+) {
+  agentInstructions(
+    agentRef: $agentRef
+    appRef: $appRef
+    eventCode: $eventCode
+    phrase: $phrase
+  ) {
+    state
+    route
+    instructions
+    candidates {
+      ...InstructionsListedTask
+    }
+    nearest {
+      ...InstructionsListedTask
+    }
+    fallback {
+      ...InstructionsListedTask
+    }
+    register {
+      code
+      state
+      taskLoc
+      taskUrn
+    }
+  }
+}
+
+fragment InstructionsListedTask on AgentListedTask {
+  node {
+    id
+    urn
+    name
+    inheritedFrom {
+      agentId
+      agentUrn
+    }
+  }
+  trigger
+  matchedBy
+  score
 }
 
 query AgentProcessIndexList($ref: ID!) {

@@ -192,6 +192,7 @@ func NewCmdAgent(f *cmdutil.Factory) *cobra.Command {
 	cmd.AddCommand(newCmdAgentImport(f))
 	cmd.AddCommand(newCmdAgentRepairSystemMemory(f))
 	cmd.AddCommand(newCmdAgentTasks(f))
+	cmd.AddCommand(newCmdAgentInstructions(f))
 	cmd.AddCommand(newCmdAgentTickerTemplates(f))
 	cmd.AddCommand(newCmdAgentProcesses(f))
 	cmd.AddCommand(newCmdAgentRevision(f), newCmdAgentLock(f))
@@ -1453,13 +1454,31 @@ type listedNodeDTO struct {
 	InheritedFrom *inheritedFromDTO `json:"inheritedFrom"`
 }
 
-// listedTaskDTO is one `agent tasks list` row: the server shape unchanged.
-// matchedBy appears only on a --symptom search (the unfiltered list's JSON is
-// unchanged) and carries the server's VECTOR/KEYWORD/BOTH as given.
+// listedTaskDTO is one plain `agent tasks list` row: the server shape unchanged.
 type listedTaskDTO struct {
+	Node    listedNodeDTO `json:"node"`
+	Trigger *string       `json:"trigger"`
+}
+
+// phraseTaskDTO is one ranked row (`agent tasks list --phrase`, and the
+// candidates of `agent instructions`). matchedBy carries the server's
+// VECTOR/KEYWORD/BOTH as given; score is the server's vector similarity and is
+// null, never 0, when the server has none (the keyword fallback).
+type phraseTaskDTO struct {
 	Node      listedNodeDTO `json:"node"`
 	Trigger   *string       `json:"trigger"`
-	MatchedBy string        `json:"matchedBy,omitempty"`
+	MatchedBy *string       `json:"matchedBy"`
+	Score     *float64      `json:"score"`
+}
+
+// scoreCell renders a score for a table or a line: the number as given, or
+// "no score". A missing score is never shown as 0 and a rank is never shown as
+// a score.
+func scoreCell(score *float64) string {
+	if score == nil {
+		return "no score"
+	}
+	return fmt.Sprintf("%.2f", *score)
 }
 
 // listedProcessDTO is one `agent processes list` row; kind keeps the server's
@@ -1499,8 +1518,8 @@ func newCmdAgentTasks(f *cmdutil.Factory) *cobra.Command {
 
 func newCmdAgentTasksList(f *cmdutil.Factory) *cobra.Command {
 	var (
-		symptomFlag string
-		limitFlag   int
+		phraseFlag string
+		limitFlag  int
 	)
 	cmd := &cobra.Command{
 		Use:     "list <agentRef>",
@@ -1516,15 +1535,22 @@ Columns: NAME and URN identify the task node. TRIGGER is the name of the entry i
 the tasks index that lists the task (blank when no entry does). INHERITED FROM
 names the base Agent a task comes from (blank for the Agent's own tasks).
 
---symptom is experimental and may change: it returns up to 3 tasks from the
-Agent's effective system memory, matched on the abstract against the symptom
-text (the effective memory is the Agent's own plus its base Agents'), and adds
-a MATCHED BY column (VECTOR, KEYWORD or BOTH).
---limit applies only with --symptom (without it the flag is ignored and the
-request is unchanged); the server owns its rules (default 3, larger values clamp
-to 3, below 1 is refused) and the CLI sends the value as given.`,
+--phrase ranks the tasks instead: it returns the best-fitting tasks from the
+Agent's effective system memory (the Agent's own plus its base Agents'), matched
+on the abstract against the phrase, up to 3 tasks by default, best first. It adds
+a SCORE column (the vector similarity, higher is closer) and a MATCHED BY column
+(VECTOR, KEYWORD or BOTH). With no embedding available the server falls back to
+keyword matching and a task has no score: the column says "no score", never 0.
+To get the one task to follow, with its body, use "hadron agent instructions".
+--limit applies only with --phrase (without it the flag is ignored and the
+request is unchanged); the server owns its rules (default 3, at most 10, outside
+1 to 10 is refused) and the CLI sends the value as given.
+
+--phrase replaces the experimental --symptom flag, which was removed, not
+aliased: --symptom is now an unknown flag. --phrase needs a server at 0.48.0 or later;
+an older server refuses it, and the plain list keeps working against any server.`,
 		Example: `  hadron agent tasks list hrn:agent:acme.com:support-bot
-  hadron agent tasks list hrn:agent:acme.com:support-bot --symptom "build fails on windows" --limit 2`,
+  hadron agent tasks list hrn:agent:acme.com:support-bot --phrase "build fails on windows" --limit 2`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ref := strings.TrimSpace(args[0])
@@ -1535,70 +1561,75 @@ to 3, below 1 is refused) and the CLI sends the value as given.`,
 			if err != nil {
 				return err
 			}
-			// --symptom is a separate document on the same server field, so a
+			// --phrase is a separate document on the same server field, so a
 			// plain list never sends the new arguments to an older server. The
 			// limit is sent as given (cor:api:240:01): the server validates it.
-			searching := cmd.Flags().Changed("symptom")
-			rows := []listedTaskDTO{}
-			if searching {
+			if cmd.Flags().Changed("phrase") {
 				var limit *int
 				if cmd.Flags().Changed("limit") {
 					limit = &limitFlag
 				}
-				resp, err := gen.AgentTaskSymptomSearch(cmd.Context(), client, ref, symptomFlag, limit)
+				resp, err := gen.AgentTaskPhraseSearch(cmd.Context(), client, ref, phraseFlag, limit)
 				if err != nil {
 					return api.MapError(err)
 				}
+				rows := []phraseTaskDTO{}
 				for _, row := range resp.AgentTaskList {
-					dto := listedTaskDTO{
+					dto := phraseTaskDTO{
 						Node: listedNodeDTO{
 							ID:            row.Node.Id,
 							URN:           row.Node.Urn,
 							Name:          row.Node.Name,
-							InheritedFrom: symptomInheritedFromDTO(row.Node.InheritedFrom),
+							InheritedFrom: phraseInheritedFromDTO(row.Node.InheritedFrom),
 						},
 						Trigger: row.Trigger,
+						Score:   row.Score,
 					}
 					if row.MatchedBy != nil {
-						dto.MatchedBy = string(*row.MatchedBy)
+						m := string(*row.MatchedBy)
+						dto.MatchedBy = &m
 					}
 					rows = append(rows, dto)
 				}
-			} else {
-				resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref)
-				if err != nil {
-					return api.MapError(err)
-				}
-				for _, row := range resp.AgentTaskList {
-					rows = append(rows, listedTaskDTO{
-						Node: listedNodeDTO{
-							ID:            row.Node.Id,
-							URN:           row.Node.Urn,
-							Name:          row.Node.Name,
-							InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
-						},
-						Trigger: row.Trigger,
-					})
-				}
-			}
-			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
-				if !searching {
-					t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM")
+				return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
+					t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM", "SCORE", "MATCHED BY")
 					for _, row := range rows {
-						t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)))
+						matched := ""
+						if row.MatchedBy != nil {
+							matched = *row.MatchedBy
+						}
+						t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)), scoreCell(row.Score), output.SafeCell(matched))
 					}
 					return t.Flush()
-				}
-				t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM", "MATCHED BY")
+				})
+			}
+			resp, err := gen.AgentTaskIndexList(cmd.Context(), client, ref)
+			if err != nil {
+				return api.MapError(err)
+			}
+			rows := []listedTaskDTO{}
+			for _, row := range resp.AgentTaskList {
+				rows = append(rows, listedTaskDTO{
+					Node: listedNodeDTO{
+						ID:            row.Node.Id,
+						URN:           row.Node.Urn,
+						Name:          row.Node.Name,
+						InheritedFrom: taskInheritedFromDTO(row.Node.InheritedFrom),
+					},
+					Trigger: row.Trigger,
+				})
+			}
+			return output.Write(f.IOStreams, f.JSON, rows, func(w io.Writer) error {
+				t := output.NewTable(w, "TRIGGER", "NAME", "URN", "INHERITED FROM")
 				for _, row := range rows {
-					t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)), output.SafeCell(row.MatchedBy))
+					t.Row(output.SafeCell(triggerCell(row.Trigger)), output.SafeCell(row.Node.Name), output.SafeCell(row.Node.URN), output.SafeCell(inheritedCell(row.Node)))
 				}
 				return t.Flush()
 			})
 		},
 	}
-	cmd.Flags().StringVar(&symptomFlag, "symptom", "", "experimental: find tasks matching this symptom (up to 3, matched on the abstract)")
-	cmd.Flags().IntVar(&limitFlag, "limit", 0, "with --symptom only: how many results to ask for (server default and maximum 3); ignored without --symptom")
+	cmd.Flags().StringVar(&phraseFlag, "phrase", "", "rank the tasks that fit this phrase (up to 3 by default, matched on the abstract; adds SCORE and MATCHED BY)")
+	cmd.Flags().IntVar(&limitFlag, "limit", 0, "with --phrase only: how many results to ask for (server default 3, at most 10); ignored without --phrase")
 	return cmd
 }
 
@@ -1671,7 +1702,7 @@ names the base Agent a row comes from, where it applies.`,
 
 // The generated row types are deeply nested; alias the ones reused here.
 type taskListedInherited = gen.AgentTaskIndexListAgentTaskListAgentListedTaskNodeInheritedFrom
-type symptomListedInherited = gen.AgentTaskSymptomSearchAgentTaskListAgentListedTaskNodeInheritedFrom
+type phraseListedInherited = gen.AgentTaskPhraseSearchAgentTaskListAgentListedTaskNodeInheritedFrom
 type processListedInherited = gen.AgentProcessIndexListAgentProcessListAgentListedProcessNodeInheritedFrom
 
 func taskInheritedFromDTO(inherited *taskListedInherited) *inheritedFromDTO {
@@ -1681,7 +1712,7 @@ func taskInheritedFromDTO(inherited *taskListedInherited) *inheritedFromDTO {
 	return &inheritedFromDTO{AgentID: inherited.AgentId, AgentUrn: inherited.AgentUrn}
 }
 
-func symptomInheritedFromDTO(inherited *symptomListedInherited) *inheritedFromDTO {
+func phraseInheritedFromDTO(inherited *phraseListedInherited) *inheritedFromDTO {
 	if inherited == nil {
 		return nil
 	}
