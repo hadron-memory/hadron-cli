@@ -150,7 +150,11 @@ or --max-reads (the server refuses it without a window or a read budget, and the
 CLI does not check that itself: the refusal comes back as the server wrote it).
 Only whoever manages the App, or the writer of the secret's current version, may
 set it; on a secret that does not exist or that you cannot see the refusal is the
-same "not permitted" (exit 8), never "not found". The mark is one of
+same "not permitted" (exit 8), never "not found". A PROTECTED secret also
+needs its delete-after-use option on (hadron secret update <id|urn>
+--delete-after-use, signed with a passkey): without it the server refuses the
+mark with the same answer (exit 8), so the CLI names both causes and picks
+neither. The mark is one of
 the grant's terms, and a grant's terms are what the person signs: nothing is
 deleted until a person has signed the grant, and a client that is never signed
 deletes nothing. When --auto-delete was sent the command prints a note on stderr stating the
@@ -177,7 +181,7 @@ stderr first so you can pass it on while waiting. Exit codes: 0 done (with
 EXPIRED, STALE, WITHDRAWN), the issuer was superseded as writer, or the secret
 has too many live clients; 7 the answer to the issue was lost; 8 not permitted
 (including --auto-delete on a secret you neither manage nor wrote the current
-version of); 13 --wait timed out. A timeout leaves the grant and the request as they are;
+version of, or on a protected secret whose delete-after-use option is off); 13 --wait timed out. A timeout leaves the grant and the request as they are;
 nothing is withdrawn. A signer the server refuses leaves the request OPEN, so
 that wait ends by timeout: the request's lastRefusedAt, in 'hadron team grant
 signing-request get <request-id>', may show it.
@@ -251,7 +255,7 @@ was lost: the error says which, and how to ask again).`,
 
 			resp, err := gen.IssueSecretReadClient(ctx, client, &in)
 			if err != nil {
-				return issueError(err)
+				return autoDeleteHint(issueError(err), err, autoDelete)
 			}
 			if resp == nil || resp.IssueSecretReadClient == nil {
 				return exitcode.Newf(exitcode.Error, "server returned no read client; a pending read client may exist: check `hadron secret client list` before issuing again")
@@ -403,6 +407,20 @@ func issueError(err error) error {
 		return api.WithServerCode(exitcode.Newf(exitcode.Unavailable, "%s", msg), err)
 	}
 	return mapped
+}
+
+// codeAutoDeleteNotAllowed is one code and one message for two causes
+// (hadron-server#5335, cor:sec:060:03), judged in this order.
+const codeAutoDeleteNotAllowed = "SECRET_AUTO_DELETE_NOT_ALLOWED"
+
+// autoDeleteHint adds to a refused auto-delete mark both causes the server
+// answers identically, so neither is claimed. The exit code, the server's
+// message and the server code are kept; any other error is returned as mapped.
+func autoDeleteHint(mapped, raw error, autoDelete bool) error {
+	if !autoDelete || !api.HasErrorCode(raw, codeAutoDeleteNotAllowed) {
+		return mapped
+	}
+	return &withheld{mapped.Error() + "\nThe server refuses the mark with this one answer for either cause: you neither manage the App nor wrote the secret's current version (or the secret is not one you can see), or the secret is protected and its delete-after-use option is off. For the second, the secret's creator or an App manager turns it on with: hadron secret update <id|urn> --delete-after-use (staged for a passkey on a protected secret)", mapped}
 }
 
 // withoutClientID projects a mapped signing error so the issued client's id never

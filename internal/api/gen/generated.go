@@ -97619,7 +97619,12 @@ func (v *SecretResponse) GetSecret() *SecretSecret { return v.Secret }
 // SecretSecret includes the requested fields of the GraphQL type Secret.
 type SecretSecret struct {
 	SecretFields `json:"-"`
+	// Whether a read client's auto-delete mark may delete this secret after its use (hrn:node:hadronmemory.com:specs:cor:sec:060:03). Needed only on a protected secret: without it a mark is refused there, and none deletes it. Turning protection on (updateSecret(protected: true) or setSecretProtected) clears it, so a protected secret is armed only through the passkey ceremony. App secrets only; always false for org and user secrets.
+	DeleteAfterUse *bool `json:"deleteAfterUse"`
 }
+
+// GetDeleteAfterUse returns SecretSecret.DeleteAfterUse, and is useful for accessing the field via an interface.
+func (v *SecretSecret) GetDeleteAfterUse() *bool { return v.DeleteAfterUse }
 
 // GetId returns SecretSecret.Id, and is useful for accessing the field via an interface.
 func (v *SecretSecret) GetId() string { return v.SecretFields.Id }
@@ -97683,6 +97688,8 @@ func (v *SecretSecret) UnmarshalJSON(b []byte) error {
 }
 
 type __premarshalSecretSecret struct {
+	DeleteAfterUse *bool `json:"deleteAfterUse"`
+
 	Id string `json:"id"`
 
 	OwnerType string `json:"ownerType"`
@@ -97719,6 +97726,7 @@ func (v *SecretSecret) MarshalJSON() ([]byte, error) {
 func (v *SecretSecret) __premarshalJSON() (*__premarshalSecretSecret, error) {
 	var retval __premarshalSecretSecret
 
+	retval.DeleteAfterUse = v.DeleteAfterUse
 	retval.Id = v.SecretFields.Id
 	retval.OwnerType = v.SecretFields.OwnerType
 	retval.OwnerId = v.SecretFields.OwnerId
@@ -97839,6 +97847,143 @@ func (v *SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion) GetWr
 // GetWrittenByWorkerId returns SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion.WrittenByWorkerId, and is useful for accessing the field via an interface.
 func (v *SecretVersionsSecretVersionsSecretVersionsPageItemsSecretVersion) GetWrittenByWorkerId() *string {
 	return v.WrittenByWorkerId
+}
+
+// SecretWithoutDeleteAfterUseResponse is returned by SecretWithoutDeleteAfterUse on success.
+type SecretWithoutDeleteAfterUseResponse struct {
+	// Fetch one secret's inspectable half (never the value). Null when the
+	// row does not exist OR the caller is not entitled to its owner scope —
+	// no existence disclosure. Entitlement: user -> that user; org -> org
+	// member; app -> a member of the App (a person acting as themselves;
+	// an App key and an impersonated session get null).
+	Secret *SecretWithoutDeleteAfterUseSecret `json:"secret"`
+}
+
+// GetSecret returns SecretWithoutDeleteAfterUseResponse.Secret, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseResponse) GetSecret() *SecretWithoutDeleteAfterUseSecret {
+	return v.Secret
+}
+
+// SecretWithoutDeleteAfterUseSecret includes the requested fields of the GraphQL type Secret.
+type SecretWithoutDeleteAfterUseSecret struct {
+	SecretFields `json:"-"`
+}
+
+// GetId returns SecretWithoutDeleteAfterUseSecret.Id, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns SecretWithoutDeleteAfterUseSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetOwnerType() string { return v.SecretFields.OwnerType }
+
+// GetOwnerId returns SecretWithoutDeleteAfterUseSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns SecretWithoutDeleteAfterUseSecret.Name, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns SecretWithoutDeleteAfterUseSecret.Kind, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns SecretWithoutDeleteAfterUseSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetMetadata() *json.RawMessage {
+	return v.SecretFields.Metadata
+}
+
+// GetCurrentVersion returns SecretWithoutDeleteAfterUseSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetCurrentVersion() *int {
+	return v.SecretFields.CurrentVersion
+}
+
+// GetProtected returns SecretWithoutDeleteAfterUseSecret.Protected, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetProtected() bool { return v.SecretFields.Protected }
+
+// GetCreatedAt returns SecretWithoutDeleteAfterUseSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetCreatedAt() string { return v.SecretFields.CreatedAt }
+
+// GetCreatedBy returns SecretWithoutDeleteAfterUseSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetCreatedBy() *string { return v.SecretFields.CreatedBy }
+
+// GetUpdatedAt returns SecretWithoutDeleteAfterUseSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetUpdatedAt() string { return v.SecretFields.UpdatedAt }
+
+// GetUpdatedBy returns SecretWithoutDeleteAfterUseSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *SecretWithoutDeleteAfterUseSecret) GetUpdatedBy() *string { return v.SecretFields.UpdatedBy }
+
+func (v *SecretWithoutDeleteAfterUseSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*SecretWithoutDeleteAfterUseSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.SecretWithoutDeleteAfterUseSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalSecretWithoutDeleteAfterUseSecret struct {
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *SecretWithoutDeleteAfterUseSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *SecretWithoutDeleteAfterUseSecret) __premarshalJSON() (*__premarshalSecretWithoutDeleteAfterUseSecret, error) {
+	var retval __premarshalSecretWithoutDeleteAfterUseSecret
+
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
 }
 
 // SecretsResponse is returned by Secrets on success.
@@ -130954,6 +131099,192 @@ func (v *UpdateScopeUpdateScope) __premarshalJSON() (*__premarshalUpdateScopeUpd
 	return &retval, nil
 }
 
+// UpdateSecretDeleteAfterUseResponse is returned by UpdateSecretDeleteAfterUse on success.
+type UpdateSecretDeleteAfterUseResponse struct {
+	// Change a secret's value and/or metadata. For an org or user secret a
+	// value OVERWRITES (no versions). For an App secret a value ADDS the next
+	// version and never overwrites (hrn:node:hadronmemory.com:specs:cor:sec:010:03);
+	// any member of the App may store. Name, kind, and owner are immutable —
+	// the cascade and flow config reference the name; create a new name
+	// instead. The effective (metadata, value) pair is re-validated per kind.
+	// On a PROTECTED App secret a change is only staged: it answers the error
+	// SECRET_PROTECTED_NEEDS_PASSKEY with extensions requestId and ceremonyUrl instead
+	// of a Secret, and nothing changes until the requester completes the passkey
+	// ceremony (hrn:node:hadronmemory.com:specs:cor:sec:070:02). The expiry and the two
+	// caps are as for createSecret. One exception: protected: true on a secret
+	// that is already protected, with no value and with metadata omitted or
+	// identical to the stored metadata, asks for no change and answers the
+	// Secret unchanged, staging nothing, to a person who passes the staging
+	// checks (hrn:node:hadronmemory.com:specs:cor:sec:070:01). A worker session,
+	// an App key, an impersonation and a run keep SECRET_PROTECTED_NEEDS_PASSKEY,
+	// as for a real change.
+	// Legacy webfetch-auth rows (written before metadata.type was derived from
+	// the value) recover differently per owner kind, because only org and user
+	// rows are re-validated against their own decrypted stored value. There, any
+	// edit — metadata-only included — re-derives the type. An App row keeps its
+	// value in versions, which a metadata-only edit does not decrypt: rewriting
+	// the VALUE re-validates the (metadata, value) pair and re-derives the type,
+	// while a metadata-only edit of such a row is refused (the stored type is
+	// unavailable) until a value rewrite restores it. This holds for protected
+	// and unprotected App rows alike; it is not part of the passkey rules above.
+	// deleteAfterUse (App secrets only; refused on org and user secrets) is the
+	// consent that lets a read client's auto-delete mark delete a PROTECTED secret
+	// (hrn:node:hadronmemory.com:specs:cor:sec:060:03). On an unprotected secret it is
+	// a plain field any member may set, and changes nothing by itself; turning protection
+	// on (here or through setSecretProtected) clears it, so a protected secret is armed only
+	// through the ceremony below. On a protected
+	// secret it must be passed alone and is staged as SET_DELETE_AFTER_USE or
+	// CLEAR_DELETE_AFTER_USE through the requester's ceremony, as above; setting it
+	// needs the secret's creator or whoever manages the App. Asking for the value it
+	// already has returns the Secret and changes nothing.
+	UpdateSecret *UpdateSecretDeleteAfterUseUpdateSecret `json:"updateSecret"`
+}
+
+// GetUpdateSecret returns UpdateSecretDeleteAfterUseResponse.UpdateSecret, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseResponse) GetUpdateSecret() *UpdateSecretDeleteAfterUseUpdateSecret {
+	return v.UpdateSecret
+}
+
+// UpdateSecretDeleteAfterUseUpdateSecret includes the requested fields of the GraphQL type Secret.
+type UpdateSecretDeleteAfterUseUpdateSecret struct {
+	SecretFields `json:"-"`
+	// Whether a read client's auto-delete mark may delete this secret after its use (hrn:node:hadronmemory.com:specs:cor:sec:060:03). Needed only on a protected secret: without it a mark is refused there, and none deletes it. Turning protection on (updateSecret(protected: true) or setSecretProtected) clears it, so a protected secret is armed only through the passkey ceremony. App secrets only; always false for org and user secrets.
+	DeleteAfterUse *bool `json:"deleteAfterUse"`
+}
+
+// GetDeleteAfterUse returns UpdateSecretDeleteAfterUseUpdateSecret.DeleteAfterUse, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetDeleteAfterUse() *bool { return v.DeleteAfterUse }
+
+// GetId returns UpdateSecretDeleteAfterUseUpdateSecret.Id, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetId() string { return v.SecretFields.Id }
+
+// GetOwnerType returns UpdateSecretDeleteAfterUseUpdateSecret.OwnerType, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetOwnerType() string {
+	return v.SecretFields.OwnerType
+}
+
+// GetOwnerId returns UpdateSecretDeleteAfterUseUpdateSecret.OwnerId, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetOwnerId() string { return v.SecretFields.OwnerId }
+
+// GetName returns UpdateSecretDeleteAfterUseUpdateSecret.Name, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetName() string { return v.SecretFields.Name }
+
+// GetKind returns UpdateSecretDeleteAfterUseUpdateSecret.Kind, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetKind() string { return v.SecretFields.Kind }
+
+// GetMetadata returns UpdateSecretDeleteAfterUseUpdateSecret.Metadata, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetMetadata() *json.RawMessage {
+	return v.SecretFields.Metadata
+}
+
+// GetCurrentVersion returns UpdateSecretDeleteAfterUseUpdateSecret.CurrentVersion, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetCurrentVersion() *int {
+	return v.SecretFields.CurrentVersion
+}
+
+// GetProtected returns UpdateSecretDeleteAfterUseUpdateSecret.Protected, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetProtected() bool { return v.SecretFields.Protected }
+
+// GetCreatedAt returns UpdateSecretDeleteAfterUseUpdateSecret.CreatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetCreatedAt() string {
+	return v.SecretFields.CreatedAt
+}
+
+// GetCreatedBy returns UpdateSecretDeleteAfterUseUpdateSecret.CreatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetCreatedBy() *string {
+	return v.SecretFields.CreatedBy
+}
+
+// GetUpdatedAt returns UpdateSecretDeleteAfterUseUpdateSecret.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetUpdatedAt() string {
+	return v.SecretFields.UpdatedAt
+}
+
+// GetUpdatedBy returns UpdateSecretDeleteAfterUseUpdateSecret.UpdatedBy, and is useful for accessing the field via an interface.
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) GetUpdatedBy() *string {
+	return v.SecretFields.UpdatedBy
+}
+
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*UpdateSecretDeleteAfterUseUpdateSecret
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.UpdateSecretDeleteAfterUseUpdateSecret = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.SecretFields)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalUpdateSecretDeleteAfterUseUpdateSecret struct {
+	DeleteAfterUse *bool `json:"deleteAfterUse"`
+
+	Id string `json:"id"`
+
+	OwnerType string `json:"ownerType"`
+
+	OwnerId string `json:"ownerId"`
+
+	Name string `json:"name"`
+
+	Kind string `json:"kind"`
+
+	Metadata *json.RawMessage `json:"metadata"`
+
+	CurrentVersion *int `json:"currentVersion"`
+
+	Protected bool `json:"protected"`
+
+	CreatedAt string `json:"createdAt"`
+
+	CreatedBy *string `json:"createdBy"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	UpdatedBy *string `json:"updatedBy"`
+}
+
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *UpdateSecretDeleteAfterUseUpdateSecret) __premarshalJSON() (*__premarshalUpdateSecretDeleteAfterUseUpdateSecret, error) {
+	var retval __premarshalUpdateSecretDeleteAfterUseUpdateSecret
+
+	retval.DeleteAfterUse = v.DeleteAfterUse
+	retval.Id = v.SecretFields.Id
+	retval.OwnerType = v.SecretFields.OwnerType
+	retval.OwnerId = v.SecretFields.OwnerId
+	retval.Name = v.SecretFields.Name
+	retval.Kind = v.SecretFields.Kind
+	retval.Metadata = v.SecretFields.Metadata
+	retval.CurrentVersion = v.SecretFields.CurrentVersion
+	retval.Protected = v.SecretFields.Protected
+	retval.CreatedAt = v.SecretFields.CreatedAt
+	retval.CreatedBy = v.SecretFields.CreatedBy
+	retval.UpdatedAt = v.SecretFields.UpdatedAt
+	retval.UpdatedBy = v.SecretFields.UpdatedBy
+	return &retval, nil
+}
+
 // UpdateSecretProtectedResponse is returned by UpdateSecretProtected on success.
 type UpdateSecretProtectedResponse struct {
 	// Change a secret's value and/or metadata. For an org or user secret a
@@ -147393,6 +147724,14 @@ func (v *__SecretVersionsInput) GetLimit() *int { return v.Limit }
 // GetOffset returns __SecretVersionsInput.Offset, and is useful for accessing the field via an interface.
 func (v *__SecretVersionsInput) GetOffset() *int { return v.Offset }
 
+// __SecretWithoutDeleteAfterUseInput is used internally by genqlient
+type __SecretWithoutDeleteAfterUseInput struct {
+	Ref string `json:"ref"`
+}
+
+// GetRef returns __SecretWithoutDeleteAfterUseInput.Ref, and is useful for accessing the field via an interface.
+func (v *__SecretWithoutDeleteAfterUseInput) GetRef() string { return v.Ref }
+
 // __SecretsInput is used internally by genqlient
 type __SecretsInput struct {
 	OwnerType string  `json:"ownerType"`
@@ -151572,6 +151911,30 @@ func (v *__UpdateScopeInput) GetRef() string { return v.Ref }
 
 // GetInput returns __UpdateScopeInput.Input, and is useful for accessing the field via an interface.
 func (v *__UpdateScopeInput) GetInput() *UpdateScopeInput { return v.Input }
+
+// __UpdateSecretDeleteAfterUseInput is used internally by genqlient
+type __UpdateSecretDeleteAfterUseInput struct {
+	Ref            string           `json:"ref"`
+	Metadata       *json.RawMessage `json:"metadata,omitempty"`
+	Value          *json.RawMessage `json:"value,omitempty"`
+	Protected      *bool            `json:"protected,omitempty"`
+	DeleteAfterUse *bool            `json:"deleteAfterUse"`
+}
+
+// GetRef returns __UpdateSecretDeleteAfterUseInput.Ref, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretDeleteAfterUseInput) GetRef() string { return v.Ref }
+
+// GetMetadata returns __UpdateSecretDeleteAfterUseInput.Metadata, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretDeleteAfterUseInput) GetMetadata() *json.RawMessage { return v.Metadata }
+
+// GetValue returns __UpdateSecretDeleteAfterUseInput.Value, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretDeleteAfterUseInput) GetValue() *json.RawMessage { return v.Value }
+
+// GetProtected returns __UpdateSecretDeleteAfterUseInput.Protected, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretDeleteAfterUseInput) GetProtected() *bool { return v.Protected }
+
+// GetDeleteAfterUse returns __UpdateSecretDeleteAfterUseInput.DeleteAfterUse, and is useful for accessing the field via an interface.
+func (v *__UpdateSecretDeleteAfterUseInput) GetDeleteAfterUse() *bool { return v.DeleteAfterUse }
 
 // __UpdateSecretInput is used internally by genqlient
 type __UpdateSecretInput struct {
@@ -189760,6 +190123,7 @@ const Secret_Operation = `
 query Secret ($ref: ID!) {
 	secret(ref: $ref) {
 		... SecretFields
+		deleteAfterUse
 	}
 }
 fragment SecretFields on Secret {
@@ -189780,6 +190144,9 @@ fragment SecretFields on Secret {
 
 // One secret's inspectable half (#1343). Null both when it does not exist and
 // when the caller is not entitled to its owner scope (no existence oracle).
+// cli#3308: `secret get` also reads deleteAfterUse. A server without the field
+// (before hadron-server#5335) rejects the selection, so the command retries once
+// on SecretWithoutDeleteAfterUse and reports the option as unknown (null).
 func Secret(
 	ctx_ context.Context,
 	client_ graphql.Client,
@@ -189941,6 +190308,54 @@ func SecretVersions(
 	}
 
 	data_ = &SecretVersionsResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The query executed by SecretWithoutDeleteAfterUse.
+const SecretWithoutDeleteAfterUse_Operation = `
+query SecretWithoutDeleteAfterUse ($ref: ID!) {
+	secret(ref: $ref) {
+		... SecretFields
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	currentVersion
+	protected
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+func SecretWithoutDeleteAfterUse(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+) (data_ *SecretWithoutDeleteAfterUseResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "SecretWithoutDeleteAfterUse",
+		Query:  SecretWithoutDeleteAfterUse_Operation,
+		Variables: &__SecretWithoutDeleteAfterUseInput{
+			Ref: ref,
+		},
+	}
+
+	data_ = &SecretWithoutDeleteAfterUseResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(
@@ -202337,6 +202752,67 @@ func UpdateSecret(
 	}
 
 	data_ = &UpdateSecretResponse{}
+	resp_ := &graphql.Response{Data: data_}
+
+	err_ = client_.MakeRequest(
+		ctx_,
+		req_,
+		resp_,
+	)
+
+	return data_, err_
+}
+
+// The mutation executed by UpdateSecretDeleteAfterUse.
+const UpdateSecretDeleteAfterUse_Operation = `
+mutation UpdateSecretDeleteAfterUse ($ref: ID!, $metadata: JSON, $value: JSON, $protected: Boolean, $deleteAfterUse: Boolean) {
+	updateSecret(ref: $ref, metadata: $metadata, value: $value, protected: $protected, deleteAfterUse: $deleteAfterUse) {
+		... SecretFields
+		deleteAfterUse
+	}
+}
+fragment SecretFields on Secret {
+	id
+	ownerType
+	ownerId
+	name
+	kind
+	metadata
+	currentVersion
+	protected
+	createdAt
+	createdBy
+	updatedAt
+	updatedBy
+}
+`
+
+// cli#3308: the flag-conditional deleteAfterUse document, chosen only when
+// --delete-after-use / --no-delete-after-use is given (always sent). `protected`
+// stays omitted unless --protected was given too: the server judges the
+// combination (a protected secret takes deleteAfterUse alone).
+func UpdateSecretDeleteAfterUse(
+	ctx_ context.Context,
+	client_ graphql.Client,
+	ref string,
+	metadata *json.RawMessage,
+	value *json.RawMessage,
+	protected *bool,
+	deleteAfterUse *bool,
+) (data_ *UpdateSecretDeleteAfterUseResponse, err_ error) {
+	req_ := &graphql.Request{
+		OpName: "UpdateSecretDeleteAfterUse",
+		Query:  UpdateSecretDeleteAfterUse_Operation,
+		Variables: &__UpdateSecretDeleteAfterUseInput{
+			Ref:            ref,
+			Metadata:       metadata,
+			Value:          value,
+			Protected:      protected,
+			DeleteAfterUse: deleteAfterUse,
+		},
+	}
+
+	data_ = &UpdateSecretDeleteAfterUseResponse{}
 	resp_ := &graphql.Response{Data: data_}
 
 	err_ = client_.MakeRequest(

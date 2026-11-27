@@ -38,14 +38,14 @@ func TestSecretUpdateDeleteAfterUseWire3308(t *testing.T) {
 		t.Run(tc.flag, func(t *testing.T) {
 			row := secret3308(false, `,"deleteAfterUse":`+map[bool]string{true: "true", false: "false"}[tc.want])
 			srv, calls := attnServer(t, updated3308(row))
-			out, _, err := runSecretArgs3308(t, srv.URL, "update", "s1", tc.flag)
+			out, err := runSecretArgs3308(t, srv.URL, "update", "s1", tc.flag)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if got := opsOf2631(calls); len(got) != 1 || got[0] != "UpdateSecretDeleteAfterUse" {
 				t.Fatalf("one mutation, got %v", got)
 			}
-			want := `{"deleteAfterUse":` + map[bool]string{true: "true", false: "false"}[tc.want] + `,"ref":"s1"}`
+			want := `{"ref":"s1","deleteAfterUse":` + map[bool]string{true: "true", false: "false"}[tc.want] + `}`
 			if got := string((*calls)[0].RawVars); got != want {
 				t.Errorf("variables:\n got %s\nwant %s", got, want)
 			}
@@ -59,7 +59,7 @@ func TestSecretUpdateDeleteAfterUseWire3308(t *testing.T) {
 // --json on the flagged update carries the server's deleteAfterUse beside the secret fields.
 func TestSecretUpdateDeleteAfterUseJSON3308(t *testing.T) {
 	srv, _ := attnServer(t, updated3308(secret3308(false, `,"deleteAfterUse":true`)))
-	out, _, err := runSecretArgs3308(t, srv.URL, "update", "s1", "--delete-after-use", "--json")
+	out, err := runSecretArgs3308(t, srv.URL, "update", "s1", "--delete-after-use", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +83,7 @@ func TestSecretUpdateWithoutTheFlagSendsNoDeleteAfterUse3308(t *testing.T) {
 	} {
 		t.Run(tc.op, func(t *testing.T) {
 			srv, calls := attnServer(t, map[string]string{tc.op: `{"data":{"updateSecret":` + secret3308(false, "") + `}}`})
-			out, _, err := runSecretArgs3308(t, srv.URL, append([]string{"update", "s1", "--json"}, tc.args...)...)
+			out, err := runSecretArgs3308(t, srv.URL, append([]string{"update", "s1", "--json"}, tc.args...)...)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -100,17 +100,17 @@ func TestSecretUpdateWithoutTheFlagSendsNoDeleteAfterUse3308(t *testing.T) {
 // The option rides with the other changes as given; the server judges the combination.
 func TestSecretUpdateDeleteAfterUseWithOtherChanges3308(t *testing.T) {
 	srv, calls := attnServer(t, updated3308(secret3308(false, `,"deleteAfterUse":true`)))
-	if _, _, err := runSecretArgs3308(t, srv.URL, "update", "s1", "--delete-after-use", "--meta", "env=prod", "--protected=false"); err != nil {
+	if _, err := runSecretArgs3308(t, srv.URL, "update", "s1", "--delete-after-use", "--meta", "env=prod", "--protected=false"); err != nil {
 		t.Fatal(err)
 	}
-	const want = `{"deleteAfterUse":true,"metadata":{"env":"prod"},"protected":false,"ref":"s1"}`
+	const want = `{"ref":"s1","metadata":{"env":"prod"},"protected":false,"deleteAfterUse":true}`
 	if got := string((*calls)[0].RawVars); got != want {
 		t.Errorf("variables:\n got %s\nwant %s", got, want)
 	}
 
 	refused := map[string]string{"UpdateSecretDeleteAfterUse": serverRefusal2720("BAD_USER_INPUT", "On a protected secret, change deleteAfterUse on its own.")}
 	srv, calls = attnServer(t, refused)
-	_, _, err := runSecretArgs3308(t, srv.URL, "update", "s1", "--delete-after-use", "--meta", "env=prod")
+	_, err := runSecretArgs3308(t, srv.URL, "update", "s1", "--delete-after-use", "--meta", "env=prod")
 	if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "change deleteAfterUse on its own") || len(*calls) != 1 {
 		t.Errorf("the server's refusal passes through: exit=%d calls=%d %v", exitCodeFor(err), len(*calls), err)
 	}
@@ -123,7 +123,7 @@ func TestSecretUpdateDeleteAfterUseStaged3308(t *testing.T) {
 	for _, flag := range []string{"--delete-after-use", "--no-delete-after-use"} {
 		t.Run(flag, func(t *testing.T) {
 			srv, calls := attnServer(t, map[string]string{"UpdateSecretDeleteAfterUse": `{"errors":[{"message":"needs passkey","path":["updateSecret"],"extensions":{"code":"SECRET_PROTECTED_NEEDS_PASSKEY","requestId":"req-3308","ceremonyUrl":` + mustJSON2631(url) + `}}]}`})
-			out, _, err := runSecretArgs3308(t, srv.URL, "update", "s1", flag)
+			out, err := runSecretArgs3308(t, srv.URL, "update", "s1", flag)
 			if err == nil || exitCodeFor(err) != exitcode.Conflict {
 				t.Fatalf("exit=%d want %d: %v", exitCodeFor(err), exitcode.Conflict, err)
 			}
@@ -147,7 +147,7 @@ func TestSecretUpdateDeleteAfterUseUnconfirmed3308(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			srv, _ := attnServer(t, updated3308(row))
-			out, _, err := runSecretArgs3308(t, srv.URL, "update", "s1", "--delete-after-use")
+			out, err := runSecretArgs3308(t, srv.URL, "update", "s1", "--delete-after-use")
 			if err == nil || exitCodeFor(err) != exitcode.Unavailable || !strings.Contains(err.Error(), "not confirmed") || out != "" {
 				t.Errorf("exit=%d out=%q err=%v", exitCodeFor(err), out, err)
 			}
@@ -162,7 +162,7 @@ func TestSecretUpdateDeleteAfterUseContradictionSendsNothing3308(t *testing.T) {
 		{"--delete-after-use", "false"},
 	} {
 		srv, calls := attnServer(t, map[string]string{})
-		_, _, err := runSecretArgs3308(t, srv.URL, append([]string{"update", "s1"}, args...)...)
+		_, err := runSecretArgs3308(t, srv.URL, append([]string{"update", "s1"}, args...)...)
 		if err == nil || exitCodeFor(err) != exitcode.Usage || !strings.Contains(err.Error(), "delete-after-use") || len(*calls) != 0 {
 			t.Errorf("%v: exit=%d calls=%d err=%v", args, exitCodeFor(err), len(*calls), err)
 		}
@@ -171,14 +171,14 @@ func TestSecretUpdateDeleteAfterUseContradictionSendsNothing3308(t *testing.T) {
 
 func TestSecretGetShowsDeleteAfterUse3308(t *testing.T) {
 	srv, _ := attnServer(t, map[string]string{"Secret": `{"data":{"secret":` + secret3308(true, `,"deleteAfterUse":true`) + `}}`})
-	out, _, err := runSecretArgs3308(t, srv.URL, "get", "s1")
+	out, err := runSecretArgs3308(t, srv.URL, "get", "s1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(out, "delete after use: true") {
 		t.Errorf("text: %q", out)
 	}
-	out, _, err = runSecretArgs3308(t, srv.URL, "get", "s1", "--json")
+	out, err = runSecretArgs3308(t, srv.URL, "get", "s1", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +193,7 @@ func TestSecretGetShowsDeleteAfterUse3308(t *testing.T) {
 func TestSecretGetOnAServerWithoutTheField3308(t *testing.T) {
 	unknown := `{"errors":[{"message":"Cannot query field \"deleteAfterUse\" on type \"Secret\".","extensions":{"code":"GRAPHQL_VALIDATION_FAILED"}}]}`
 	srv, calls := attnServer(t, map[string]string{"Secret": unknown, "SecretWithoutDeleteAfterUse": `{"data":{"secret":` + secret3308(false, "") + `}}`})
-	out, _, err := runSecretArgs3308(t, srv.URL, "get", "s1", "--json")
+	out, err := runSecretArgs3308(t, srv.URL, "get", "s1", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,13 +203,13 @@ func TestSecretGetOnAServerWithoutTheField3308(t *testing.T) {
 	if got := opsOf2631(calls); len(got) != 2 {
 		t.Errorf("calls: %v", got)
 	}
-	out, _, err = runSecretArgs3308(t, srv.URL, "get", "s1")
+	out, err = runSecretArgs3308(t, srv.URL, "get", "s1")
 	if err != nil || !strings.Contains(out, "delete after use: -") {
 		t.Errorf("text: %v %q", err, out)
 	}
 
 	srv, calls = attnServer(t, map[string]string{"Secret": serverRefusal2720("FORBIDDEN", "no")})
-	if _, _, err := runSecretArgs3308(t, srv.URL, "get", "s1"); err == nil || exitCodeFor(err) != exitcode.Forbidden || len(*calls) != 1 {
+	if _, err := runSecretArgs3308(t, srv.URL, "get", "s1"); err == nil || exitCodeFor(err) != exitcode.Forbidden || len(*calls) != 1 {
 		t.Errorf("exit=%d calls=%d %v", exitCodeFor(err), len(*calls), err)
 	}
 }
@@ -230,13 +230,11 @@ func TestSecretClientIssueAutoDeleteRefusalNamesBothCauses3308(t *testing.T) {
 	}
 }
 
-func runSecretArgs3308(t *testing.T, srvURL string, args ...string) (stdout, stderr string, err error) {
+func runSecretArgs3308(t *testing.T, srvURL string, args ...string) (stdout string, err error) {
 	t.Helper()
 	f, out := testFactory(t)
-	var errOut strings.Builder
-	f.IOStreams.ErrOut = &errOut
 	root := NewRootCmd(f)
 	root.SetArgs(append(append([]string{"secret"}, args...), "--server", srvURL))
 	err = root.Execute()
-	return out.String(), errOut.String(), err
+	return out.String(), err
 }
