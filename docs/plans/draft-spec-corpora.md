@@ -1,5 +1,12 @@
 # Design as built: draft spec corpora and minting (cli#777, slice 1)
 
+> **Superseded in part.** hadron-server#1591 made draft rights per node and
+> derives a memory's draft or minted state from its nodes, so the server now
+> ignores `createMemory(draftCorpus:)`. `memory set --draft-corpus` described
+> below is therefore a hidden no-op (cli#3292): no refusals, no draft-only create
+> operation, no state read-back. Read this plan for the spec commands; do not
+> read it for the flag.
+
 > **Status:** cli#779 and cli#789 have merged. This plan records those slices
 > and the cli#777 completion slice on top of current CLI main. Server #1459's
 > draft-only spec bulk door has merged. The schema snapshot for this slice was

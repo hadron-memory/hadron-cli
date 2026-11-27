@@ -1844,7 +1844,6 @@ func TestMemorySetCreateAppMemoryUsageMatrix(t *testing.T) {
 		{"slug", with("--class", "app", "--name", "R", "--slug", "runbook"), "--slug"},
 		{"org", with("--class", "app", "--name", "R", "--org", "acme.com"), "--org"},
 		{"owner-me", with("--class", "app", "--name", "R", "--owner-me"), "--owner-me"},
-		{"draft-corpus", with("--class", "app", "--name", "R", "--draft-corpus"), "--draft-corpus"},
 		{"schema", with("--class", "app", "--name", "R", "--schema", "{}"), "--schema"},
 		// A real, valid file: a missing one would be refused by the file read
 		// whether or not the app-memory guard exists.

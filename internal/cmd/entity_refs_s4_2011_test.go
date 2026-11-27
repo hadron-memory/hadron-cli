@@ -118,9 +118,6 @@ func TestEntityRefsS4OperationsUseRenamedArgs2011(t *testing.T) {
 		// another variable followed $orgRef.)
 		{"CreateMemory", gen.CreateMemory_Operation,
 			[]string{"createMemory(", "orgRef: $orgRef", "$orgRef: ID"}, s4GoneLists(s4GoneOrgId, s4GoneOrgRefRequired)},
-		// The draft variant is the same field with draftCorpus: true.
-		{"CreateMemoryDraft", gen.CreateMemoryDraft_Operation,
-			[]string{"createMemory(", "draftCorpus: true", "orgRef: $orgRef", "$orgRef: ID"}, s4GoneLists(s4GoneOrgId, s4GoneOrgRefRequired)},
 		{"LinkGithubApp", gen.LinkGithubApp_Operation,
 			[]string{"linkGithubApp(", "orgRef: $orgRef", "$orgRef: ID!"}, s4GoneOrgId},
 		{"UnlinkGithubApp", gen.UnlinkGithubApp_Operation,
@@ -157,7 +154,7 @@ func TestEntityRefsS4OperationsUseRenamedArgs2011(t *testing.T) {
 			}
 			// "$orgRef: ID" is a prefix of "$orgRef: IDAlias" too, so the
 			// optional declaration is also checked to end at a type boundary.
-			if tc.name == "CreateMemory" || tc.name == "CreateMemoryDraft" {
+			if tc.name == "CreateMemory" {
 				if !regexp.MustCompile(`\$orgRef: ID([\s,)]|$)`).MatchString(tc.op) {
 					t.Errorf("$orgRef is not declared as exactly the nullable ID type:\n%s", tc.op)
 				}

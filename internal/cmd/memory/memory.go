@@ -38,25 +38,17 @@ type memoryDTO struct {
 	// additive change.
 	ShareRole *string        `json:"shareRole,omitempty"`
 	SharedBy  *accessUserDTO `json:"sharedBy,omitempty"`
-	// CorpusState is DRAFT or MINTED (hadron-server#1447), populated only by
-	// a `memory set --draft-corpus` create, read back after the create.
-	// omitempty like ShareRole, so every other command's shape is untouched.
+	// CorpusState is DRAFT or MINTED, derived by the server from the memory's
+	// nodes (hadron-server#1447/#1591). No command populates it today: the read-back
+	// after a create is gone and `memory get` does not select corpusState (cli#3296
+	// decides between selecting it and removing this field). omitempty like
+	// ShareRole, so every other command's shape is untouched.
 	CorpusState *string `json:"corpusState,omitempty"`
 	// ListedOnMarketplace is the opt-in marketplace catalogue flag (#592,
 	// cor:acl:080:04: advertisement, not access). Populated by `memory get`
 	// and a `memory set` update, the reads that select it; omitempty like
 	// CorpusState, so commands that never read it don't claim false.
 	ListedOnMarketplace *bool `json:"listedOnMarketplace,omitempty"`
-}
-
-// corpusStateOf renders a Memory.corpusState for a DTO; "" (a response
-// that did not select it) stays absent.
-func corpusStateOf(s gen.CorpusState) *string {
-	if s == "" {
-		return nil
-	}
-	v := string(s)
-	return &v
 }
 
 // memoryResult is the common projection selected by memory mutations. The

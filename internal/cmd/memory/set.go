@@ -32,7 +32,6 @@ func newCmdSet(f *cmdutil.Factory) *cobra.Command {
 		maxRevCount int
 		schema      string
 		schemaFile  string
-		draftCorpus bool
 		listed      bool
 		settings    memorySettings
 	)
@@ -156,18 +155,6 @@ Apps:
 			if err := settings.validate(cmd, len(args) == 0, appScoped); err != nil {
 				return err
 			}
-			// Refused before any request: draft is chosen only at creation, and
-			// only createMemory takes it (hadron-server#1447). Gated on Changed so
-			// an explicit --draft-corpus=false is refused on update too, rather
-			// than silently read as "nothing to do".
-			if cmd.Flags().Changed("draft-corpus") {
-				if len(args) > 0 {
-					return exitcode.Newf(exitcode.Usage, "--draft-corpus applies only when creating: an existing memory can never be switched into draft. Nothing was written")
-				}
-				if appScoped {
-					return exitcode.Newf(exitcode.Usage, "--draft-corpus cannot be used with --app/--agent: App-scoped creation takes no draft state. Nothing was written")
-				}
-			}
 			// Pure, so a bad slug is a usage error even offline. Gate on
 			// Changed, not slug != "", so an explicit --slug "" is rejected
 			// (empty is invalid) rather than silently treated as "no slug".
@@ -220,9 +207,6 @@ Apps:
 			if cmd.Flags().Changed("tag") {
 				tagsArg = &tags
 			}
-			// The draft-only operation contains the new draftCorpus argument;
-			// ordinary creates use the older document so pre-#1447 servers can
-			// validate it. Omitting a variable alone does not hide an argument.
 			ca := settings.createArgs(cmd)
 			createFreeStanding := func(orgID *string, memoryClass *gen.MemoryClass) (memoryDTO, error) {
 				// cli#3223: a --slug rides in the create call itself (hadron-server#5203
@@ -232,21 +216,9 @@ Apps:
 				var res memoryResult
 				var err error
 				switch {
-				case draftCorpus && slug != "":
-					var resp *gen.CreateMemoryDraftWithSlugResponse
-					if resp, err = gen.CreateMemoryDraftWithSlug(cmd.Context(), client, orgID, name, slug, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
-						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch); err == nil && resp != nil && resp.CreateMemory != nil {
-						res = resp.CreateMemory
-					}
 				case slug != "":
 					var resp *gen.CreateMemoryWithSlugResponse
 					if resp, err = gen.CreateMemoryWithSlug(cmd.Context(), client, orgID, name, slug, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
-						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch); err == nil && resp != nil && resp.CreateMemory != nil {
-						res = resp.CreateMemory
-					}
-				case draftCorpus:
-					var resp *gen.CreateMemoryDraftResponse
-					if resp, err = gen.CreateMemoryDraft(cmd.Context(), client, orgID, name, memoryClass, optional(short), optional(description), tagsArg, visArg, maxRevArg,
 						ca.category0, ca.category1, ca.category2, ca.data, ca.embeddingSource, ca.vectorIndexEnabled, ca.license, ca.iconURL, ca.heroURL, ca.homeURL, ca.source, ca.readBranch, ca.writeBranch); err == nil && resp != nil && resp.CreateMemory != nil {
 						res = resp.CreateMemory
 					}
@@ -395,20 +367,6 @@ Apps:
 					}
 				}
 				verb = "created"
-				// Echo the state a --draft-corpus create actually got, read back
-				// rather than assumed. Only on this path: selecting corpusState on
-				// every create would make an older server reject every create.
-				if draftCorpus {
-					if st, serr := gen.SpecCorpusState(cmd.Context(), client, m.ID); serr != nil {
-						if _, werr := fmt.Fprintf(f.IOStreams.ErrOut, "warning: memory %s was created, but its corpus state could not be read: %v\n", m.URN, api.MapError(serr)); werr != nil {
-							return werr
-						}
-					} else if st != nil && st.Memory != nil {
-						m.CorpusState = corpusStateOf(st.Memory.CorpusState)
-					} else if _, werr := fmt.Fprintf(f.IOStreams.ErrOut, "warning: memory %s was created, but the server returned no corpus state\n", m.URN); werr != nil {
-						return werr
-					}
-				}
 				// createMemory/createMemoryInApp take no schema, so apply one in a
 				// follow-up updateMemory. If it fails, the memory still exists with
 				// no schema: keep m as-is, record the error, and report it as a
@@ -496,7 +454,10 @@ Apps:
 		},
 	}
 	cmd.Flags().StringVar(&org, "org", "", "organization ID or URN (create only)")
-	cmd.Flags().BoolVar(&draftCorpus, "draft-corpus", false, "has no effect; accepted for compatibility (create only; not App-scoped)")
+	// Hidden and inert since hadron-server#1591: the server accepts and ignores the
+	// argument (a memory's draft or minted state is derived from its nodes), so the CLI
+	// reads the flag, sends nothing for it and refuses it nowhere (cli#3292).
+	cmd.Flags().Bool("draft-corpus", false, "has no effect; accepted for compatibility (a memory's draft or minted state is derived from its nodes)")
 	// Still accepted so old scripts keep working, but it does nothing, so the
 	// help no longer offers it (cli#1051 slice 5).
 	_ = cmd.Flags().MarkHidden("draft-corpus")
@@ -520,8 +481,10 @@ Apps:
 
 // appMemoryRefused are the flags createAppMemory does not take. Accepting one
 // and dropping it would be the defect, so each is a usage error naming it,
-// before any request (cli#1176).
-var appMemoryRefused = []string{"max-rev-count", "visibility", "slug", "org", "owner-me", "draft-corpus", "schema", "schema-file", "listed-on-marketplace"}
+// before any request (cli#1176). The one deliberate exception is the hidden
+// no-op --draft-corpus: it asks for nothing the server would do, so there is
+// nothing to drop (cli#3292).
+var appMemoryRefused = []string{"max-rev-count", "visibility", "slug", "org", "owner-me", "schema", "schema-file", "listed-on-marketplace"}
 
 func refuseAppMemoryFlags(cmd *cobra.Command) error {
 	for _, name := range append(append([]string{}, appMemoryRefused...), settingFlags...) {

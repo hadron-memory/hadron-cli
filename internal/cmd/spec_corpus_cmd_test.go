@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
 
-	"github.com/hadron-memory/hadron-cli/internal/api/gen"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
 )
 
@@ -541,119 +542,151 @@ func TestSpecDescribeOnOlderServerOmitsState(t *testing.T) {
 	}
 }
 
-func TestMemorySetDraftCorpus(t *testing.T) {
-	created := `{"data":{"createMemory":{"id":"m9","urn":"acme.com:product-specs","name":"Product specs",` +
-		`"shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",` +
-		`"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-09-29T00:00:00Z","corpusState":"DRAFT"}}}`
-
-	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateMemoryDraft": created,
-		"SpecCorpusState": `{"data":{"memory":{"id":"m9","urn":"acme.com:product-specs",` +
-			`"corpusState":"DRAFT","corpusMintedAt":null}}}`,
-	})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "Product specs", "--draft-corpus", "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("create draft: %v", err)
-	}
-	var vars map[string]any
-	_ = json.Unmarshal(captured["CreateMemoryDraft"], &vars)
-	if !strings.Contains(gen.CreateMemoryDraft_Operation, "draftCorpus: true") {
-		t.Fatal("the draft-only operation must send draftCorpus:true")
-	}
-	if _, sent := vars["draftCorpus"]; sent {
-		t.Errorf("the draft-only operation uses a literal argument, not a variable: %v", vars)
-	}
-	if !strings.Contains(out.String(), `"corpusState": "DRAFT"`) {
-		t.Errorf("the created memory's state must be read back and echoed: %s", out.String())
-	}
-
-	// Without the flag, the ordinary operation has no draftCorpus argument at
-	// all, so a pre-#1447 server can validate the document.
-	gql, captured = captureGraphQL(t, map[string]string{"CreateMemory": created})
-	f, _ = testFactory(t)
-	root = NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "KB", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("create: %v", err)
-	}
-	if strings.Contains(gen.CreateMemory_Operation, "draftCorpus") {
-		t.Fatal("ordinary creates must use an operation document with no draftCorpus argument")
-	}
-	if _, draftCreated := captured["CreateMemoryDraft"]; draftCreated {
-		t.Error("an ordinary create must not call the draft-only operation")
-	}
-	// An ordinary create must not touch corpusState at all: a server without
-	// draft corpora would reject it, and every create with it.
-	if _, read := captured["SpecCorpusState"]; read {
-		t.Errorf("an ordinary create must not read the corpus state")
-	}
-}
-
-// The follow-up update (the schema; the slug rides in the create, cli#3223) does
-// not select corpusState, so it must not erase the state that the draft-only
-// read-back already established.
-func TestMemorySetDraftCorpusKeepsStateAfterPostCreateUpdate(t *testing.T) {
+// hadron-cli#3292: --draft-corpus is an honest no-op since hadron-server#1591 (the
+// server accepts and ignores it; a memory's draft or minted state is derived from
+// its nodes, cor:spc:020:02 rescinded). A create with it is an ordinary create:
+// no draft-only operation, no draftCorpus on the wire, no corpus-state read-back.
+func TestMemorySetDraftCorpusIsInertOnCreate3292(t *testing.T) {
 	created := `{"data":{"createMemory":{"id":"m9","urn":"acme.com:product-specs","name":"Product specs",` +
 		`"shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",` +
 		`"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-09-29T00:00:00Z"}}}`
-	updated := strings.Replace(created, `"createMemory"`, `"updateMemory"`, 1)
-	updated = strings.Replace(updated, "acme.com:product-specs", "acme.com:specs", 1)
-	gql, captured := captureGraphQL(t, map[string]string{
-		"CreateMemoryDraftWithSlug": created,
-		"SpecCorpusState": `{"data":{"memory":{"id":"m9","urn":"acme.com:product-specs",` +
-			`"corpusState":"DRAFT","corpusMintedAt":null}}}`,
-		"UpdateMemory": updated,
-	})
-	f, out := testFactory(t)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "Product specs", "--draft-corpus", "--slug", "specs",
-		"--schema", `{"objectTypes":{"insight":{"fields":{}}}}`, "--json", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("create draft with post-create update: %v", err)
-	}
-	if _, called := captured["UpdateMemory"]; !called {
-		t.Fatal("the schema update must run")
-	}
-	if !strings.Contains(out.String(), `"corpusState": "DRAFT"`) || !strings.Contains(out.String(), `"urn": "acme.com:specs"`) {
-		t.Errorf("the final JSON must retain the read-back state and updated URN: %s", out.String())
-	}
-}
-
-func TestMemorySetDraftCorpusWarnsWhenStateReadBackFails(t *testing.T) {
-	created := `{"data":{"createMemory":{"id":"m9","urn":"acme.com:product-specs","name":"Product specs",` +
-		`"shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",` +
-		`"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-09-29T00:00:00Z"}}}`
-	gql := fakeGraphQL(t, map[string]string{
-		"CreateMemoryDraft": created,
-		"SpecCorpusState":   `{"errors":[{"message":"state read failed","extensions":{"code":"INTERNAL_SERVER_ERROR"}}]}`,
-	})
-	f, _ := testFactory(t)
-	errOut := f.IOStreams.ErrOut.(*strings.Builder)
-	root := NewRootCmd(f)
-	root.SetArgs([]string{"memory", "set", "--org", "acme.com", "--name", "Product specs", "--draft-corpus", "--server", gql.URL})
-	if err := root.Execute(); err != nil {
-		t.Fatalf("the create succeeded, so the state read-back warning must not erase it: %v", err)
-	}
-	if !strings.Contains(errOut.String(), "was created, but its corpus state could not be read") {
-		t.Errorf("the missing state must be disclosed on stderr: %s", errOut.String())
-	}
-}
-
-// Draft is chosen only at creation, and only createMemory takes it: an update
-// or an App-scoped create is refused before any request.
-func TestMemorySetDraftCorpusRefusedOffline(t *testing.T) {
-	for _, args := range [][]string{
-		{"memory", "set", "acme.com:kb", "--draft-corpus"},
-		{"memory", "set", "acme.com:kb", "--draft-corpus=false", "--name", "KB"},
-		{"memory", "set", "--app", "hrn:app:acme.com:coach", "--agent", "hrn:agent:acme.com:a", "--class", "app", "--name", "X", "--draft-corpus"},
+	for name, c := range map[string]struct {
+		extra []string
+		op    string
+	}{
+		"plain": {nil, "CreateMemory"},
+		"slug":  {[]string{"--slug", "specs"}, "CreateMemoryWithSlug"},
 	} {
+		t.Run(name, func(t *testing.T) {
+			gql, captured := captureGraphQL(t, map[string]string{c.op: created})
+			f, out := testFactory(t)
+			root := NewRootCmd(f)
+			root.SetArgs(append(append([]string{"memory", "set", "--org", "acme.com", "--name", "Product specs", "--draft-corpus", "--json"}, c.extra...), "--server", gql.URL))
+			if err := root.Execute(); err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			// The surviving create documents stay free of draftCorpus: GraphQL validates
+			// the whole document, so a draftCorpus argument in it would make a pre-#1447
+			// server refuse every create.
+			for name, doc := range map[string]string{"CreateMemory": gen.CreateMemory_Operation, "CreateMemoryWithSlug": gen.CreateMemoryWithSlug_Operation} {
+				if strings.Contains(doc, "draftCorpus") {
+					t.Errorf("%s must not carry a draftCorpus argument", name)
+				}
+			}
+			raw, ok := captured[c.op]
+			if !ok {
+				t.Fatalf("the ordinary %s must be sent; got %v", c.op, captured)
+			}
+			var vars map[string]any
+			_ = json.Unmarshal(raw, &vars)
+			if _, sent := vars["draftCorpus"]; sent {
+				t.Errorf("no draftCorpus may be sent: %v", vars)
+			}
+			for op := range captured {
+				if strings.Contains(op, "Draft") || op == "SpecCorpusState" {
+					t.Errorf("the flag must not select %s (no draft-only operation, no state read-back)", op)
+				}
+			}
+			if strings.Contains(out.String(), "corpusState") && strings.Contains(out.String(), "DRAFT") {
+				t.Errorf("a create must not claim a draft state it did not read: %s", out.String())
+			}
+		})
+	}
+}
+
+// The two retired refusals: an update, and an App-scoped create, no longer exit 2.
+// The flag changes nothing, so each behaves exactly as it does without it.
+func TestMemorySetDraftCorpusIsNoLongerRefused3292(t *testing.T) {
+	updated := `{"data":{"updateMemory":{"id":"m9","urn":"acme.com:kb","name":"KB",` +
+		`"shortDescription":null,"class":"knowledge","visibility":"ORGANIZATION","organizationId":"o1",` +
+		`"isEncrypted":false,"maxRevCount":10,"updatedAt":"2026-09-29T00:00:00Z"}}}`
+	appMem := `{"data":{"createAppMemory":{"id":"m3","urn":"hrn:mem:acme.com:runbook","name":"Runbook","shortDescription":null,` +
+		`"class":"app","visibility":null,"organizationId":"o1","isEncrypted":false,"maxRevCount":25,"updatedAt":"2026-10-29T00:00:00Z"}}}`
+	inApp := strings.Replace(appMem, "createAppMemory", "createMemoryInApp", 1)
+	run := func(args ...string) (int, map[string]json.RawMessage) {
+		gql, captured := captureGraphQL(t, map[string]string{"GetMemory": `{"data":{"memory":` + memoryJSON + `}}`, "UpdateMemory": updated, "CreateAppMemory": appMem, "CreateMemoryInApp": inApp})
 		f, _ := testFactory(t)
 		root := NewRootCmd(f)
-		root.SetArgs(append(args, "--server", "http://127.0.0.1:1"))
-		if got := exitCodeFor(root.Execute()); got != exitcode.Usage {
-			t.Errorf("%v should exit 2, got %d", args, got)
+		root.SetArgs(append(args, "--server", gql.URL))
+		err := root.Execute()
+		if err != nil && strings.Contains(strings.ToLower(err.Error()), "draft") {
+			t.Errorf("%v: the retired draft refusal is back: %v", args, err)
+		}
+		return exitCodeFor(err), captured
+	}
+	opNames := func(m map[string]json.RawMessage) string {
+		var names []string
+		for k := range m {
+			names = append(names, k)
+		}
+		sort.Strings(names)
+		return strings.Join(names, ",")
+	}
+	for name, c := range map[string]struct{ with, without []string }{
+		"update with a field, =false": {[]string{"memory", "set", "acme.com:kb", "--draft-corpus=false", "--name", "KB"}, []string{"memory", "set", "acme.com:kb", "--name", "KB"}},
+		"update, the flag alone":      {[]string{"memory", "set", "acme.com:kb", "--draft-corpus"}, []string{"memory", "set", "acme.com:kb"}},
+		"App-scoped, no agent":        {[]string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--class", "app", "--name", "Runbook", "--draft-corpus"}, []string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--class", "app", "--name", "Runbook"}},
+		"App-scoped with an Agent":    {[]string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--agent", "hrn:agent:acme.com:a", "--class", "app", "--name", "Runbook", "--draft-corpus"}, []string{"memory", "set", "--app", "hrn:app:acme.com:coach", "--agent", "hrn:agent:acme.com:a", "--class", "app", "--name", "Runbook"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			gotWith, opsWith := run(c.with...)
+			gotWithout, opsWithout := run(c.without...)
+			if gotWith != gotWithout || opNames(opsWith) != opNames(opsWithout) {
+				t.Errorf("the flag must change nothing: exit %d ops [%s] with it, exit %d ops [%s] without", gotWith, opNames(opsWith), gotWithout, opNames(opsWithout))
+			}
+			// The three cases that carry a real request must succeed outright: the
+			// equivalence check alone would pass if both runs failed the same way.
+			// "update, the flag alone" is exempt: with no field to change, an update
+			// has nothing to send and exits 2 with or without the flag.
+			if name != "update, the flag alone" && gotWith != exitcode.OK {
+				t.Errorf("%v: exit %d, want 0", c.with, gotWith)
+			}
+			for op, raw := range opsWith {
+				if strings.Contains(string(raw), "draftCorpus") {
+					t.Errorf("%s carries draftCorpus: %s", op, raw)
+				}
+			}
+		})
+	}
+}
+
+// No help or agentic-usage line says the flag creates a draft corpus, or lists it as
+// a live surface entry (cli#3292).
+func TestDraftCorpusFlagIsNotDocumentedAsLive3292(t *testing.T) {
+	read := func(args ...string) string {
+		f, out := testFactory(t)
+		root := NewRootCmd(f)
+		root.SetOut(f.IOStreams.Out)
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(strings.Fields(out.String()), " ")
+	}
+	usage := read("agentic-usage")
+	if strings.Contains(usage, "[--draft-corpus]") {
+		t.Error("the surface line must not list --draft-corpus as a live flag")
+	}
+	if !strings.Contains(usage, "`memory set --draft-corpus` is a hidden no-op") {
+		t.Error("the per-node-minting paragraph must say the flag is a hidden no-op")
+	}
+	for _, retired := range []string{"exit 2 on an update or with `--app/--agent`", "a create echoes the `corpusState` it read back", "starts DRAFT"} {
+		if strings.Contains(usage, retired) {
+			t.Errorf("agentic-usage still describes the retired behaviour: %q", retired)
+		}
+	}
+	helps := [][]string{{"memory", "set", "--help"}, {"spec", "--help"}}
+	f, _ := testFactory(t)
+	for _, c := range NewRootCmd(f).Commands() {
+		if c.Name() == "spec" {
+			for _, sub := range c.Commands() {
+				helps = append(helps, []string{"spec", sub.Name(), "--help"})
+			}
+		}
+	}
+	for _, args := range helps {
+		if h := read(args...); strings.Contains(h, "--draft-corpus") {
+			t.Errorf("%v help mentions the hidden flag: %s", args, h)
 		}
 	}
 }
