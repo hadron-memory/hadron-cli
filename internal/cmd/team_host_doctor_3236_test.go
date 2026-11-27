@@ -29,11 +29,17 @@ type doctorHost3236 struct {
 	bin, cfg, state, home string
 }
 
+// doctorPending3236 holds the files a test wants in the Hadron config directory. testFactory points
+// XDG_CONFIG_HOME at a fresh temp dir on every call, so they are written after the factory exists, where the
+// command will look.
+var doctorPending3236 []func(hadronDir string)
+
 // newDoctorHost3236 builds the machine: a hermetic HOME, XDG dirs, and a PATH holding only what the test puts in
 // bin. withOrca installs a fake `orca`; programs are empty executables.
 func newDoctorHost3236(t *testing.T, withOrca bool, programs ...string) *doctorHost3236 {
 	t.Helper()
 	root := t.TempDir()
+	doctorPending3236 = nil
 	h := &doctorHost3236{bin: filepath.Join(root, "bin"), home: filepath.Join(root, "home")}
 	h.cfg, h.state = filepath.Join(h.home, ".config"), filepath.Join(h.home, ".state")
 	for _, d := range []string{h.bin, h.home, h.cfg, h.state} {
@@ -65,16 +71,18 @@ func newDoctorHost3236(t *testing.T, withOrca bool, programs ...string) *doctorH
 
 func (h *doctorHost3236) accounts(t *testing.T, body string, mode os.FileMode) {
 	t.Helper()
-	if err := os.MkdirAll(filepath.Join(h.cfg, "hadron"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	p := filepath.Join(h.cfg, "hadron", "accounts.yaml")
-	if err := os.WriteFile(p, []byte(body), mode); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Chmod(p, mode); err != nil {
-		t.Fatal(err)
-	}
+	doctorPending3236 = append(doctorPending3236, func(dir string) {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		p := filepath.Join(dir, "accounts.yaml")
+		if err := os.WriteFile(p, []byte(body), mode); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(p, mode); err != nil {
+			t.Fatal(err)
+		}
+	})
 }
 
 func assignment3236(workdir, family, account string) string {
@@ -92,12 +100,20 @@ func setup3236(source string, assignments ...string) map[string]string {
 
 func doctor3236(t *testing.T, responses map[string]string, args ...string) (string, int, *[]attnCall) {
 	t.Helper()
-	calls, out, err := runTeamTask(t, responses, append([]string{"team", "host", "doctor"}, args...)...)
+	writeTeamBinding(t)
+	srv, calls := attnServer(t, responses)
+	setTeamBindingServer(t, srv.URL)
+	f, out := testFactory(t)
+	for _, place := range doctorPending3236 {
+		place(filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "hadron"))
+	}
+	root := NewRootCmd(f)
+	root.SetArgs(append([]string{"--server", srv.URL, "team", "host", "doctor"}, args...))
 	code := 0
-	if err != nil {
+	if err := root.Execute(); err != nil {
 		code = exitOf(err)
 	}
-	return out, code, calls
+	return out.String(), code, calls
 }
 
 func doctorJSON3236(t *testing.T, out string) map[string]any {
@@ -234,6 +250,12 @@ func TestDoctorRefusesAnAccountsFileWithAWorkersKey(t *testing.T) {
 	if code != exitcode.Conflict || !strings.Contains(out, "needs a newer hadron") || strings.Contains(strings.ToLower(out), "unknown key") {
 		t.Fatalf("a reserved key is answered 'needs a newer hadron' (exit %d):\n%s", code, out)
 	}
+	h4 := newDoctorHost3236(t, true, "claude")
+	h4.accounts(t, "accounts:\n  w:\n    family: claude\n", 0o644)
+	out, code, _ = doctor3236(t, nil)
+	if code != exitcode.Conflict || !strings.Contains(out, "readable by group or others") || !strings.Contains(out, "chmod 600") {
+		t.Fatalf("a group-readable accounts file is refused with the fix (exit %d):\n%s", code, out)
+	}
 	h3 := newDoctorHost3236(t, true, "claude")
 	h3.accounts(t, "accounts:\n  w:\n    family: claude\n", 0o600)
 	jout, _, _ := doctor3236(t, nil, "--json")
@@ -292,11 +314,14 @@ func TestDoctorSendsNoAccountDetailToTheServer(t *testing.T) {
 // doctor never reads a host file: assignments come from the signed-in person's read or the binding.
 func TestDoctorNeverReadsAHostFile(t *testing.T) {
 	h := newDoctorHost3236(t, true, "claude")
-	for _, p := range []string{filepath.Join(h.cfg, "hadron", "host.yaml"), filepath.Join(h.home, "host.yaml"), "host.yaml"} {
-		if err := os.MkdirAll(filepath.Dir(p), 0o755); err == nil {
-			_ = os.WriteFile(p, []byte("app: not-a-ref\nkey_file: /nonexistent/key\nworkers: [broken\n"), 0o600)
-			t.Cleanup(func() { _ = os.Remove(p) })
-		}
+	bad := []byte("app: not-a-ref\nkey_file: /nonexistent/key\nworkers: [broken\n")
+	doctorPending3236 = append(doctorPending3236, func(dir string) {
+		_ = os.MkdirAll(dir, 0o755)
+		_ = os.WriteFile(filepath.Join(dir, "host.yaml"), bad, 0o600)
+	})
+	for _, p := range []string{filepath.Join(h.home, "host.yaml"), "host.yaml"} {
+		_ = os.WriteFile(p, bad, 0o600)
+		t.Cleanup(func() { _ = os.Remove(p) })
 	}
 	out, code, _ := doctor3236(t, nil)
 	if code != 0 {
@@ -347,11 +372,39 @@ func TestDoctorAnUnassignedFamilysMissingProgramIsInformational(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("a missing codex nobody is assigned is no problem: exit %d\n%s", code, out)
 	}
-	if !strings.Contains(out, "codex") {
-		t.Errorf("the fact is still shown:\n%s", out)
+	if line := factLine3236(out, "agent program (codex)"); !strings.Contains(line, "MISSING") || !strings.Contains(line, "informational") {
+		t.Errorf("the fact is shown, as informational:\n%s", out)
 	}
-	_, code, _ = doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "codex", "")), "--host", "orca1", "--app", "hrn:app:acme.com:ops")
+	newDoctorHost3236(t, true, "claude")
+	out, code, _ = doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "codex", "")), "--host", "orca1", "--app", "hrn:app:acme.com:ops")
 	if code != exitcode.Conflict {
 		t.Errorf("a missing program an assigned worker needs is exit 5, got %d", code)
+	}
+	if line := factLine3236(out, "agent program (codex)"); !strings.Contains(line, "MISSING") || strings.Contains(line, "informational") || !strings.Contains(out, "PROGRAM_NOT_ON_HOST") {
+		t.Errorf("a program an assigned worker needs is not informational:\n%s", out)
+	}
+}
+
+func factLine3236(out, fact string) string {
+	for _, l := range strings.Split(out, "\n") {
+		if strings.HasPrefix(l, fact) {
+			return l
+		}
+	}
+	return ""
+}
+
+// A worker with no account named, fully resolvable, is no complaint at all: exit 0.
+func TestDoctorAWorkerWithNoAccountNamedIsNoComplaint(t *testing.T) {
+	newDoctorHost3236(t, true, "claude")
+	out, code, _ := doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), "--host", "orca1", "--app", "hrn:app:acme.com:ops")
+	if code != 0 || strings.Contains(out, "ACCOUNT_NOT_ON_HOST") || !strings.Contains(out, "account default") {
+		t.Fatalf("exit %d, a worker with no account named uses the tool's default:\n%s", code, out)
+	}
+	jout, _, _ := doctor3236(t, setup3236("SERVER", assignment3236("hadron-server/antonio", "claude", "")), "--host", "orca1", "--app", "hrn:app:acme.com:ops", "--json")
+	d := doctorJSON3236(t, jout)
+	w := d["workers"].([]any)[0].(map[string]any)
+	if w["status"] != "OK" || w["accountStatus"] != "default" || len(w["problems"].([]any)) != 0 {
+		t.Errorf("the worker is OK on the default account: %v", w)
 	}
 }
