@@ -57,6 +57,28 @@ func TestSecretChangeAppLimitIsExit53280(t *testing.T) {
 		!strings.Contains(seen, "too many change requests are already open in this App") {
 		t.Errorf("exit %d (want 5), the server's message must be withheld for the fixed sentence:\n%s", code, seen)
 	}
+	// cli#3305 item 3: the advice no longer sends the caller to withdraw a request they cannot read. The cap counts every
+	// requester's open requests, and `secret change get` shows only the caller's own.
+	for _, want := range []string{"counts every requester's open requests", "shows only your own"} {
+		if !strings.Contains(seen, want) {
+			t.Errorf("the App-limit sentence must say %q:\n%s", want, seen)
+		}
+	}
+	if strings.Contains(seen, "withdraw one (hadron secret change withdraw") {
+		t.Errorf("the App-limit advice must not tell the caller to withdraw a request they may not see:\n%s", seen)
+	}
+}
+
+// cli#3305 item 4: SECRET_CHANGE_REQUESTER_LIMIT exits 5 like its sibling caps and shows the SERVER's own message. Unlike
+// the protected-change codes it is not withheld: the server's text for it is a constant ("Too many open secret changes
+// for this requester.", changeRequests.ts:89) that cannot repeat a submitted value, and the number is never restated.
+func TestSecretChangeRequesterLimitIsExit5WithServerText3305(t *testing.T) {
+	reply := `{"errors":[{"message":"Too many open secret changes for this requester.","extensions":{"code":"SECRET_CHANGE_REQUESTER_LIMIT"}}],"data":null}`
+	seen, code := renderedNoEcho3029(t, map[string]string{"CreateSecretProtected": reply},
+		"secret", "create", "--name", "k", "--scope", "app", "--owner", "hrn:app:acme.com:ops", "--kind", "generic", "--value-file", valueFile3280(t), "--protected")
+	if code != exitcode.Conflict || !strings.Contains(seen, "Too many open secret changes for this requester.") {
+		t.Errorf("exit %d (want 5), the server's own message must reach the caller:\n%s", code, seen)
+	}
 }
 
 // Items 3 and 4: the memory set help names both exit-5 codes as the agentic-usage page does, and its attach sentence
@@ -67,6 +89,10 @@ func TestMemorySetHelpAndUsageAgreeOnExit5AndAttach3280(t *testing.T) {
 		if !strings.Contains(help, want) {
 			t.Errorf("memory set --help must say %q:\n%s", want, help)
 		}
+	}
+	// cli#3305: the code name AND its exit-2 association (the slug of an App memory is fixed).
+	if !strings.Contains(help, "exit 2 (APP_MEMORY_SLUG_FIXED)") {
+		t.Errorf("memory set --help must tie APP_MEMORY_SLUG_FIXED to exit 2:\n%s", help)
 	}
 	if strings.Contains(help, "To attach a personal or private memory you already have") {
 		t.Errorf("the old attach sentence is stale against the attach contract:\n%s", help)

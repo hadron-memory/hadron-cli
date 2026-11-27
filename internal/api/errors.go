@@ -2023,7 +2023,13 @@ func codeForExtension(code string) int {
 	// cli#3280: so is the App's own cap on open staged changes (SECRET_CHANGE_APP_LIMIT; the number is the server's):
 	// the App's state, which no retry changes until some
 	// are completed or expire.
-	case code == "SECRET_PROTECTED_NEEDS_PASSKEY" || code == "SECRET_CHANGE_REQUEST_LIMIT" || code == "SECRET_CHANGE_APP_LIMIT":
+	//
+	// cli#3305: and so is the per-requester share of open staged changes
+	// (SECRET_CHANGE_REQUESTER_LIMIT, "Too many open secret changes for this
+	// requester."; cor:sec:070:02): the requester's own open requests, which no
+	// retry changes. It is a sibling of the two caps above and shares their class.
+	case code == "SECRET_PROTECTED_NEEDS_PASSKEY" || code == "SECRET_CHANGE_REQUEST_LIMIT" || code == "SECRET_CHANGE_APP_LIMIT" ||
+		code == "SECRET_CHANGE_REQUESTER_LIMIT":
 		return exitcode.Conflict
 	// cli#2664 (revealing a value): a known client that is not live now (spent,
 	// pending, not started, expired, revoked, its issuer gone) or whose secret was
