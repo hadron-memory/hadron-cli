@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/hadron-memory/hadron-cli/internal/api/gen"
+	"github.com/hadron-memory/hadron-cli/internal/auth"
 	"github.com/hadron-memory/hadron-cli/internal/cmdutil"
 	"github.com/hadron-memory/hadron-cli/internal/config"
 	"github.com/hadron-memory/hadron-cli/internal/exitcode"
@@ -246,5 +247,72 @@ func TestHostRunPlatformRealWireDeliveryWiresWithTheRowOff3301(t *testing.T) {
 	}
 	if len(w.pollers) != 1 || !w.pollers[0].DeliveryEnabled() {
 		t.Fatal("the real wireDelivery wires delivery with the row off, so turning it on needs no restart")
+	}
+}
+
+// BLIND delta N-A: a first entry refused for good does not hold its host id, so the claim's holder, stored
+// after it, still runs.
+func TestHostRunPlatformAFirstHostRefusedForGoodLeavesItsIDToTheClaimHolder3301(t *testing.T) {
+	srv1, _ := goodServer3237(t, "app-1", "host-1")
+	srv2, calls2 := goodServer3237(t, "app-2", "host-1")
+	w := withDeps3237(t, []hostcred.Entry{
+		{Server: srv1.URL, AppID: "app-1", HostID: "host-1", Key: key1},
+		{Server: srv2.URL, AppID: "app-2", HostID: "host-1", Key: key2},
+	})
+	dir, err := config.EnsureHostStateDir("host-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, _ := json.Marshal(hostIdentity{Server: strings.ToLower(auth.Host(srv2.URL)), AppID: "app-2"})
+	if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), append(claim, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	out, errOut, err := run3237(t, false, "--once")
+	if exitcode.FromError(err) != exitcode.Conflict {
+		t.Fatalf("the first host's claim refusal is the --once exit (5): %v\n%s\n%s", err, out, errOut)
+	}
+	if len(w.pollers) != 1 {
+		t.Fatalf("the claim holder runs; got %d pollers\n%s\n%s", len(w.pollers), out, errOut)
+	}
+	if strings.Contains(out+errOut, "same host id") {
+		t.Errorf("the claim holder is not refused as a duplicate of a host that never started:\n%s\n%s", out, errOut)
+	}
+	if len(calls2()) == 0 {
+		t.Error("the claim holder never reached its server")
+	}
+}
+
+// BLIND delta N-B / SECOND P3: of two claims of one unclaimed directory at once, exactly one wins.
+func TestClaimHostStateHasOneWinnerUnderARace3301(t *testing.T) {
+	a := hostcred.Entry{Server: "https://a.example", AppID: "app-a", HostID: "host-1"}
+	b := hostcred.Entry{Server: "https://b.example", AppID: "app-b", HostID: "host-1"}
+	for i := range 200 {
+		dir := t.TempDir()
+		var wins atomic.Int32
+		start := make(chan struct{})
+		done := make(chan error, 2)
+		for _, e := range []hostcred.Entry{a, b} {
+			go func() {
+				<-start
+				err := claimHostState(dir, e)
+				if err == nil {
+					wins.Add(1)
+				}
+				done <- err
+			}()
+		}
+		close(start)
+		for range 2 {
+			if err := <-done; err != nil && exitcode.FromError(err) != exitcode.Conflict {
+				t.Fatalf("round %d: the loser reads the winner's claim and is refused with exit 5, not %v", i, err)
+			}
+		}
+		if n := wins.Load(); n != 1 {
+			t.Fatalf("round %d: %d claims won; exactly one may", i, n)
+		}
+		left, _ := filepath.Glob(filepath.Join(dir, ".host-identity-*"))
+		if len(left) != 0 {
+			t.Fatalf("round %d: temporary stamps left behind: %v", i, left)
+		}
 	}
 }

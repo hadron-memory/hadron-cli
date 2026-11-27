@@ -299,7 +299,8 @@ answers for its App or is refused (exit 3), a host that was removed (exit 4)
 or a key no longer permitted for it (exit 8), each naming
 ` + "`team host join --replace`" + `; no Orca on this machine (exit 10); an App
 whose host setup source is HOST (exit 5, ` + "`team host setup --source SERVER`" + `);
-an older server (names 0.47.0). With several hosts, one that cannot start
+a host whose id another joined host already uses here (exit 5, naming
+` + "`team host leave`" + `); an older server (names 0.47.0). With several hosts, one that cannot start
 is reported and the others run; its code still counts toward the exit
 (--once: the worst code; otherwise the first host's, in join order). A
 platform read that fails without being refused (a network error, a 5xx)

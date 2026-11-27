@@ -124,9 +124,14 @@ func runPlatformHosts(cmd *cobra.Command, f *cmdutil.Factory, once bool) error {
 			// A host's state lives under <state>/hosts/<hostId>, so two pollers of one id would share it.
 			s.err = exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s) has the same host id as host %s (App %s) on %s, and this machine keeps a host's state by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, auth.Host(e.Server), first.HostID, first.AppID, auth.Host(first.Server))
 		} else {
-			started[e.HostID] = e
 			s.host, s.poller, s.err = startPlatformHost(ctx, f, deps, facts, orcaBin, e, keys, s.emit)
 			s.host.entry = e
+			// Only a host that started, or that will retry its start, holds the id: one refused for good (another
+			// host's claim on the state directory, a revoked key) leaves it to a later entry of that id, which may
+			// be the claim's holder (BLIND delta N-A on #3301).
+			if s.err == nil || transientStart(s.err) {
+				started[e.HostID] = e
+			}
 		}
 		if s.err != nil && len(entries) == 1 && (once || !transientStart(s.err)) {
 			return s.err
@@ -293,19 +298,25 @@ type hostIdentity struct {
 	AppID  string `json:"appId"`
 }
 
-// claimHostState stamps an unclaimed state directory with this host and refuses one another host claimed.
+// claimHostState stamps an unclaimed state directory with this host and refuses one another host claimed. The
+// stamp is written whole to a temporary file and linked into place, which fails if the file exists, so of two
+// processes claiming one directory at once exactly one wins and the other reads its claim (BLIND delta N-B and
+// SECOND P3 on #3301); a reader never sees a half-written stamp.
 func claimHostState(dir string, e hostcred.Entry) error {
 	want := hostIdentity{Server: strings.ToLower(auth.Host(e.Server)), AppID: e.AppID}
 	path := filepath.Join(dir, hostIdentityFile)
 	raw, err := os.ReadFile(path)
-	switch {
-	case errors.Is(err, os.ErrNotExist):
-		body, _ := json.Marshal(want)
-		if err := config.WriteFileAtomic(path, append(body, '\n'), 0o600); err != nil {
-			return exitcode.Newf(exitcode.Error, "host %s (App %s): claiming the host's state directory %s: %v", e.HostID, e.AppID, dir, err)
+	if errors.Is(err, os.ErrNotExist) {
+		won, cerr := createHostIdentity(dir, path, want)
+		if cerr != nil {
+			return exitcode.Newf(exitcode.Error, "host %s (App %s): claiming the host's state directory %s: %v", e.HostID, e.AppID, dir, cerr)
 		}
-		return nil
-	case err != nil:
+		if won {
+			return nil
+		}
+		raw, err = os.ReadFile(path)
+	}
+	if err != nil {
 		return exitcode.Newf(exitcode.Error, "host %s (App %s): reading %s: %v", e.HostID, e.AppID, path, err)
 	}
 	var got hostIdentity
@@ -316,6 +327,40 @@ func claimHostState(dir string, e hostcred.Entry) error {
 		return exitcode.Newf(exitcode.Conflict, "host %s (App %s on %s): this machine's state directory for host id %s belongs to the host of App %s on %s, and a host's state is kept by its id, so only one of them can be a host here; leave the other with `hadron team host leave`", e.HostID, e.AppID, want.Server, e.HostID, got.AppID, got.Server)
 	}
 	return nil
+}
+
+// createHostIdentity writes the stamp only if none exists: false, nil when another process stamped it first.
+func createHostIdentity(dir, path string, id hostIdentity) (bool, error) {
+	body, err := json.Marshal(id)
+	if err != nil {
+		return false, err
+	}
+	tmp, err := os.CreateTemp(dir, ".host-identity-*")
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = os.Remove(tmp.Name()) }()
+	if _, err := tmp.Write(append(body, '\n')); err != nil {
+		_ = tmp.Close()
+		return false, err
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return false, err
+	}
+	if err := tmp.Close(); err != nil {
+		return false, err
+	}
+	if err := os.Chmod(tmp.Name(), 0o600); err != nil {
+		return false, err
+	}
+	if err := os.Link(tmp.Name(), path); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 // readPlatform is the one platform read, with the host key and no session. A server without V1 rejects the
