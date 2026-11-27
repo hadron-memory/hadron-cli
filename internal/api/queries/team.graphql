@@ -905,7 +905,7 @@ mutation CreateResumeClaim($sessionId: ID!) {
 # @genqlient(for: "ResumeSessionInput.family", omitempty: true)
 # cli#2206: a resume reports an effort only when --effort is given.
 # @genqlient(for: "ResumeSessionInput.effort", omitempty: true)
-# @genqlient(for: "ResumeSessionInput.expectedWorkerId", omitempty: true)
+# @genqlient(for: "ResumeSessionInput.expectedWorkerRef", omitempty: true)
 # @genqlient(for: "ResumeSessionInput.transcriptPath", omitempty: true)
 mutation ResumeTeamSession(
   $input: ResumeSessionInput!
