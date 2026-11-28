@@ -1206,7 +1206,8 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   free-standing URN slug is kebab-derived from
   `--name` on create (`"Project KB"` → `project-kb`) unless you pass
   `--slug <bare-slug>` to set it explicitly; on update, `--slug` renames
-  the memory (its URN — and every node URN under it — changes). On create
+  the memory (its URN — and every node URN under it — changes), except that a personal or
+  private memory in an App keeps its slug (`APP_MEMORY_SLUG_FIXED`, below). On create
   `--slug` is sent as `createMemory(slug:)` in the one call (cli#3223,
   hadron-server#5203): a taken or reserved slug is the server's refusal and
   nothing is written, and no rename follows. Without `--slug`, once the server

@@ -22,7 +22,13 @@ const slugFixedReply3242 = `{"errors":[{"message":"` + slugFixedServerText3242 +
 // exit code, the rendered text (stdout+stderr) and the update's variables.
 func runSlugFixed3242(t *testing.T, args ...string) (int, string, map[string]any) {
 	t.Helper()
-	gql, captured := captureGraphQL(t, map[string]string{"GetMemory": appMemoryRead3280, "UpdateMemory": slugFixedReply3242})
+	return runSlugFixedWith3242(t, slugFixedReply3242, args...)
+}
+
+// runSlugFixedWith3242 is runSlugFixed3242 with the server's UpdateMemory reply given.
+func runSlugFixedWith3242(t *testing.T, reply string, args ...string) (int, string, map[string]any) {
+	t.Helper()
+	gql, captured := captureGraphQL(t, map[string]string{"GetMemory": appMemoryRead3280, "UpdateMemory": reply})
 	f, out := testFactory(t)
 	var stderr strings.Builder
 	f.IOStreams.ErrOut = &stderr
@@ -98,26 +104,34 @@ func TestSlugRefusalJSONCarriesServerCodeAndMemoryClass3242(t *testing.T) {
 	}
 }
 
-// A class outside the two the server names is not echoed (the field is a fixed set, never free server text).
+// A class outside the two the server names is not echoed (the field is a fixed set, never free server text), while the
+// envelope still prints, with the server's code, at exit 2.
 func TestSlugRefusalJSONDropsAnUnknownMemoryClass3242(t *testing.T) {
 	reply := `{"errors":[{"message":"x","extensions":{"code":"APP_MEMORY_SLUG_FIXED","memoryClass":"\u001b[31mevil"}}],"data":null}`
-	gql, _ := captureGraphQL(t, map[string]string{"GetMemory": appMemoryRead3280, "UpdateMemory": reply})
-	f, out := testFactory(t)
-	var stderr strings.Builder
-	f.IOStreams.ErrOut = &stderr
-	root := NewRootCmd(f)
-	args := []string{"memory", "set", "hrn:mem:acme.com:coach-ada-personal", "--slug", "other", "--json", "--server", gql.URL}
-	root.SetArgs(args)
-	err := root.Execute()
-	renderFailure(f, args, err)
-	seen := out.String() + stderr.String()
-	if strings.Contains(seen, "evil") || strings.Contains(seen, `"memoryClass"`) {
-		t.Errorf("an unknown class must not be echoed:\n%s", seen)
+	code, seen, _ := runSlugFixedWith3242(t, reply, "hrn:mem:acme.com:coach-ada-personal", "--slug", "other", "--json")
+	if code != exitcode.Usage {
+		t.Errorf("exit %d, want 2", code)
+	}
+	var env struct {
+		Error map[string]any `json:"error"`
+	}
+	if err := json.Unmarshal([]byte(strings.TrimSpace(seen)), &env); err != nil {
+		t.Fatalf("not one JSON envelope: %v\n%s", err, seen)
+	}
+	if env.Error["serverCode"] != "APP_MEMORY_SLUG_FIXED" {
+		t.Errorf("the envelope must still carry the server's code: %v", env.Error)
+	}
+	if _, has := env.Error["memoryClass"]; has {
+		t.Errorf("an unknown class must not be echoed: %v", env.Error)
+	}
+	if strings.Contains(seen, "evil") {
+		t.Errorf("the unknown class text leaked:\n%s", seen)
 	}
 }
 
-// --name alone on the same memory still succeeds, and sends no urn; --slug on a memory the server does not refuse
-// (a knowledge or group one) behaves as before and is sent as typed. No class check lives in the CLI.
+// --name alone on the same memory still succeeds, and sends no urn; --slug on a call the server accepts behaves as
+// before and is sent as typed (the fake accepts it here, as the server does for a knowledge or group memory). No class
+// check lives in the CLI.
 func TestNameAloneAndSlugOnOtherMemoriesBehaveAsBefore3242(t *testing.T) {
 	vars, _, err := runMemorySet(t, "hrn:mem:acme.com:coach-ada-personal", "--name", "Coach Ada")
 	if err != nil {
@@ -151,5 +165,19 @@ func TestAgenticUsageStatesTheSlugRefusalAppliesNothing3242(t *testing.T) {
 	u := flatHelp3208(t, "agentic-usage")
 	if !strings.Contains(u, "APP_MEMORY_SLUG_FIXED") || !strings.Contains(u, "nothing in the call is applied") {
 		t.Error("agentic-usage must say APP_MEMORY_SLUG_FIXED applies nothing in the call (cli#3242)")
+	}
+}
+
+// Only APP_MEMORY_SLUG_FIXED gets the note, the code and the class: any other failure of the update (another server
+// refusal, an unreachable server) is reported as before, so it never claims nothing was applied or carries this code.
+func TestOtherUpdateFailuresGetNoSlugFixedNote3242(t *testing.T) {
+	for name, reply := range map[string]string{
+		"another refusal": `{"errors":[{"message":"not allowed","extensions":{"code":"FORBIDDEN","memoryClass":"personal"}}],"data":null}`,
+		"a gateway fault": `{"errors":[{"message":"upstream","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`,
+	} {
+		code, seen, _ := runSlugFixedWith3242(t, reply, "hrn:mem:acme.com:coach-ada-personal", "--slug", "other", "--json")
+		if strings.Contains(seen, "Nothing in this call was applied") || strings.Contains(seen, "APP_MEMORY_SLUG_FIXED") || strings.Contains(seen, `"memoryClass"`) {
+			t.Errorf("%s: no slug-fixed note, code or class for another failure (exit %d):\n%s", name, code, seen)
+		}
 	}
 }

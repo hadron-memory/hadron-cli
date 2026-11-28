@@ -61,7 +61,9 @@ To work in it, pass that URN with -m (node create -m hrn:mem:acme.com:project-kb
 ...). memory set-active saves it as the default for spec and coding commands.
 
 To change a memory, name it first; only the fields you pass change. --slug on
-a change renames the memory, so its URN and the URN of every node in it change.
+a change renames the memory, so its URN and the URN of every node in it change,
+except that a personal or private memory in an App keeps its slug (the server
+refuses the call and nothing in it is applied).
 
   hadron memory set acme.com:project-kb --description "Long-form description"
 
