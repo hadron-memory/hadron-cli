@@ -1206,7 +1206,8 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   free-standing URN slug is kebab-derived from
   `--name` on create (`"Project KB"` → `project-kb`) unless you pass
   `--slug <bare-slug>` to set it explicitly; on update, `--slug` renames
-  the memory (its URN — and every node URN under it — changes). On create
+  the memory (its URN — and every node URN under it — changes), except that a personal or
+  private memory in an App keeps its slug (`APP_MEMORY_SLUG_FIXED`, below). On create
   `--slug` is sent as `createMemory(slug:)` in the one call (cli#3223,
   hadron-server#5203): a taken or reserved slug is the server's refusal and
   nothing is written, and no rename follows. Without `--slug`, once the server
@@ -1225,7 +1226,9 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   older server refuses an omitted name as schema skew (exit 2). Changing the slug of an
   App personal or private memory afterwards (`memory set <ref> --slug`) is refused with
   exit 2 (`APP_MEMORY_SLUG_FIXED`, cli#3280: its slug is fixed and there is no rename),
-  with the server's message.
+  with the server's message and a note that nothing in the call is applied (a `--name` passed
+  with `--slug` is not saved; `--name` alone changes the display name); `--json` adds
+  `serverCode` and `memoryClass` (`personal` or `private`) to the error envelope (cli#3242).
 - `memory set --app <ref> --class app --name <name>` with NO `--agent` adds a
   new free-standing app memory to an App that has an installed Agent
   (`createAppMemory`, cli#1176): only an admin/owner of the App's org (or, for

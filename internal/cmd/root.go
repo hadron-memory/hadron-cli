@@ -497,6 +497,11 @@ func renderError(f *cmdutil.Factory, err error) int {
 		if errors.As(err, &coded) {
 			failure["serverCode"] = coded.ServerCode()
 		}
+		// cli#3242: the class of an App memory whose slug is fixed, additive beside serverCode; absent unless it is one
+		// of the two the server names.
+		if class := api.SlugFixedMemoryClass(err); class != "" {
+			failure["memoryClass"] = class
+		}
 		// Specific marker wins after every generic/fault/wrapper code writer,
 		// regardless of envelope error order (Wolfgang ruling111707). On a
 		// gateway fault only this marker wins: numeric exit, fault message and

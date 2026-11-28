@@ -61,7 +61,9 @@ To work in it, pass that URN with -m (node create -m hrn:mem:acme.com:project-kb
 ...). memory set-active saves it as the default for spec and coding commands.
 
 To change a memory, name it first; only the fields you pass change. --slug on
-a change renames the memory, so its URN and the URN of every node in it change.
+a change renames the memory, so its URN and the URN of every node in it change,
+except that a personal or private memory in an App keeps its slug (the server
+refuses the call and nothing in it is applied).
 
   hadron memory set acme.com:project-kb --description "Long-form description"
 
@@ -403,7 +405,10 @@ Apps:
 				resp, err := updateMemory(cmd, client, memID, optional(name), optional(short), optional(description), tagsArg, visArg,
 					settings.dataArg(), urnArg, maxRevArg, schemaArg, listedArg, settings.updateArgs(cmd))
 				if err != nil {
-					return api.MapError(err)
+					// cli#3242: an App personal or private memory keeps its slug: the server refuses the whole call
+					// (exit 2), and the refusal carries serverCode and memoryClass under --json. The CLI reports it;
+					// it never predicts it by class.
+					return api.WithSlugFixed(api.MapError(err), err)
 				}
 				if resp == nil || resp.UpdateMemory == nil {
 					return exitcode.Newf(exitcode.Error, "server returned no memory")
@@ -463,7 +468,7 @@ Apps:
 	cmd.Flags().StringVar(&short, "short", "", "short description")
 	cmd.Flags().StringVar(&description, "description", "", "long description")
 	cmd.Flags().StringVar(&visibility, "visibility", "", "who can read a knowledge memory: ORGANIZATION (default) or PUBLIC; GROUP for a group memory")
-	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): on create, chosen instead of derived from --name and sent with the create; on update, renames the memory")
+	cmd.Flags().StringVar(&slug, "slug", "", "URN slug (bare, e.g. hadrontool-pdf): on create, chosen instead of derived from --name and sent with the create; on update, sets a new slug, except that a personal or private memory in an App keeps its slug (the server refuses the whole call and applies nothing)")
 	cmd.Flags().StringVar(&app, "app", "", "App ID or URN (create only; with --agent an App-scoped memory, alone with --class app a free-standing app memory)")
 	cmd.Flags().StringVar(&agent, "agent", "", "installed Agent ID or URN (App-scoped create only; requires --app; omit it for --app --class app)")
 	cmd.Flags().StringArrayVar(&tags, "tag", nil, "tag (repeatable; replaces tags on update)")
