@@ -41,6 +41,24 @@ var usageEnv = func(f *cmdutil.Factory) healthsched.Env {
 	return e
 }
 
+// glmStep is setup step 5 of `team usage --help`: the glm quota snippet is the
+// text the tests run (accountusage.GLMSnippet), indented for the help.
+var glmStep = ` 5. glm (Z.ai): configDir is the account's config dir. Put this in the glm
+    session's status line script (the session already holds ANTHROPIC_AUTH_TOKEN
+    and ANTHROPIC_BASE_URL; the CLI never sees the key and makes no network
+    call, and the key never goes into Hadron config):
+      ` + strings.ReplaceAll(strings.TrimRight(accountusage.GLMSnippet, "\n"), "\n", "\n      ") + `
+    The file is {"observedAt":N,"limits":[{"type","unit","number","percentage",
+    "nextResetTime"}]} (observedAt in Unix seconds, nextResetTime in ms; no token,
+    no account identifier). It calls only over https, at most every 5 minutes
+    (by the file's mtime and an attempt marker, failures included), and a
+    failed call leaves the previous file untouched. collect maps a
+    TOKENS_LIMIT or CREDIT_LIMIT whose (unit, number) is on the confirmed list
+    (3,5 = the 5-hour window, 300 minutes) to primary/secondary with its length;
+    any other code is dropped, never guessed. No file: sourceState
+    "no-local-source"; a file with no usable window: "no-reading-yet"; else "ok".
+`
+
 func newCmdTeamUsage(f *cmdutil.Factory) *cobra.Command {
 	group := &cobra.Command{
 		Use:   "usage <command>",
@@ -49,8 +67,9 @@ func newCmdTeamUsage(f *cmdutil.Factory) *cobra.Command {
 provider the team uses (family claude, codex or glm). Claude accounts report
 the rolling 5-hour and 7-day windows that every session on an account shares;
 Codex accounts report their primary and secondary windows, each with its own
-length; a provider with no readable source (glm today) is recorded as a
-finding, "no local source", and listed by "show", never silently dropped. All
+length; glm accounts report the windows their session's quota snippet wrote
+(step 5); an account with no readable source is recorded as a finding, "no
+local source", and listed by "show", never silently dropped. All
 are read on the worker host: "collect" records one snapshot per account as a
 Hadron object (collection account-usage), "show" tells you which account runs
 out first, and "install" runs collect on a schedule.
@@ -94,9 +113,7 @@ Setup, per account, by whoever runs the host (steps 1 and 2 need jq and npx):
     printed or logged; a malformed or oversized line is skipped, and a symlink
     or non-regular file is never followed. A rollout with no token_count yet is
     recorded as "no-reading-yet", not 0.
- 5. glm (Z.ai): configDir is the account's config dir. No local usage source
-    exists yet, so the record says sourceState "no-local-source".
-
+` + glmStep + `
 Record shape (schemaVersion 1, collection account-usage; absent values are left
 out, never 0): label, family, host, observedAt (RFC 3339); fiveHourPct,
 fiveHourResetsAt, sevenDayPct, sevenDayResetsAt; tokensSinceLast,
@@ -104,7 +121,8 @@ estCostUsdSinceLast (growth of the ccusage blocks since this account's previous
 record, absent when it cannot be measured); ccusageBlocks (the still-growing
 blocks, the next record's checkpoint); workers, workersConfigured, schemaVersion. Codex records add primaryPct,
 primaryMinutes, primaryResetsAt and secondaryPct, secondaryMinutes,
-secondaryResetsAt, plus sourceState (ok, no-reading-yet; glm: no-local-source).`,
+secondaryResetsAt, plus sourceState (ok, no-reading-yet; glm also no-local-source:
+no quota file). A glm record carries the same own-length fields.`,
 		Example: "  hadron team usage collect --config ./usage.yaml\n  hadron team usage show --config ./usage.yaml --json\n  hadron team usage install --config ./usage.yaml --interval 15m",
 	}
 	group.AddCommand(newUsageCollect(f), newUsageShow(f), newUsageAccounts(f), newUsageProject(f), newUsageInstall(f), newUsageUninstall(f), newUsageStatus(f))
@@ -161,7 +179,9 @@ label containing @. A snapshot that does not exist yet means no data: that
 account is recorded with its windows absent.
 
 Reads only <configDir>/hadron-usage/rate-limits.json and the named ccusage
-file (a symlink is refused); runs no subprocess; writes only to the server.
+file (a glm account: only hadron-usage/glm-quota.json; a codex account: its
+rollout) (a symlink is refused); runs no subprocess, holds no key and makes no
+network call to a provider; writes only to the server.
 Nothing from a file is echoed in an error.
 
 Exit 0 after recording, 2 for refused input, otherwise as any server write.`,
