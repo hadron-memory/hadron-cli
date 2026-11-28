@@ -4218,6 +4218,14 @@ hadron api 'query($ref: ID!) { memory(ref: $ref) { urn name } }' -F ref=hrn:mem:
 cat op.graphql | hadron api -
 ```
 
+`startChat` through `hadron api` with a person's token must name the App with the
+`appRef` argument (an App ID or URN): the global `--app` has no effect on `hadron api`,
+and a call that identifies no App (no App credential, no `appRef`), or names another App
+than the credential's, is refused `CHAT_APP_NOT_IDENTIFIED` by a server from 0.54.0
+(hadron-cli#3310, hadron-server#5394). `hadron api` prints that refusal verbatim and exits
+2 on it (a usage error: name the App). No curated command sends `startChat` yet (gap #64);
+the chat-start command it adds will map the refusal to exit 2 and keep the server's message.
+
 `-F key=value` sets variables (values that parse as JSON are sent as
 JSON, otherwise as strings). When the server answers HTTP 200, its
 GraphQL response envelope, `errors` included, is printed to stdout
