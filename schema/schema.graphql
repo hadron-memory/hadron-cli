@@ -476,6 +476,11 @@ type Agent {
   """
   contextCap: Int
   createdAt: DateTime!
+
+  """
+  #5027 (hrn:node:hadronmemory.com:specs:cor:acl:030:01): the home a chat takes when startChat names neither memoryRef nor scope. Null (the default) keeps the behaviour from before this field existed. Set by whoever manages the Agent (hrn:node:hadronmemory.com:specs:cor:dmo:050:13), like usesTasks.
+  """
+  defaultChatHome: ChatHome
   description: String
 
   """
@@ -2539,6 +2544,8 @@ type App {
   #5185 — the memories linked to this App with 'attachMemoryToApp'. You see only entries whose memory you can read in your
   own right; others are absent and not counted. 'active' is whether the link counts right now (its attacher still reads the
   memory in their own right, the App is installed, and a personal or private memory is the App owner's and was linked by the owner).
+  #5345: a user-owned memory of any other class is never active for the App's key — the record gate refuses it, so the link
+  grants the key nothing (it stays listed, inert, until detached).
   """
   attachedMemories: [AppAttachedMemory!]!
 
@@ -2960,7 +2967,7 @@ type AppKeyPage {
 }
 
 """
-#1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
+#1749 — a scope an App key holds. A closed list: attention:deliver, (#1709) host:operate, and (#5321) grant:read, which lets a pure key read through the memory.read grants its App holds (hrn:node:hadronmemory.com:specs:cor:acl:140:02).
 """
 type AppKeyScope {
   grantedAt: DateTime!
@@ -3220,7 +3227,16 @@ type AppRun {
   """
   hops: JSON
   id: ID!
-  organizationId: ID!
+
+  """
+  The organization that owns the run's App, copied at mint; null when a person owns the App (#5077, hrn:node:hadronmemory.com:specs:cor:dmo:050:12). Exactly one of organizationId and ownerUserId is set.
+  """
+  organizationId: ID
+
+  """
+  The person who owns the run's App, copied at mint; null when an organization owns it (#5077, hrn:node:hadronmemory.com:specs:cor:dmo:050:12).
+  """
+  ownerUserId: ID
   parentRunId: ID
   policy: JSON
 
@@ -3917,9 +3933,9 @@ type AutomationApproval {
   hash: String!
 
   """
-  #2883: the live read grants this automation holds (memory and loc prefix), so the adopter approves what it may read. memoryUrn is null when the adopter cannot read that memory.
+  #5404: always empty. Per-automation read grants are retired; what the App's runs read is its signed memory.read grants.
   """
-  readGrants: [AutomationReadGrant!]!
+  readGrants: [AutomationReadGrant!]! @deprecated(reason: "Retired by #5404; always empty.")
   state: AutomationAdoptionState!
   summary: AutomationSummary!
 }
@@ -4535,13 +4551,26 @@ type Chat {
   shared chats in the list.
   """
   createdBy: ID
+
+  """
+  #5027 (hrn:node:hadronmemory.com:specs:cor:acl:030:01, R2: every surface shows the host memory's own kind plus its URN): the class of the memory this chat lives in. scope is kept for installed clients and is a label derived from this class.
+  """
+  homeMemoryClass: MemoryClass!
+
+  """
+  #5027 (hrn:node:hadronmemory.com:specs:cor:acl:030:01): the URN of the memory this chat lives in, in the same form Memory.urn returns (hrn:mem:...).
+  """
+  homeMemoryUrn: String!
   id: ID!
   lastMessageAt: DateTime
   loc: String!
   messageCount: Int!
 
-  """017-chat-visibility-and-personal-memory."""
-  scope: ChatScope!
+  """
+  017-chat-visibility-and-personal-memory. #5027: a label derived from the home memory's class (personal, private or
+  knowledge reads private; app or group reads shared), kept for installed clients.
+  """
+  scope: ChatScope! @deprecated(reason: "Use homeMemoryClass and homeMemoryUrn (#5027).")
 
   """
   #2047 / hrn:node:hadronmemory.com:specs:cor:agt:040:03: the boot prompt this chat was served, once at its start and again whenever its served
@@ -4575,6 +4604,24 @@ type ChatAiConfigChoice {
   `default` for the walk entry, else the config id: the value to send back as aiConfigChoice.
   """
   value: String!
+}
+
+"""
+#5027 (hrn:node:hadronmemory.com:specs:cor:acl:030:01, D-2026-11-26-008): where a chat goes when its starter names no home memory. There is no GROUP value: a group home needs a named memory, so it is chosen only through startChat(memoryRef:).
+"""
+enum ChatHome {
+  """The App's shared memory, found or created as a shared chat's is."""
+  APP_SHARED
+
+  """
+  The caller's own personal memory in the App (one per class, hrn:node:hadronmemory.com:specs:cor:dmo:060:20).
+  """
+  PERSONAL
+
+  """
+  The caller's own private memory in the App (one per class, hrn:node:hadronmemory.com:specs:cor:dmo:060:20).
+  """
+  PRIVATE
 }
 
 """One chat message in history, as returned by chatHistory."""
@@ -9409,8 +9456,11 @@ type Mutation {
   through any App); when you lose read the link goes inert, and it works again if you regain it. A user, with or without the
   App selected, gains nothing from a link. For a 'personal' or 'private' memory the key reads it only when the memory's owner
   is the App's owner (a user-owned App whose owner linked their own memory); in an organization's App the link is inert for
-  the key. Any class except 'system', in any tenant. One memory may be linked into several Apps. A link you already hold is
-  success and writes nothing. 'agentRef' is accepted and ignored (deployed clients keep working).
+  the key. The same holds for a user-owned memory of any other class (#5345): a knowledge or group memory under a user root
+  never reaches the key through a link — attaching gives no access, and the record gate refuses it — so the link sits inert
+  (listed with 'active: false' in attachedMemories) until it is detached. You may attach any class except 'system', in
+  any tenant, and the attach succeeds even when the link stays inert. One memory may be linked into several Apps. A link
+  you already hold is success and writes nothing. 'agentRef' is accepted and ignored (deployed clients keep working).
   
   Person only: a signed-in user acting as themselves, and a member of the App. Typed errors, judged in this order before any
   write: UNAUTHENTICATED (no signed-in user); FORBIDDEN (an App key, run, worker session or impersonation; also an unknown or
@@ -9489,6 +9539,15 @@ type Mutation {
   'ref' is the run's id or its hrn:apprun URN (renamed from 'id', #4141).
   A ref that cannot name a run is BAD_USER_INPUT; an unknown run answers
   NOT_FOUND "Run not found."; a non-admin keeps FORBIDDEN.
+  A run of an App a person owns (#5077,
+  hrn:node:hadronmemory.com:specs:cor:dmo:050:12) is cancelled by
+  whoever manages that App as themself (its owner or an owner-role member),
+  with the full run returned, and by a platform admin, who gets the run with
+  its content withheld: identity, owner, status, timestamps, budgets and
+  spend are kept, every other field is null and entryNodeUrn is the empty
+  string. Anyone who may read the run but not cancel it (the App's own key,
+  a member for their own run) gets FORBIDDEN; anyone who may not read it
+  gets NOT_FOUND, as for a missing run.
   """
   cancelAppRun(ref: ID!): AppRun!
 
@@ -12411,14 +12470,14 @@ type Mutation {
   revokeAppKeyScope(id: ID!, instruction: ActInstructionInput, scope: String!): AppKey!
 
   """
-  #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+  #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Revoke the memory.write grant instead.
   """
-  revokeAppMemoryWriteGrant(id: ID!, instruction: ActInstructionInput): AppMemoryWriteGrant!
+  revokeAppMemoryWriteGrant(id: ID!, instruction: ActInstructionInput): AppMemoryWriteGrant! @deprecated(reason: "Retired by #5404: sign a memory.write grant (createGrant).")
 
   """
-  #2883: end an automation read grant. The App's managers or the target's manager, as themselves or through a held worker on a validated instruction within its own App. Terminal, with no event on a repeat.
+  #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Revoke the memory.read grant instead.
   """
-  revokeAutomationReadGrant(id: ID!, instruction: ActInstructionInput): AutomationReadGrant!
+  revokeAutomationReadGrant(id: ID!, instruction: ActInstructionInput): AutomationReadGrant! @deprecated(reason: "Retired by #5404: sign a memory.read grant (createGrant).")
 
   """
   #3350: terminal revoke, App managers only. A held worker on a validated instruction may revoke within its own App; changing revokes record the worker and holder.
@@ -12616,9 +12675,9 @@ type Mutation {
   setAppDeliverySettings(appRef: String!, input: AppDeliverySettingsInput!, instruction: ActInstructionInput): AppDeliverySettings!
 
   """
-  #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+  #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Sign a memory.write grant instead.
   """
-  setAppMemoryWriteGrant(appRef: String!, memoryRef: String!, prefix: String!, registerNodeUrn: String): AppMemoryWriteGrant!
+  setAppMemoryWriteGrant(appRef: String!, memoryRef: String!, prefix: String!, registerNodeUrn: String): AppMemoryWriteGrant! @deprecated(reason: "Retired by #5404: sign a memory.write grant (createGrant).")
 
   """
   #2831 S1 (hrn:node:hadronmemory.com:specs:cor:agt:060:12) - set an App's model group of this name: it overrides the Team Agent's group of that name
@@ -12676,9 +12735,9 @@ type Mutation {
   setAssetPublicLink(assetRef: ID!, enabled: Boolean!, instruction: ActInstructionInput): Asset!
 
   """
-  #2883: give an automation (a live schedule or webhook of the App) a read grant on one memory or loc prefix. Given by whoever manages the target: the Agent for its system memory, the memory's manager otherwise, as a person (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A refusal is the same Forbidden as an unknown App, trigger or memory.
+  #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Sign a memory.read grant held by the App instead.
   """
-  setAutomationReadGrant(appRef: String!, memoryRef: String!, prefix: String, triggerId: ID!, triggerKind: String!): AutomationReadGrant!
+  setAutomationReadGrant(appRef: String!, memoryRef: String!, prefix: String, triggerId: ID!, triggerKind: String!): AutomationReadGrant! @deprecated(reason: "Retired by #5404: sign a memory.read grant (createGrant).")
 
   """
   #3350: App managers, as people acting as themselves, give this live schedule/webhook a read-only own-App team snapshot grant, off until given; identical repeat returns the live row. hrn:node:hadronmemory.com:specs:cor:agt:050:23
@@ -12906,9 +12965,22 @@ type Mutation {
 
   """
   Start an AGENT CHAT (creates chat nodes, loads conversation, returns
-  compiled prompt). When called by a JWT user, the agent chat is created in
-  that user's personal memory for the agent (provisioned lazily if
-  needed).
+  compiled prompt). When called by a signed-in user, a private agent chat is
+  created in that user's personal memory for the agent in the identified App
+  (provisioned lazily if needed).
+  
+  #5394 (hrn:node:hadronmemory.com:specs:cor:cht:010:02): the App that supplies
+  the chatbot and keeps the chat is the one the call identifies: an App
+  credential's own App, or otherwise appRef (an ID or URN, as agentRef; the
+  CLI's global --app). No App is ever searched for. With neither, or with an
+  appRef that names another App than the credential's, the call is refused
+  CHAT_APP_NOT_IDENTIFIED before the Agent is resolved, so it says nothing
+  about the Agent. An appRef the caller takes no part in, or that names no
+  App, is refused exactly like an App the caller cannot use (the unknown-Agent
+  refusal for a private chat, SHARED_CHAT_REQUIRES_APP_CONTEXT for a shared
+  one), so it says nothing about the App either. Install, licence and
+  participation are judged against that App alone, and an existing home is
+  reused only if it belongs to it.
   
   #1034: an **agent chat** — deliberately not "chat session", which is
   reserved for the human's own conversation and names no row in this schema,
@@ -12930,6 +13002,11 @@ type Mutation {
     #3957 (hrn:node:hadronmemory.com:specs:cor:dmo:050:10): optional AI config choice for this chat, stored with it: `default` or one of the chat App's own config ids from chatAiConfigChoices. Omitted keeps what the chat has. Any other id is refused as a missing config, revealing nothing about it.
     """
     aiConfigChoice: String
+
+    """
+    #5394 (hrn:node:hadronmemory.com:specs:cor:cht:010:02): the App this chat runs under (ID or URN), for a caller whose credential carries no App; the CLI's global --app. Naming another App than the credential's is refused CHAT_APP_NOT_IDENTIFIED.
+    """
+    appRef: ID
     conversationName: String
     isTestRun: Boolean = false
 
@@ -12937,7 +13014,16 @@ type Mutation {
     #3096 / hrn:node:hadronmemory.com:specs:cor:dmo:150:08: optional client-reported model id, at most 256 UTF-16 code units, no control/format/line-separator characters or unpaired surrogates. Omitted or null fills empty for this call. Used only for prompt text and its immutable record, labelled client-reported; never billing, quotas or authorization. Invalid input refuses BAD_USER_INPUT without echoing it.
     """
     llmModel: String
-    scope: ChatScope = private
+
+    """
+    #5027 (hrn:node:hadronmemory.com:specs:cor:acl:030:01): the memory the chat is saved in, an id or URN. It must be readable and writable by the caller as themselves, of class app, group, personal or private, and of this App's scope; anything else is refused CHAT_HOME_INVALID with one fixed message, before anything is created. An encrypted memory is allowed; with no cached key the start answers MEMORY_ENCRYPTED_NO_KEY.
+    """
+    memoryRef: ID
+
+    """
+    Omitted: memoryRef decides when given, else the Agent's defaultChatHome, else private (#5027). With memoryRef it must be omitted or equal the label the named memory's class derives, else BAD_USER_INPUT, judged after the memoryRef gate so it never discloses the class of a memory the caller cannot use, and before anything is written.
+    """
+    scope: ChatScope
     userId: String
   ): ChatStartResult!
 
@@ -13131,6 +13217,11 @@ type Mutation {
     #4225: the context cap in tokens, a whole number from 1; omitted leaves it, null clears it (no cap).
     """
     contextCap: Int
+
+    """
+    #5027 (hrn:node:hadronmemory.com:specs:cor:acl:030:01): the Agent's default chat home. Omitted leaves it; null clears it (today's behaviour). The same gate as every other field here: whoever manages the Agent (hrn:node:hadronmemory.com:specs:cor:dmo:050:13).
+    """
+    defaultChatHome: ChatHome
     description: String
 
     """#4224: omitted or null leaves it unchanged."""
@@ -15393,7 +15484,7 @@ type OwnerLimitUsage {
   limit: String
 
   """
-  How much the owner holds now, a base-10 integer string, counted when asked for. A total only.
+  How much the owner holds now, a base-10 integer string, counted when asked for. A total only. For nodes (hadron-server issue 5434): the nodes a person writes in their personal memory made under an Agent count for that person, not for the Agent's organization.
   """
   used: String!
 }
@@ -15745,7 +15836,10 @@ type Query {
   """
   #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24) - the role task to follow, with its body, or that no
   task fits. Give a phrase, an eventCode or both; eventCode needs appRef. With an eventCode, the App's register
-  answers first (register), and a mapped task is MATCHED by REGISTER. Otherwise the phrase ranks the Agent's
+  answers first (register), and a mapped task is MATCHED by REGISTER — but an entry that maps while its task is
+  not in the Agent's list (a stale mapping) never matches by REGISTER: it falls through, so with no phrase the
+  answer is NO_MATCH with the register still MAPPED and with a phrase the search arm decides as usual — the
+  mapping is still reported, the task never invented (#5360). Otherwise the phrase ranks the Agent's
   agentTaskList tasks on their abstracts, and the tasks scoring at or above the no-match floor (default 0.45,
   TASK_MATCH_MIN_SCORE) are MATCHED by SEARCH, best first, at most 3, with the body of the first only. With no
   embedding available nothing can reach the floor, so the answer is NO_MATCH with the keyword hits as nearest.
@@ -15753,7 +15847,9 @@ type Query {
   omitted: your own Agent (a bound worker's, or a run's) is used, and a caller with none gets BAD_USER_INPUT.
   Without appRef the Agent is read as agentTaskList reads it; with appRef you must take part in the App and the
   Agent must be installed or cast there. Refused as APP_NOT_FOUND or AGENT_NOT_FOUND, alike for unknown and
-  unreadable. A phrase is 1 to 500 characters. Nothing is recorded or logged. The MCP tool
+  unreadable. A phrase is 1 to 512 characters after trimming (the one bound every search surface shares, #5360);
+  an eventCode is trimmed and 1 to 64 characters, the register loc atom bound (#5360) — both judged before
+  any read. Nothing is recorded or logged. The MCP tool
   hadron_get_instructions returns the same answer. Accepts IDs or URNs.
   """
   agentInstructions(agentRef: ID, appRef: ID, eventCode: String, phrase: String): AgentInstructions!
@@ -15861,9 +15957,12 @@ type Query {
   #2421, #5284: an optional phrase ranks only runnable effective-chain tasks
   with non-empty abstracts, by the vector similarity of the abstract (score),
   best first; with no embedding available, by keyword on the abstract, with
-  score null. limit defaults to 3 and may be at most 10; an empty phrase or a
-  limit outside 1 to 10 is BAD_USER_INPUT. Without a phrase the list is
-  unchanged and limit is ignored. matchedBy says which retrievers found a task.
+  score null. limit defaults to 3 and may be at most 10; an empty phrase, one
+  over 512 characters (the one bound every search surface shares, #5360), or a
+  limit outside 1 to 10 is BAD_USER_INPUT — judged on the arguments before the
+  Agent is read (#5360), so it wins over AGENT_NOT_FOUND. Without a phrase the
+  list is unchanged and limit is ignored. matchedBy says which retrievers
+  found a task.
   """
   agentTaskList(limit: Int, phrase: String, ref: ID!): [AgentListedTask!]!
 
@@ -16318,9 +16417,9 @@ type Query {
   appMemoryScope(appRef: ID!, limit: Int, offset: Int): AppScopedMemoryPage!
 
   """
-  #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+  #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Read the App's memory.write grants from the grant listing instead.
   """
-  appMemoryWriteGrants(appRef: String!, includeRevoked: Boolean = false, instruction: ActInstructionInput): [AppMemoryWriteGrant!]!
+  appMemoryWriteGrants(appRef: String!, includeRevoked: Boolean = false, instruction: ActInstructionInput): [AppMemoryWriteGrant!]! @deprecated(reason: "Retired by #5404: sign a memory.write grant (createGrant).")
 
   """
   Nodes in the App's current readable installed-Agent memory scope, with
@@ -16364,8 +16463,14 @@ type Query {
   hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
   a READER of the run's organization, the run's own App key, or a user with a
   live App relationship for a run on their behalf or a MANUAL run they
-  started. A run the caller may not read returns null, exactly like a
-  missing one (#1577: no existence oracle).
+  started. A run of an App a person owns (organizationId null, #5077,
+  hrn:node:hadronmemory.com:specs:cor:dmo:050:12) is read by whoever manages
+  that App as themself (its owner
+  or an owner-role member), by the App's own key or a run of that App with no
+  user, and by a user for their own run as above; never by a platform admin,
+  an impersonated session or a run carrying a user id. A run the caller may
+  not read returns null, exactly like a missing one (#1577: no existence
+  oracle).
   """
   appRun(ref: ID!): AppRun
 
@@ -16434,6 +16539,28 @@ type Query {
   assets(filter: AssetFilter, limit: Int = 20, offset: Int = 0, orgRef: ID): AssetsPage!
 
   """
+  #5393: the attachable-memory picker's search, one page of the memories the caller could
+  attach to this App with attachMemoryToApp (hrn:node:hadronmemory.com:specs:cor:dmo:060:20).
+  
+  Who may call: the callers attachMemoryToApp admits, refused the same way. No signed-in user:
+  UNAUTHENTICATED. An App key, worker session, impersonation or run: FORBIDDEN. An unknown or
+  deleted App, or a caller who is not a member of it: the same FORBIDDEN. A member of an
+  uninstalled App: APP_UNINSTALLED. A call past the caller checks takes one
+  FAN_OUT_READS rate admission before it reads anything.
+  
+  Candidates: the memories the caller reads in their own right (the same judgment attach applies,
+  so never a memory reached only through an App), except deleted ones, class system, class app,
+  and any memory already linked to this App by anyone, including a link that is inactive.
+  
+  query: case-insensitive "contains" on the name or the URN (a leading hrn:mem: is ignored for
+  the URN); omitted, empty or blank applies no text filter.
+  
+  Paging per hrn:node:hadronmemory.com:specs:cor:api:120:02: name ascending, id tiebreak;
+  limit default 20, cap 200; limit: 0 returns only the total. Accepts the App's ID or URN.
+  """
+  attachableMemories(appRef: ID!, limit: Int, offset: Int, query: String): MemoriesPage!
+
+  """
   Spec 049 Phase 6 — an attendee's RESOLVED register: the rows that apply to
   a Worker (workerRef) or to an Agent in an App (agentRef + appRef), one per
   Channel, with YOUR standing on each host memory. The relay reads this
@@ -16473,9 +16600,9 @@ type Query {
   automationApprovals(after: String, appRef: String!, limit: Int = 20): AutomationApprovalPage!
 
   """
-  #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of. A held worker on a validated instruction is scoped to its own App, including memory-only lists; each admitted instructed list records one ids-only team event. A person supplying instruction must also supply appRef; omit instruction to retain a cross-App memory-only list.
+  #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Read the App's memory.read grants from the grant listing instead.
   """
-  automationReadGrants(appRef: String, includeRevoked: Boolean = false, instruction: ActInstructionInput, memoryRef: String): [AutomationReadGrant!]!
+  automationReadGrants(appRef: String, includeRevoked: Boolean = false, instruction: ActInstructionInput, memoryRef: String): [AutomationReadGrant!]! @deprecated(reason: "Retired by #5404: sign a memory.read grant (createGrant).")
 
   """
   #3381: read one grant's eight metadata fields by id, including revoked rows. Only a person managing the grant's own App; no worker instruction arm. Unknown and unauthorized ids both refuse NOT_FOUND with the same message. hrn:node:hadronmemory.com:specs:cor:agt:050:23
@@ -17335,9 +17462,9 @@ type Query {
   (2) memories their member orgs own, (3) memories their member orgs
   subscribe to, (4) their OWN per-user Agent memories (#5026,
   hrn:node:hadronmemory.com:specs:cor:api:120:03: listed to their owner like
-  any other user-owned memory, and to nobody else, not even through
-  filter.sharedWithMe, which still omits them: a share grant on a per-user
-  memory surfaces nothing in either list).
+  any other user-owned memory, and to nobody else in this default list; a
+  personal one its owner shared appears in the grantee's
+  filter.sharedWithMe slice like any other share, #5389).
   App-key callers get the union of their installed Agents' memory items.
   A pure App key's list also holds every memory its App's links let it read
   (#5272, hrn:node:hadronmemory.com:specs:cor:api:120:03), judged at the call
@@ -21290,7 +21417,7 @@ input SetTeamStopSignalInput {
   appRef: String!
 
   """
-  HOST: the host's id. A host key may omit it: its own host is taken from its binding.
+  HOST: the host's id. A host key may omit it: its own host is taken from its binding. APP: none (a host named with APP is BAD_USER_INPUT too).
   """
   host: String
   level: StopSignalLevel!
@@ -21299,7 +21426,9 @@ input SetTeamStopSignalInput {
   """When it ends on its own; later than now. Omitted: until lifted."""
   until: DateTime
 
-  """WORKER and TEAM: the target worker (a team by its head)."""
+  """
+  WORKER and TEAM: the target worker (a team by its head). APP: none (a worker named with APP is BAD_USER_INPUT). A host key never sets APP.
+  """
   worker: String
 }
 
@@ -22166,7 +22295,9 @@ type StopSignal {
   """HOST: the target host's id."""
   targetHostId: String
 
-  """WORKER and TEAM: the target worker (a team by its head)."""
+  """
+  WORKER and TEAM: the target worker (a team by its head). APP and HOST: null.
+  """
   targetWorkerId: ID
 
   """When it ends on its own, if set to."""
@@ -22204,9 +22335,13 @@ type StopSignalPage {
 }
 
 """
-#2022 — a stop signal's scope: one worker, a team (its head and the whole reporting tree under it), or the workers a host registration lists.
+#2022 — a stop signal's scope: one worker, a team (its head and the whole reporting tree under it), every worker of the App (#5325), or the workers a host registration lists.
 """
 enum StopSignalScope {
+  """
+  #5325 (hrn:node:hadronmemory.com:specs:cor:agt:090:02) — every live worker of the App, worked out each time it is checked: a worker cast after the signal is covered from its birth. It names no target.
+  """
+  APP
   HOST
   TEAM
   WORKER
@@ -23623,6 +23758,8 @@ workers (their owning org), grants (#3709, their App's org), and for an
 aiconf (#3857) the org that owns it or
 its App or Agent (null for a server-owned config or a user-owned App or
 Agent) — both are the extra ids those resources' canonical routes require.
+An app run of an App a person owns (#5077) has no organization: its
+`organizationId` is null.
 """
 type UrnResolution {
   """

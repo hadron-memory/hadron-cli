@@ -19,7 +19,7 @@ import (
 // the AppRunFields fragment, never marshaled from a genqlient struct.
 type appRunDTO struct {
 	ID             string           `json:"id"`
-	OrganizationID string           `json:"organizationId"`
+	OrganizationID *string          `json:"organizationId"`
 	AppID          string           `json:"appId"`
 	AgentID        *string          `json:"agentId"`
 	Status         string           `json:"status"`
@@ -136,7 +136,11 @@ func writeRunDetail(w io.Writer, r appRunDTO) error {
 		fmt.Fprintf(w, "  who can fix %s\n", output.SafeCell(fr.WhoCanFix))
 		fmt.Fprintf(w, "  next step %s\n", output.SafeCell(fr.NextStep))
 	}
-	fmt.Fprintf(w, "  app %s  org %s\n", output.SafeCell(r.AppID), output.SafeCell(r.OrganizationID))
+	org := "-"
+	if r.OrganizationID != nil {
+		org = *r.OrganizationID // null for a run of an App a person owns (hadron-server#5077)
+	}
+	fmt.Fprintf(w, "  app %s  org %s\n", output.SafeCell(r.AppID), output.SafeCell(org))
 	fmt.Fprintf(w, "  entry %s\n", output.SafeCell(r.EntryNodeURN))
 	if r.CurNodeURN != nil && *r.CurNodeURN != "" {
 		fmt.Fprintf(w, "  at %s\n", output.SafeCell(*r.CurNodeURN))
