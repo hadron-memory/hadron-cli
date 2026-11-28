@@ -18,6 +18,9 @@ const chatAppNotIdentified3310 = "startChat needs to know which App supplies thi
 func TestChatAppNotIdentifiedIsAUsageErrorWithTheServersMessage3310(t *testing.T) {
 	err := gqlerror.List{{Message: chatAppNotIdentified3310, Extensions: map[string]any{"code": "CHAT_APP_NOT_IDENTIFIED"}}}
 	mapped := MapError(err)
+	if mapped == nil {
+		t.Fatal("a refusal must map to an error")
+	}
 	if got := exitcode.FromError(mapped); got != exitcode.Usage {
 		t.Errorf("CHAT_APP_NOT_IDENTIFIED must exit %d (the caller names the App), got %d (%v)", exitcode.Usage, got, mapped)
 	}

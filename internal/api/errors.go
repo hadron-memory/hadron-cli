@@ -1493,10 +1493,11 @@ func codeForExtension(code string) int {
 	// matches. The server's message passes through; the CLI checks no schema.
 	case code == "FIELD_NOT_DECLARED":
 		return exitcode.Usage
-	// startChat names no App (hadron-server#5394, cor:cht:010:02, cli#3310): the caller has
-	// neither an App credential nor passed the optional appRef (the CLI's global --app). The
-	// caller fixes the call by naming the App, so it is a usage error, and the server's
-	// message, which says how, passes through. A literal row, since no suffix rule matches.
+	// startChat does not identify the App (hadron-server#5394, cor:cht:010:02, cli#3310): the
+	// caller has neither an App credential nor the optional appRef (the CLI's global --app),
+	// or names another App than the credential's. The caller fixes the call by naming the
+	// right App, so it is a usage error (this also sets `hadron api`'s exit code), and the
+	// server's message, which says how, passes through. A literal row: no suffix rule matches.
 	case code == "CHAT_APP_NOT_IDENTIFIED":
 		return exitcode.Usage
 	// Bulk template target cap is caller-correctable input, never truncation (#1701).

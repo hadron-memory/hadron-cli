@@ -594,7 +594,7 @@ setWorkerWakeSettings  command team wake-settings set
 softDeleteAsset  command asset rm
 startAgentSession  command agent session start
 startAgentTask  command team task start
-startChat  gap #64: a startChat through `hadron api` with a person's token names the App with appRef (the global --app does not reach it); the chat-start command #64 adds must send the global --app as appRef (hadron-cli#3310)
+startChat  gap #64: hadron api callers pass appRef; #64's chat start must send --app as appRef (cli#3310)
 startConnection  command connection connect
 startImpersonation  command auth impersonate
 startSession  command team session start
