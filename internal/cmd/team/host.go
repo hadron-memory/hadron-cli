@@ -415,11 +415,13 @@ func newCmdTeamHostLs(f *cmdutil.Factory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"ls"},
-		Short:   "List the App's host registrations",
+		Short:   "List the App's host registrations: which hosts check in, whether live, and their workers",
 		Long: `List the App's host registrations: each host's id and label, how often it
 checks in, whether it is live now (refreshed within the App's host-lapse
 count of its check-ins), and the workers it can launch with
 their family and worktrees. Whoever reads the App's tasks and events may.
+A registration is what a running host reports; ` + "`hosts`" + ` lists the platform's
+record of the hosts made by ` + "`join`" + `, with their settings, whether or not they run.
 
 By default the whole list is read, 20 rows at a time, until the App holds no
 more. --limit or --offset asks for ONE page instead: --limit N rows, starting

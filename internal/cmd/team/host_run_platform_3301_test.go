@@ -699,3 +699,46 @@ func TestHostRunPlatformHoldsTheLockWhileRunning3301(t *testing.T) {
 		}
 	}
 }
+
+// hadron-cli#3288 (S-2 from #3301's BLIND at 0ac7fff9): a start refused after the run lock leaves no lock-only
+// state directory behind, so the next host of that id does not inherit an empty, unclaimed one.
+func TestHostRunPlatformAFailedStartLeavesNoStateDir3288(t *testing.T) {
+	var reads atomic.Int32
+	down := transientServer3301(t, &reads)
+	e := hostcred.Entry{Server: down, AppID: "app-1", HostID: "host-1", Key: key1}
+	withDeps3237(t, []hostcred.Entry{e})
+	if _, _, err := run3237(t, false, "--once"); err == nil || reads.Load() == 0 {
+		t.Fatalf("the start reached the read and failed: %v", err)
+	}
+	dir, _ := config.HostStateDir("host-1")
+	if _, err := os.Stat(dir); !errors.Is(err, os.ErrNotExist) {
+		entries, _ := os.ReadDir(dir)
+		names := []string{}
+		for _, de := range entries {
+			names = append(names, de.Name())
+		}
+		t.Fatalf("a failed start removes the state directory it created: %v %v", err, names)
+	}
+}
+
+// A failed start keeps a state directory that holds anything beyond the lock (a claim, a state file).
+func TestHostRunPlatformAFailedStartKeepsAClaimedStateDir3288(t *testing.T) {
+	var reads atomic.Int32
+	down := transientServer3301(t, &reads)
+	e := hostcred.Entry{Server: down, AppID: "app-1", HostID: "host-1", Key: key1}
+	withDeps3237(t, []hostcred.Entry{e})
+	dir, err := config.EnsureHostStateDir("host-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, _ := json.Marshal(identityOf(e))
+	if err := os.WriteFile(filepath.Join(dir, hostIdentityFile), append(claim, '\n'), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := run3237(t, false, "--once"); err == nil {
+		t.Fatal("the start fails")
+	}
+	if _, err := os.Stat(filepath.Join(dir, hostIdentityFile)); err != nil {
+		t.Fatalf("this host's claimed directory is kept: %v", err)
+	}
+}

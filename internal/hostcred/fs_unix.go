@@ -18,3 +18,9 @@ func openNoFollow(path string) (*os.File, error) {
 }
 
 func isSymlinkErr(err error) bool { return errors.Is(err, syscall.ELOOP) }
+
+// lockNoFollow makes the lock file's open refuse a symlink at its last component (ELOOP).
+const lockNoFollow = syscall.O_NOFOLLOW
+
+// refuseSymlinkedLock: O_NOFOLLOW refuses the link itself, so there is nothing to check first.
+func refuseSymlinkedLock(string) error { return nil }

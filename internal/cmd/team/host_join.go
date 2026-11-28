@@ -22,6 +22,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -132,7 +134,10 @@ func hostApp(cmd *cobra.Command, f *cmdutil.Factory) (appScope, graphql.Client, 
 	}
 	resp, err := gen.TeamAppIdentity(personCtx(cmd.Context()), client, scope.Ref)
 	if err != nil {
-		return scope, nil, "", "", api.MapError(err)
+		// Fixed text by exit code, as every host refusal: the request carries no host key, but a server's message
+		// is not echoed where the store's key is in reach (hadron-cli#3288 F9).
+		code := exitcode.FromError(api.MapError(err))
+		return scope, nil, "", "", exitcode.Newf(code, "looking up the App failed: %s", failureClassHost(code))
 	}
 	if resp == nil || resp.App == nil || resp.App.Id == "" {
 		return scope, nil, "", "", exitcode.Newf(exitcode.NotFound, "App not found or not visible")
@@ -200,7 +205,10 @@ request never carries a worker session, so a bound worktree is fine.
 A join whose answer is lost is not retried, and may have minted a key
 nobody holds: run join --replace with the same --host-id (or --label), which
 revokes it; the error names the command. --json prints {server,
-appId, hostId, label, replaced, next[]}. Exit codes: 2 bad flags, 3 not
+appId, hostId, label, replaced, next[]}; replaced is true when this machine
+held a key for the host and the new key replaced it (false for a first join,
+and for --replace with nothing held, which still revokes the host's other
+keys). Exit codes: 2 bad flags, 3 not
 signed in, 4 App not found, 5 already a host (or the host is held by a live
 key elsewhere), 7 answer lost, 8 not permitted.`,
 		Example: `  hadron team host join --app acme.com:eng-team --label "build box"
@@ -226,7 +234,8 @@ key elsewhere), 7 answer lost, 8 not permitted.`,
 				return storeErr(err)
 			}
 			defer store.Unlock()
-			if held, ok := store.Find(server, appID); ok {
+			held, wasHeld := store.Find(server, appID)
+			if wasHeld {
 				if !replace {
 					return exitcode.Newf(exitcode.Conflict, "this machine already holds host %s for this App on %s; `hadron team host join --replace` re-keys it, `hadron team host leave` gives it up", output.SafeCell(held.HostID), output.SafeCell(server))
 				}
@@ -264,15 +273,20 @@ key elsewhere), 7 answer lost, 8 not permitted.`,
 				return exitcode.Newf(exitcode.Error, "the key minted for host %s could not be stored, so nobody holds it (%s); fix that, then run %s, which revokes it", output.SafeCell(host.HostId), storeErr(err).Error(), rejoinHint(host.HostId, false))
 			}
 			appLabel := lazyAppLabel(cmd.Context(), f, scope)
-			d := hostJoinDTO{Server: server, AppID: appID, HostID: host.HostId, Label: host.Label, Replaced: replace,
+			// replaced: this machine held an entry for the host and the new key replaced it (hadron-cli#3288 F3). With
+			// nothing held, --replace still re-keys on the server, but nothing here was replaced.
+			d := hostJoinDTO{Server: server, AppID: appID, HostID: host.HostId, Label: host.Label, Replaced: wasHeld,
 				Next: []string{
 					fmt.Sprintf("hadron team host show %s --app %s", host.HostId, scope.Ref),
 					fmt.Sprintf("hadron team host assign <worker> --host %s --app %s", host.HostId, scope.Ref),
 				}}
 			return output.Write(f.IOStreams, f.JSON, d, func(w io.Writer) error {
 				verb := "joined"
-				if replace {
-					verb = "re-keyed"
+				switch {
+				case wasHeld:
+					verb = "re-keyed (the new key replaced the key stored here)"
+				case replace:
+					verb = "re-keyed (the host's other keys are revoked; this machine held none)"
 				}
 				if _, err := fmt.Fprintf(w, "✓ %s as host %s (%s) of App %s on %s; its key is stored in %s\nnext:\n", verb, output.SafeCell(d.HostID), output.SafeCell(d.Label), appLabel(), output.SafeCell(server), output.SafeCell(store.Path())); err != nil {
 					return err
@@ -308,7 +322,9 @@ command exits with the refusal's code: a host the platform still holds must
 not lose its only credential. A host with an open session is refused with
 the sessions' workers named; end those sessions first (there is no force).
 When the server no longer has the host, the stored key is presented once to
-ask whether it still authenticates: only a key the server refuses is deleted
+ask whether it still authenticates (only over the scheme it was stored on and
+the session uses, and over plain http only to this machine; otherwise it is
+kept unchecked): only a key the server refuses is deleted
 (exit 0); otherwise the entry is kept (exit 4). With the key, the host's
 local state directory is deleted when it is this host's (its claim names
 this server and App), so a later host of the same id starts clean; it is
@@ -343,6 +359,9 @@ sessions, 7 server unreachable or answer lost, 8 not permitted.`,
 			resp, err := gen.RemoveAgentTeamHost(ctx, client, scope.Ref, entry.HostID, nil)
 			switch {
 			case err != nil && api.HasErrorCode(err, "HOST_NOT_FOUND"):
+				if perr := probeTransport(entry.Server, server); perr != nil {
+					return exitcode.Newf(exitcode.NotFound, "the server has no host %s for this App, and the stored key is kept unchecked: %v", output.SafeCell(entry.HostID), perr)
+				}
 				if !storedKeyRevoked(ctx, f, entry) {
 					return exitcode.Newf(exitcode.NotFound, "the server has no host %s for this App, but the stored key still authenticates or could not be checked, so it is kept", output.SafeCell(entry.HostID))
 				}
@@ -387,6 +406,42 @@ sessions, 7 server unreachable or answer lost, 8 not permitted.`,
 	}
 	cmd.Flags().BoolVarP(&yes, "yes", "y", false, "skip the confirmation prompt (required when not on a terminal)")
 	return cmd
+}
+
+// probeTransport refuses to present a stored key over a transport other than the session's (hadron-cli#3288
+// F10): the entry is matched by host, so an entry stored on http:// would otherwise send its key in plaintext
+// while the session is https://, and the reverse is a change nobody chose either. Plain http is allowed only to
+// this machine itself (a local server), where the key never leaves it. The host and port are compared here as
+// well (#3320 blind F1), so the guard holds on its own rather than resting on how the entry was selected.
+func probeTransport(entryServer, sessionServer string) error {
+	eu, err := url.Parse(entryServer)
+	if err != nil {
+		return fmt.Errorf("its server URL does not parse")
+	}
+	su, err := url.Parse(sessionServer)
+	if err != nil {
+		return fmt.Errorf("the session's server URL does not parse")
+	}
+	if !strings.EqualFold(eu.Host, su.Host) {
+		return fmt.Errorf("it was stored for %s and the session is %s, and a stored key is presented only to the server it was stored for", output.SafeCell(eu.Host), output.SafeCell(su.Host))
+	}
+	es, ss := strings.ToLower(eu.Scheme), strings.ToLower(su.Scheme)
+	if es != ss {
+		return fmt.Errorf("it was stored for %s:// and the session is %s://, and a stored key is presented only over the scheme it was stored on and the session uses; run `hadron --server %s team host leave` to check it there", es, ss, output.SafeCell(eu.Scheme+"://"+eu.Host))
+	}
+	if es != "https" && !loopbackHost(eu.Hostname()) {
+		return fmt.Errorf("it was stored for %s:// to %s, and a stored key is never sent in plaintext off this machine", es, output.SafeCell(eu.Hostname()))
+	}
+	return nil
+}
+
+// loopbackHost reports a host name that is this machine: localhost or a loopback address.
+func loopbackHost(h string) bool {
+	if strings.EqualFold(h, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
 }
 
 // storedKeyRevoked presents the stored key, once, to ask whether it still
@@ -572,7 +627,7 @@ func deliveryText(b *bool) string {
 func newCmdTeamHostHosts(f *cmdutil.Factory) *cobra.Command {
 	return &cobra.Command{
 		Use:   "hosts [--app <ref>]",
-		Short: "List the platform's record of a team App's hosts and their settings",
+		Short: "List the hosts the platform records for a team App (made by join), with their settings",
 		Long: `List the App's hosts as the platform records them (made by ` + "`join`" + `): each
 host's id, label, check-in interval and wake delivery, by host id. A removed
 host is left out. This is the platform's record, not the hosts'
