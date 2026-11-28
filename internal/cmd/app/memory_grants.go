@@ -124,6 +124,7 @@ The CLI does not look up or reproduce these authorization decisions.`}
 		}
 		cmd.AddCommand(child)
 	}
+	cmdutil.RetireDoorCommands(f, cmd, "App memory write grants are retired on the server and this command no longer works: the server refuses it with DOOR_RETIRED. Give the App a signed memory.write grant instead: hadron team grant create --holder app --action memory.write --values '{\"memory\":[\"<memory-id>\"],\"prefix\":\"<loc>\"}' --reason <text>, then hadron team grant request-signature <grant-id>; list with hadron team grant app-list and revoke with hadron team grant revoke")
 	return cmd
 }
 
