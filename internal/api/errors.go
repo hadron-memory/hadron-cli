@@ -1500,6 +1500,11 @@ func codeForExtension(code string) int {
 	// server's message, which says how, passes through. A literal row: no suffix rule matches.
 	case code == "CHAT_APP_NOT_IDENTIFIED":
 		return exitcode.Usage
+	// cli#3319: hadron-server#5404 retired the per-automation read-grant and App write-grant doors; each answers
+	// DOOR_RETIRED with extensions.replacement naming the signed grant action. Nothing was sent that a retry could
+	// change and the caller fixes it by using the replacement, so it is a usage error with the server's message.
+	case code == "DOOR_RETIRED":
+		return exitcode.Usage
 	// Bulk template target cap is caller-correctable input, never truncation (#1701).
 	case code == "BULK_TARGETS_TOO_MANY" || code == "BAD_USER_INPUT" || code == "GRAPHQL_VALIDATION_FAILED" || code == "URN_NOT_QUALIFIED" ||
 		code == "AiConfigValidationError" || code == "UnknownAiProviderError" ||

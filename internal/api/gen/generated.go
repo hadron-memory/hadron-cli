@@ -2663,7 +2663,10 @@ func (v *AgentInstructionsAgentInstructionsRegisterTickAction) GetTaskUrn() *str
 type AgentInstructionsResponse struct {
 	// #5284 (hrn:node:hadronmemory.com:specs:cor:dmo:050:24) - the role task to follow, with its body, or that no
 	// task fits. Give a phrase, an eventCode or both; eventCode needs appRef. With an eventCode, the App's register
-	// answers first (register), and a mapped task is MATCHED by REGISTER. Otherwise the phrase ranks the Agent's
+	// answers first (register), and a mapped task is MATCHED by REGISTER — but an entry that maps while its task is
+	// not in the Agent's list (a stale mapping) never matches by REGISTER: it falls through, so with no phrase the
+	// answer is NO_MATCH with the register still MAPPED and with a phrase the search arm decides as usual — the
+	// mapping is still reported, the task never invented (#5360). Otherwise the phrase ranks the Agent's
 	// agentTaskList tasks on their abstracts, and the tasks scoring at or above the no-match floor (default 0.45,
 	// TASK_MATCH_MIN_SCORE) are MATCHED by SEARCH, best first, at most 3, with the body of the first only. With no
 	// embedding available nothing can reach the floor, so the answer is NO_MATCH with the keyword hits as nearest.
@@ -2671,7 +2674,9 @@ type AgentInstructionsResponse struct {
 	// omitted: your own Agent (a bound worker's, or a run's) is used, and a caller with none gets BAD_USER_INPUT.
 	// Without appRef the Agent is read as agentTaskList reads it; with appRef you must take part in the App and the
 	// Agent must be installed or cast there. Refused as APP_NOT_FOUND or AGENT_NOT_FOUND, alike for unknown and
-	// unreadable. A phrase is 1 to 500 characters. Nothing is recorded or logged. The MCP tool
+	// unreadable. A phrase is 1 to 512 characters after trimming (the one bound every search surface shares, #5360);
+	// an eventCode is trimmed and 1 to 64 characters, the register loc atom bound (#5360) — both judged before
+	// any read. Nothing is recorded or logged. The MCP tool
 	// hadron_get_instructions returns the same answer. Accepts IDs or URNs.
 	AgentInstructions *AgentInstructionsAgentInstructions `json:"agentInstructions"`
 }
@@ -10686,9 +10691,12 @@ type AgentTaskIndexListResponse struct {
 	// #2421, #5284: an optional phrase ranks only runnable effective-chain tasks
 	// with non-empty abstracts, by the vector similarity of the abstract (score),
 	// best first; with no embedding available, by keyword on the abstract, with
-	// score null. limit defaults to 3 and may be at most 10; an empty phrase or a
-	// limit outside 1 to 10 is BAD_USER_INPUT. Without a phrase the list is
-	// unchanged and limit is ignored. matchedBy says which retrievers found a task.
+	// score null. limit defaults to 3 and may be at most 10; an empty phrase, one
+	// over 512 characters (the one bound every search surface shares, #5360), or a
+	// limit outside 1 to 10 is BAD_USER_INPUT — judged on the arguments before the
+	// Agent is read (#5360), so it wins over AGENT_NOT_FOUND. Without a phrase the
+	// list is unchanged and limit is ignored. matchedBy says which retrievers
+	// found a task.
 	AgentTaskList []*AgentTaskIndexListAgentTaskListAgentListedTask `json:"agentTaskList"`
 }
 
@@ -13561,9 +13569,12 @@ type AgentTaskPhraseSearchResponse struct {
 	// #2421, #5284: an optional phrase ranks only runnable effective-chain tasks
 	// with non-empty abstracts, by the vector similarity of the abstract (score),
 	// best first; with no embedding available, by keyword on the abstract, with
-	// score null. limit defaults to 3 and may be at most 10; an empty phrase or a
-	// limit outside 1 to 10 is BAD_USER_INPUT. Without a phrase the list is
-	// unchanged and limit is ignored. matchedBy says which retrievers found a task.
+	// score null. limit defaults to 3 and may be at most 10; an empty phrase, one
+	// over 512 characters (the one bound every search surface shares, #5360), or a
+	// limit outside 1 to 10 is BAD_USER_INPUT — judged on the arguments before the
+	// Agent is read (#5360), so it wins over AGENT_NOT_FOUND. Without a phrase the
+	// list is unchanged and limit is ignored. matchedBy says which retrievers
+	// found a task.
 	AgentTaskList []*AgentTaskPhraseSearchAgentTaskListAgentListedTask `json:"agentTaskList"`
 }
 
@@ -25115,7 +25126,7 @@ func (v *AppKeyScopesFields) GetScopes() []*AppKeyScopesFieldsScopesAppKeyScope 
 // AppKeyScopesFieldsScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
 // The GraphQL type's documentation follows.
 //
-// #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
+// #1749 — a scope an App key holds. A closed list: attention:deliver, (#1709) host:operate, and (#5321) grant:read, which lets a pure key read through the memory.read grants its App holds (hrn:node:hadronmemory.com:specs:cor:acl:140:02).
 type AppKeyScopesFieldsScopesAppKeyScope struct {
 	Scope string `json:"scope"`
 	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
@@ -25458,7 +25469,7 @@ func (v *AppKeysScopesHostUsesRows1595HostUsesPageHostKeyUsePageItemsHostKeyUse)
 // AppKeysScopesHostUsesRows1595ScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
 // The GraphQL type's documentation follows.
 //
-// #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
+// #1749 — a scope an App key holds. A closed list: attention:deliver, (#1709) host:operate, and (#5321) grant:read, which lets a pure key read through the memory.read grants its App holds (hrn:node:hadronmemory.com:specs:cor:acl:140:02).
 type AppKeysScopesHostUsesRows1595ScopesAppKeyScope struct {
 	Scope string `json:"scope"`
 	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
@@ -25578,7 +25589,7 @@ func (v *AppKeysScopesRows1595) GetScopes() []*AppKeysScopesRows1595ScopesAppKey
 // AppKeysScopesRows1595ScopesAppKeyScope includes the requested fields of the GraphQL type AppKeyScope.
 // The GraphQL type's documentation follows.
 //
-// #1749 — a scope an App key holds. A closed list: attention:deliver, and (#1709) host:operate.
+// #1749 — a scope an App key holds. A closed list: attention:deliver, (#1709) host:operate, and (#5321) grant:read, which lets a pure key read through the memory.read grants its App holds (hrn:node:hadronmemory.com:specs:cor:acl:140:02).
 type AppKeysScopesRows1595ScopesAppKeyScope struct {
 	Scope string `json:"scope"`
 	// #1709 — the one host a host:operate scope is bound to (hrn:node:hadronmemory.com:specs:cor:agt:070:04); null for every other scope.
@@ -26059,7 +26070,7 @@ var AllAppMemorySourceKind = []AppMemorySourceKind{
 
 // AppMemoryWriteGrantsInstructedLegacyResponse is returned by AppMemoryWriteGrantsInstructedLegacy on success.
 type AppMemoryWriteGrantsInstructedLegacyResponse struct {
-	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Read the App's memory.write grants from the grant listing instead.
 	AppMemoryWriteGrants []*AppMemoryGrantLegacyRow1946 `json:"appMemoryWriteGrants"`
 }
 
@@ -26070,7 +26081,7 @@ func (v *AppMemoryWriteGrantsInstructedLegacyResponse) GetAppMemoryWriteGrants()
 
 // AppMemoryWriteGrantsInstructedResponse is returned by AppMemoryWriteGrantsInstructed on success.
 type AppMemoryWriteGrantsInstructedResponse struct {
-	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Read the App's memory.write grants from the grant listing instead.
 	AppMemoryWriteGrants []*AppMemoryWriteGrantsRows1595 `json:"appMemoryWriteGrants"`
 }
 
@@ -26081,7 +26092,7 @@ func (v *AppMemoryWriteGrantsInstructedResponse) GetAppMemoryWriteGrants() []*Ap
 
 // AppMemoryWriteGrantsLegacyResponse is returned by AppMemoryWriteGrantsLegacy on success.
 type AppMemoryWriteGrantsLegacyResponse struct {
-	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Read the App's memory.write grants from the grant listing instead.
 	AppMemoryWriteGrants []*AppMemoryGrantLegacyRow1946 `json:"appMemoryWriteGrants"`
 }
 
@@ -26092,7 +26103,7 @@ func (v *AppMemoryWriteGrantsLegacyResponse) GetAppMemoryWriteGrants() []*AppMem
 
 // AppMemoryWriteGrantsResponse is returned by AppMemoryWriteGrants on success.
 type AppMemoryWriteGrantsResponse struct {
-	// #2484: the write grants an App holds for its userless runs, oldest first; revoked rows only with includeRevoked. Only whoever manages the App may list them, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0111 A: one team event per admitted instructed call, never a grant id); a grant on a personal or private memory is listed to the holder alone, when they own it. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Read the App's memory.write grants from the grant listing instead.
 	AppMemoryWriteGrants []*AppMemoryWriteGrantsRows1595 `json:"appMemoryWriteGrants"`
 }
 
@@ -26420,7 +26431,7 @@ type AppRunAppRun struct {
 func (v *AppRunAppRun) GetId() string { return v.AppRunFields.Id }
 
 // GetOrganizationId returns AppRunAppRun.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AppRunAppRun) GetOrganizationId() string { return v.AppRunFields.OrganizationId }
+func (v *AppRunAppRun) GetOrganizationId() *string { return v.AppRunFields.OrganizationId }
 
 // GetAppId returns AppRunAppRun.AppId, and is useful for accessing the field via an interface.
 func (v *AppRunAppRun) GetAppId() string { return v.AppRunFields.AppId }
@@ -26527,7 +26538,7 @@ func (v *AppRunAppRun) UnmarshalJSON(b []byte) error {
 type __premarshalAppRunAppRun struct {
 	Id string `json:"id"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	AppId string `json:"appId"`
 
@@ -26628,8 +26639,9 @@ func (v *AppRunAppRun) __premarshalJSON() (*__premarshalAppRunAppRun, error) {
 // snapshot, live budgets (zeroing halts the run), lifecycle, trigger
 // provenance. Spec hrn:node:hadronmemory.com:specs:cor:agt:010:02.
 type AppRunFields struct {
-	Id             string            `json:"id"`
-	OrganizationId string            `json:"organizationId"`
+	Id string `json:"id"`
+	// The organization that owns the run's App, copied at mint; null when a person owns the App (#5077, hrn:node:hadronmemory.com:specs:cor:dmo:050:12). Exactly one of organizationId and ownerUserId is set.
+	OrganizationId *string           `json:"organizationId"`
 	AppId          string            `json:"appId"`
 	AgentId        *string           `json:"agentId"`
 	Status         AppRunStatus      `json:"status"`
@@ -26677,7 +26689,7 @@ type AppRunFields struct {
 func (v *AppRunFields) GetId() string { return v.Id }
 
 // GetOrganizationId returns AppRunFields.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AppRunFields) GetOrganizationId() string { return v.OrganizationId }
+func (v *AppRunFields) GetOrganizationId() *string { return v.OrganizationId }
 
 // GetAppId returns AppRunFields.AppId, and is useful for accessing the field via an interface.
 func (v *AppRunFields) GetAppId() string { return v.AppId }
@@ -26786,8 +26798,14 @@ type AppRunResponse struct {
 	// hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
 	// a READER of the run's organization, the run's own App key, or a user with a
 	// live App relationship for a run on their behalf or a MANUAL run they
-	// started. A run the caller may not read returns null, exactly like a
-	// missing one (#1577: no existence oracle).
+	// started. A run of an App a person owns (organizationId null, #5077,
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:12) is read by whoever manages
+	// that App as themself (its owner
+	// or an owner-role member), by the App's own key or a run of that App with no
+	// user, and by a user for their own run as above; never by a platform admin,
+	// an impersonated session or a run carrying a user id. A run the caller may
+	// not read returns null, exactly like a missing one (#1577: no existence
+	// oracle).
 	AppRun *AppRunAppRun `json:"appRun"`
 }
 
@@ -26890,7 +26908,7 @@ type AppRunsAppRunsAppRunsPageItemsAppRun struct {
 func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetId() string { return v.AppRunFields.Id }
 
 // GetOrganizationId returns AppRunsAppRunsAppRunsPageItemsAppRun.OrganizationId, and is useful for accessing the field via an interface.
-func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetOrganizationId() string {
+func (v *AppRunsAppRunsAppRunsPageItemsAppRun) GetOrganizationId() *string {
 	return v.AppRunFields.OrganizationId
 }
 
@@ -27031,7 +27049,7 @@ func (v *AppRunsAppRunsAppRunsPageItemsAppRun) UnmarshalJSON(b []byte) error {
 type __premarshalAppRunsAppRunsAppRunsPageItemsAppRun struct {
 	Id string `json:"id"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	AppId string `json:"appId"`
 
@@ -29221,8 +29239,11 @@ type AttachMemoryToAppResponse struct {
 	// through any App); when you lose read the link goes inert, and it works again if you regain it. A user, with or without the
 	// App selected, gains nothing from a link. For a 'personal' or 'private' memory the key reads it only when the memory's owner
 	// is the App's owner (a user-owned App whose owner linked their own memory); in an organization's App the link is inert for
-	// the key. Any class except 'system', in any tenant. One memory may be linked into several Apps. A link you already hold is
-	// success and writes nothing. 'agentRef' is accepted and ignored (deployed clients keep working).
+	// the key. The same holds for a user-owned memory of any other class (#5345): a knowledge or group memory under a user root
+	// never reaches the key through a link — attaching gives no access, and the record gate refuses it — so the link sits inert
+	// (listed with 'active: false' in attachedMemories) until it is detached. You may attach any class except 'system', in
+	// any tenant, and the attach succeeds even when the link stays inert. One memory may be linked into several Apps. A link
+	// you already hold is success and writes nothing. 'agentRef' is accepted and ignored (deployed clients keep working).
 	//
 	// Person only: a signed-in user acting as themselves, and a member of the App. Typed errors, judged in this order before any
 	// write: UNAUTHENTICATED (no signed-in user); FORBIDDEN (an App key, run, worker session or impersonation; also an unknown or
@@ -30258,7 +30279,7 @@ func (v *AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant) 
 
 // AutomationReadGrantsInstructedResponse is returned by AutomationReadGrantsInstructed on success.
 type AutomationReadGrantsInstructedResponse struct {
-	// #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of. A held worker on a validated instruction is scoped to its own App, including memory-only lists; each admitted instructed list records one ids-only team event. A person supplying instruction must also supply appRef; omit instruction to retain a cross-App memory-only list.
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Read the App's memory.read grants from the grant listing instead.
 	AutomationReadGrants []*AutomationReadGrantsInstructedAutomationReadGrantsAutomationReadGrant `json:"automationReadGrants"`
 }
 
@@ -30269,7 +30290,7 @@ func (v *AutomationReadGrantsInstructedResponse) GetAutomationReadGrants() []*Au
 
 // AutomationReadGrantsResponse is returned by AutomationReadGrants on success.
 type AutomationReadGrantsResponse struct {
-	// #2883: automation read grants. Give an App (its managers see its grants) and/or a memory (that memory's manager, or an Agent's manager for its system memory, sees the grants on it); a reader sees only the rows they manage the App or the target of. A held worker on a validated instruction is scoped to its own App, including memory-only lists; each admitted instructed list records one ids-only team event. A person supplying instruction must also supply appRef; omit instruction to retain a cross-App memory-only list.
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Read the App's memory.read grants from the grant listing instead.
 	AutomationReadGrants []*AutomationReadGrantsAutomationReadGrantsAutomationReadGrant `json:"automationReadGrants"`
 }
 
@@ -32725,7 +32746,7 @@ type CancelAppRunCancelAppRun struct {
 func (v *CancelAppRunCancelAppRun) GetId() string { return v.AppRunFields.Id }
 
 // GetOrganizationId returns CancelAppRunCancelAppRun.OrganizationId, and is useful for accessing the field via an interface.
-func (v *CancelAppRunCancelAppRun) GetOrganizationId() string { return v.AppRunFields.OrganizationId }
+func (v *CancelAppRunCancelAppRun) GetOrganizationId() *string { return v.AppRunFields.OrganizationId }
 
 // GetAppId returns CancelAppRunCancelAppRun.AppId, and is useful for accessing the field via an interface.
 func (v *CancelAppRunCancelAppRun) GetAppId() string { return v.AppRunFields.AppId }
@@ -32838,7 +32859,7 @@ func (v *CancelAppRunCancelAppRun) UnmarshalJSON(b []byte) error {
 type __premarshalCancelAppRunCancelAppRun struct {
 	Id string `json:"id"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	AppId string `json:"appId"`
 
@@ -32938,6 +32959,15 @@ type CancelAppRunResponse struct {
 	// 'ref' is the run's id or its hrn:apprun URN (renamed from 'id', #4141).
 	// A ref that cannot name a run is BAD_USER_INPUT; an unknown run answers
 	// NOT_FOUND "Run not found."; a non-admin keeps FORBIDDEN.
+	// A run of an App a person owns (#5077,
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:12) is cancelled by
+	// whoever manages that App as themself (its owner or an owner-role member),
+	// with the full run returned, and by a platform admin, who gets the run with
+	// its content withheld: identity, owner, status, timestamps, budgets and
+	// spend are kept, every other field is null and entryNodeUrn is the empty
+	// string. Anyone who may read the run but not cancel it (the App's own key,
+	// a member for their own run) gets FORBIDDEN; anyone who may not read it
+	// gets NOT_FOUND, as for a missing run.
 	CancelAppRun *CancelAppRunCancelAppRun `json:"cancelAppRun"`
 }
 
@@ -37851,7 +37881,7 @@ type ClearOwnerLimitsClearOwnerLimitsOwnerLimitUsage struct {
 	Key string `json:"key"`
 	// The limit in force, a base-10 integer string: the owner's own limit, else the deployment default for that kind of owner. Null means unlimited.
 	Limit *string `json:"limit"`
-	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only.
+	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only. For nodes (hadron-server issue 5434): the nodes a person writes in their personal memory made under an Agent count for that person, not for the Agent's organization.
 	Used string `json:"used"`
 }
 
@@ -67885,7 +67915,7 @@ type LatestAppRunLatestAppRun struct {
 func (v *LatestAppRunLatestAppRun) GetId() string { return v.AppRunFields.Id }
 
 // GetOrganizationId returns LatestAppRunLatestAppRun.OrganizationId, and is useful for accessing the field via an interface.
-func (v *LatestAppRunLatestAppRun) GetOrganizationId() string { return v.AppRunFields.OrganizationId }
+func (v *LatestAppRunLatestAppRun) GetOrganizationId() *string { return v.AppRunFields.OrganizationId }
 
 // GetAppId returns LatestAppRunLatestAppRun.AppId, and is useful for accessing the field via an interface.
 func (v *LatestAppRunLatestAppRun) GetAppId() string { return v.AppRunFields.AppId }
@@ -67998,7 +68028,7 @@ func (v *LatestAppRunLatestAppRun) UnmarshalJSON(b []byte) error {
 type __premarshalLatestAppRunLatestAppRun struct {
 	Id string `json:"id"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	AppId string `json:"appId"`
 
@@ -70533,9 +70563,9 @@ type MemoriesResponse struct {
 	// (2) memories their member orgs own, (3) memories their member orgs
 	// subscribe to, (4) their OWN per-user Agent memories (#5026,
 	// hrn:node:hadronmemory.com:specs:cor:api:120:03: listed to their owner like
-	// any other user-owned memory, and to nobody else, not even through
-	// filter.sharedWithMe, which still omits them: a share grant on a per-user
-	// memory surfaces nothing in either list).
+	// any other user-owned memory, and to nobody else in this default list; a
+	// personal one its owner shared appears in the grantee's
+	// filter.sharedWithMe slice like any other share, #5389).
 	// App-key callers get the union of their installed Agents' memory items.
 	// A pure App key's list also holds every memory its App's links let it read
 	// (#5272, hrn:node:hadronmemory.com:specs:cor:api:120:03), judged at the call
@@ -70777,9 +70807,9 @@ type MemoriesSharedWithMeResponse struct {
 	// (2) memories their member orgs own, (3) memories their member orgs
 	// subscribe to, (4) their OWN per-user Agent memories (#5026,
 	// hrn:node:hadronmemory.com:specs:cor:api:120:03: listed to their owner like
-	// any other user-owned memory, and to nobody else, not even through
-	// filter.sharedWithMe, which still omits them: a share grant on a per-user
-	// memory surfaces nothing in either list).
+	// any other user-owned memory, and to nobody else in this default list; a
+	// personal one its owner shared appears in the grantee's
+	// filter.sharedWithMe slice like any other share, #5389).
 	// App-key callers get the union of their installed Agents' memory items.
 	// A pure App key's list also holds every memory its App's links let it read
 	// (#5272, hrn:node:hadronmemory.com:specs:cor:api:120:03), judged at the call
@@ -81392,7 +81422,7 @@ type OwnerLimitsOwnerLimitsOwnerLimitUsage struct {
 	Key string `json:"key"`
 	// The limit in force, a base-10 integer string: the owner's own limit, else the deployment default for that kind of owner. Null means unlimited.
 	Limit *string `json:"limit"`
-	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only.
+	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only. For nodes (hadron-server issue 5434): the nodes a person writes in their personal memory made under an Agent count for that person, not for the Agent's organization.
 	Used string `json:"used"`
 }
 
@@ -92582,6 +92612,8 @@ func (v *ResolveCommentThreadResponse) GetResolveCommentThread() *ResolveComment
 // aiconf (#3857) the org that owns it or
 // its App or Agent (null for a server-owned config or a user-owned App or
 // Agent) — both are the extra ids those resources' canonical routes require.
+// An app run of an App a person owns (#5077) has no organization: its
+// `organizationId` is null.
 type ResolveUrnResolveUrnUrnResolution struct {
 	Id       string  `json:"id"`
 	Kind     string  `json:"kind"`
@@ -94644,7 +94676,7 @@ func (v *RevokeAppKeyScopeRow1595) __premarshalJSON() (*__premarshalRevokeAppKey
 
 // RevokeAppMemoryWriteGrantInstructedLegacyResponse is returned by RevokeAppMemoryWriteGrantInstructedLegacy on success.
 type RevokeAppMemoryWriteGrantInstructedLegacyResponse struct {
-	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Revoke the memory.write grant instead.
 	RevokeAppMemoryWriteGrant *AppMemoryGrantLegacyRow1946 `json:"revokeAppMemoryWriteGrant"`
 }
 
@@ -94655,7 +94687,7 @@ func (v *RevokeAppMemoryWriteGrantInstructedLegacyResponse) GetRevokeAppMemoryWr
 
 // RevokeAppMemoryWriteGrantInstructedResponse is returned by RevokeAppMemoryWriteGrantInstructed on success.
 type RevokeAppMemoryWriteGrantInstructedResponse struct {
-	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Revoke the memory.write grant instead.
 	RevokeAppMemoryWriteGrant *RevokeAppMemoryWriteGrantRow1595 `json:"revokeAppMemoryWriteGrant"`
 }
 
@@ -94666,7 +94698,7 @@ func (v *RevokeAppMemoryWriteGrantInstructedResponse) GetRevokeAppMemoryWriteGra
 
 // RevokeAppMemoryWriteGrantLegacyResponse is returned by RevokeAppMemoryWriteGrantLegacy on success.
 type RevokeAppMemoryWriteGrantLegacyResponse struct {
-	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Revoke the memory.write grant instead.
 	RevokeAppMemoryWriteGrant *AppMemoryGrantLegacyRow1946 `json:"revokeAppMemoryWriteGrant"`
 }
 
@@ -94677,7 +94709,7 @@ func (v *RevokeAppMemoryWriteGrantLegacyResponse) GetRevokeAppMemoryWriteGrant()
 
 // RevokeAppMemoryWriteGrantResponse is returned by RevokeAppMemoryWriteGrant on success.
 type RevokeAppMemoryWriteGrantResponse struct {
-	// #2484: end a grant; the next write by the App's run is refused. Whoever manages the App may revoke, as themselves or through their held worker on a validated instruction (hrn:node:hadronmemory.com:specs:cor:dmo:050:12 S6, ruling 0109 A; one team event, never the grant id). The row stays with its end time; revoking a revoked grant changes nothing and records nothing. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Revoke the memory.write grant instead.
 	RevokeAppMemoryWriteGrant *RevokeAppMemoryWriteGrantRow1595 `json:"revokeAppMemoryWriteGrant"`
 }
 
@@ -94819,7 +94851,7 @@ func (v *RevokeAppMemoryWriteGrantRow1595) __premarshalJSON() (*__premarshalRevo
 
 // RevokeAutomationReadGrantInstructedResponse is returned by RevokeAutomationReadGrantInstructed on success.
 type RevokeAutomationReadGrantInstructedResponse struct {
-	// #2883: end an automation read grant. The App's managers or the target's manager, as themselves or through a held worker on a validated instruction within its own App. Terminal, with no event on a repeat.
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Revoke the memory.read grant instead.
 	RevokeAutomationReadGrant *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant `json:"revokeAutomationReadGrant"`
 }
 
@@ -94959,7 +94991,7 @@ func (v *RevokeAutomationReadGrantInstructedRevokeAutomationReadGrant) __premars
 
 // RevokeAutomationReadGrantResponse is returned by RevokeAutomationReadGrant on success.
 type RevokeAutomationReadGrantResponse struct {
-	// #2883: end an automation read grant. The App's managers or the target's manager, as themselves or through a held worker on a validated instruction within its own App. Terminal, with no event on a repeat.
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Revoke the memory.read grant instead.
 	RevokeAutomationReadGrant *RevokeAutomationReadGrantRevokeAutomationReadGrant `json:"revokeAutomationReadGrant"`
 }
 
@@ -96085,8 +96117,14 @@ type RunServedPromptLintResponse struct {
 	// hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
 	// a READER of the run's organization, the run's own App key, or a user with a
 	// live App relationship for a run on their behalf or a MANUAL run they
-	// started. A run the caller may not read returns null, exactly like a
-	// missing one (#1577: no existence oracle).
+	// started. A run of an App a person owns (organizationId null, #5077,
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:12) is read by whoever manages
+	// that App as themself (its owner
+	// or an owner-role member), by the App's own key or a run of that App with no
+	// user, and by a user for their own run as above; never by a platform admin,
+	// an impersonated session or a run carrying a user id. A run the caller may
+	// not read returns null, exactly like a missing one (#1577: no existence
+	// oracle).
 	AppRun *RunServedPromptLintAppRun `json:"appRun"`
 }
 
@@ -96099,8 +96137,14 @@ type RunServedPromptResponse struct {
 	// hrn:apprun:<root>:<app>:<run-id> URN (#696). Readable by a platform admin,
 	// a READER of the run's organization, the run's own App key, or a user with a
 	// live App relationship for a run on their behalf or a MANUAL run they
-	// started. A run the caller may not read returns null, exactly like a
-	// missing one (#1577: no existence oracle).
+	// started. A run of an App a person owns (organizationId null, #5077,
+	// hrn:node:hadronmemory.com:specs:cor:dmo:050:12) is read by whoever manages
+	// that App as themself (its owner
+	// or an owner-role member), by the App's own key or a run of that App with no
+	// user, and by a user for their own run as above; never by a platform admin,
+	// an impersonated session or a run carrying a user id. A run the caller may
+	// not read returns null, exactly like a missing one (#1577: no existence
+	// oracle).
 	AppRun *RunServedPromptAppRun `json:"appRun"`
 }
 
@@ -101039,7 +101083,7 @@ func (v *SetAppChatbotAiConfigSetAppChatbotAiConfigApp) GetChatbotAiConfigId() *
 
 // SetAppMemoryWriteGrantLegacyResponse is returned by SetAppMemoryWriteGrantLegacy on success.
 type SetAppMemoryWriteGrantLegacyResponse struct {
-	// #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Sign a memory.write grant instead.
 	SetAppMemoryWriteGrant *AppMemoryGrantLegacyRow1946 `json:"setAppMemoryWriteGrant"`
 }
 
@@ -101050,7 +101094,7 @@ func (v *SetAppMemoryWriteGrantLegacyResponse) GetSetAppMemoryWriteGrant() *AppM
 
 // SetAppMemoryWriteGrantResponse is returned by SetAppMemoryWriteGrant on success.
 type SetAppMemoryWriteGrantResponse struct {
-	// #2484: let an App's userless runs create or update a node in one memory under one loc prefix (required; no memory-wide grant). The caller is a person acting as themselves who manages the App and can write the memory (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A shared memory must be one the App's own org or team space holds; a personal or private memory only by its owner, who must also manage the App; an encrypted memory is never grantable; nor is a system-class memory (#2710: an Agent's system memory, its boot-prompt source included, is written only by whoever manages the Agent, hrn:node:hadronmemory.com:specs:cor:agt:040:11), and a grant made on one before that rule authorizes no write. Granting the same prefix again returns the live grant. One content-free event is recorded. hrn:node:hadronmemory.com:specs:cor:agt:010:01
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Sign a memory.write grant instead.
 	SetAppMemoryWriteGrant *SetAppMemoryWriteGrantSetAppMemoryWriteGrant `json:"setAppMemoryWriteGrant"`
 }
 
@@ -101544,7 +101588,7 @@ func (v *SetAssetPublicLinkSetAssetPublicLinkAsset) GetPublicUrl() *string { ret
 
 // SetAutomationReadGrantResponse is returned by SetAutomationReadGrant on success.
 type SetAutomationReadGrantResponse struct {
-	// #2883: give an automation (a live schedule or webhook of the App) a read grant on one memory or loc prefix. Given by whoever manages the target: the Agent for its system memory, the memory's manager otherwise, as a person (person-only, hrn:node:hadronmemory.com:specs:cor:dmo:050:12, #3277). A refusal is the same Forbidden as an unknown App, trigger or memory.
+	// #5404: retired; answers DOOR_RETIRED (extensions.replacement names the signed grant action). Sign a memory.read grant held by the App instead.
 	SetAutomationReadGrant *SetAutomationReadGrantSetAutomationReadGrant `json:"setAutomationReadGrant"`
 }
 
@@ -102158,7 +102202,7 @@ type SetOwnerLimitsSetOwnerLimitsOwnerLimitUsage struct {
 	Key string `json:"key"`
 	// The limit in force, a base-10 integer string: the owner's own limit, else the deployment default for that kind of owner. Null means unlimited.
 	Limit *string `json:"limit"`
-	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only.
+	// How much the owner holds now, a base-10 integer string, counted when asked for. A total only. For nodes (hadron-server issue 5434): the nodes a person writes in their personal memory made under an Agent count for that person, not for the Agent's organization.
 	Used string `json:"used"`
 }
 
@@ -102695,13 +102739,13 @@ func (v *SetTeamPauseSetTeamPause) GetTeamPausedAt() *string { return v.TeamPaus
 
 type SetTeamStopSignalInput struct {
 	AppRef string `json:"appRef"`
-	// HOST: the host's id. A host key may omit it: its own host is taken from its binding.
+	// HOST: the host's id. A host key may omit it: its own host is taken from its binding. APP: none (a host named with APP is BAD_USER_INPUT too).
 	Host  *string         `json:"host,omitempty"`
 	Level StopSignalLevel `json:"level"`
 	Scope StopSignalScope `json:"scope"`
 	// When it ends on its own; later than now. Omitted: until lifted.
 	Until *string `json:"until,omitempty"`
-	// WORKER and TEAM: the target worker (a team by its head).
+	// WORKER and TEAM: the target worker (a team by its head). APP: none (a worker named with APP is BAD_USER_INPUT). A host key never sets APP.
 	Worker *string `json:"worker,omitempty"`
 }
 
@@ -106756,7 +106800,7 @@ type StopSignalFields struct {
 	Id    string          `json:"id"`
 	Level StopSignalLevel `json:"level"`
 	Scope StopSignalScope `json:"scope"`
-	// WORKER and TEAM: the target worker (a team by its head).
+	// WORKER and TEAM: the target worker (a team by its head). APP and HOST: null.
 	TargetWorkerId *string `json:"targetWorkerId"`
 	// HOST: the target host's id.
 	TargetHostId *string `json:"targetHostId"`
@@ -106835,16 +106879,19 @@ var AllStopSignalLevel = []StopSignalLevel{
 	StopSignalLevelPauseDispatch,
 }
 
-// #2022 — a stop signal's scope: one worker, a team (its head and the whole reporting tree under it), or the workers a host registration lists.
+// #2022 — a stop signal's scope: one worker, a team (its head and the whole reporting tree under it), every worker of the App (#5325), or the workers a host registration lists.
 type StopSignalScope string
 
 const (
+	// #5325 (hrn:node:hadronmemory.com:specs:cor:agt:090:02) — every live worker of the App, worked out each time it is checked: a worker cast after the signal is covered from its birth. It names no target.
+	StopSignalScopeApp    StopSignalScope = "APP"
 	StopSignalScopeHost   StopSignalScope = "HOST"
 	StopSignalScopeTeam   StopSignalScope = "TEAM"
 	StopSignalScopeWorker StopSignalScope = "WORKER"
 )
 
 var AllStopSignalScope = []StopSignalScope{
+	StopSignalScopeApp,
 	StopSignalScopeHost,
 	StopSignalScopeTeam,
 	StopSignalScopeWorker,
@@ -123688,7 +123735,9 @@ type TriggerAppRunTriggerAppRun struct {
 func (v *TriggerAppRunTriggerAppRun) GetId() string { return v.AppRunFields.Id }
 
 // GetOrganizationId returns TriggerAppRunTriggerAppRun.OrganizationId, and is useful for accessing the field via an interface.
-func (v *TriggerAppRunTriggerAppRun) GetOrganizationId() string { return v.AppRunFields.OrganizationId }
+func (v *TriggerAppRunTriggerAppRun) GetOrganizationId() *string {
+	return v.AppRunFields.OrganizationId
+}
 
 // GetAppId returns TriggerAppRunTriggerAppRun.AppId, and is useful for accessing the field via an interface.
 func (v *TriggerAppRunTriggerAppRun) GetAppId() string { return v.AppRunFields.AppId }
@@ -123803,7 +123852,7 @@ func (v *TriggerAppRunTriggerAppRun) UnmarshalJSON(b []byte) error {
 type __premarshalTriggerAppRunTriggerAppRun struct {
 	Id string `json:"id"`
 
-	OrganizationId string `json:"organizationId"`
+	OrganizationId *string `json:"organizationId"`
 
 	AppId string `json:"appId"`
 

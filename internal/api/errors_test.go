@@ -428,6 +428,7 @@ func TestMapError(t *testing.T) {
 		{"seat verdict required", gqlErr("SEAT_VERDICT_REQUIRED"), exitcode.Conflict},                   // cli#3209
 		{"memory urn conflict", gqlErr("MEMORY_URN_CONFLICT"), exitcode.Conflict},                       // cli#3184
 		{"app memory slug fixed", gqlErr("APP_MEMORY_SLUG_FIXED"), exitcode.Usage},                      // cli#3280
+		{"retired grant door", gqlErr("DOOR_RETIRED"), exitcode.Usage},                                  // cli#3319: hadron-server#5404
 		{"secret change app limit", gqlErr("SECRET_CHANGE_APP_LIMIT"), exitcode.Conflict},               // cli#3280
 		{"secret change requester limit", gqlErr("SECRET_CHANGE_REQUESTER_LIMIT"), exitcode.Conflict},   // cli#3305: the sibling cap's class
 		{"app user memory already exists", gqlErr("APP_USER_MEMORY_ALREADY_EXISTS"), exitcode.Conflict}, // cli#3184 (the _ALREADY_EXISTS suffix rule)

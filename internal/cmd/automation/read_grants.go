@@ -80,6 +80,7 @@ revoke it. Refusals are the server's and are passed through; every write is
 sent once and never retried. This is not the team snapshot grant (see
 team-snapshot-grant), which covers an App's roster and tasks.`}
 	cmd.AddCommand(newCmdGrantSet(f), newCmdGrantList(f), newCmdGrantRevoke(f))
+	cmdutil.RetireDoorCommands(f, cmd, "per-automation read grants are retired on the server and this command no longer works: the server refuses it with DOOR_RETIRED. Give the App a signed memory.read grant instead: hadron team grant create --app <app> --holder app --action memory.read --values '{\"memory\":[\"<memory-id>\"]}' --reason <text>, then (not from a bound worker worktree) hadron team grant request-signature <grant-id>; list with hadron team grant app-list <app> and revoke with hadron team grant revoke <grant-id>")
 	return cmd
 }
 

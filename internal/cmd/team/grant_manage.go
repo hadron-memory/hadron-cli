@@ -127,16 +127,31 @@ func newCmdTeamGrantCreate(f *cmdutil.Factory) *cobra.Command {
 	var app, action, values, reason, holder, holderID, startsAt, expiresAt string
 	var maxUses int
 	cmd := &cobra.Command{
-		Use:   "create --app <app> --action <name> --values <json|@file> --reason <text> --holder worker|agent --holder-id <id>",
+		Use:   "create --app <app> --action <name> --values <json|@file> --reason <text> --holder worker|agent|app [--holder-id <id>]",
 		Short: "Create a pending grant in an App you manage",
 		Long: `Create a grant in an App, as the person who manages it, for a worker of that
-App (--holder worker) or an agent installed in it (--holder agent). The grant is
-born pending: it allows nothing until a person signs it on the ceremony page,
+App (--holder worker), an agent installed in it (--holder agent) or the App
+itself (--holder app). The grant is born pending: it allows nothing until a person signs it on the ceremony page,
 and this command never signs or asks for a signature. A worker asks for its own
 grant with 'hadron team grant request'; this is the person's verb.
 
---app and --holder-id are required: a person has no worker binding to take
-either from. --action is an action name from 'hadron team grant actions'.
+--app is required, and so is --holder-id for a worker or an agent: a person has
+no worker binding to take either from. With --holder app the holder is the App
+named by --app, so --holder-id is left out (the CLI reads the App's id; if you
+give it, it must be that id).
+
+--holder app is how an App holds the signed read and write grants its runs act
+on: memory.read (read memories outside the App) and memory.write (create and
+edit nodes under a prefix). The server refuses any other
+holder for those two actions. An App holder is also what secret.use takes for a
+secret the App uses; the action's own parameters say. Give the memory one of two
+forms in --values: {"memory":["<id>",...]} names memories (one person must
+manage every named memory to sign it, so memories of different managers need one
+grant per manager), or {"memory":"<org-id>"} is the App's own organization,
+every organization memory (an organization ADMIN or OWNER signs). memory.write
+also takes "prefix" (one loc, only when exactly one memory is named, or "*" for
+the whole of the named memories) and never the organization form. 'hadron team grant actions' and
+'hadron team grant action memory.read' print the parameters. --action is an action name from 'hadron team grant actions'.
 --values is the JSON object of that action's parameters (or @file); whether it
 fits is the server's to judge. --reason is shown to the person who signs.
 --starts-at and --expires-at take a timestamp such as 2026-12-01T09:00:00Z (the
@@ -152,14 +167,18 @@ request-signature <grant-id>', then give the URL to the person who signs.
 
 Needs a server with grant signing switched on. Without it the command says it
 does not offer grant requests and grant signing, and exits 2.`,
-		Example: "  hadron team grant create --app acme.com:eng --action node.read --values '{\"node\":[\"<node-id>\"]}' --reason 'read the plan' --holder worker --holder-id <worker-id>",
-		Args:    cobra.NoArgs,
+		Example: `  hadron team grant create --app acme.com:eng --action node.read --values '{"node":["<node-id>"]}' --reason 'read the plan' --holder worker --holder-id <worker-id>
+  hadron team grant create --app acme.com:eng --action memory.read --values '{"memory":["<memory-id>"]}' --reason 'read the handbook' --holder app`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fl := cmd.Flags()
 			if strings.TrimSpace(app) == "" {
 				return exitcode.Newf(exitcode.Usage, "--app is required: a person has no worker binding to take the App from")
 			}
-			if strings.TrimSpace(holderID) == "" {
+			if holder == "app" && fl.Changed("holder-id") && strings.TrimSpace(holderID) == "" {
+				return exitcode.Newf(exitcode.Usage, "--holder-id needs a value; with --holder app omit it and the App named by --app holds the grant")
+			}
+			if strings.TrimSpace(holderID) == "" && holder != "app" {
 				return exitcode.Newf(exitcode.Usage, "--holder-id is required: a person has no worker binding to take the holder from")
 			}
 			if strings.TrimSpace(action) == "" {
@@ -180,13 +199,16 @@ does not offer grant requests and grant signing, and exits 2.`,
 					return exitcode.Newf(exitcode.Usage, "--%s needs a value; omit the flag to leave it unset", fv.name)
 				}
 			}
-			if holder != "worker" && holder != "agent" {
-				return exitcode.Newf(exitcode.Usage, "--holder takes worker or agent")
+			if holder != "worker" && holder != "agent" && holder != "app" {
+				return exitcode.Newf(exitcode.Usage, "--holder takes worker, agent or app")
 			}
 			appRef := strings.TrimSpace(app)
 			in := gen.CreateGrantInput{Action: strings.TrimSpace(action), Values: raw, HolderKind: gen.GrantHolderKindWorker, HolderRef: strings.TrimSpace(holderID), Reason: reason, AppRef: &appRef}
-			if holder == "agent" {
+			switch holder {
+			case "agent":
 				in.HolderKind = gen.GrantHolderKindAgent
+			case "app":
+				in.HolderKind = gen.GrantHolderKindApp
 			}
 			if fl.Changed("starts-at") {
 				in.StartsAt = &startsAt
@@ -200,6 +222,18 @@ does not offer grant requests and grant signing, and exits 2.`,
 			client, err := f.GraphQLClient()
 			if err != nil {
 				return err
+			}
+			if holder == "app" && in.HolderRef == "" {
+				// The server holds an App grant by the App's own id (not a URN), so a URN or root:slug is read once.
+				if cmdutil.IsAppID(appRef) {
+					in.HolderRef = appRef
+				} else {
+					id, err := teamAppID(cmd.Context(), client, appRef)
+					if err != nil {
+						return err
+					}
+					in.HolderRef = id
+				}
 			}
 			resp, err := gen.TeamCreateGrant(cmd.Context(), client, &in)
 			if err != nil {
@@ -220,8 +254,8 @@ does not offer grant requests and grant signing, and exits 2.`,
 	fl.StringVar(&action, "action", "", "the action to grant (required)")
 	fl.StringVar(&values, "values", "", "the action's parameters as a JSON object, or @file (required)")
 	fl.StringVar(&reason, "reason", "", "why the grant is made, shown to the signer (required)")
-	fl.StringVar(&holder, "holder", "worker", "who holds the grant: worker, or agent (an agent installed in the App)")
-	fl.StringVar(&holderID, "holder-id", "", "the holder's id or URN (required)")
+	fl.StringVar(&holder, "holder", "worker", "who holds the grant: worker, agent (installed in the App) or app (the App itself, for memory.read and memory.write)")
+	fl.StringVar(&holderID, "holder-id", "", "the holder's id or URN (required for worker and agent; with --holder app, omit it)")
 	fl.StringVar(&startsAt, "starts-at", "", "when the grant starts to allow, a timestamp the server parses")
 	fl.StringVar(&expiresAt, "expires-at", "", "when the grant stops allowing, a timestamp the server parses")
 	fl.IntVar(&maxUses, "max-uses", 0, "how many uses the grant allows")
@@ -460,4 +494,17 @@ func withdrawGrant(ctx context.Context, client graphql.Client, id string) (*gen.
 		return nil, err
 	}
 	return &resp.WithdrawGrant.GrantManagerFields, nil
+}
+
+// teamAppID reads the id of the App ref names (cli#3319): an App grant is held by the App's id. An App the caller cannot see
+// is the server's one answer to a ref that names none, so it is a not-found here too, without saying which.
+func teamAppID(ctx context.Context, client graphql.Client, ref string) (string, error) {
+	resp, err := gen.TeamAppIdentity(ctx, client, ref)
+	if err != nil {
+		return "", api.MapError(err)
+	}
+	if resp == nil || resp.App == nil || resp.App.Id == "" {
+		return "", exitcode.Newf(exitcode.NotFound, "no App %q to hold the grant: check --app", ref)
+	}
+	return resp.App.Id, nil
 }

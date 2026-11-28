@@ -177,7 +177,15 @@ func TestReadGrantInstruction2446RefusalShownOnceNotRetried(t *testing.T) {
 					ServerCode string `json:"serverCode"`
 				} `json:"error"`
 			}
-			rendered := out.String() + f.IOStreams.ErrOut.(*strings.Builder).String()
+			// cli#3319: the command's deprecation notice rides stderr first; the envelope is what follows it.
+			stderr := f.IOStreams.ErrOut.(*strings.Builder).String()
+			if !strings.HasPrefix(stderr, "warning: ") {
+				t.Fatalf("the retirement notice goes to stderr first: %q", stderr)
+			}
+			if _, rest, ok := strings.Cut(stderr, "\n"); ok {
+				stderr = rest
+			}
+			rendered := out.String() + stderr
 			if jerr := json.Unmarshal([]byte(rendered), &env); jerr != nil || env.Error.ServerCode != "FORBIDDEN" || !strings.Contains(env.Error.Message, "refused: not your App") {
 				t.Fatalf("envelope lost serverCode or message (%v): %s", jerr, rendered)
 			}
