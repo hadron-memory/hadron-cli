@@ -142,13 +142,15 @@ give it, it must be that id).
 
 --holder app is how an App holds the signed read and write grants its runs act
 on: memory.read (read memories outside the App) and memory.write (create and
-edit nodes under a prefix). The server refuses any other holder for those two
-actions, and any other action for an App holder it does not accept. Give the
-memory one of two forms in --values: {"memory":["<id>",...]} names memories
-(each one's manager signs; one grant per manager), or {"memory":"<org-id>"} is
-the App's own organization, every organization memory (an organization ADMIN or
-OWNER signs). memory.write also takes "prefix" (one loc, or "*" for the whole
-memory) and never the organization form. 'hadron team grant actions' and
+edit nodes under a prefix). The server refuses any other
+holder for those two actions. An App holder is also what secret.use takes for a
+secret the App uses; the action's own parameters say. Give the memory one of two
+forms in --values: {"memory":["<id>",...]} names memories (one person must
+manage every named memory to sign it, so memories of different managers need one
+grant per manager), or {"memory":"<org-id>"} is the App's own organization,
+every organization memory (an organization ADMIN or OWNER signs). memory.write
+also takes "prefix" (one loc, only when exactly one memory is named, or "*" for
+the whole of the named memories) and never the organization form. 'hadron team grant actions' and
 'hadron team grant action memory.read' print the parameters. --action is an action name from 'hadron team grant actions'.
 --values is the JSON object of that action's parameters (or @file); whether it
 fits is the server's to judge. --reason is shown to the person who signs.
@@ -172,6 +174,9 @@ does not offer grant requests and grant signing, and exits 2.`,
 			fl := cmd.Flags()
 			if strings.TrimSpace(app) == "" {
 				return exitcode.Newf(exitcode.Usage, "--app is required: a person has no worker binding to take the App from")
+			}
+			if holder == "app" && fl.Changed("holder-id") && strings.TrimSpace(holderID) == "" {
+				return exitcode.Newf(exitcode.Usage, "--holder-id needs a value; with --holder app omit it and the App named by --app holds the grant")
 			}
 			if strings.TrimSpace(holderID) == "" && holder != "app" {
 				return exitcode.Newf(exitcode.Usage, "--holder-id is required: a person has no worker binding to take the holder from")

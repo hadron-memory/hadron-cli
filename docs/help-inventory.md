@@ -396,10 +396,10 @@ section between the markers.
 | `app member remove` | rm |  | y | #1053 | 7ead4087a5f1 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app member roles` |  |  | y | #1053 | 4a1072988065 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app memories` |  |  | y | #1053 | 1877e6d3e647 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
-| `app memory-grant` |  |  | n | #1053 | 8570e1505054 |  | unread |  |
-| `app memory-grant add` |  |  | y | #1053 | 71637c76d175 |  | unread |  |
-| `app memory-grant list` | ls |  | y | #1053 | 90995753286b |  | unread |  |
-| `app memory-grant rm` |  |  | y | #1053 | b2f537f5c863 |  | unread |  |
+| `app memory-grant` |  |  | n | #1053 | 7dc2b664e97e |  | unread |  |
+| `app memory-grant add` |  |  | y | #1053 | 66bcdcfcf95e |  | unread |  |
+| `app memory-grant list` | ls |  | y | #1053 | 888161aad56f |  | unread |  |
+| `app memory-grant rm` |  |  | y | #1053 | 027d771eb967 |  | unread |  |
 | `app model-group` | model-groups |  | n | #1053 | eb47548b0394 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
 | `app model-group clear` |  |  | y | #1053 | 406c4a097acc | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6994174230) |
 | `app model-group list` | ls |  | y | #1053 | 9aabafbce112 | Celine | pass | [round 2](https://github.com/hadron-memory/hadron-cli/issues/1053#issuecomment-6983013462) |
@@ -527,7 +527,7 @@ section between the markers.
 | `team grant actions` |  |  | y | #1054 | 82f0c9a5a075 |  | unread |  |
 | `team grant add` |  |  | y | #1054 | cb7210e017cc |  | unread |  |
 | `team grant app-list` |  |  | y | #1054 | b61c6f7c436a |  | unread |  |
-| `team grant create` |  |  | y | #1054 | c9d303ff95ef |  | unread |  |
+| `team grant create` |  |  | y | #1054 | e1d325808b52 |  | unread |  |
 | `team grant get` |  |  | y | #1054 | 52e8ca862e78 |  | unread |  |
 | `team grant list` | ls |  | y | #1054 | 70ddfc9df115 |  | unread |  |
 | `team grant request` |  |  | y | #1054 | e449859c472e |  | unread |  |
@@ -784,10 +784,10 @@ section between the markers.
 | `automation approval` |  |  | y | #1184 | adf73edaadda | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1202](https://github.com/hadron-memory/hadron-cli/issues/1202) |
 | `automation approve` |  |  | y | #1184 | ac2e0f13eb6d | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) [#1202](https://github.com/hadron-memory/hadron-cli/issues/1202) |
 | `automation decline` |  |  | y | #1184 | 31376aae6d30 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
-| `automation grant` |  |  | n | #1184 | 7fa4d61abd91 |  | unread |  |
-| `automation grant list` | ls |  | y | #1184 | 4bcc0358184b |  | unread |  |
-| `automation grant revoke` |  |  | y | #1184 | 22a1a0e411af |  | unread |  |
-| `automation grant set` |  |  | y | #1184 | b474d13b2924 |  | unread |  |
+| `automation grant` |  |  | n | #1184 | e606663dd3c5 |  | unread |  |
+| `automation grant list` | ls |  | y | #1184 | 144edd519827 |  | unread |  |
+| `automation grant revoke` |  |  | y | #1184 | 9bc396d7be95 |  | unread |  |
+| `automation grant set` |  |  | y | #1184 | 503b03d536c7 |  | unread |  |
 | `automation list` | ls |  | y | #1184 | 624bcb02a438 | Caspian | pass | [reassess](https://github.com/hadron-memory/hadron-cli/issues/1184#issuecomment-6506359240) |
 | `automation preview` |  |  | n | #1184 | 0010cb874381 |  | unread |  |
 | `automation re-adopt` |  |  | n | #1184 | 873c41db9cef |  | unread |  |

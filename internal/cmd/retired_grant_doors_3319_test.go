@@ -49,7 +49,7 @@ func TestRetiredGrantDoorsSayWhatReplacesThem3319(t *testing.T) {
 				t.Errorf("exit %d, want 2", code)
 			}
 			all := stderr.String() + out.String()
-			for _, want := range []string{"no longer works", tc.replacement, "hadron team grant create --holder app", "DOOR_RETIRED"} {
+			for _, want := range []string{"no longer works", tc.replacement, "hadron team grant create --app <app> --holder app", "--reason <text>", "hadron team grant app-list <app>", "DOOR_RETIRED"} {
 				if !strings.Contains(all, want) {
 					t.Errorf("missing %q:\n%s", want, all)
 				}
@@ -79,7 +79,7 @@ func TestRetiredGrantDoorsAreMarkedInHelp3319(t *testing.T) {
 		if err := root.Execute(); err != nil {
 			t.Fatal(err)
 		}
-		if !strings.Contains(out.String(), "DEPRECATED") || !strings.Contains(out.String(), "hadron team grant create --holder app") {
+		if !strings.Contains(out.String(), "DEPRECATED") || !strings.Contains(out.String(), "hadron team grant create --app <app> --holder app") {
 			t.Errorf("%v help lacks the deprecation and the replacement:\n%s", args, out.String())
 		}
 	}
@@ -133,6 +133,31 @@ func TestTeamGrantCreateHolderAppUnknownApp3319(t *testing.T) {
 
 func TestTeamGrantCreateWorkerStillNeedsHolderID3319(t *testing.T) {
 	calls, _, _, err := runManage1846(t, nil, "team", "grant", "create", "--app", "acme.com:eng", "--action", "node.read", "--values", `{"a":1}`, "--reason", "r", "--holder", "agent")
+	if err == nil || exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
+		t.Fatalf("want a usage refusal before any request: %v %+v", err, *calls)
+	}
+}
+
+// A run of an App a person owns has no organization (hadron-server#5077): organizationId is null in --json and "-" in text,
+// and a run with one keeps it (cli#3319, the 6def9f25 refresh made the field nullable).
+func TestRunOrganizationIDIsNullForAPersonOwnedApp3319(t *testing.T) {
+	personOwned := strings.Replace(appRunJSON, `"organizationId":"org1"`, `"organizationId":null`, 1)
+	if got := string(runGetJSON(t, personOwned)["organizationId"]); got != "null" {
+		t.Errorf("organizationId = %s, want null", got)
+	}
+	if h := runGetHuman(t, personOwned); !strings.Contains(h, "org -") {
+		t.Errorf("text must show a dash for no organization:\n%s", h)
+	}
+	if got := string(runGetJSON(t, appRunJSON)["organizationId"]); got != `"org1"` {
+		t.Errorf("organizationId = %s, want \"org1\"", got)
+	}
+	if h := runGetHuman(t, appRunJSON); !strings.Contains(h, "org org1") {
+		t.Errorf("text must show the organization:\n%s", h)
+	}
+}
+
+func TestTeamGrantCreateHolderAppRefusesAnEmptyHolderID3319(t *testing.T) {
+	calls, _, _, err := runManage1846(t, nil, "team", "grant", "create", "--app", "acme.com:eng", "--action", "memory.read", "--values", `{"memory":["m1"]}`, "--reason", "r", "--holder", "app", "--holder-id", "")
 	if err == nil || exitCodeFor(err) != exitcode.Usage || len(*calls) != 0 {
 		t.Fatalf("want a usage refusal before any request: %v %+v", err, *calls)
 	}
