@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 	"testing"
 
@@ -18,17 +19,22 @@ func TestRetiredGrantDoorsSayWhatReplacesThem3319(t *testing.T) {
 		name        string
 		args        []string
 		replacement string
+		op          string // the operation the verb must reach: the retired door itself
 	}{
-		{"automation grant set", []string{"automation", "grant", "set", "acme.com:ops", "--memory", "acme.com:notes", "--trigger-kind", "SCHEDULE", "--trigger-id", "s1", "--yes"}, "memory.read"},
-		{"automation grant list", []string{"automation", "grant", "list", "--app", "acme.com:ops"}, "memory.read"},
-		{"automation grant revoke", []string{"automation", "grant", "revoke", "g1", "--yes"}, "memory.read"},
-		{"app memory-grant add", []string{"app", "memory-grant", "add", "acme.com:ops", "--memory", "acme.com:notes", "--prefix", "docs", "--yes"}, "memory.write"},
-		{"app memory-grant list", []string{"app", "memory-grant", "list", "acme.com:ops"}, "memory.write"},
-		{"app memory-grant rm", []string{"app", "memory-grant", "rm", "g1", "--yes"}, "memory.write"},
+		{"automation grant set", []string{"automation", "grant", "set", "acme.com:ops", "--memory", "acme.com:notes", "--trigger-kind", "SCHEDULE", "--trigger-id", "s1", "--yes"}, "memory.read", "SetAutomationReadGrant"},
+		{"automation grant list", []string{"automation", "grant", "list", "--app", "acme.com:ops"}, "memory.read", "AutomationReadGrants"},
+		{"automation grant revoke", []string{"automation", "grant", "revoke", "g1", "--yes"}, "memory.read", "RevokeAutomationReadGrant"},
+		{"app memory-grant add", []string{"app", "memory-grant", "add", "acme.com:ops", "--memory", "acme.com:notes", "--prefix", "docs", "--yes"}, "memory.write", "SetAppMemoryWriteGrant"},
+		{"app memory-grant list", []string{"app", "memory-grant", "list", "acme.com:ops"}, "memory.write", "AppMemoryWriteGrants"},
+		{"app memory-grant rm", []string{"app", "memory-grant", "rm", "g1", "--yes"}, "memory.write", "RevokeAppMemoryWriteGrant"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			gql, _ := captureGraphQLFunc(t, func(string) string { return doorRetired3319 })
+			var reached []string
+			gql, _ := captureGraphQLFunc(t, func(op string) string {
+				reached = append(reached, op)
+				return doorRetired3319
+			})
 			f, out := testFactory(t)
 			var stderr strings.Builder
 			f.IOStreams.ErrOut = &stderr
@@ -53,6 +59,9 @@ func TestRetiredGrantDoorsSayWhatReplacesThem3319(t *testing.T) {
 			}
 			if !strings.HasPrefix(stderr.String(), "warning: ") {
 				t.Errorf("the notice goes to stderr first:\n%s", stderr.String())
+			}
+			if !slices.Contains(reached, tc.op) {
+				t.Errorf("the verb never reached %s (operations sent: %v)", tc.op, reached)
 			}
 			var env map[string]any
 			if jerr := json.Unmarshal([]byte(strings.TrimSpace(out.String())), &env); jerr != nil && strings.TrimSpace(out.String()) != "" {
