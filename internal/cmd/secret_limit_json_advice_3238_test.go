@@ -61,12 +61,32 @@ func TestSecretChangeRequesterLimitAdvice3238(t *testing.T) {
 	if code != exitcode.Conflict || !strings.Contains(seen, server) {
 		t.Fatalf("exit %d (want 5), the server's sentence must stay:\n%s", code, seen)
 	}
-	for _, want := range []string{"Withdraw one of your open requests", "hadron secret change withdraw <request-id>", "wait for one to expire"} {
+	for _, want := range []string{"Withdraw one of your open requests", "hadron secret change withdraw <request-id> (the id printed when it was staged)", "wait for one to expire"} {
 		if !strings.Contains(seen, want) {
 			t.Errorf("the requester refusal must say %q:\n%s", want, seen)
 		}
 	}
 	if strings.Contains(strings.ReplaceAll(seen, server, ""), "this secret") {
 		t.Errorf("the added advice must not say \"this secret\":\n%s", seen)
+	}
+}
+
+// In --json the advice rides the envelope message, and the server code is still carried.
+func TestSecretChangeRequesterLimitAdviceInJSON3238(t *testing.T) {
+	e, raw, _ := jsonRefusal3238(t, "SECRET_CHANGE_REQUESTER_LIMIT", "Too many open secret changes for this requester.")
+	msg, _ := e["message"].(string)
+	if !strings.Contains(msg, "Withdraw one of your open requests") || e["serverCode"] != "SECRET_CHANGE_REQUESTER_LIMIT" {
+		t.Errorf("the --json message must carry the advice and the code:\n%s", raw)
+	}
+}
+
+// An answer that does not prove what was staged (here a second error riding beside the refusal) keeps the exit class and
+// the server's sentence but gets NO advice: nothing says the refusal is what the caller must act on.
+func TestSecretChangeRequesterLimitNoAdviceInUnprovenAnswer3238(t *testing.T) {
+	reply := `{"errors":[{"message":"Too many open secret changes for this requester.","extensions":{"code":"SECRET_CHANGE_REQUESTER_LIMIT"}},{"message":"boom","extensions":{"code":"INTERNAL_SERVER_ERROR"}}],"data":null}`
+	seen, _ := renderedNoEcho3029(t, map[string]string{"CreateSecretProtected": reply},
+		"secret", "create", "--name", "k", "--scope", "app", "--owner", "hrn:app:acme.com:ops", "--kind", "generic", "--value-file", valueFile3280(t), "--protected")
+	if strings.Contains(seen, "Withdraw one of your open requests") {
+		t.Errorf("no advice in an unproven answer:\n%s", seen)
 	}
 }

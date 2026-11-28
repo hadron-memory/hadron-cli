@@ -128,7 +128,10 @@ func (w *withheld) Unwrap() error { return w.err }
 // the exit class and the server code are kept. Any other error maps as before:
 // that includes SECRET_CHANGE_REQUESTER_LIMIT (cli#3305), which shares their exit
 // class but whose server text is a constant that cannot repeat a submitted value,
-// so it shows as the server wrote it, followed by what to do (cli#3238).
+// so it shows as the server wrote it. When it is the WHOLE answer (a clean refusal)
+// the server's sentence is followed by what to do (cli#3238); in an answer that does
+// not prove what was staged (several errors, an error below the mutation, an HTTP 5xx)
+// the advice is left out and the server's sentence stands alone, like any other error.
 func withholdServerText(err error, what string) error {
 	mapped := api.MapErrorKeepingCode(err)
 	switch {
@@ -138,8 +141,18 @@ func withholdServerText(err error, what string) error {
 		return &withheld{"too many change requests are already open on this secret, so " + what + " was not staged; withdraw one (hadron secret change withdraw <request-id>) or wait for a person to sign or decline them", mapped}
 	case api.HasErrorCode(err, codeNeedsPasskey) || api.HasErrorCode(err, codeChangeLimit) || api.HasErrorCode(err, codeAppChangeLimit):
 		return &withheld{what + ": the server answered with a protected-secret refusal inside an answer that does not prove what was staged (several errors, an error below the mutation, or an HTTP 5xx), so a change request may or may not have been opened. The server's message is withheld because it can repeat a submitted value; read --json for the server code, and check any request id you were given with hadron secret change get", mapped}
-	case api.HasErrorCode(err, codeRequesterChangeLimit):
-		return &withheld{mapped.Error() + " Withdraw one of your open requests (hadron secret change withdraw <request-id>) or wait for one to expire.", mapped}
+	case api.OnlyErrorCodesAtRoot(err, codeRequesterChangeLimit):
+		return &withheld{requesterLimitText(mapped.Error()), mapped}
 	}
 	return mapped
+}
+
+// requesterLimitText is the server's own sentence for SECRET_CHANGE_REQUESTER_LIMIT followed by what to do. The id
+// is the one printed when the request was staged: no command lists a caller's open requests.
+func requesterLimitText(server string) string {
+	server = strings.TrimSpace(server)
+	if server != "" && !strings.HasSuffix(server, ".") {
+		server += "."
+	}
+	return server + " Withdraw one of your open requests with hadron secret change withdraw <request-id> (the id printed when it was staged), or wait for one to expire."
 }
