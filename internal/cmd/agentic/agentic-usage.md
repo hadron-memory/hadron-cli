@@ -1225,7 +1225,9 @@ memory URN or the short `<org>:<slug>` form with `-m`, not an ID.
   older server refuses an omitted name as schema skew (exit 2). Changing the slug of an
   App personal or private memory afterwards (`memory set <ref> --slug`) is refused with
   exit 2 (`APP_MEMORY_SLUG_FIXED`, cli#3280: its slug is fixed and there is no rename),
-  with the server's message.
+  with the server's message and a note that nothing in the call is applied (a `--name` passed
+  with `--slug` is not saved; `--name` alone changes the display name); `--json` adds
+  `serverCode` and `memoryClass` (`personal` or `private`) to the error envelope (cli#3242).
 - `memory set --app <ref> --class app --name <name>` with NO `--agent` adds a
   new free-standing app memory to an App that has an installed Agent
   (`createAppMemory`, cli#1176): only an admin/owner of the App's org (or, for
