@@ -102,6 +102,11 @@ const codeChangeLimit = "SECRET_CHANGE_REQUEST_LIMIT"
 // limit's: a server message on a staging door can repeat a submitted value.
 const codeAppChangeLimit = "SECRET_CHANGE_APP_LIMIT"
 
+// codeRequesterChangeLimit is the per-requester cap (cli#3305, cli#3238): raised both for a requester's open
+// requests on one secret and for a requester's share of the whole App's cap, so the advice added to it never says
+// "this secret".
+const codeRequesterChangeLimit = "SECRET_CHANGE_REQUESTER_LIMIT"
+
 // withheld is an error whose text is fixed here, not the server's: Error() is the
 // fixed sentence, while Unwrap() keeps the mapped error underneath so the exit
 // code, the server code and an internal fault's request id still reach the root
@@ -123,7 +128,7 @@ func (w *withheld) Unwrap() error { return w.err }
 // the exit class and the server code are kept. Any other error maps as before:
 // that includes SECRET_CHANGE_REQUESTER_LIMIT (cli#3305), which shares their exit
 // class but whose server text is a constant that cannot repeat a submitted value,
-// so it shows as the server wrote it.
+// so it shows as the server wrote it, followed by what to do (cli#3238).
 func withholdServerText(err error, what string) error {
 	mapped := api.MapErrorKeepingCode(err)
 	switch {
@@ -133,6 +138,8 @@ func withholdServerText(err error, what string) error {
 		return &withheld{"too many change requests are already open on this secret, so " + what + " was not staged; withdraw one (hadron secret change withdraw <request-id>) or wait for a person to sign or decline them", mapped}
 	case api.HasErrorCode(err, codeNeedsPasskey) || api.HasErrorCode(err, codeChangeLimit) || api.HasErrorCode(err, codeAppChangeLimit):
 		return &withheld{what + ": the server answered with a protected-secret refusal inside an answer that does not prove what was staged (several errors, an error below the mutation, or an HTTP 5xx), so a change request may or may not have been opened. The server's message is withheld because it can repeat a submitted value; read --json for the server code, and check any request id you were given with hadron secret change get", mapped}
+	case api.HasErrorCode(err, codeRequesterChangeLimit):
+		return &withheld{mapped.Error() + " Withdraw one of your open requests (hadron secret change withdraw <request-id>) or wait for one to expire.", mapped}
 	}
 	return mapped
 }
